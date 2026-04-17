@@ -1,0 +1,349 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════
+ * MASTERMIND THEME SYSTEM  v3.0
+ * ─────────────────────────────────────────────────────────────────
+ * Complete theme export. Drop this CSS into any Mastermind build
+ * to restore the full visual system.
+ *
+ * Fonts (load via Google Fonts or bundle locally):
+ *   Oxanium       — display / headings / logo
+ *   Space Grotesk — body text / UI
+ *   JetBrains Mono— code / mono labels / UUIDs
+ *
+ * Themes:
+ *   MASTERMIND  — default dark cyber (deep space blue)
+ *   EROSMANCER  — fire & desire (amber/magenta, from Eravos)
+ *   VOID        — pure black, zero distraction
+ *   AURORA      — northern lights (spectral teal/pink)
+ *
+ * Usage:
+ *   Default: <body>                  → MASTERMIND theme
+ *   Erosmancer: <body class="th-erosmancer">
+ *   Void: <body class="th-void">
+ *   Aurora: <body class="th-aurora">
+ *
+ * All gradient/animation elements use:
+ *   animation: rgbShift 4s linear infinite
+ *   (synced — all elements run the same keyframe at same speed)
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+/* ── Google Fonts ─────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+/* ══════════════════════════════════════════════════════════════════
+   FONT VARIABLES
+══════════════════════════════════════════════════════════════════ */
+:root {
+  --f-display: 'Oxanium', sans-serif;
+  --f-body:    'Space Grotesk', sans-serif;
+  --f-mono:    'JetBrains Mono', monospace;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MASTERMIND — DEFAULT THEME  (deep space, electric cyan)
+══════════════════════════════════════════════════════════════════ */
+:root,
+body,
+body.th-mastermind {
+  /* Depth scale — darkest to lightest background */
+  --void:    #02040a;
+  --abyss:   #03060d;
+  --deep:    #060e18;
+  --surface: #0a1520;
+  --lift:    #0f1e2e;
+  --wire:    #162840;
+  --wire2:   #1e3850;
+  --dim:     #2e4e6e;
+  --mid:     #4a7898;
+  --muted:   #6a98b8;
+  --bright:  #c0daf0;
+  --white:   #eaf6ff;
+
+  /* Accent palette */
+  --c:      #00c8ff;   /* primary cyan — logo, active elements */
+  --c2:     #0090cc;   /* cyan dim */
+  --g:      #00ff88;   /* green — success, alive */
+  --o:      #ff8c22;   /* orange — warning, insight */
+  --r:      #ff3355;   /* red — danger, friction */
+  --v:      #cc44ff;   /* violet — creativity, synthesis */
+  --y:      #ffe04a;   /* yellow — question, measurement */
+  --pk:     #ff66aa;   /* pink — emotion, love */
+  --teal:   #11ddcc;   /* teal — feedback, synthesis */
+  --gold:   #d4a820;   /* gold — horizon, strategic */
+  --plasma: #7744ff;   /* plasma — causality, deep logic */
+
+  /* RGB animation stops — all gradient text/borders use these */
+  --rgb1: #00c8ff;
+  --rgb2: #cc44ff;
+  --rgb3: #ff3355;
+  --rgb4: #ff8c22;
+  --rgb5: #00ff88;
+  --rgb6: #00c8ff;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EROSMANCER — fire & desire (from Eravos)
+══════════════════════════════════════════════════════════════════ */
+body.th-erosmancer {
+  --void:    #08050a;
+  --abyss:   #110810;
+  --deep:    #1a0f18;
+  --surface: #200d1a;
+  --lift:    #2a1020;
+  --wire:    rgba(255,106,0,.16);
+  --wire2:   rgba(255,106,0,.28);
+  --dim:     rgba(255,238,221,.3);
+  --mid:     rgba(255,238,221,.5);
+  --muted:   rgba(255,238,221,.68);
+  --bright:  #ffeedd;
+  --white:   #fff5ee;
+
+  --c:    #ff6a00;
+  --c2:   #ee0979;
+  --g:    #aaff00;
+  --o:    #ffb347;
+  --r:    #ff69b4;
+  --v:    #bf5fff;
+  --y:    #ffd700;
+  --pk:   #ff6a00;
+  --teal: #00e5cc;
+  --gold: #ffd700;
+
+  --rgb1: #ff6a00;
+  --rgb2: #ee0979;
+  --rgb3: #ffd700;
+  --rgb4: #bf5fff;
+  --rgb5: #aaff00;
+  --rgb6: #ff6a00;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VOID — pure black, zero distraction
+══════════════════════════════════════════════════════════════════ */
+body.th-void {
+  --void:    #000000;
+  --abyss:   #030303;
+  --deep:    #080808;
+  --surface: #0e0e0e;
+  --lift:    #161616;
+  --wire:    #1c1c1c;
+  --wire2:   #242424;
+  --dim:     #303030;
+  --mid:     #505050;
+  --muted:   #707070;
+  --bright:  #b0b0b0;
+  --white:   #e0e0e0;
+
+  --c:    #ffffff;
+  --c2:   #cccccc;
+  --g:    #aaaaaa;
+  --o:    #888888;
+  --r:    #ff3355;
+  --v:    #999999;
+  --y:    #cccccc;
+  --teal: #aaaaaa;
+
+  --rgb1: #fff;
+  --rgb2: #ccc;
+  --rgb3: #aaa;
+  --rgb4: #888;
+  --rgb5: #fff;
+  --rgb6: #fff;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AURORA — northern lights (spectral luminescence)
+══════════════════════════════════════════════════════════════════ */
+body.th-aurora {
+  --void:    #020d10;
+  --abyss:   #020f13;
+  --deep:    #041420;
+  --surface: #061a28;
+  --lift:    #082030;
+  --wire:    #0c2d3a;
+  --wire2:   #103848;
+  --dim:     #1a5060;
+  --mid:     #2a7890;
+  --muted:   #4a9ab0;
+  --bright:  #c0f0f8;
+  --white:   #e0f8ff;
+
+  --c:    #44ffcc;
+  --c2:   #22ccaa;
+  --g:    #44aaff;
+  --o:    #ffcc44;
+  --r:    #ff44aa;
+  --v:    #cc44ff;
+  --y:    #ffee44;
+  --teal: #44ffcc;
+  --gold: #ffcc44;
+
+  --rgb1: #44ffcc;
+  --rgb2: #44aaff;
+  --rgb3: #cc44ff;
+  --rgb4: #ff44aa;
+  --rgb5: #ffcc44;
+  --rgb6: #44ffcc;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SYNCHRONIZED ANIMATIONS
+   All gradient text and borders use the SAME keyframe and duration
+   so every glowing element pulses in perfect sync.
+══════════════════════════════════════════════════════════════════ */
+
+/* THE master keyframe — used by every gradient element */
+@keyframes rgbShift {
+  0%   { background-position: 0 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Sigil ring spin */
+@keyframes sigilSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Status dot pulse */
+@keyframes statusPulse {
+  0%, 100% { opacity: .6; }
+  50%       { opacity: 1; }
+}
+
+/* Ambient background breathe */
+@keyframes ambientShift {
+  0%   { opacity: .6; }
+  100% { opacity: 1; }
+}
+
+/* Fade-in for overlays */
+@keyframes mmFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   GRADIENT TEXT HELPER — apply to any element
+   Usage: class="rgb-text"
+══════════════════════════════════════════════════════════════════ */
+.rgb-text {
+  background: linear-gradient(135deg, var(--rgb1), var(--rgb2), var(--rgb3), var(--rgb4), var(--rgb5));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 300%;
+  animation: rgbShift 4s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RGB BORDER — animated gradient line
+   Apply to a 1-2px height div
+   Usage: class="rgb-border"
+══════════════════════════════════════════════════════════════════ */
+.rgb-border {
+  background: linear-gradient(90deg, var(--rgb1), var(--rgb2), var(--rgb3), var(--rgb4), var(--rgb5), var(--rgb6));
+  background-size: 300%;
+  animation: rgbShift 4s linear infinite;
+  filter: blur(.5px);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AMBIENT BACKGROUNDS PER THEME
+══════════════════════════════════════════════════════════════════ */
+
+/* Default (Mastermind) */
+.ambient-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 15%, rgba(0,200,255,.05), transparent 55%),
+    radial-gradient(ellipse 70% 80% at 85% 85%, rgba(204,68,255,.04), transparent 55%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(0,255,136,.02), transparent 60%);
+  animation: ambientShift 14s ease-in-out infinite alternate;
+}
+
+/* Erosmancer */
+body.th-erosmancer .ambient-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 15%, rgba(255,106,0,.08), transparent 55%),
+    radial-gradient(ellipse 60% 80% at 85% 85%, rgba(238,9,121,.06), transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0,245,255,.02), transparent 60%);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SCANLINES OVERLAY
+   Apply as body::after or a fixed overlay div
+══════════════════════════════════════════════════════════════════ */
+.scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 3px,
+    rgba(0,200,255,.005) 3px, rgba(0,200,255,.005) 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CLIP-PATH CHAMFER  — signature angled corner
+   Use on cards, buttons, panels
+══════════════════════════════════════════════════════════════════ */
+.chamfer-sm  { clip-path: polygon(0 0, calc(100% - 8px)  0, 100% 8px,  100% 100%, 0 100%); }
+.chamfer-md  { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+.chamfer-lg  { clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
+
+/* ══════════════════════════════════════════════════════════════════
+   NODE COLOR MAP — semantic colors per type
+   Reference these when spawning nodes programmatically
+══════════════════════════════════════════════════════════════════ */
+/*
+  concept:   var(--c)       #00c8ff  cyan
+  insight:   var(--o)       #ff8c22  orange
+  pattern:   var(--v)       #cc44ff  violet
+  seed:      var(--g)       #00ff88  green
+  question:  var(--y)       #ffe04a  yellow
+  friction:  var(--r)       #ff3355  red
+  synthesis: var(--teal)    #11ddcc  teal
+  heuristic: var(--pk)      #ff66aa  pink
+  framework: var(--gold)    #d4a820  gold
+  causal:    var(--plasma)  #7744ff  plasma
+  gap:       var(--o)       #ff8c22  orange
+  delta:     var(--y)       #ffe04a  yellow
+  feedback:  var(--teal)    #11ddcc  teal
+  invariant: var(--c)       #00c8ff  cyan
+  vector:    var(--v)       #cc44ff  violet
+  signal:    var(--g)       #00ff88  green
+  noise:     var(--r)       #ff3355  red
+  custom:    #aaaaaa        gray
+*/
+
+/* ══════════════════════════════════════════════════════════════════
+   SIGIL COMPONENT
+   Usage: wrap rings + SVG in a .sigil div
+══════════════════════════════════════════════════════════════════ */
+.sigil { position: relative; }
+.sigil-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid transparent; animation: sigilSpin linear infinite;
+  transform-origin: center;
+}
+.sigil-ring:nth-child(1) { border-color: rgba(0,200,255,.4);  animation-duration: 8s;  }
+.sigil-ring:nth-child(2) { inset: 6px; border-color: rgba(204,68,255,.3); animation-duration: 12s; animation-direction: reverse; }
+.sigil-ring:nth-child(3) { inset: 14px; border-color: rgba(0,255,136,.2); animation-duration: 16s; }
+
+/* ══════════════════════════════════════════════════════════════════
+   THEME APPLICATION HELPER — JS usage
+══════════════════════════════════════════════════════════════════ */
+/*
+  To switch themes from JavaScript:
+
+  const THEME_CLASSES = ['th-erosmancer', 'th-void', 'th-aurora'];
+  function applyTheme(name) {
+    THEME_CLASSES.forEach(c => document.body.classList.remove(c));
+    if (name !== 'mastermind') document.body.classList.add('th-' + name);
+    localStorage.setItem('mm_theme', name);
+  }
+
+  // On load:
+  const saved = localStorage.getItem('mm_theme') || 'mastermind';
+  applyTheme(saved);
+*/

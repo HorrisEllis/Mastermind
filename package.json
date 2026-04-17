@@ -1,0 +1,71 @@
+{
+  "name": "mastermind",
+  "version": "3.0.5",
+  "description": "MASTERMIND — Cognitive Mapping OS",
+  "main": "main.js",
+  "author": "Mastermind",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --x64",
+    "build:dir": "electron-builder --win --x64 --dir",
+    "pack": "electron-builder --win --x64 --publish never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.mastermind.app",
+    "productName": "MASTERMIND",
+    "copyright": "Copyright © 2025 Mastermind",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index-browser.html",
+      "nexus-engine.js",
+      "nexus-canvas.js",
+      "mastermind-siso-jaa.js",
+      "mastermind-foundation.js",
+      "mastermind-theme.css",
+      "assets/**/*",
+      "!node_modules/**/*",
+      "!dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "MASTERMIND-Setup-${version}.exe",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MASTERMIND",
+      "perMachine": false,
+      "differentialPackage": false
+    },
+    "extraMetadata": {
+      "version": "3.0.5"
+    }
+  }
+}

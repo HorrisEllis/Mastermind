@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MASTERMIND — Living Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700;800&family=Space+Grotesk:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #02040a; --deep: #050c14; --void: #030810;
+    --c: #00c8ff; --v: #cc44ff; --g: #00ff88;
+    --o: #ff8c22; --y: #ffe04a; --r: #ff3355; --pk: #ff66aa;
+    --bright: #e8f4ff; --muted: #8899aa; --dim: #445566;
+    --wire: rgba(0,200,255,.08); --wire2: rgba(0,200,255,.14);
+    --f-display: 'Oxanium', sans-serif;
+    --f-body: 'Space Grotesk', sans-serif;
+    --f-mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--bright); font-family: var(--f-body); font-size: 14px; }
+  body { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Header */
+  .doc-header {
+    border-bottom: 1px solid var(--wire2);
+    padding-bottom: 28px;
+    margin-bottom: 40px;
+  }
+  .doc-title {
+    font-family: var(--f-display);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 8px;
+    background: linear-gradient(135deg, var(--c), var(--v), var(--g));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 300%;
+    animation: rgbShift 4s linear infinite;
+    margin-bottom: 6px;
+  }
+  .doc-sub {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 3px;
+  }
+  .doc-version {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--c);
+    border: 1px solid var(--wire2);
+    padding: 3px 10px;
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  @keyframes rgbShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Nav */
+  .doc-nav {
+    position: sticky;
+    top: 0;
+    background: rgba(2,4,10,.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--wire);
+    padding: 10px 0;
+    margin-bottom: 40px;
+    z-index: 100;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .doc-nav a {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-decoration: none;
+    padding: 4px 10px;
+    border: 1px solid var(--wire);
+    transition: all .15s;
+  }
+  .doc-nav a:hover { color: var(--c); border-color: var(--wire2); }
+
+  /* Sections */
+  .doc-section { margin-bottom: 52px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--wire);
+  }
+  .section-title {
+    font-family: var(--f-display);
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+  }
+  .section-id {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--deep);
+    border: 1px solid var(--wire2);
+    padding: 18px;
+    position: relative;
+  }
+  .card-accent { position: absolute; top: 0; left: 0; right: 0; height: 1px; }
+  .card-label {
+    font-family: var(--f-display);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+  .card-meta {
+    font-family: var(--f-mono);
+    font-size: 7px;
+    color: var(--dim);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--wire);
+  }
+  .tag {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 7px;
+    padding: 1px 6px;
+    border: 1px solid;
+    margin: 2px 2px 0 0;
+  }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px; }
+  th {
+    font-family: var(--f-display);
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--wire2);
+    padding: 8px 12px;
+    text-align: left;
+  }
+  td {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    color: var(--muted);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--wire);
+    vertical-align: top;
+  }
+  td:first-child { color: var(--c); }
+  tr:hover td { background: rgba(0,200,255,.03); }
+
+  /* Code blocks */
+  .code {
+    font-family: var(--f-mono);
+    font-size: 8px;
+    background: var(--void);
+    border: 1px solid var(--wire2);
+    padding: 14px 16px;
+    overflow-x: auto;
+    line-height: 1.9;
+    color: var(--muted);
+    margin: 10px 0;
+  }
+  .code .kw  { color: var(--v); }
+  .code .fn  { color: var(--c); }
+  .code .str { color: var(--g); }
+  .code .cm  { color: var(--dim); }
+
+  /* Prose */
+  p { font-family: var(--f-body); font-size: 13px; color: var(--muted); line-height: 2; margin-bottom: 14px; }
+  h3 { font-family: var(--f-display); font-size: 10px; font-weight: 700; letter-spacing: 3px; color: var(--bright); margin: 20px 0 10px; }
+  ul { margin: 8px 0 14px 0; padding-left: 20px; }
+  li { font-family: var(--f-mono); font-size: 8px; color: var(--muted); line-height: 2.1; }
+  li::marker { color: var(--dim); }
+
+  /* Highlight */
+  .hl-c  { color: var(--c); }
+  .hl-v  { color: var(--v); }
+  .hl-g  { color: var(--g); }
+  .hl-o  { color: var(--o); }
+  .hl-y  { color: var(--y); }
+  .hl-r  { color: var(--r); }
+  .hl-pk { color: var(--pk); }
+
+  /* Connection map */
+  .conn-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--wire); }
+  .conn-from { font-family: var(--f-mono); font-size: 8px; color: var(--c); min-width: 140px; }
+  .conn-arrow { color: var(--dim); }
+  .conn-to { font-family: var(--f-mono); font-size: 8px; color: var(--g); flex: 1; }
+  .conn-note { font-family: var(--f-mono); font-size: 7px; color: var(--dim); min-width: 200px; }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="doc-title">MASTERMIND</div>
+  <div class="doc-sub">LIVING DOCUMENTATION · COGNITIVE MAPPING OS · SISO + JAA ARCHITECTURE</div>
+  <div class="doc-version">v3.0.5 · Build 2026-04-05 · 9,300+ lines · 5 files</div>
+</div>
+
+<nav class="doc-nav">
+  <a href="#architecture">ARCHITECTURE</a>
+  <a href="#siso-jaa">SISO + JAA</a>
+  <a href="#vault-arch">VAULT ARCH</a>
+  <a href="#vault-gates">VAULT GATES</a>
+  <a href="#modules">MODULES</a>
+  <a href="#void">SPATIAL VOID</a>
+  <a href="#brain">BRAIN MAP</a>
+  <a href="#horizon">HORIZON</a>
+  <a href="#alm">ALM</a>
+  <a href="#canvas">CANVAS</a>
+  <a href="#functions">FUNCTION INDEX</a>
+  <a href="#events">SISO EVENTS</a>
+  <a href="#storage">STORAGE</a>
+  <a href="#encryption">ENCRYPTION</a>
+  <a href="#ipc">ELECTRON IPC</a>
+  <a href="#node-types">NODE TYPES</a>
+  <a href="#domains">META-DOMAINS</a>
+  <a href="#known-issues">KNOWN ISSUES</a>
+</nav>
+
+<!-- ARCHITECTURE -->
+<div id="architecture" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--c)">System Architecture</div>
+    <div class="section-id">§01</div>
+  </div>
+
+  <p>Mastermind is a single-page Electron application structured as three files: <span class="hl-c">index-browser.html</span> (UI + CSS), <span class="hl-v">nexus-engine.js</span> (application logic, ~9,300 lines), and <span class="hl-g">mastermind-foundation.js</span> (bedrock layer: registry, vault, tags, events). A fourth file, <span class="hl-o">mastermind-siso-jaa.js</span>, provides the SISO stream runtime and JAA delta ledger — loaded first before any other script.</p>
+
+  <div class="code">
+<span class="cm">/* Load order — strict */</span>
+<span class="fn">mastermind-siso-jaa.js</span>      <span class="cm">← FIRST  · SISO stream + JAA gates + MM_BUS + MM_RUNNER</span>
+<span class="fn">mastermind-foundation.js</span>     <span class="cm">← SECOND · MMRegistry, MMVault, MMLog, MMTags, MMDomains</span>
+<span class="fn">nexus-engine.js</span>             <span class="cm">← THIRD  · all modules, canvas, auth, UI</span>
+  </div>
+
+  <div class="card-grid" style="margin-top:20px">
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--c),transparent)"></div>
+      <div class="card-label hl-c">MASTERMIND-SISO-JAA.JS</div>
+      <div class="card-desc">Pure functional event pipeline. SISOEvent, SISOGate, SISOStream, SISOStreamLog. JAAPureGate, JAAStateGate, JAAMutationBatch, JAAReadSet. JAAMemoryStore (SHA-256 content-addressed), JAAMemoryRefs (name→hash). JAARunner (resolve reads → apply mutations). MMEventBus (live SISO-backed pub/sub). Global instances: MM_BUS, MM_RUNNER.</div>
+      <div class="card-meta">Size: ~600 lines · No dependencies</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--v),transparent)"></div>
+      <div class="card-label hl-v">MASTERMIND-FOUNDATION.JS</div>
+      <div class="card-desc">Bedrock layer. MMRegistry (UUID entity ledger), MMDelta (immutable change history), MMTags (6-category tag system), MMDomains (400+ taxonomy), MMVault (AES-256-GCM encrypted storage), MMLog (structured ring-buffer logger), MMRipple (event bus), MMDiag (diagnostic runner), MMToast (toast coordinator), MMTagsUI (pill renderer).</div>
+      <div class="card-meta">Size: 1,827 lines · Globals: 10</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--g),transparent)"></div>
+      <div class="card-label hl-g">NEXUS-ENGINE.JS</div>
+      <div class="card-desc">All application logic. Canvas (infinite pan/zoom, 18 node types, connections, force layout), Auth (PBKDF2+AES-256-GCM+RSA-OAEP), Startup flow (watchdog, vault gates), Brain Map V2 (3D sphere, 13 meta-domains), Spatial Void + Creative (merged), Horizon Living, ALM, Options, AI (Anthropic/OpenAI/Ollama/LM Studio), Import (5 formats), Toast system (48 named toasts).</div>
+      <div class="card-meta">Size: ~9,300 lines · Functions: 300+</div>
+    </div>
+  </div>
+</div>
+
+<!-- SISO + JAA -->
+<div id="siso-jaa" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--v)">SISO + JAA Framework</div>
+    <div class="section-id">§02</div>
+  </div>
+
+  <p>SISO (Stream In, Stream Out) enforces pure functional event-driven architecture. Every operation is an immutable event flowing through gates. JAA (Jaa-main) extends SISO with PureGate/StateGate distinction, content-addressed storage, and the Runner pattern for stateful mutations.</p>
+
+  <div class="code">
+<span class="cm">// Core primitives</span>
+<span class="kw">const</span> <span class="fn">event</span> = <span class="kw">new</span> SISOEvent(<span class="str">'mm.void.seed.add'</span>, { text: <span class="str">'my idea'</span> });
+
+<span class="cm">// Pure gate — no side effects, transforms event → event</span>
+<span class="kw">class</span> <span class="fn">MySeedGate</span> <span class="kw">extends</span> JAAPureGate {
+  <span class="fn">process</span>(event) {
+    <span class="kw">return new</span> SISOEvent(<span class="str">'mm.void.seed.ready'</span>, { ...event.data, id: uuid() });
+  }
+}
+
+<span class="cm">// Event bus — subscribe to any event type</span>
+MM_BUS.on(<span class="str">'mm.void.seed.add'</span>, (data) => console.log(data));
+MM_BUS.emit(<span class="str">'mm.void.seed.add'</span>, { text: <span class="str">'my idea'</span> });
+
+<span class="cm">// Observe all events</span>
+MM_BUS.sampleLog();   <span class="cm">// → { level, count, entries }</span>
+MM_RUNNER.sample();   <span class="cm">// → { pending, eventCount, gateCount }</span>
+  </div>
+
+  <table>
+    <tr><th>Class</th><th>Purpose</th><th>Key Methods</th></tr>
+    <tr><td>SISOEvent</td><td>Immutable event data packet</td><td>type, data (frozen)</td></tr>
+    <tr><td>SISOGate</td><td>Base gate — pattern + transform</td><td>signature, transform(event, stream)</td></tr>
+    <tr><td>SISOStream</td><td>Processing loop, O(1) gate lookup</td><td>register(gate), emit(event), sampleHere()</td></tr>
+    <tr><td>SISOStreamLog</td><td>Audit trail, 4 levels</td><td>record(), sample(), clear(), nextStreamId()</td></tr>
+    <tr><td>JAAPureGate</td><td>Stateless transform → event|events|null</td><td>process(event) — override</td></tr>
+    <tr><td>JAAStateGate</td><td>Stateful: reads → state → mutations</td><td>reads(event), transformEvent(event, state)</td></tr>
+    <tr><td>JAAMutationBatch</td><td>Declarative mutation set</td><td>put(), refSet(), refDelete(), emit()</td></tr>
+    <tr><td>JAAReadSet</td><td>Declares what state a gate needs</td><td>ref(name), pattern(prefix)</td></tr>
+    <tr><td>JAAMemoryStore</td><td>Content-addressed SHA-256 store</td><td>put(content)→hash, get(hash)</td></tr>
+    <tr><td>JAAMemoryRefs</td><td>Name → hash pointer map</td><td>set(name,hash), get(name), list(prefix)</td></tr>
+    <tr><td>JAARunner</td><td>Orchestrates StateGate lifecycle</td><td>register(gate), emit(event), snapshot(), restore()</td></tr>
+    <tr><td>MMEventBus</td><td>SISO-backed pub/sub bus</td><td>on(type,fn), off(type,fn), once(), emit(), sampleLog()</td></tr>
+  </table>
+</div>
+
+<!-- VAULT ARCHITECTURE -->
+<div id="vault-arch" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--g)">Vault Architecture — Filesystem Only</div>
+    <div class="section-id">§02.5</div>
+  </div>
+
+  <p>MASTERMIND uses <strong>filesystem vault only</strong>. There is no browser-only mode. <code>localStorage</code> is a session-speed cache — never the primary store. Every save goes to <code>mastermind.vault</code> on disk via Electron IPC.</p>
+
+  <div class="code">
+<span class="cm">/* Storage hierarchy */</span>
+PRIMARY:   {dataDir}/mastermind.vault   <span class="cm">← AES-256-GCM encrypted, atomic write (.tmp → rename)</span>
+CACHE:     localStorage['nexus_mm_v3']  <span class="cm">← session speed cache, rebuilt from vault on load</span>
+SESSION:   localStorage keys            <span class="cm">← auth meta, features, opts, AI config (settings only)</span>
+
+<span class="cm">/* Vault creation flow */</span>
+setupCreateVault()
+  → requires window.NXAPI           <span class="cm">← hard gate: desktop app only</span>
+  → NXAPI.defaultFolder()           <span class="cm">← ~/Documents/MASTERMIND/ if no folder set</span>
+  → NXAPI.vaultWrite(path, json)   <span class="cm">← writes initial vault structure</span>
+  → NXAPI.vaultExists(path)         <span class="cm">← watchdog confirms file on disk</span>
+  → NX_CONFIG.vaultPath = path      <span class="cm">← stored for all subsequent reads/writes</span>
+  → proceed to ss-keygen            <span class="cm">← only if vault write succeeded</span>
+
+<span class="cm">/* Save flow */</span>
+vaultSave(showToast)
+  → if (!NXAPI): warn + localStorage cache + return
+  → vaultSerialize() → JSON string
+  → AUTH.key ? _aesEncrypt() : plain JSON
+  → NXAPI.vaultWrite(vaultPath, payload)   <span class="cm">← atomic: .tmp → rename</span>
+  → localStorage cache update
+  → every 10 saves: NXAPI.vaultBackup()
+
+<span class="cm">/* Load flow */</span>
+loadCanvas()
+  → NXAPI.vaultRead(vaultPath)             <span class="cm">← primary source of truth</span>
+  → AUTH.key ? _aesDecrypt() : plain parse
+  → localStorage cache update
+  → fallback to localStorage cache if vault empty (first launch)
+  </div>
+
+  <table>
+    <tr><th>Gate</th><th>Where</th><th>What it blocks</th></tr>
+    <tr><td>NXAPI required</td><td>startupRoute()</td><td>Shows _showDesktopRequiredScreen() if no Electron</td></tr>
+    <tr><td>NXAPI required</td><td>setupCreateVault()</td><td>Blocks identity creation without filesystem</td></tr>
+    <tr><td>NXAPI required</td><td>setupSkipEncryption()</td><td>Blocks unencrypted mode without filesystem</td></tr>
+    <tr><td>NXAPI required</td><td>featuresConfirm()</td><td>Browser else-path → desktop required screen</td></tr>
+    <tr><td>NXAPI required</td><td>vaultSave()</td><td>Warns + localStorage cache only, no persistence</td></tr>
+    <tr><td>Vault file exists</td><td>_vaultWatchdogCheck()</td><td>→ _showVaultMissingScreen() with recovery options</td></tr>
+    <tr><td>Login Gate 1</td><td>loginSubmit()</td><td>Identity must exist in localStorage</td></tr>
+    <tr><td>Login Gate 2</td><td>loginSubmit()</td><td>nexus_auth_vault must exist in localStorage</td></tr>
+    <tr><td>Login Gate 3</td><td>loginSubmit()</td><td>Vault FILE must exist on disk (Electron only)</td></tr>
+  </table>
+</div>
+
+<!-- VAULT GATES -->
+<div id="vault-gates" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--r)">Vault Gate System</div>
+    <div class="section-id">§03</div>
+  </div>
+
+  <p>Nothing works unless the vault exists and is valid. Three sequential gates block all entry. The startup watchdog runs before login is shown for returning users. The login gates run before password derivation. The folder gate runs on first-time setup.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--r),transparent)"></div>
+      <div class="card-label hl-r">GATE 0 · STARTUP WATCHDOG</div>
+      <div class="card-desc"><strong>When:</strong> On startupRoute() for any user with a configured data dir.<br><br><strong>Check:</strong> _vaultWatchdogCheck() — reads vault file from disk, parses JSON, confirms file exists post-read.<br><br><strong>Fail:</strong> _showVaultMissingScreen() — blocks ALL routing. Shows 3 recovery options: Recreate, New Folder, Restore from Backup.<br><br><strong>Pass:</strong> _continueStartup() — proceeds to login or home.</div>
+      <div class="card-meta">Function: _vaultWatchdogCheck() · SISO: mm.vault.missing</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--r),transparent)"></div>
+      <div class="card-label hl-r">GATE 1 · LOGIN IDENTITY</div>
+      <div class="card-desc"><strong>When:</strong> On loginSubmit() before any cryptographic work.<br><br><strong>Check:</strong> _authLoadMeta() must return a valid identity object (username, salt).<br><br><strong>Fail:</strong> "No identity found — complete first-time setup." Inline error + toast + MMLog.error + SISO mm.auth.login.fail.</div>
+      <div class="card-meta">Blocks: password derivation, vault access, app entry</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--r),transparent)"></div>
+      <div class="card-label hl-r">GATE 2 · VAULT KEYS</div>
+      <div class="card-desc"><strong>When:</strong> After Gate 1 passes, before key derivation.<br><br><strong>Check:</strong> localStorage.getItem(AUTH_VAULT_KEY) must be non-null (encrypted private key + public key bundle).<br><br><strong>Fail:</strong> "Vault keys missing — vault may be corrupted." + SISO mm.auth.login.fail { reason: 'no_vault_keys' }.</div>
+      <div class="card-meta">localStorage key: nexus_auth_vault</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--r),transparent)"></div>
+      <div class="card-label hl-r">GATE 3 · VAULT FILE ON DISK</div>
+      <div class="card-desc"><strong>When:</strong> Electron only, after Gates 1+2 pass.<br><br><strong>Check:</strong> NXAPI.vaultExists(dataDir + '/mastermind.vault') must be true.<br><br><strong>Fail:</strong> "Vault file not found on disk." + auto-shows vault missing screen after 1.2s + SISO mm.auth.login.fail { reason: 'no_vault_file' }.<br><br><strong>Pass:</strong> Opens vault file on disk, stores NX_CONFIG.vaultPath, proceeds.</div>
+      <div class="card-meta">Electron only · Emits: mm.vault.confirmed</div>
+    </div>
+  </div>
+
+  <h3>VAULT MISSING RECOVERY SCREEN</h3>
+  <p>When _showVaultMissingScreen() is called, it overrides all routing and renders a recovery UI with three options. The screen persists until a vault is confirmed. Every recovery action emits a SISO event for observability.</p>
+
+  <table>
+    <tr><th>Action</th><th>Function</th><th>What It Does</th></tr>
+    <tr><td>RECREATE VAULT</td><td>_vaultRecreate()</td><td>Writes a fresh mastermind.vault to current dataDir. Re-runs startupRoute() on success.</td></tr>
+    <tr><td>CHOOSE NEW FOLDER</td><td>pickStartupFolder()</td><td>Opens folder picker dialog. User selects a folder containing an existing vault.</td></tr>
+    <tr><td>RESTORE FROM BACKUP</td><td>_vaultRestoreFromBackup()</td><td>Opens file picker. Validates JSON. Writes to dataDir/mastermind.vault. Restarts.</td></tr>
+  </table>
+</div>
+
+<!-- MODULES -->
+<div id="modules" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--y)">Module System</div>
+    <div class="section-id">§04</div>
+  </div>
+
+  <p>Four core modules are gated by the feature selection screen (ss-features). Each module has a card on the homepage, a back/home button in its overlay, and a ? HELP button that renders MODULE_HELP documentation. All module opens emit MM_BUS events.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--v),transparent)"></div>
+      <div class="card-label hl-v">✦ SPATIAL VOID (merged with Creative)</div>
+      <div class="card-desc">Seeds, Open Loops, What-ifs + AI Expansion, Create, Express, Bridge + AI Bridge, Priming, Constraints. All feed canvas nodes. Creative Module fully merged — openCreativeModule() routes to enterVoid().</div>
+      <div class="card-meta">Key: void · Color: #cc44ff · Storage: nexus_void_state · SISO: mm.void.*</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--c),transparent)"></div>
+      <div class="card-label hl-c">◎ BRAIN MAP V2</div>
+      <div class="card-desc">3D spherical map, 13 meta-domains. Three modes: Cognitive/Relationships/Emotions. Intelligence type ratings, cross-domain synthesis detection, exports (JSON/Notion/Obsidian/CSV).</div>
+      <div class="card-meta">Key: brain · Color: #00c8ff · Storage: mm_brain_map_v2</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--y),transparent)"></div>
+      <div class="card-label hl-y">→ HORIZON LIVING</div>
+      <div class="card-desc">End-state first planning. Reverse-causal conditions. Multiple plans with timeframes, conditions, milestones, resources. Canvas export as node cluster.</div>
+      <div class="card-meta">Key: horizon · Color: #d4a820 · Storage: mm_horizon_state</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--g),transparent)"></div>
+      <div class="card-label hl-g">∞ ALM</div>
+      <div class="card-desc">Accelerated Learning Module. 13 intelligence type sliders, 22 intuition type trackers, Delta Log (insight/skill/pattern/intuition/inner-work/horizon). Growth ledger over time.</div>
+      <div class="card-meta">Key: alm · Color: #00ff88 · JAA integration: MM_RUNNER</div>
+    </div>
+  </div>
+</div>
+
+<!-- SPATIAL VOID detail -->
+<div id="void" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--v)">Spatial Void — Complete Reference</div>
+    <div class="section-id">§05</div>
+  </div>
+
+  <table>
+    <tr><th>Section</th><th>Key Functions</th><th>SISO Events</th><th>Canvas Output</th></tr>
+    <tr><td>Seeds</td><td>voidAddSeed, voidRemoveSeed, voidSpawnSeed, voidSpawnAllSeeds, _voidRenderSeeds</td><td>mm.void.seed.add</td><td>SEED node</td></tr>
+    <tr><td>Open Loops</td><td>voidAddLoop, voidCloseLoop, voidRemoveLoop, _voidRenderLoops</td><td>—</td><td>—</td></tr>
+    <tr><td>What-ifs</td><td>voidAddWhatif, voidRemoveWhatif, voidSpawnWhatifs, voidExpandWhatifAI, _voidRenderWhatifs</td><td>mm.void.ai.expand</td><td>QUESTION nodes</td></tr>
+    <tr><td>Create</td><td>voidSpawnCreate, voidLogCreate, _voidRenderCreateLog</td><td>—</td><td>SEED node</td></tr>
+    <tr><td>Express</td><td>voidSpawnExpress, voidLogExpress, _voidRenderExpressLog</td><td>—</td><td>CONCEPT node</td></tr>
+    <tr><td>Bridge</td><td>voidBridge, voidBridgeAI, _voidRenderBridges</td><td>—</td><td>concept+concept+gap nodes</td></tr>
+    <tr><td>Priming</td><td>voidSelectPriming, voidLogPriming, _voidRenderPrimingMethods, _voidRenderPrimeLog</td><td>—</td><td>—</td></tr>
+    <tr><td>Constraints</td><td>addConstraint, removeConstraint, invertConstraint, _voidRenderConstraints</td><td>—</td><td>—</td></tr>
+    <tr><td>Persistence</td><td>voidLoad, saveVoidState, initVoid, _voidRestoreFields, _voidSaveFields</td><td>—</td><td>—</td></tr>
+  </table>
+
+  <h3>STATE SHAPE — VOID_STATE</h3>
+  <div class="code">
+<span class="kw">const</span> VOID_STATE = {
+  seeds: [],        <span class="cm">// { id, text, created, spawned }</span>
+  openLoops: [],    <span class="cm">// { id, text, status:'open'|'closed', created, closedAt? }</span>
+  whatifs: [],      <span class="cm">// { id, text, created, ai? }</span>
+  createLog: [],    <span class="cm">// { id, text, created }</span>
+  expressLog: [],   <span class="cm">// { id, text, created }</span>
+  bridges: [],      <span class="cm">// { id, a, b, created }</span>
+  primeLog: [],     <span class="cm">// { id, method, label, note, created }</span>
+  flowMethod: null, <span class="cm">// selected priming method id</span>
+  constraints: [],  <span class="cm">// { id, text, inverted, created }</span>
+  endStateFields: {}, <span class="cm">// textarea values by element id</span>
+};
+<span class="cm">// Stored in: localStorage['nexus_void_state']</span>
+  </div>
+</div>
+
+<!-- FUNCTION INDEX -->
+<div id="functions" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--c)">Function Index</div>
+    <div class="section-id">§08</div>
+  </div>
+
+  <table>
+    <tr><th>Function</th><th>Module</th><th>What It Does</th></tr>
+    <tr><td>startupRoute()</td><td>Auth</td><td>Top-level routing: runs vault watchdog for returning users, then _continueStartup()</td></tr>
+    <tr><td>_vaultWatchdogCheck()</td><td>Auth</td><td>Async: reads vault from disk, parses JSON, returns bool. Calls _showVaultMissingScreen() on fail.</td></tr>
+    <tr><td>_showVaultMissingScreen(path, reason)</td><td>Auth</td><td>Renders recovery screen with 3 options. Emits mm.vault.missing.</td></tr>
+    <tr><td>_continueStartup(meta, savedFeatures)</td><td>Auth</td><td>Routes to welcome/login/home based on user state.</td></tr>
+    <tr><td>loginSubmit()</td><td>Auth</td><td>3-gate login: identity → vault keys → vault file → key derivation → unlock.</td></tr>
+    <tr><td>enterVoid()</td><td>Void</td><td>Opens void-overlay, calls initVoid(), emits mm.module.open.</td></tr>
+    <tr><td>closeVoid()</td><td>Void</td><td>Saves state, fades overlay, restores previous view (canvas or home).</td></tr>
+    <tr><td>initVoid()</td><td>Void</td><td>Loads state if needed, renders all 8 sections, restores textarea fields.</td></tr>
+    <tr><td>voidBridgeAI()</td><td>Void</td><td>AI call → JSON {common, tension, syntheses} → 5-node canvas cluster with connections.</td></tr>
+    <tr><td>voidExpandWhatifAI()</td><td>Void</td><td>AI call → JSON string[] → adds 5 AI-tagged whatifs, renders list.</td></tr>
+    <tr><td>showModuleHelp(key)</td><td>Help</td><td>Renders full MODULE_HELP overlay for: void/brain/horizon/alm/canvas.</td></tr>
+    <tr><td>openHorizon()</td><td>Horizon</td><td>Creates/shows mm-horizon-overlay. Has HOME + HELP buttons.</td></tr>
+    <tr><td>openALM()</td><td>ALM</td><td>Creates/shows mm-alm-overlay. Has HOME + HELP buttons.</td></tr>
+    <tr><td>openBrainMap()</td><td>Brain</td><td>Shows brain-overlay mode selector first, then 3D sphere.</td></tr>
+    <tr><td>brainEnterMode(modeKey)</td><td>Brain</td><td>cognitive|relationships|emotions. Auto-expands matching meta-domain.</td></tr>
+    <tr><td>mm_toast(msg, type, opts)</td><td>Toast</td><td>Queued typed toasts. Types: info/success/warn/error/vault/ai. 48 named shortcuts in T object.</td></tr>
+    <tr><td>spawnNode(type, x, y, opts)</td><td>Canvas</td><td>Creates node, registers in JAA ledger, renders, auto-saves.</td></tr>
+    <tr><td>addConn(fromId, toId, rel)</td><td>Canvas</td><td>Creates directed connection between two nodes.</td></tr>
+    <tr><td>saveCanvas() / loadCanvas()</td><td>Canvas</td><td>Serialize/deserialize NX state to vault + file.</td></tr>
+    <tr><td>aiCall(prompt)</td><td>AI</td><td>Routes to configured provider (Anthropic/OpenAI/Ollama/LM Studio). Returns string.</td></tr>
+    <tr><td>gateFeature(key, fallback)</td><td>Gates</td><td>Shows error toast + MMLog.warn for unimplemented features (collab, voice, cloud, etc.)</td></tr>
+    <tr><td>_hexAlpha(hex, alpha)</td><td>Canvas</td><td>Safe hex+alpha compositor. Clamps alpha 0-1, always produces valid 8-char #RRGGBBAA. Prevents canvas CanvasGradient parse errors.</td></tr>
+    <tr><td>_autolockStart()</td><td>Auth</td><td>Starts 30s check interval. Resets on mousemove/keydown/click. After idle_mins, clears AUTH.key and returns to login screen.</td></tr>
+    <tr><td>_autolockReset()</td><td>Auth</td><td>Resets idle timer. Called by DOM event listeners on user activity.</td></tr>
+    <tr><td>ollamaDetectModels()</td><td>AI</td><td>Hits ollamaBase/api/tags, populates model dropdown, shows count in status div.</td></tr>
+    <tr><td>optsShowOllamaFields()</td><td>AI</td><td>Shows/hides ollama-row, lmstudio-row, api-key-row based on AI.provider.</td></tr>
+    <tr><td>toast(msg, dur)</td><td>Toast</td><td>Legacy alias — now forwards to mm_toast() for unified queuing. Backward compat preserved.</td></tr>
+    <tr><td>voidAddSeed/voidSpawnSeed/voidSpawnAllSeeds</td><td>Void</td><td>Seed CRUD. Spawn sends node to canvas as SEED type. All emit MM_BUS events.</td></tr>
+    <tr><td>voidBridgeAI()</td><td>Void</td><td>AI bridge: names two concepts, calls aiCall, gets {common,tension,syntheses[3]}, maps 5-node cluster on canvas with connections.</td></tr>
+    <tr><td>voidExpandWhatifAI()</td><td>Void</td><td>AI expand: takes seed what-if, calls aiCall, gets 5 expansions as JSON array, adds with ai:true badge.</td></tr>
+    <tr><td>_showDesktopRequiredScreen()</td><td>Auth</td><td>Full-screen block rendered when window.NXAPI is absent. Shows instructions to install Electron app.</td></tr>
+    <tr><td>vaultSave(showToast)</td><td>Vault</td><td>Requires NXAPI. Serializes, encrypts if key set, writes to vault file atomically. localStorage is cache only.</td></tr>
+    <tr><td>vaultLoad()</td><td>Vault</td><td>Reads vault file from disk, decrypts, caches to localStorage. Returns null if no NXAPI or empty vault.</td></tr>
+    <tr><td>loadCanvas()</td><td>Canvas</td><td>Vault file primary. localStorage session cache fallback. Restores nodes, connections, viewport, module states.</td></tr>
+    <tr><td>_autolockStart()</td><td>Auth</td><td>Starts idle timer. 30s check interval. Locks to login after autolock_mins idle. Resets on mousemove/keydown/click.</td></tr>
+  </table>
+</div>
+
+<!-- SISO EVENTS -->
+<div id="events" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--v)">SISO Event Map</div>
+    <div class="section-id">§09</div>
+  </div>
+  <p>All events flow through <span class="hl-v">MM_BUS</span>. Subscribe with <code>MM_BUS.on('event.type', fn)</code>. Observe the full log with <code>MM_BUS.sampleLog()</code>.</p>
+  <table>
+    <tr><th>Event Type</th><th>Emitted By</th><th>Data</th></tr>
+    <tr><td>mm.module.open</td><td>enterVoid, openBrainMap, openHorizon, openALM</td><td>{ module: 'void'|'brain'|'horizon'|'alm' }</td></tr>
+    <tr><td>mm.void.seed.add</td><td>voidAddSeed</td><td>{ text }</td></tr>
+    <tr><td>mm.void.ai.expand</td><td>voidExpandWhatifAI</td><td>{ count }</td></tr>
+    <tr><td>mm.help.open</td><td>showModuleHelp</td><td>{ key }</td></tr>
+    <tr><td>mm.vault.missing</td><td>_vaultWatchdogCheck, _showVaultMissingScreen</td><td>{ path, reason }</td></tr>
+    <tr><td>mm.vault.confirmed</td><td>loginSubmit (gate 3 pass)</td><td>{ path, context }</td></tr>
+    <tr><td>mm.vault.recreated</td><td>_vaultRecreate</td><td>{ path }</td></tr>
+    <tr><td>mm.auth.login.fail</td><td>loginSubmit (any gate fail)</td><td>{ reason, path? }</td></tr>
+    <tr><td>mm.auth.login.success</td><td>loginSubmit (all gates pass)</td><td>{ username }</td></tr>
+    <tr><td>mm.error</td><td>Any JAAPureGate/JAAStateGate catch</td><td>{ message, source }</td></tr>
+    <tr><td>mm.ai.call</td><td>aiCall()</td><td>{ provider, model }</td></tr>
+    <tr><td>mm.ai.response</td><td>aiCall() success</td><td>{ provider, length }</td></tr>
+    <tr><td>mm.ai.error</td><td>aiCall() failure</td><td>{ provider, error }</td></tr>
+    <tr><td>mm.void.seed.add</td><td>voidAddSeed()</td><td>{ text }</td></tr>
+    <tr><td>mm.void.ai.expand</td><td>voidExpandWhatifAI()</td><td>{ count }</td></tr>
+    <tr><td>mm.vault.loaded</td><td>enterFromStartup() Step 4</td><td>{ path }</td></tr>
+    <tr><td>mm.vault.recreated</td><td>_vaultRecreate()</td><td>{ path }</td></tr>
+    <tr><td>mm.help.open</td><td>showModuleHelp()</td><td>{ key }</td></tr>
+    <tr><td>mm.vault.created</td><td>setupCreateVault()</td><td>{ path, username }</td></tr>
+    <tr><td>mm.vault.saved</td><td>vaultSave()</td><td>{ path, nodes }</td></tr>
+    <tr><td>mm.auth.login.fail</td><td>loginSubmit() gate fail / wrong pw</td><td>{ reason, method? }</td></tr>
+  </table>
+</div>
+
+<!-- STORAGE -->
+<div id="storage" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--g)">localStorage Key Map</div>
+    <div class="section-id">§10</div>
+  </div>
+  <table>
+    <tr><th>Key</th><th>Contents</th><th>Encrypted</th></tr>
+    <tr><td>mm_vault_meta</td><td>Vault metadata: version, username, encrypted flag, created</td><td>No</td></tr>
+    <tr><td>mm_vault_data</td><td>Full serialized state (canvas, nodes, connections)</td><td>AES-256-GCM if enabled</td></tr>
+    <tr><td>nexus_auth_meta</td><td>username, salt (base64), pinHash (SHA-256)</td><td>No</td></tr>
+    <tr><td>nexus_auth_vault</td><td>pubKey (SPKI base64), encPrivKey ({ iv, data })</td><td>Private key only</td></tr>
+    <tr><td>nexus_features</td><td>Feature flags: { brain, void, horizon, alm, _configured }</td><td>No</td></tr>
+    <tr><td>nexus_options</td><td>OPTS object: UI scale, autosave interval, theme, AI config</td><td>No</td></tr>
+    <tr><td>nexus_void_state</td><td>VOID_STATE: seeds, loops, whatifs, create/express/bridge logs, priming</td><td>No</td></tr>
+    <tr><td>mm_horizon_state</td><td>HORIZON_STATE.plans array</td><td>No</td></tr>
+    <tr><td>mm_brain_map_v2</td><td>Brain map: expanded domains, customDomains, intelligenceRatings</td><td>No</td></tr>
+    <tr><td>nexus_ai_config</td><td>AI.provider, AI.model, AI.key (encrypted), AI.ollamaBase</td><td>Key only</td></tr>
+    <tr><td>nexus_datadir</td><td>Data folder path (browser mode fallback)</td><td>No</td></tr>
+    <tr><td>nexus_theme</td><td>Active theme: mastermind|erosmancer|void|aurora</td><td>No</td></tr>
+    <tr><td>mm_brain_alm</td><td>ALM state: intelligence ratings, intuition ratings, delta log</td><td>No</td></tr>
+  </table>
+</div>
+
+<!-- ENCRYPTION -->
+<div id="encryption" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--r)">Encryption Spec</div>
+    <div class="section-id">§11</div>
+  </div>
+  <div class="code">
+Algorithm:          AES-256-GCM (256-bit key, 96-bit IV, 128-bit auth tag)
+Key derivation:     PBKDF2-SHA256 · 310,000 iterations · 256-bit random salt
+Key storage:        Derived key NEVER stored — re-derived from password each session
+RSA key pair:       RSA-OAEP · 2048-bit · SHA-256 hash
+Public key:         SPKI format · base64 stored unencrypted in nexus_auth_vault
+Private key:        PKCS8 · encrypted with AES key · stored as { iv, data }
+PIN auth:           SHA-256(pin + username) → read-only session, no decryption access
+Vault gate:         AES-GCM round-trip test before app entry (featuresConfirm)
+Atomic writes:      Write to .tmp → rename (NTFS atomic via Electron IPC)
+  </div>
+</div>
+
+<!-- ELECTRON IPC -->
+<div id="ipc" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--o)">Electron IPC Channels</div>
+    <div class="section-id">§12</div>
+  </div>
+  <p>All channels exposed via <span class="hl-o">window.NXAPI</span> in the renderer. Defined in <span class="hl-c">preload.js</span> via contextBridge. All calls are async (ipcRenderer.invoke).</p>
+  <table>
+    <tr><th>Channel</th><th>NXAPI Method</th><th>Returns</th></tr>
+    <tr><td>vault:read</td><td>NXAPI.vaultRead(path)</td><td>string | null</td></tr>
+    <tr><td>vault:write</td><td>NXAPI.vaultWrite(path, data)</td><td>{ ok, error? }</td></tr>
+    <tr><td>vault:exists</td><td>NXAPI.vaultExists(path)</td><td>boolean</td></tr>
+    <tr><td>vault:backup</td><td>NXAPI.vaultBackup(path)</td><td>{ ok, backupPath?, error? }</td></tr>
+    <tr><td>folder:pick</td><td>NXAPI.pickDataFolder()</td><td>string | null</td></tr>
+    <tr><td>folder:default</td><td>NXAPI.defaultFolder()</td><td>string</td></tr>
+    <tr><td>config:get</td><td>NXAPI.getConfig()</td><td>CFG object</td></tr>
+    <tr><td>app:relaunch</td><td>NXAPI.relaunch()</td><td>void</td></tr>
+  </table>
+</div>
+
+<!-- NODE TYPES -->
+<div id="node-types" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--c)">18 Node Types</div>
+    <div class="section-id">§13</div>
+  </div>
+  <table>
+    <tr><th>Type</th><th>Icon</th><th>Color</th><th>Meaning</th></tr>
+    <tr><td>concept</td><td>◈</td><td style="color:#00c8ff">#00c8ff</td><td>Core concept or idea</td></tr>
+    <tr><td>insight</td><td>⚡</td><td style="color:#ff8c22">#ff8c22</td><td>Realisation or breakthrough</td></tr>
+    <tr><td>pattern</td><td>◉</td><td style="color:#cc44ff">#cc44ff</td><td>Recurring structure or behaviour</td></tr>
+    <tr><td>seed</td><td>✦</td><td style="color:#00ff88">#00ff88</td><td>Small idea with growth potential</td></tr>
+    <tr><td>question</td><td>?</td><td style="color:#ffe04a">#ffe04a</td><td>Open question or uncertainty</td></tr>
+    <tr><td>friction</td><td>⚡</td><td style="color:#ff3355">#ff3355</td><td>Problem, blocker, or tension</td></tr>
+    <tr><td>synthesis</td><td>∿</td><td style="color:#11ddcc">#11ddcc</td><td>Integration of two or more concepts</td></tr>
+    <tr><td>heuristic</td><td>⊞</td><td style="color:#d4a820">#d4a820</td><td>Rule of thumb or mental model</td></tr>
+    <tr><td>framework</td><td>⬡</td><td style="color:#7744ff">#7744ff</td><td>Structured model or system</td></tr>
+    <tr><td>causal</td><td>→</td><td style="color:#ff8c22">#ff8c22</td><td>Cause-and-effect relationship</td></tr>
+    <tr><td>gap</td><td>◇</td><td style="color:#ff8c22">#ff8c22</td><td>Missing link or unknown</td></tr>
+    <tr><td>delta</td><td>▲</td><td style="color:#ffe04a">#ffe04a</td><td>Change or improvement over time</td></tr>
+    <tr><td>feedback</td><td>↺</td><td style="color:#11ddcc">#11ddcc</td><td>Input that modifies a system</td></tr>
+    <tr><td>invariant</td><td>◆</td><td style="color:#00c8ff">#00c8ff</td><td>Stable principle under change</td></tr>
+    <tr><td>vector</td><td>→</td><td style="color:#cc44ff">#cc44ff</td><td>Directional force or momentum</td></tr>
+    <tr><td>signal</td><td>◎</td><td style="color:#00ff88">#00ff88</td><td>High-value information</td></tr>
+    <tr><td>noise</td><td>✕</td><td style="color:#ff3355">#ff3355</td><td>Low-value or distracting information</td></tr>
+    <tr><td>custom</td><td>●</td><td style="color:#aaaaaa">#aaaaaa</td><td>User-defined type</td></tr>
+  </table>
+</div>
+
+<!-- META-DOMAINS -->
+<div id="domains" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--v)">13 Meta-Domains</div>
+    <div class="section-id">§14</div>
+  </div>
+  <table>
+    <tr><th>#</th><th>Domain</th><th>Icon</th><th>Color</th><th>Key Intelligences</th></tr>
+    <tr><td>1</td><td>SCIENCE & SYSTEMS</td><td>◈</td><td style="color:#00c8ff">#00c8ff</td><td>logical, systems, naturalist</td></tr>
+    <tr><td>2</td><td>ARTS & EXPRESSION</td><td>◉</td><td style="color:#cc44ff">#cc44ff</td><td>musical, spatial, linguistic, creative, kinesthetic</td></tr>
+    <tr><td>3</td><td>SOCIAL & RELATIONAL</td><td>⬡</td><td style="color:#00ff88">#00ff88</td><td>interpersonal, linguistic, emotional, existential</td></tr>
+    <tr><td>4</td><td>MIND & COGNITION</td><td>∿</td><td style="color:#ff8c22">#ff8c22</td><td>logical, intrapersonal, spatial, systems, emotional</td></tr>
+    <tr><td>5</td><td>BODY & EMBODIMENT</td><td>◆</td><td style="color:#00ff88">#00ff88</td><td>kinesthetic, naturalist, embodied, intrapersonal</td></tr>
+    <tr><td>6</td><td>STRATEGY & SYSTEMS</td><td>→</td><td style="color:#ffe04a">#ffe04a</td><td>logical, systems, spatial, interpersonal</td></tr>
+    <tr><td>7</td><td>TECHNOLOGY</td><td>⊞</td><td style="color:#7744ff">#7744ff</td><td>logical, spatial, systems, creative</td></tr>
+    <tr><td>8</td><td>NATURE & COSMOS</td><td>✦</td><td style="color:#d4a820">#d4a820</td><td>naturalist, spatial, logical, existential</td></tr>
+    <tr><td>9</td><td>SPIRIT & MEANING</td><td>◎</td><td style="color:#ff66aa">#ff66aa</td><td>existential, intrapersonal, interpersonal, creative</td></tr>
+    <tr><td>10</td><td>LANGUAGE & NARRATIVE</td><td>⬢</td><td style="color:#11ddcc">#11ddcc</td><td>linguistic, interpersonal, creative, spatial</td></tr>
+    <tr><td>11</td><td>ECONOMICS & VALUE</td><td>◆</td><td style="color:#ffd700">#ffd700</td><td>logical, interpersonal, systems</td></tr>
+    <tr><td>12</td><td>HEALTH & VITALITY</td><td>♥</td><td style="color:#00ffaa">#00ffaa</td><td>kinesthetic, naturalist, intrapersonal, emotional</td></tr>
+    <tr><td>13</td><td>IDENTITY & GROWTH</td><td>◈</td><td style="color:#ff8866">#ff8866</td><td>intrapersonal, existential, emotional, creative</td></tr>
+  </table>
+</div>
+
+<!-- KNOWN ISSUES -->
+<div id="known-issues" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--r)">Known Issues</div>
+    <div class="section-id">§15</div>
+  </div>
+  <table>
+    <tr><th>#</th><th>Issue</th><th>Status</th></tr>
+    <tr><td>1</td><td>nexus_theme key — theme uses consistent nexus_theme key everywhere (was a stale note)</td><td>Non-issue ✓</td></tr>
+    <tr><td>2</td><td>ALM module sections are stubs — intel card grid works, deeper sections placeholder</td><td>Partial</td></tr>
+    <tr><td>3</td><td>Canvas PNG export — toast exists, no implementation</td><td>Gated</td></tr>
+    <tr><td>4</td><td>Auto-lock timer — fully implemented: 30s check interval, mousemove/keydown/click reset, lock returns to login, timer starts on login success</td><td>Fixed ✓</td></tr>
+    <tr><td>5</td><td>writeVaultAtomic IPC — resolved: engine now calls vaultWrite (matches preload exposure)</td><td>Fixed ✓</td></tr>
+    <tr><td>6</td><td>T.aiThinking() — no auto-dismiss if AI fails silently</td><td>Bug</td></tr>
+    <tr><td>7</td><td>Multi-tab protection — two browser tabs write to same localStorage (last-write-wins)</td><td>By design</td></tr>
+    <tr><td>8</td><td>Emotions standalone module — exists only as Brain Map mode</td><td>Planned</td></tr>
+    <tr><td>9</td><td>Collaboration (P2P PeerJS) — gated, not built</td><td>Planned</td></tr>
+    <tr><td>10</td><td>Voice input — gated, not built</td><td>Planned</td></tr>
+    <tr><td>11</td><td>vaultLoad decryption path — {iv, data} spread may need key match on encrypted object shape</td><td>Edge case</td></tr>
+    <tr><td>12</td><td>Brain map 3D sphere — older low-power GPUs may see slow RAF; no fallback renderer</td><td>Known</td></tr>
+  </table>
+</div>
+
+<div style="text-align:center;padding:40px 0;font-family:var(--f-mono);font-size:8px;color:var(--dim);letter-spacing:2px;border-top:1px solid var(--wire)">
+  MASTERMIND LIVING DOCUMENTATION · v3.0.4 · SISO + JAA ARCHITECTURE<br>
+  <span style="color:var(--c)">MM_BUS.sampleLog()</span> · <span style="color:var(--v)">MM_RUNNER.sample()</span> · <span style="color:var(--g)">MM_BUS.on('mm.*', console.log)</span>
+</div>
+
+</body>
+</html>
