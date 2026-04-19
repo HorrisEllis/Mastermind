@@ -198,6 +198,8 @@ function applyTheme(key) {
   NX.theme = key;
   try { localStorage.setItem('nexus_theme', key); } catch(e) {}
   if (window.NXAPI) window.NXAPI.saveConfig({ theme: key }).catch(() => {});
+  // Sync background particle palette with theme
+  if (typeof MMBG !== 'undefined') MMBG.setTheme(key);
   renderThemeGrid();
   if (typeof T !== 'undefined') T.themeChanged(th.name); else toast('Theme: ' + th.name);
 }
@@ -255,6 +257,23 @@ function drawBg() {
 }
 
 /* ── Connections ──────────────────────────────────────────────── */
+// ── Spatial performance state ────────────────────────────────────
+// Node lookup map — rebuilt on topology change, O(1) vs O(n) .find()
+let _nodeMap = new Map();
+let _nodeMapDirty = true;
+function _invalidateNodeMap() { _nodeMapDirty = true; }
+
+// Dim size cache — avoids repeated offsetWidth/offsetHeight reads
+const _dimCache = new Map();
+function _nodeDim(id) {
+  if (_dimCache.has(id)) return _dimCache.get(id);
+  const el = document.getElementById('n_' + id);
+  const d = el ? { w: el.offsetWidth || 200, h: el.offsetHeight || 120 } : { w: 200, h: 120 };
+  _dimCache.set(id, d);
+  return d;
+}
+function _invalidateDimCache(id) { if (id) _dimCache.delete(id); else _dimCache.clear(); }
+
 function drawConns() {
   const cvs = document.getElementById('conn-cvs'); if (!cvs) return;
   const ctx = cvs.getContext('2d');
@@ -263,61 +282,109 @@ function drawConns() {
   const t = Date.now() / 1000;
   if (NX.layers.clusters) drawClusterHulls(ctx, zoom, panX, panY);
 
-  NX.conns.forEach(cn => {
-    const f = NX.nodes.find(n => n.id === cn.from);
-    const to = NX.nodes.find(n => n.id === cn.to);
-    if (!f || !to) return;
-    // Skip drawing to/from dot-collapsed nodes (still track logically)
-    const fEl = document.getElementById('n_' + f.id);
-    const tEl = document.getElementById('n_' + to.id);
-    if (!fEl || !tEl) return;
+  // Rebuild O(1) node lookup map if topology changed
+  if (_nodeMapDirty) {
+    _nodeMap.clear();
+    NX.nodes.forEach(n => _nodeMap.set(n.id, n));
+    _nodeMapDirty = false;
+  }
 
-    const fh = fEl.offsetHeight || 120, fw = fEl.offsetWidth || 200;
-    const th = tEl.offsetHeight || 120, tw = tEl.offsetWidth || 200;
-    const w2s = (wx, wy) => ({ sx: wx * zoom + panX, sy: wy * zoom + panY });
+  // Viewport frustum bounds (with generous margin for bezier curves)
+  const vw = cvs.width, vh = cvs.height;
+  const margin = 120;
+  const vx0 = -margin, vy0 = -margin, vx1 = vw + margin, vy1 = vh + margin;
 
-    // If node is a dot, connect from center of dot
-    const fDot = f.collapsed;
-    const tDot = to.collapsed;
-    const fp = fDot ? w2s(f.x + 8, f.y + 8) : w2s(f.x + fw / 2, f.y + fh / 2);
-    const tp = tDot ? w2s(to.x + 8, to.y + 8) : w2s(to.x + tw / 2, to.y + th / 2);
+  // Batch: collect connections to draw, then draw all at once
+  const toDrawLines = [], toDrawParticles = [], toDrawLabels = [];
 
-    const fx = fp.sx, fy = fp.sy, tx = tp.sx, ty = tp.sy;
-    const dx = tx - fx, dy = ty - fy, dist = Math.sqrt(dx * dx + dy * dy) + 1;
+  for (let ci = 0; ci < NX.conns.length; ci++) {
+    const cn = NX.conns[ci];
+    const f  = _nodeMap.get(cn.from);
+    const to = _nodeMap.get(cn.to);
+    if (!f || !to) continue;
+
+    // Fast frustum cull — skip if BOTH endpoints outside viewport
+    const fsx = f.x * zoom + panX, fsy = f.y * zoom + panY;
+    const tsx = to.x * zoom + panX, tsy = to.y * zoom + panY;
+    if (fsx < vx0 && tsx < vx0) continue;
+    if (fsy < vy0 && tsy < vy0) continue;
+    if (fsx > vx1 && tsx > vx1) continue;
+    if (fsy > vy1 && tsy > vy1) continue;
+
+    // Dimension lookup (cached)
+    const fd = _nodeDim(f.id), td = _nodeDim(to.id);
+    const fw = fd.w, fh = fd.h, tw = td.w, th = td.h;
+
+    const fp_sx = f.collapsed ? f.x * zoom + panX + 8 * zoom : f.x * zoom + panX + fw / 2;
+    const fp_sy = f.collapsed ? f.y * zoom + panY + 8 * zoom : f.y * zoom + panY + fh / 2;
+    const tp_sx = to.collapsed ? to.x * zoom + panX + 8 * zoom : to.x * zoom + panX + tw / 2;
+    const tp_sy = to.collapsed ? to.y * zoom + panY + 8 * zoom : to.y * zoom + panY + th / 2;
+
+    const dx = tp_sx - fp_sx, dy = tp_sy - fp_sy;
+    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
     const bend = Math.min(dist * .5, 180) * zoom;
-    const perp = { x: -dy / dist, y: dx / dist };
-    const c1x = fx + dx * .25 + perp.x * bend * .3, c1y = fy + dy * .25 + perp.y * bend * .3;
-    const c2x = tx - dx * .25 + perp.x * bend * .3, c2y = ty - dy * .25 + perp.y * bend * .3;
+    const px = -dy / dist, py = dx / dist;
+    const c1x = fp_sx + dx * .25 + px * bend * .3, c1y = fp_sy + dy * .25 + py * bend * .3;
+    const c2x = tp_sx - dx * .25 + px * bend * .3, c2y = tp_sy - dy * .25 + py * bend * .3;
 
     const fc = f.color || (NT[f.type] || NT.concept).color;
-    const tc = to.color || (NT[to.type] || NT.concept).color;
+    const tc2 = to.color || (NT[to.type] || NT.concept).color;
 
-    const gr = ctx.createLinearGradient(fx, fy, tx, ty);
-    gr.addColorStop(0, fc + '88'); gr.addColorStop(1, tc + '88');
-    ctx.strokeStyle = gr; ctx.lineWidth = Math.max(.7, 1.2 * zoom);
-    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, tx, ty); ctx.stroke();
+    toDrawLines.push({ fp_sx, fp_sy, tp_sx, tp_sy, c1x, c1y, c2x, c2y, fc, tc2 });
 
-    // Animated particle
     if (NX.animConns) {
-      const bp = (p, a, b, c, d) =>
-        Math.pow(1-p,3)*a + 3*Math.pow(1-p,2)*p*b + 3*(1-p)*p*p*c + Math.pow(p,3)*d;
       const pr = ((t * .18 + (cn._phase || 0)) % 1);
-      const dotX = bp(pr, fx, c1x, c2x, tx), dotY = bp(pr, fy, c1y, c2y, ty);
-      ctx.shadowColor = fc; ctx.shadowBlur = 5;
-      ctx.fillStyle = fc; ctx.beginPath(); ctx.arc(dotX, dotY, Math.max(1, 1.8 * zoom), 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
+      const bp = (p, a, b, c, d) =>
+        ((1-p)**3)*a + 3*((1-p)**2)*p*b + 3*(1-p)*p*p*c + p**3*d;
+      toDrawParticles.push({
+        x: bp(pr, fp_sx, c1x, c2x, tp_sx),
+        y: bp(pr, fp_sy, c1y, c2y, tp_sy),
+        fc, r: Math.max(1, 1.8 * zoom),
+      });
     }
 
-    // Label
     if (cn.label && NX.layers.clusters) {
       const bp = (p, a, b, c, d) =>
-        Math.pow(1-p,3)*a + 3*Math.pow(1-p,2)*p*b + 3*(1-p)*p*p*c + Math.pow(p,3)*d;
-      ctx.fillStyle = 'rgba(74,120,152,.8)';
-      ctx.font = `${Math.max(7, 8 * zoom)}px JetBrains Mono,monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(cn.label.slice(0, 18), bp(.5, fx, c1x, c2x, tx), bp(.5, fy, c1y, c2y, ty) - 6 * zoom);
+        ((1-p)**3)*a + 3*((1-p)**2)*p*b + 3*(1-p)*p*p*c + p**3*d;
+      toDrawLabels.push({
+        text: cn.label.slice(0, 18),
+        x: bp(.5, fp_sx, c1x, c2x, tp_sx),
+        y: bp(.5, fp_sy, c1y, c2y, tp_sy) - 6 * zoom,
+      });
     }
-  });
+  }
+
+  // Draw all lines in one batch pass (reduces ctx state switches)
+  const lw = Math.max(.7, 1.2 * zoom);
+  ctx.lineWidth = lw;
+  for (let i = 0; i < toDrawLines.length; i++) {
+    const { fp_sx, fp_sy, tp_sx, tp_sy, c1x, c1y, c2x, c2y, fc, tc2 } = toDrawLines[i];
+    const gr = ctx.createLinearGradient(fp_sx, fp_sy, tp_sx, tp_sy);
+    gr.addColorStop(0, fc + '88'); gr.addColorStop(1, tc2 + '88');
+    ctx.strokeStyle = gr;
+    ctx.beginPath(); ctx.moveTo(fp_sx, fp_sy);
+    ctx.bezierCurveTo(c1x, c1y, c2x, c2y, tp_sx, tp_sy); ctx.stroke();
+  }
+
+  // Draw all particles in one batch pass
+  ctx.shadowBlur = 5;
+  for (let i = 0; i < toDrawParticles.length; i++) {
+    const { x, y, fc, r } = toDrawParticles[i];
+    ctx.shadowColor = fc; ctx.fillStyle = fc;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // Draw labels
+  if (toDrawLabels.length) {
+    ctx.fillStyle = 'rgba(74,120,152,.8)';
+    ctx.font = `${Math.max(7, 8 * zoom)}px JetBrains Mono,monospace`;
+    ctx.textAlign = 'center';
+    for (let i = 0; i < toDrawLabels.length; i++) {
+      const { text, x, y } = toDrawLabels[i];
+      ctx.fillText(text, x, y);
+    }
+  }
 
   // Link drag preview
   if (NX.tool === 'link' && NX.linkSrc) {
@@ -400,18 +467,50 @@ function drawMinimap() {
 }
 
 /* ── Render loop ──────────────────────────────────────────────── */
+// ── Adaptive render loop ─────────────────────────────────────────
+// Throttles to 30fps when idle (no interactions for 2s) to save GPU.
+// Full 60fps during interactions + 500ms after.
+let _renderLastInteract = 0;
+let _renderFrameCount = 0;
+const _IDLE_FPS = 30, _ACTIVE_FPS = 60;
+
+function _markInteraction() { _renderLastInteract = Date.now(); }
+
 function renderLoop() {
   if (document.hidden) { requestAnimationFrame(renderLoop); return; }
+
+  const now = Date.now();
+  const isIdle = now - _renderLastInteract > 2000;
+  _renderFrameCount++;
+
+  // In idle mode, skip every other frame (~30fps)
+  if (isIdle && _renderFrameCount % 2 === 0) {
+    requestAnimationFrame(renderLoop);
+    return;
+  }
+
   drawBg();
   drawConns();
   const pcvs = document.getElementById('particle-cvs');
   if (pcvs) tickParticles(pcvs);
-  drawMinimap();
+  // Minimap only updates at ~10fps (expensive, rarely needs 60fps)
+  if (_renderFrameCount % 6 === 0) drawMinimap();
   requestAnimationFrame(renderLoop);
 }
 
+// Wire interaction markers to invalidate idle state
+['mousedown','mousemove','wheel','touchstart','keydown'].forEach(ev =>
+  document.addEventListener(ev, _markInteraction, { passive: true })
+);
+
 /* ── Spawn Node ───────────────────────────────────────────────── */
 function spawnNode(type, wx, wy, opts = {}) {
+  // Pulse background belief network at spawn location
+  if (typeof MMBG !== 'undefined' && wx != null) {
+    const sx = wx * NX.zoom + NX.panX;
+    const sy = wy * NX.zoom + NX.panY + 44; // +44 for titlebar
+    MMBG.pulse(sx, sy, 0.8);
+  }
   const nt = NT[type] || NT.concept;
   const id = opts.id || uuid();
   const { zoom, panX, panY } = NX;
@@ -1966,6 +2065,12 @@ async function init() {
   initParticles();
   buildHomepage();
   initStartupBg();
+
+  // ── Bayesian background init ───────────────────────────────────
+  const bgCvs = document.getElementById('mm-bg-cvs');
+  if (bgCvs && typeof MMBG !== 'undefined') {
+    MMBG.init(bgCvs);
+  }
 
   // MM Foundation: check vault status before anything else
   if (typeof MMVault !== 'undefined') {

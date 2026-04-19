@@ -61,6 +61,10 @@ function createWindow() {
     show: false,
     backgroundColor: '#02040a',
     minWidth: 800, minHeight: 500,
+    // thickFrame: false suppresses the Windows DWM orange/amber focus border
+    // that appears on frameless windows on Windows 10/11
+    thickFrame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

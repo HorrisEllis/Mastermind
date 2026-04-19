@@ -310,6 +310,266 @@ async function voidExpandWhatifAI() {
     mm_toast('AI expand failed: ' + e.message, 'error');
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   RECURSIVE WHAT-IF LOOP ENGINE — v1.0
+   
+   Architecture:
+   - Each what-if spawns N divergent branches (default 3)
+   - Each branch gets scored: Coherence × Novelty × Actionability
+   - Branches above threshold recurse to depth D
+   - Branches below threshold become leaf nodes (canvas synthesis nodes)
+   - All paths tracked in VOID_STATE.whatifTree for full audit trail
+   - MM_BUS emits progress so UI can show live propagation
+   - Terminates on: max depth, token budget, or convergence signal
+   
+   This is not chatbot generation. It's a causal graph builder.
+   Every branch IS a node on the canvas. The recursion IS the map.
+═══════════════════════════════════════════════════════════════════ */
+
+const WHATIF_LOOP = {
+  running: false,
+  aborted: false,
+  depth: 0,
+  maxDepth: 4,
+  branchFactor: 3,
+  scoreThreshold: 0.6,   // branches below this become leaves
+  tokenBudget: 6000,     // rough estimate, abort if exceeded
+  tokensUsed: 0,
+  tree: [],              // full recursion tree for audit
+  canvasRoot: null,      // root node id on canvas
+};
+
+// ── Abort any running loop ────────────────────────────────────────
+function whatifLoopAbort() {
+  WHATIF_LOOP.aborted = true;
+  WHATIF_LOOP.running = false;
+  mm_toast('Loop aborted', 'warn');
+  MM_BUS?.emit('mm.whatif.loop.aborted', {});
+}
+
+// ── Entry point ───────────────────────────────────────────────────
+async function whatifLoopStart(seed, opts = {}) {
+  if (WHATIF_LOOP.running) { mm_toast('Loop already running — abort first', 'warn'); return; }
+
+  const cfg = Object.assign({}, {
+    maxDepth:       opts.maxDepth      ?? WHATIF_LOOP.maxDepth,
+    branchFactor:   opts.branchFactor  ?? WHATIF_LOOP.branchFactor,
+    scoreThreshold: opts.scoreThreshold ?? WHATIF_LOOP.scoreThreshold,
+    spawnCanvas:    opts.spawnCanvas   ?? true,
+  }, opts);
+
+  Object.assign(WHATIF_LOOP, {
+    running: true, aborted: false, depth: 0, tokensUsed: 0, tree: []
+  });
+
+  T.aiThinking?.();
+  MM_BUS?.emit('mm.whatif.loop.start', { seed, cfg });
+  mm_toast(`↺ Recursive loop: depth ${cfg.maxDepth} × ${cfg.branchFactor} branches`, 'sync', { dur: 2000 });
+
+  // Spawn root node on canvas
+  let rootId = null;
+  if (cfg.spawnCanvas) {
+    const { x: wx, y: wy } = s2w(window.innerWidth / 2, window.innerHeight / 2 - 200);
+    const rootNode = CANVAS.spawnNode('seed', wx, wy, {
+      title: seed.slice(0, 60),
+      body: 'Recursive loop root',
+      tags: ['whatif-root', 'loop'],
+      color: '#cc44ff',
+    });
+    rootId = rootNode?.id;
+    WHATIF_LOOP.canvasRoot = rootId;
+  }
+
+  try {
+    const result = await _whatifRecurse(seed, 0, rootId, null, cfg, []);
+    VOID_STATE.whatifTree = result;
+    saveVoidState();
+    T.aiDone?.();
+    WHATIF_LOOP.running = false;
+
+    const totalBranches = _countBranches(result);
+    mm_toast(`↺ Loop complete: ${totalBranches} branches across ${cfg.maxDepth} levels`, 'success', { dur: 4000 });
+    MM_BUS?.emit('mm.whatif.loop.complete', { totalBranches, depth: cfg.maxDepth, tokensUsed: WHATIF_LOOP.tokensUsed });
+    _voidRenderWhatifs();
+  } catch(e) {
+    T.aiDone?.();
+    WHATIF_LOOP.running = false;
+    mm_toast('Loop error: ' + e.message, 'error');
+    console.error('[WHATIF LOOP]', e);
+  }
+}
+
+// ── Core recursion ────────────────────────────────────────────────
+async function _whatifRecurse(premise, depth, parentNodeId, parentBranch, cfg, ancestry) {
+  if (WHATIF_LOOP.aborted) return null;
+  if (depth >= cfg.maxDepth) return { premise, depth, leaf: true, reason: 'max-depth' };
+  if (WHATIF_LOOP.tokensUsed > WHATIF_LOOP.tokenBudget) {
+    return { premise, depth, leaf: true, reason: 'token-budget' };
+  }
+
+  MM_BUS?.emit('mm.whatif.loop.progress', { depth, premise: premise.slice(0, 60) });
+
+  // ── Generate branches via AI ──────────────────────────────────
+  const ancestryCtx = ancestry.length
+    ? '\n\nChain of reasoning so far:\n' + ancestry.map((a, i) => (i+1) + '. ' + a).join('\n')
+    : ''
+
+  const branchPrompt = `Premise: "${premise}"${ancestryCtx}
+
+Generate exactly ${cfg.branchFactor} divergent "what if" branches that explore genuinely different directions from this premise. Each branch must:
+1. Challenge a different underlying assumption
+2. Have a specific, concrete implication (not vague)
+3. Be rated for: coherence (0-1), novelty (0-1), actionability (0-1)
+
+Return ONLY valid JSON array:
+[{"branch": "What if...", "assumption_broken": "...", "implication": "...", "coherence": 0.8, "novelty": 0.7, "actionability": 0.6, "type": "concept|question|friction|insight|vector"}]`;
+
+  let branches = [];
+  try {
+    const raw = await aiCall(
+      'You are a recursive divergent-thinking engine. Generate structured what-if branches with precision scores. No markdown, only JSON.',
+      branchPrompt
+    );
+    WHATIF_LOOP.tokensUsed += Math.ceil((raw?.length || 0) / 4);
+    const clean = (raw || '').replace(/```json|```/g, '').trim();
+    branches = JSON.parse(clean);
+    if (!Array.isArray(branches)) branches = [];
+  } catch(e) {
+    console.warn('[WHATIF LOOP] parse fail at depth', depth, e.message);
+    return { premise, depth, leaf: true, reason: 'parse-error' };
+  }
+
+  // ── Score + classify each branch ─────────────────────────────
+  const results = [];
+  const px = parentNodeId ? (CANVAS.NX.nodes.find(n => n.id === parentNodeId)?.x || 0) : 0;
+  const py = parentNodeId ? (CANVAS.NX.nodes.find(n => n.id === parentNodeId)?.y || 0) : 0;
+  const spreadRadius = 280 + depth * 60;
+
+  for (let i = 0; i < Math.min(branches.length, cfg.branchFactor); i++) {
+    if (WHATIF_LOOP.aborted) break;
+    const b = branches[i];
+    if (!b?.branch) continue;
+
+    const score = ((b.coherence || 0) + (b.novelty || 0) + (b.actionability || 0)) / 3;
+    const isLeaf = score < cfg.scoreThreshold || depth >= cfg.maxDepth - 1;
+
+    // Spawn canvas node for this branch
+    let nodeId = null;
+    if (cfg.spawnCanvas) {
+      const angle = ((i / cfg.branchFactor) * Math.PI * 2) - Math.PI / 2 + depth * 0.4;
+      const nx = px + Math.cos(angle) * spreadRadius;
+      const ny = py + Math.sin(angle) * spreadRadius;
+
+      // Node color fades toward synthesis at deep levels
+      const depthColors = ['#cc44ff','#7744ff','#00c8ff','#00ff88','#ffe04a'];
+      const nodeColor = depthColors[Math.min(depth, depthColors.length - 1)];
+
+      const nodeType = isLeaf ? (b.type || 'insight') : 'question';
+      const node = CANVAS.spawnNode(nodeType, nx, ny, {
+        title: b.branch.slice(0, 60),
+        body: `${b.implication || ''}
+
+⦿ Assumption: ${b.assumption_broken || ''}`,
+        tags: [`depth-${depth}`, isLeaf ? 'leaf' : 'branch', 'whatif'],
+        color: nodeColor,
+      });
+      nodeId = node?.id;
+
+      if (parentNodeId && nodeId) {
+        const confidence = score.toFixed(2);
+        CANVAS.addConn(parentNodeId, nodeId, `${isLeaf ? '⊢' : '↺'} ${confidence}`);
+      }
+    }
+
+    // ── Recurse or terminate ──────────────────────────────────
+    let children = null;
+    if (!isLeaf) {
+      // Small delay between AI calls to avoid rate limiting + give UI time to breathe
+      await new Promise(r => setTimeout(r, 150));
+      children = await _whatifRecurse(
+        b.branch,
+        depth + 1,
+        nodeId,
+        b,
+        cfg,
+        [...ancestry, premise]
+      );
+    } else {
+      // Leaf: spawn synthesis insight if deep enough
+      if (cfg.spawnCanvas && depth >= 1 && nodeId) {
+        await new Promise(r => setTimeout(r, 80));
+        const synthRaw = await aiCall(
+          'You are a synthesis engine. In 1 sentence, name the invariant principle this "what if" reveals.',
+          `"${b.branch}" — implication: "${b.implication || ''}"`
+        );
+        WHATIF_LOOP.tokensUsed += Math.ceil((synthRaw?.length || 0) / 4);
+        if (synthRaw) {
+          const synthNode = CANVAS.spawnNode('synthesis', px + Math.cos(0) * 40, py + 60, {
+            title: 'INVARIANT',
+            body: synthRaw.slice(0, 200),
+            tags: [`depth-${depth}`, 'synthesis', 'invariant'],
+            color: '#11ddcc',
+          });
+          if (synthNode && nodeId) CANVAS.addConn(nodeId, synthNode.id, 'reveals');
+        }
+      }
+    }
+
+    results.push({
+      branch: b.branch,
+      score,
+      depth,
+      nodeId,
+      isLeaf,
+      coherence: b.coherence,
+      novelty: b.novelty,
+      actionability: b.actionability,
+      assumption_broken: b.assumption_broken,
+      implication: b.implication,
+      children,
+    });
+  }
+
+  return { premise, depth, branches: results };
+}
+
+// ── Count total branches in recursion tree ────────────────────────
+function _countBranches(tree) {
+  if (!tree?.branches) return 0;
+  return tree.branches.length + tree.branches.reduce((sum, b) => sum + _countBranches(b.children), 0);
+}
+
+// ── Quick single-level expansion (existing feature, now enhanced) ─
+async function whatifQuickExpand(seed, count = 5) {
+  const inp = document.getElementById('void-whatif-input');
+  const s = seed || (inp && inp.value.trim()) || (VOID_STATE.whatifs.slice(-1)[0]?.text);
+  if (!s) { mm_toast('Enter a seed first', 'warn'); return; }
+  await whatifLoopStart(s, { maxDepth: 1, branchFactor: count, spawnCanvas: false });
+  // Results land in VOID_STATE.whatifTree branches → flatten to whatifs list
+  const tree = VOID_STATE.whatifTree;
+  if (tree?.branches) {
+    tree.branches.forEach(b => {
+      if (b.branch) VOID_STATE.whatifs.push({ id: uuid(), text: b.branch, created: Date.now(), ai: true, score: b.score });
+    });
+    _voidRenderWhatifs(); saveVoidState();
+  }
+}
+
+// ── Open Loop → Recursive Seed ───────────────────────────────────
+// Takes an open loop and runs a deep what-if tree to find resolution paths
+async function openLoopRecurse(loopId, depth = 3) {
+  const loop = VOID_STATE.openLoops.find(l => l.id === loopId);
+  if (!loop) { mm_toast('Loop not found', 'warn'); return; }
+  const seed = `What if I finally resolved: "${loop.text}"?`;
+  await whatifLoopStart(seed, {
+    maxDepth: depth,
+    branchFactor: 3,
+    spawnCanvas: true,
+    scoreThreshold: 0.5,
+  });
+}
+
 function _voidRenderWhatifs() {
   const el = document.getElementById('void-whatif-list'); if (!el) return;
   if (!VOID_STATE.whatifs.length) {
@@ -1619,40 +1879,8 @@ function _pinReadOnlyBanner() {
 
 /* ── Startup flow router ─────────────────────────────────────── */
 // ── Vault watchdog: called before EVERY gate ──────────────────────
-async function _vaultWatchdogCheck() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-function _showVaultMissingScreen(vaultPath, reason = 'missing') {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _vaultRecreate() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _vaultRecreateConfirm() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _vaultRecreateUnencrypted() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _vaultRecreateWithKey() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _vaultRestoreFromBackup() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
+// _vaultWatchdogCheck, _showVaultMissingScreen, _vaultRecreate*, _vaultRestoreFromBackup
+// → implemented in mastermind-vault.js (loaded before this file)
 
 /* ── Desktop Required Screen ─────────────────────────────────────
    Shown when MASTERMIND is opened in a browser without Electron.
@@ -1826,6 +2054,9 @@ function _ssShow(id, step) {
 function mmGoTo(id, step) { _ssShow(id, step); }
 
 function _authLoadMeta() {
+  // Check in-memory auth store first (populated by vault module after load)
+  if (typeof _AUTH_STORE !== 'undefined' && _AUTH_STORE.meta) return _AUTH_STORE.meta;
+  // Fall back to localStorage for backward compatibility
   try { return JSON.parse(localStorage.getItem(AUTH_META_KEY)); } catch(e) { return null; }
 }
 
@@ -2234,43 +2465,9 @@ function applyFeatureFlags() {
   });
 }
 
-/* ── Crypto primitives ───────────────────────────────────────── */
-async function _deriveKey(pw, salt) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _aesEncrypt(key, data) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function _aesDecrypt(key, ivData) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-/* ── Key export (Options panel) ─────────────────────────────── */
-async function exportPublicKey() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-async function exportPrivateKey() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-function _downloadText(filename, text) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-// Wrapped backup download with toast
-async function downloadVaultBackup() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
+// _deriveKey, _aesEncrypt, _aesDecrypt, exportPublicKey, exportPrivateKey,
+// _downloadText, downloadVaultBackup
+// → implemented in mastermind-vault.js (loaded before this file)
 
 /* ── Right-click drag to pan ────────────────────────────────── */
 (function() {
@@ -3271,46 +3468,9 @@ console.log('MASTERMIND — Options engine loaded');
 // VAULT state object — defined in mastermind-vault.js
 // const VAULT = { ... } — loaded from vault module
 
-/* ── Vault serialisation ─────────────────────────────────────── */
-function vaultSerialize() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-function vaultDeserialize(data) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-/* ── Encrypted vault write (Electron) ───────────────────────── */
-async function vaultSave(showToast = false) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-
-function vaultDirtySave(delayMs) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-/* ── Load vault ──────────────────────────────────────────────── */
-async function vaultLoad() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-
-async function vaultDecryptPermanently() {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
-
-/* ── Export vault (encrypted or decrypted) ───────────────────── */
-async function vaultExport(mode) {
-  // → mastermind-vault.js
-  if (typeof VAULT === 'undefined') throw new Error('[MASTERMIND] mastermind-vault.js not loaded — add it before nexus-engine.js');
-}
+// vaultSerialize, vaultDeserialize, vaultSave, vaultDirtySave, vaultLoad,
+// vaultDecryptPermanently, vaultExport
+// → implemented in mastermind-vault.js (loaded before this file)
 
 
 
@@ -6414,7 +6574,7 @@ const MM_INTUITION_TAGS = {
   'analytical':       { color:'#00c8ff', desc:'Pattern-based logical intuition' },
   'aesthetic':        { color:'#cc44ff', desc:'Felt sense of beauty/form' },
   'social':           { color:'#00ff88', desc:'Reading people and dynamics' },
-  'empathic':         { color:'#ff66aa', desc:'Felt resonance with others' },
+  'empathic':         { color:'#ff66aa', desc:'Felt resonance — empathic attunement' },
   'somatic':          { color:'#00ffaa', desc:'Body-based knowing' },
   'kinesthetic':      { color:'#00ff88', desc:'Movement and spatial sense' },
   'strategic':        { color:'#ffe04a', desc:'Anticipating consequences' },
@@ -6632,8 +6792,16 @@ function bmv2Render() {
   const wrap = document.getElementById('brain-canvas-area');
   if (!wrap) { BMV2._raf = requestAnimationFrame(bmv2Render); return; }
 
+  // ── Frame throttle: 40fps cap — brain map is complex, no need for 144fps ──
+  const now = performance.now();
+  if ((now - (BMV2._lastFrame || 0)) < 25) {
+    BMV2._raf = requestAnimationFrame(bmv2Render); return;
+  }
+  BMV2._lastFrame = now;
+
   // Resize check
-  if (cvs.width !== wrap.clientWidth || cvs.height !== wrap.clientHeight) {
+  const needResize = cvs.width !== wrap.clientWidth || cvs.height !== wrap.clientHeight;
+  if (needResize) {
     cvs.width  = wrap.clientWidth;
     cvs.height = wrap.clientHeight;
     BMV2._dirty = true;
@@ -6647,9 +6815,15 @@ function bmv2Render() {
 
   ctx.clearRect(0, 0, W, H);
 
+  // ── Lazy graph rebuild — only when expansion state changed ────────
+  // _bmBuildGraph is cached by expandedSet + node count key.
+  // We only rebuild when the dirty flag was set externally.
   const { nodes, links } = _bmBuildGraph(BMV2._expanded);
   BMV2._nodes = nodes;
   BMV2._links = links;
+
+  // ── O(1) projected node lookup — build index map once per frame ──
+  // Eliminates the O(n²) projected.find() in the link drawing loop.
 
   // ── 3D Globe projection (Google Earth style) ──────────────────
   // We project nodes onto a virtual sphere that rotates slowly
@@ -6695,10 +6869,14 @@ function bmv2Render() {
   // Sort back-to-front for correct overdraw
   projected.sort((a, b) => a.sz - b.sz);
 
+  // ── Build O(1) projection index (replaces O(n²) projected.find) ──
+  const projIndex = new Map();
+  projected.forEach(p => projIndex.set(p.n.id, p));
+
   // ── Draw connections (great-circle arcs approximated as lines) ──
   links.forEach(lk => {
-    const fp = projected.find(p => p.n.id === lk.from);
-    const tp = projected.find(p => p.n.id === lk.to);
+    const fp = projIndex.get(lk.from);
+    const tp = projIndex.get(lk.to);
     if (!fp || !tp || !fp.visible || !tp.visible) return;
     const alpha = Math.min(fp.alpha, tp.alpha) * 0.6;
     if (alpha < 0.04) return;
@@ -7491,251 +7669,4026 @@ console.log('[MASTERMIND] Brain Map v2 · 13 meta-domains · lazy load · synthe
    integration, cognitive piggybacking, feedback loops.
 ═══════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════
+   ALM — ACCELERATED LEARNING MODULE  v2.0
+   
+   The cognitive OS for self-understanding and deliberate growth.
+   
+   8 Human System Models:
+     Biological · Cognitive · Affective · Behavioral
+     Relational · Systems · Phenomenological · Developmental
+   
+   Cognitive Functions (Jung/MBTI extended):
+     Ni · Ne · Ti · Te · Si · Se · Fi · Fe
+   
+   Architecture: tabs, not grids. State persists across sessions.
+   Everything is a feedback loop — input, processing, output, record.
+   
+   "You are not static — you are a trajectory."
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Cognitive Function definitions ────────────────────────────────
+const COGNITIVE_FUNCTIONS = {
+  Ni: { label:'Introverted Intuition', color:'#00c8ff', icon:'◎',
+    desc:'Convergent · depth · future vision · the pattern beneath the pattern',
+    domain:'Cognition', loop:'input',
+    trainPrompt:'What is the deeper structure? What will this become?',
+    feedback:'Does the convergence feel certain or forced?',
+    experiment:'Sit with one question for 10 min without Google. What emerges?' },
+  Ne: { label:'Extraverted Intuition', color:'#cc44ff', icon:'✦',
+    desc:'Divergent · possibilities · lateral connections · what could be',
+    domain:'Cognition', loop:'processing',
+    trainPrompt:'What are all the angles? What connects this to something unrelated?',
+    feedback:'How many genuine novel connections appeared in 5 minutes?',
+    experiment:'Take any object. List 20 uses. Notice when it gets hard.' },
+  Ti: { label:'Introverted Thinking', color:'#7744ff', icon:'◈',
+    desc:'Internal logical framework · precision · structural coherence',
+    domain:'Cognition', loop:'processing',
+    trainPrompt:'Does this actually hold together? Where is the hidden assumption?',
+    feedback:'Can you reduce this to its simplest coherent form?',
+    experiment:'Pick a belief. Try to break it from the inside.' },
+  Te: { label:'Extraverted Thinking', color:'#ffe04a', icon:'→',
+    desc:'External organization · efficiency · measurable results',
+    domain:'Cognition', loop:'output',
+    trainPrompt:'What is the most efficient path to the outcome?',
+    feedback:'Did the system produce measurable results?',
+    experiment:'Build a simple decision matrix for something you\'ve been avoiding.' },
+  Si: { label:'Introverted Sensing', color:'#ff8c22', icon:'◆',
+    desc:'Memory · comparison · stored experience · what was',
+    domain:'Cognition', loop:'input',
+    trainPrompt:'What does this remind me of? What stored pattern applies?',
+    feedback:'How reliable is this pattern recognition? Recent or stale?',
+    experiment:'Detail a vivid memory. Notice what your body holds from it.' },
+  Se: { label:'Extraverted Sensing', color:'#00ff88', icon:'◉',
+    desc:'Present moment · sensory detail · immediate reality · what is',
+    domain:'Cognition', loop:'input',
+    trainPrompt:'What is actually here right now? What does the body report?',
+    feedback:'How fully was I present vs. in my head?',
+    experiment:'5 minutes: describe only what you can directly sense. No interpretation.' },
+  Fi: { label:'Introverted Feeling', color:'#ff66aa', icon:'♥',
+    desc:'Internal values · authenticity · felt rightness · identity',
+    domain:'Affective', loop:'processing',
+    trainPrompt:'Does this align with who I actually am? What does my core say?',
+    feedback:'Is this my value or an inherited one?',
+    experiment:'List 5 things you believe are wrong. Why? Where did each one come from?' },
+  Fe: { label:'Extraverted Feeling', color:'#11ddcc', icon:'⬡',
+    desc:'Relational attunement · group harmony · others\' emotional state',
+    domain:'Relational', loop:'processing',
+    trainPrompt:'What is the emotional field in this room/relationship?',
+    feedback:'Did attending to their needs help or compromise my own clarity?',
+    experiment:'In next conversation: say nothing for first 2 min. Just read the field.' },
+};
+
+// ── 8 Human System Models ────────────────────────────────────────
+const HUMAN_MODELS = {
+  biological: {
+    label:'Biological', icon:'⬡', color:'#22ddaa',
+    subtitle:'The Hardware',
+    source:'Neuroscience + Biology',
+    core:'Behavior = output of physical processes. If this layer is off, everything else distorts.',
+    tracks:['Sleep quality','Stress level','Nervous system state','Hormonal signals','Energy level'],
+    bridge:'Maps to Polyvagal states. Body data gates cognitive function availability.',
+    loopType:'input',
+  },
+  cognitive: {
+    label:'Cognitive', icon:'◈', color:'#00c8ff',
+    subtitle:'The Processor',
+    source:'Cognitive Psychology',
+    core:'The mind interprets reality — it doesn\'t mirror it.',
+    tracks:['Dominant function active','Cognitive biases active','Processing mode','Clarity level','Mental load'],
+    bridge:'Cognitive functions (Ni/Ne/Ti/Te/Si/Se/Fi/Fe) are the processing architecture.',
+    loopType:'processing',
+  },
+  affective: {
+    label:'Affective', icon:'♥', color:'#ff66aa',
+    subtitle:'The Value Engine',
+    source:'Affective Neuroscience',
+    core:'You don\'t act on logic — you act on what feels meaningful.',
+    tracks:['Current emotion (named)','Motivation source','Meaning level','Emotional blocks','Affect-action bridge'],
+    bridge:'Emotions are information about value alignment, not noise to suppress.',
+    loopType:'processing',
+  },
+  behavioral: {
+    label:'Behavioral', icon:'→', color:'#ff8c22',
+    subtitle:'The Observable Output',
+    source:'Behaviorism + Habit Science',
+    core:'What you repeatedly do becomes what you are.',
+    tracks:['Active habits','Conditioning patterns','Behavioral anchors','Pattern clusters','Output consistency'],
+    bridge:'The behavioral layer is the visible output of all other layers combined.',
+    loopType:'output',
+  },
+  relational: {
+    label:'Relational', icon:'⬡', color:'#ff8c22',
+    subtitle:'The Social System',
+    source:'Attachment Theory',
+    core:'You are shaped in relationship, not isolation.',
+    tracks:['Attachment orientation','Co-regulation state','Communication patterns','Relational needs','Connection quality'],
+    bridge:'Co-regulation changes nervous system state, which changes cognitive availability.',
+    loopType:'input',
+  },
+  systems: {
+    label:'Systems', icon:'∿', color:'#11ddcc',
+    subtitle:'The Meta-Layer',
+    source:'Systems Theory',
+    core:'Patterns repeat because structures produce them.',
+    tracks:['Active feedback loops','Leverage points','Structural patterns','Adaptation speed','Emergent behaviors'],
+    bridge:'Systems view reveals why individual effort fails against structural forces.',
+    loopType:'meta',
+  },
+  phenomenological: {
+    label:'Phenomenological', icon:'◎', color:'#cc44ff',
+    subtitle:'The Lived Experience',
+    source:'Phenomenology',
+    core:'Reality is filtered through experience, not just facts.',
+    tracks:['Inner narrative','Meaning perception','Lived texture','Attention quality','Presence depth'],
+    bridge:'The bridge between cognitive and experiential: "opening your chakras" = increasing body awareness + reducing internal resistance + attention shifting mind→body.',
+    loopType:'meta',
+  },
+  developmental: {
+    label:'Developmental', icon:'▲', color:'#cc44ff',
+    subtitle:'Change Over Time',
+    source:'Developmental Psychology',
+    core:'You are not static — you are a trajectory.',
+    tracks:['Current developmental theme','Growth edge','Historical pattern','Trajectory direction','Integration level'],
+    bridge:'Connects to Horizon module. Where are you in the arc?',
+    loopType:'output',
+  },
+};
+
+// ── ALM State ─────────────────────────────────────────────────────
+const ALM_STATE = {
+  _loaded: false,
+  activeTab: 'functions',      // 'functions' | 'models' | 'log' | 'frameworks' | 'experiment'
+  activeFunction: 'Ni',        // selected cognitive function
+  activeModel: 'cognitive',    // selected human model
+
+  // Function training log: { fnKey, note, quality, ts }
+  functionLog: [],
+
+  // Model observations: { modelKey, field, value, ts }
+  modelLog: [],
+
+  // Experiment sessions: { id, fnKey, prompt, observation, ts }
+  experiments: [],
+
+  // Heuristics (named, personal rules of thumb)
+  heuristics: [],
+  // { id, text, domain, reliability, tags[], ts }
+
+  // Frameworks user is working with
+  frameworks: [],
+  // { id, name, description, source, tags[], ts }
+
+  // Externalized thought stream
+  externalizations: [],
+  // { id, text, type:'question'|'observation'|'hypothesis'|'pattern', fnKey, ts }
+};
+const ALM_STATE_KEY = 'mm_alm_state_v2';
+
+function almLoad() {
+  try {
+    const raw = localStorage.getItem(ALM_STATE_KEY);
+    if (raw) Object.assign(ALM_STATE, JSON.parse(raw));
+    ALM_STATE._loaded = true;
+  } catch(e) {}
+  ALM_STATE._loaded = true;
+}
+
+function almSave() {
+  try {
+    const { _loaded, ...data } = ALM_STATE;
+    localStorage.setItem(ALM_STATE_KEY, JSON.stringify(data));
+  } catch(e) {}
+  if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
+}
+
+// ── Open / close ──────────────────────────────────────────────────
 function openALM() {
   if (!_assertAuth()) return;
   if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'alm' });
+  if (!ALM_STATE._loaded) almLoad();
+
   let overlay = document.getElementById('mm-alm-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'mm-alm-overlay';
     overlay.style.cssText = [
       'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800',
-      'background:rgba(0,0,0,.97);backdrop-filter:blur(6px)',
-      'display:flex;flex-direction:column',
+      'background:rgba(0,2,6,.98);backdrop-filter:blur(8px)',
+      'display:flex;flex-direction:column;overflow:hidden',
     ].join(';');
-    overlay.innerHTML = `
-      <div style="display:flex;align-items:center;gap:16px;padding:14px 22px;
-        border-bottom:1px solid rgba(0,255,136,.2);background:rgba(0,255,136,.03);flex-shrink:0">
-        <div>
-          <div style="font-family:var(--f-display);font-size:14px;font-weight:800;letter-spacing:6px;
-            color:#00ff88">ACCELERATED LEARNING MODULE</div>
-          <div style="font-family:var(--f-mono);font-size:7px;color:rgba(0,255,136,.5);
-            letter-spacing:2px;margin-top:3px">INTELLIGENCE · INTUITION · PATTERN RECOGNITION · DELTA TRACKING</div>
-        </div>
-        <div style="margin-left:auto;display:flex;gap:8px">
-          <button onclick="showModuleHelp('alm')" style="
-            font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;
-            padding:7px 14px;border:1px solid rgba(0,255,136,.3);color:#00ff88;
-            background:transparent;cursor:pointer;text-transform:uppercase">? HELP</button>
-          <button onclick="closeALM();CANVAS.goHome()" style="
-            font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;
-            padding:7px 14px;border:1px solid var(--wire2);color:var(--c);
-            background:transparent;cursor:pointer;text-transform:uppercase"
-            onmouseenter="this.style.color='#00c8ff'" onmouseleave="this.style.color='var(--c)'">⌂ HOME</button>
-          <button onclick="closeALM()" style="padding:7px 16px;
-            border:1px solid var(--wire2);background:transparent;color:var(--dim);
-            cursor:pointer;font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;
-            text-transform:uppercase;transition:all .18s"
-            onmouseenter="this.style.color='var(--r)'" onmouseleave="this.style.color=''">✕ CLOSE</button>
-        </div>
-      </div>
-      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
-        gap:1px;background:rgba(0,255,136,.08);overflow:hidden">
-
-        <!-- Intelligence Types -->
-        <div style="background:var(--void);padding:20px;overflow-y:auto">
-          <div style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:3px;
-            color:#00ff88;margin-bottom:14px">⬡ INTELLIGENCE TYPES</div>
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);margin-bottom:12px;line-height:1.8">
-            Rate each type to surface cross-domain synthesis and personalised learning paths.
-          </div>
-          <div id="alm-intel-panel" style="display:flex;flex-direction:column;gap:8px"></div>
-        </div>
-
-        <!-- Intuition Training -->
-        <div style="background:var(--void);padding:20px;overflow-y:auto">
-          <div style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:3px;
-            color:#00ff88;margin-bottom:14px">◉ INTUITION TYPES</div>
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);margin-bottom:12px;line-height:1.8">
-            Track and train each intuition channel. Intuition is pattern recognition below consciousness.
-          </div>
-          <div id="alm-intuition-panel" style="display:flex;flex-direction:column;gap:8px"></div>
-        </div>
-
-        <!-- Learning Log / Delta Tracking -->
-        <div style="background:var(--void);padding:20px;overflow-y:auto">
-          <div style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:3px;
-            color:#00ff88;margin-bottom:14px">Δ DELTA LOG</div>
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);margin-bottom:12px;line-height:1.8">
-            Log improvements between states. Track growth over time.
-          </div>
-          <div style="display:flex;gap:6px;margin-bottom:10px">
-            <input id="alm-delta-input" type="text" placeholder="What improved today..."
-              style="flex:1;background:var(--deep);border:1px solid var(--wire2);color:var(--white);
-                font-family:var(--f-mono);font-size:9px;padding:7px 10px;outline:none"
-              onfocus="this.style.borderColor='#00ff88'" onblur="this.style.borderColor=''"
-              onkeydown="if(event.key==='Enter')almLogDelta()">
-            <select id="alm-delta-type" style="background:var(--deep);border:1px solid var(--wire2);
-              color:var(--muted);font-family:var(--f-mono);font-size:8px;padding:6px 8px">
-              <option value="insight">Insight</option>
-              <option value="skill">Skill</option>
-              <option value="pattern">Pattern</option>
-              <option value="intuition">Intuition</option>
-              <option value="inner-work">Inner Work</option>
-              <option value="horizon">Horizon</option>
-            </select>
-            <button onclick="almLogDelta()" style="padding:7px 14px;border:1px solid #00ff8855;
-              color:#00ff88;background:transparent;cursor:pointer;font-family:var(--f-mono);
-              font-size:7px;text-transform:uppercase">+ LOG</button>
-          </div>
-          <div id="alm-delta-list" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto"></div>
-        </div>
-
-        <!-- Methods / Techniques -->
-        <div style="background:var(--void);padding:20px;overflow-y:auto">
-          <div style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:3px;
-            color:#00ff88;margin-bottom:14px">⊞ ACCELERATORS</div>
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);margin-bottom:12px;line-height:1.8">
-            Active methods for accelerating learning and integration.
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            ${[
-              ['Cognitive Piggybacking','Stack new learning onto existing strong patterns'],
-              ['Feedback Loop Design','Structure deliberate feedback into every practice session'],
-              ['Sleep Integration','Schedule review before sleep for memory consolidation'],
-              ['Spaced Repetition','Return to material at expanding intervals'],
-              ['Constraint-Driven Imagination','Simulate outcomes under specific constraints'],
-              ['Cross-Domain Transfer','Explicitly map how a skill from one domain applies to another'],
-              ['Open Loop Learning','Leave questions unresolved to drive subconscious processing'],
-              ['Embodied Integration','Anchor learning in physical sensation or movement'],
-            ].map(([name, desc]) => `
-              <div style="padding:9px 12px;border:1px solid var(--wire);border-left:2px solid #00ff88;
-                background:rgba(0,255,136,.03);cursor:pointer;transition:all .15s"
-                onmouseenter="this.style.borderColor='#00ff88'" onmouseleave="this.style.borderColor=''">
-                <div style="font-family:var(--f-display);font-size:9px;font-weight:700;
-                  color:#00ff88;letter-spacing:1px;margin-bottom:3px">${name}</div>
-                <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);line-height:1.6">${desc}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>
-    `;
     document.body.appendChild(overlay);
-    almRenderIntelPanel();
-    almRenderIntuitionPanel();
-    almRenderDeltaList();
   }
   overlay.style.display = 'flex';
-  mm_toast('ALM opened', 'info', {dur:1400});
+  _renderALM(overlay);
+  if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.5, window.innerHeight * 0.4, 0.85);
 }
 
 function closeALM() {
   const el = document.getElementById('mm-alm-overlay');
   if (el) el.style.display = 'none';
+  almSave();
 }
 
-function almRenderIntelPanel() {
-  const el = document.getElementById('alm-intel-panel'); if (!el) return;
-  const types = typeof MM_INTEL_TAGS !== 'undefined' ? MM_INTEL_TAGS
-    : (typeof INTELLIGENCE_TYPES !== 'undefined' ? INTELLIGENCE_TYPES : {});
-  el.innerHTML = Object.entries(types).map(([key, def]) => {
-    const score = (DOMAIN_STATE?.intelligenceRatings || {})[key] || 0;
-    const label = def.label || def.shortLabel || key;
-    const color = def.color || '#00ff88';
-    return `
-      <div style="padding:7px 0;border-bottom:1px solid rgba(24,40,64,.4)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-size:10px;color:${color}">${def.icon || '◈'}</span>
-          <span style="font-family:var(--f-body);font-size:9px;color:var(--bright);flex:1">${label}</span>
-          <span style="font-family:var(--f-mono);font-size:8px;color:${color};min-width:28px;text-align:right" id="alm-iv-${key}">${score}</span>
-        </div>
-        <div style="height:3px;background:var(--wire);overflow:hidden;margin-bottom:4px">
-          <div id="alm-ib-${key}" style="height:100%;width:${score}%;background:${color};transition:width .3s"></div>
-        </div>
-        <input type="range" min="0" max="100" value="${score}"
-          oninput="almSetIntel('${key}',+this.value)"
-          style="width:100%;height:3px;cursor:pointer;accent-color:${color};appearance:none;background:transparent">
-        <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);margin-top:2px">${def.desc || ''}</div>
-      </div>`;
-  }).join('');
-}
+// ── Main render ───────────────────────────────────────────────────
+function _renderALM(overlay) {
+  overlay.innerHTML = '';
+  const C = '#00ff88';
 
-function almSetIntel(key, val) {
-  if (typeof DOMAIN_STATE !== 'undefined') DOMAIN_STATE.intelligenceRatings[key] = val;
-  const iv = document.getElementById('alm-iv-' + key);
-  const ib = document.getElementById('alm-ib-' + key);
-  if (iv) iv.textContent = val;
-  if (ib) ib.style.width = val + '%';
-  if (typeof bmv2Save === 'function') bmv2Save();
-  if (typeof domainStateSave === 'function') domainStateSave();
-}
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'display:flex;align-items:center;gap:14px;padding:11px 22px',
+    'border-bottom:1px solid rgba(0,255,136,.18)',
+    'background:rgba(0,255,136,.03);flex-shrink:0',
+  ].join(';');
+  hdr.innerHTML = `
+    <span style="font-size:18px;filter:drop-shadow(0 0 10px #00ff88)">∞</span>
+    <div>
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:5px;color:#00ff88">ALM</div>
+      <div style="font-family:var(--f-mono);font-size:7px;
+        color:rgba(0,255,136,.45);letter-spacing:2px;margin-top:1px">
+        ACCELERATED LEARNING · COGNITIVE FUNCTIONS · HUMAN MODELS · FEEDBACK
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+      <button onclick="almExportToCanvas()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid rgba(0,255,136,.3);color:#00ff88;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(0,255,136,.1)'"
+        onmouseleave="this.style.background='transparent'">→ CANVAS</button>
+      <button onclick="closeALM();goHome()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
+    </div>
+  `;
+  overlay.appendChild(hdr);
 
-function almRenderIntuitionPanel() {
-  const el = document.getElementById('alm-intuition-panel'); if (!el) return;
-  const types = typeof MM_INTUITION_TAGS !== 'undefined' ? MM_INTUITION_TAGS : {};
-  const ratings = JSON.parse(localStorage.getItem('mm_intuition_ratings') || '{}');
-  el.innerHTML = Object.entries(types).map(([key, def]) => {
-    const score = ratings[key] || 0;
-    return `
-      <div style="padding:7px 0;border-bottom:1px solid rgba(24,40,64,.4)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-family:var(--f-body);font-size:9px;color:var(--bright);flex:1;text-transform:capitalize">${key.replace(/-/g,' ')}</span>
-          <span style="font-family:var(--f-mono);font-size:8px;color:${def.color};min-width:28px;text-align:right" id="alm-intuv-${key}">${score}</span>
-        </div>
-        <div style="height:3px;background:var(--wire);overflow:hidden;margin-bottom:4px">
-          <div id="alm-intub-${key}" style="height:100%;width:${score}%;background:${def.color};transition:width .3s"></div>
-        </div>
-        <input type="range" min="0" max="100" value="${score}"
-          oninput="almSetIntuition('${key}',+this.value)"
-          style="width:100%;height:3px;cursor:pointer;accent-color:${def.color};appearance:none;background:transparent">
-        <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);margin-top:2px">${def.desc || ''}</div>
-      </div>`;
-  }).join('');
-}
+  // Tab bar
+  const TABS = [
+    { id:'functions',    label:'COGNITIVE FUNCTIONS', icon:'◈' },
+    { id:'models',       label:'8 MODELS',            icon:'⬡' },
+    { id:'experiment',   label:'EXPERIMENT',          icon:'◎' },
+    { id:'externalize',  label:'EXTERNALIZE',         icon:'✦' },
+    { id:'heuristics',   label:'HEURISTICS',          icon:'◆' },
+    { id:'frameworks',   label:'FRAMEWORKS',          icon:'⊞' },
+    { id:'log',          label:'LOG',                 icon:'Δ' },
+  ];
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = [
+    'display:flex;gap:0;border-bottom:1px solid rgba(0,255,136,.1)',
+    'background:rgba(0,0,0,.4);flex-shrink:0;overflow-x:auto',
+  ].join(';');
+  TABS.forEach(tab => {
+    const btn = document.createElement('button');
+    const isActive = ALM_STATE.activeTab === tab.id;
+    btn.style.cssText = [
+      'padding:9px 16px;cursor:pointer;white-space:nowrap',
+      `font-family:var(--f-mono);font-size:7.5px;letter-spacing:1.5px`,
+      `border:none;border-bottom:2px solid ${isActive ? '#00ff88' : 'transparent'}`,
+      `color:${isActive ? '#00ff88' : 'var(--dim)'}`,
+      `background:${isActive ? 'rgba(0,255,136,.06)' : 'transparent'}`,
+      'transition:all .15s',
+    ].join(';');
+    btn.textContent = tab.icon + ' ' + tab.label;
+    btn.addEventListener('click', () => {
+      ALM_STATE.activeTab = tab.id;
+      _renderALM(overlay);
+    });
+    btn.addEventListener('mouseenter', () => { if (!isActive) { btn.style.color='var(--muted)'; btn.style.background='rgba(255,255,255,.03)'; } });
+    btn.addEventListener('mouseleave', () => { if (!isActive) { btn.style.color='var(--dim)'; btn.style.background='transparent'; } });
+    tabBar.appendChild(btn);
+  });
+  overlay.appendChild(tabBar);
 
-function almSetIntuition(key, val) {
-  const ratings = JSON.parse(localStorage.getItem('mm_intuition_ratings') || '{}');
-  ratings[key] = val;
-  localStorage.setItem('mm_intuition_ratings', JSON.stringify(ratings));
-  const iv = document.getElementById('alm-intuv-' + key);
-  const ib = document.getElementById('alm-intub-' + key);
-  if (iv) iv.textContent = val;
-  if (ib) ib.style.width = val + '%';
-}
+  // Content area
+  const content = document.createElement('div');
+  content.style.cssText = 'flex:1;overflow:hidden;display:flex';
+  overlay.appendChild(content);
 
-const ALM_DELTAS_KEY = 'mm_alm_deltas';
-
-function almLogDelta() {
-  const input = document.getElementById('alm-delta-input');
-  const typeEl = document.getElementById('alm-delta-type');
-  const text = input?.value.trim();
-  const type = typeEl?.value || 'insight';
-  if (!text) return;
-  const deltas = JSON.parse(localStorage.getItem(ALM_DELTAS_KEY) || '[]');
-  const entry = {
-    id: typeof uuid === 'function' ? uuid() : Date.now().toString(36),
-    text, type, ts: Date.now(),
-  };
-  deltas.unshift(entry);
-  if (deltas.length > 500) deltas.splice(500);
-  localStorage.setItem(ALM_DELTAS_KEY, JSON.stringify(deltas));
-  if (input) input.value = '';
-  almRenderDeltaList();
-  if (typeof MMDelta !== 'undefined' && entry.id) {
-    const regId = MMRegistry?.register?.('alm_delta', { module:'alm', label:text, meta:{type} }) || entry.id;
-    MMDelta.push(regId, 'alm_delta_log', null, {text, type}, {module:'alm'});
+  switch (ALM_STATE.activeTab) {
+    case 'functions':   _almTabFunctions(content);   break;
+    case 'models':      _almTabModels(content);      break;
+    case 'experiment':  _almTabExperiment(content);  break;
+    case 'externalize': _almTabExternalize(content); break;
+    case 'heuristics':  _almTabHeuristics(content);  break;
+    case 'frameworks':  _almTabFrameworks(content);  break;
+    case 'log':         _almTabLog(content);         break;
   }
-  mm_toast('Delta logged: ' + text.slice(0,30), 'success', {dur:1800});
 }
 
-function almRenderDeltaList() {
-  const el = document.getElementById('alm-delta-list'); if (!el) return;
-  const deltas = JSON.parse(localStorage.getItem(ALM_DELTAS_KEY) || '[]');
-  const typeColors = {
-    insight:'#ff8c22', skill:'#00c8ff', pattern:'#cc44ff',
-    intuition:'#ff66aa', 'inner-work':'#7744ff', horizon:'#d4a820'
-  };
-  el.innerHTML = deltas.slice(0,50).map(d => {
-    const col = typeColors[d.type] || '#00ff88';
-    const dt = d.ts ? new Date(d.ts).toLocaleDateString() : '';
-    return `<div style="padding:7px 10px;border:1px solid var(--wire);border-left:2px solid ${col};
-      background:rgba(0,0,0,.2);display:flex;align-items:center;gap:8px">
-      <span style="font-family:var(--f-mono);font-size:6px;padding:1px 5px;
-        border:1px solid ${col}44;color:${col};text-transform:uppercase;flex-shrink:0">${d.type}</span>
-      <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);flex:1">${escH?.(d.text)||d.text}</span>
-      <span style="font-family:var(--f-mono);font-size:6px;color:var(--dim);flex-shrink:0">${dt}</span>
-    </div>`;
-  }).join('') || '<div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);padding:12px;text-align:center">No deltas yet — log your first improvement above</div>';
+// ── TAB: Cognitive Functions ──────────────────────────────────────
+function _almTabFunctions(container) {
+  container.style.flexDirection = 'row';
+
+  // Left: function list
+  const left = document.createElement('div');
+  left.style.cssText = [
+    'width:220px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
+    'overflow-y:auto;padding:14px 0',
+  ].join(';');
+
+  // Loop type legend
+  left.innerHTML = `
+    <div style="padding:0 14px 12px;border-bottom:1px solid rgba(0,255,136,.08);margin-bottom:10px">
+      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:6px">INPUT → PROCESSING → OUTPUT</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${['input','processing','output','meta'].map(t => {
+          const c = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[t];
+          return `<span style="font-family:var(--f-mono);font-size:7px;color:${c};
+            border:1px solid ${c}44;padding:2px 6px">${t}</span>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  Object.entries(COGNITIVE_FUNCTIONS).forEach(([key, fn]) => {
+    const isActive = ALM_STATE.activeFunction === key;
+    const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[fn.loop];
+    const log = ALM_STATE.functionLog.filter(l => l.fnKey === key);
+    const avgQ = log.length ? (log.slice(-5).reduce((s,l)=>s+(l.quality||0),0)/Math.min(5,log.length)).toFixed(1) : '—';
+
+    const row = document.createElement('div');
+    row.style.cssText = [
+      'padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:9px',
+      `border-left:3px solid ${isActive ? fn.color : 'transparent'}`,
+      `background:${isActive ? fn.color+'10' : 'transparent'}`,
+      'transition:all .12s',
+    ].join(';');
+    row.innerHTML = `
+      <span style="font-size:14px;color:${fn.color};flex-shrink:0">${fn.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--f-display);font-size:9px;font-weight:700;
+          color:${isActive ? fn.color : 'var(--bright)'}">${key}</div>
+        <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fn.label}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+        <span style="font-family:var(--f-mono);font-size:6.5px;color:${loopColor};
+          border:1px solid ${loopColor}44;padding:1px 4px">${fn.loop}</span>
+        ${log.length ? `<span style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim)">${log.length}×</span>` : ''}
+      </div>
+    `;
+    row.addEventListener('click', () => { ALM_STATE.activeFunction = key; _almTabFunctions(container.parentElement.querySelector('div[style*="overflow:hidden"]') || container); });
+    row.addEventListener('mouseenter', () => { if (!isActive) row.style.background = fn.color+'08'; });
+    row.addEventListener('mouseleave', () => { if (!isActive) row.style.background = 'transparent'; });
+    left.appendChild(row);
+  });
+  container.appendChild(left);
+
+  // Right: function detail
+  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
+  if (!fn) return;
+  const right = document.createElement('div');
+  right.style.cssText = 'flex:1;overflow-y:auto;padding:24px 30px;display:flex;flex-direction:column;gap:22px';
+
+  const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[fn.loop];
+  const log = ALM_STATE.functionLog.filter(l => l.fnKey === ALM_STATE.activeFunction);
+  const recent = [...log].sort((a,b) => b.ts - a.ts).slice(0, 8);
+
+  // Header
+  right.innerHTML = `
+    <div>
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px">
+        <span style="font-family:var(--f-display);font-size:32px;font-weight:900;
+          color:${fn.color};letter-spacing:4px">${ALM_STATE.activeFunction}</span>
+        <span style="font-family:var(--f-mono);font-size:10px;color:${loopColor};
+          border:1px solid ${loopColor}44;padding:3px 9px">${fn.loop.toUpperCase()}</span>
+      </div>
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:700;
+        letter-spacing:2px;color:var(--bright);margin-bottom:6px">${fn.label}</div>
+      <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);line-height:1.8">
+        ${fn.desc}</div>
+    </div>
+
+    <!-- Feedback loop diagram for this function -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${['INPUT','PROCESSING','OUTPUT'].map(stage => {
+        const isActive = (stage==='INPUT'&&fn.loop==='input')||(stage==='PROCESSING'&&fn.loop==='processing')||(stage==='OUTPUT'&&fn.loop==='output');
+        return `<div style="padding:12px;text-align:center;
+          border:1px solid ${isActive ? fn.color+'66' : 'rgba(255,255,255,.06)'};
+          background:${isActive ? fn.color+'0d' : 'transparent'}">
+          <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:2px;
+            color:${isActive ? fn.color : 'var(--dim)'}">${stage}</div>
+          ${isActive ? `<div style="font-family:var(--f-mono);font-size:7px;
+            color:var(--muted);margin-top:4px;line-height:1.5">${ALM_STATE.activeFunction}</div>` : ''}
+        </div>`;
+      }).join(`<div style="display:flex;align-items:center;justify-content:center;
+        color:var(--dim);font-size:14px">→</div>`)}
+    </div>
+
+    <!-- Train prompt + experiment -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="padding:14px;background:${fn.color}08;border:1px solid ${fn.color}22">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:${fn.color};margin-bottom:8px">ACTIVATION PROMPT</div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+          line-height:1.7;font-style:italic">"${fn.trainPrompt}"</div>
+      </div>
+      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:8px">FEEDBACK SIGNAL</div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+          line-height:1.7">${fn.feedback}</div>
+      </div>
+    </div>
+
+    <!-- Quick log -->
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">LOG OBSERVATION</div>
+      <textarea id="alm-fn-note" placeholder="What did you notice when using ${ALM_STATE.activeFunction}?
+Quality of the signal? What triggered it? What came out?" style="
+        width:100%;box-sizing:border-box;height:72px;resize:none;
+        font-family:var(--f-mono);font-size:8px;color:var(--bright);
+        background:rgba(0,0,0,.4);border:1px solid rgba(0,255,136,.2);
+        padding:9px;line-height:1.6;outline:none"
+        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+        onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <div style="display:flex;gap:4px;align-items:center">
+          <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">quality</span>
+          ${[1,2,3,4,5].map(n => `<button id="alm-fn-q-${n}" onclick="almFnSetQuality(${n})" style="
+            width:24px;height:24px;cursor:pointer;border:1px solid rgba(0,255,136,.2);
+            background:transparent;color:var(--wire2);font-family:var(--f-mono);
+            font-size:9px;transition:all .1s"
+            onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+            onmouseleave="almFnQualityHover(${n})">${n}</button>`).join('')}
+        </div>
+        <button onclick="almLogFunction()" style="
+          margin-left:auto;padding:8px 18px;border:1px solid rgba(0,255,136,.4);
+          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
+          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG</button>
+        <button onclick="almRunExperiment('${ALM_STATE.activeFunction}')" style="
+          padding:8px 18px;border:1px solid rgba(204,68,255,.35);
+          color:#cc44ff;background:transparent;cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(204,68,255,.1)'"
+          onmouseleave="this.style.background='transparent'">◎ EXPERIMENT</button>
+      </div>
+    </div>
+
+    <!-- Recent log -->
+    ${recent.length ? `
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">RECENT OBSERVATIONS</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${recent.map(l => {
+          const qc = ['','#ff3355','#ff8c22','#ffe04a','#00c8ff','#00ff88'][l.quality||0] || 'var(--dim)';
+          return `<div style="padding:8px 12px;background:rgba(0,0,0,.3);
+            border-left:2px solid ${fn.color}44;display:flex;gap:10px">
+            <span style="font-family:var(--f-mono);font-size:9px;color:${qc};
+              flex-shrink:0">Q${l.quality||'?'}</span>
+            <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+              flex:1;line-height:1.5">${escH(l.note)}</span>
+            <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
+              flex-shrink:0">${_almTimeAgo(l.ts)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+  `;
+  container.appendChild(right);
+  // Init quality selection
+  window._almFnQuality = window._almFnQuality || 3;
+  almFnSetQuality(window._almFnQuality);
 }
+
+let _almFnQuality = 3;
+function almFnSetQuality(n) {
+  _almFnQuality = n;
+  [1,2,3,4,5].forEach(i => {
+    const btn = document.getElementById('alm-fn-q-' + i);
+    if (!btn) return;
+    const active = i <= n;
+    btn.style.background = active ? 'rgba(0,255,136,.2)' : 'transparent';
+    btn.style.color = active ? '#00ff88' : 'var(--wire2)';
+    btn.style.borderColor = active ? 'rgba(0,255,136,.5)' : 'rgba(0,255,136,.2)';
+  });
+}
+function almFnQualityHover(n) { almFnSetQuality(_almFnQuality); }
+
+function almLogFunction() {
+  const note = document.getElementById('alm-fn-note')?.value?.trim();
+  if (!note) { mm_toast('Add an observation first', 'warn'); return; }
+  ALM_STATE.functionLog.push({
+    fnKey: ALM_STATE.activeFunction,
+    note, quality: _almFnQuality,
+    ts: Date.now(),
+  });
+  almSave();
+  mm_toast('Logged ' + ALM_STATE.activeFunction, 'success', { dur: 1600 });
+  const ta = document.getElementById('alm-fn-note');
+  if (ta) ta.value = '';
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+// ── TAB: 8 Human Models ───────────────────────────────────────────
+function _almTabModels(container) {
+  container.style.flexDirection = 'row';
+
+  // Left: model list
+  const left = document.createElement('div');
+  left.style.cssText = [
+    'width:200px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
+    'overflow-y:auto;padding:12px 0',
+  ].join(';');
+
+  // Loop type header
+  left.innerHTML = `
+    <div style="padding:6px 14px 10px;border-bottom:1px solid rgba(0,255,136,.06);
+      margin-bottom:8px;font-family:var(--f-mono);font-size:7px;color:var(--dim)">
+      INPUT → PROCESSING → OUTPUT → META
+    </div>
+  `;
+
+  Object.entries(HUMAN_MODELS).forEach(([key, model]) => {
+    const isActive = ALM_STATE.activeModel === key;
+    const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[model.loopType];
+    const obs = ALM_STATE.modelLog.filter(l => l.modelKey === key).length;
+
+    const row = document.createElement('div');
+    row.style.cssText = [
+      'padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px',
+      `border-left:3px solid ${isActive ? model.color : 'transparent'}`,
+      `background:${isActive ? model.color+'0d' : 'transparent'}`,
+      'transition:all .12s',
+    ].join(';');
+    row.innerHTML = `
+      <span style="font-size:13px;color:${model.color};flex-shrink:0">${model.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--f-display);font-size:8.5px;font-weight:700;
+          color:${isActive ? model.color : 'var(--bright)'}">${model.label}</div>
+        <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim)">${model.subtitle}</div>
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+        <span style="font-family:var(--f-mono);font-size:6px;color:${loopColor};
+          border:1px solid ${loopColor}33;padding:1px 3px">${model.loopType}</span>
+        ${obs ? `<span style="font-family:var(--f-mono);font-size:6px;color:var(--dim)">${obs}×</span>` : ''}
+      </div>
+    `;
+    row.addEventListener('click', () => { ALM_STATE.activeModel = key; _almTabModels(container.parentElement.querySelector('div[style*="overflow:hidden"]') || container); });
+    row.addEventListener('mouseenter', () => { if (!isActive) row.style.background = model.color+'08'; });
+    row.addEventListener('mouseleave', () => { if (!isActive) row.style.background = 'transparent'; });
+    left.appendChild(row);
+  });
+  container.appendChild(left);
+
+  // Right: model detail
+  const model = HUMAN_MODELS[ALM_STATE.activeModel];
+  if (!model) return;
+  const right = document.createElement('div');
+  right.style.cssText = 'flex:1;overflow-y:auto;padding:24px 30px;display:flex;flex-direction:column;gap:20px';
+  const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[model.loopType];
+  const obs = ALM_STATE.modelLog.filter(l => l.modelKey === ALM_STATE.activeModel);
+  const recent = [...obs].sort((a,b) => b.ts-a.ts).slice(0,6);
+
+  right.innerHTML = `
+    <div>
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px">
+        <span style="font-size:28px;color:${model.color}">${model.icon}</span>
+        <span style="font-family:var(--f-display);font-size:18px;font-weight:800;
+          letter-spacing:3px;color:${model.color}">${model.label.toUpperCase()}</span>
+        <span style="font-family:var(--f-mono);font-size:8px;color:${loopColor};
+          border:1px solid ${loopColor}44;padding:2px 8px">${model.loopType}</span>
+      </div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+        letter-spacing:1px;margin-bottom:10px">${model.source}</div>
+      <div style="font-family:var(--f-mono);font-size:10px;color:var(--bright);
+        line-height:1.7;border-left:3px solid ${model.color};padding-left:14px;
+        font-style:italic">"${model.core}"</div>
+    </div>
+
+    <!-- What this model tracks -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="padding:14px;background:${model.color}08;border:1px solid ${model.color}22">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:${model.color};margin-bottom:9px">WHAT TO TRACK</div>
+        ${model.tracks.map(t => `
+          <div style="display:flex;align-items:center;gap:7px;padding:4px 0;
+            border-bottom:1px solid ${model.color}18">
+            <div style="width:5px;height:5px;border-radius:50%;
+              background:${model.color};flex-shrink:0"></div>
+            <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted)">${t}</div>
+          </div>`).join('')}
+      </div>
+      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:9px">BRIDGE TO OTHER MODELS</div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+          line-height:1.8">${model.bridge}</div>
+      </div>
+    </div>
+
+    <!-- Quick observation log -->
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">LOG OBSERVATION</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
+        ${model.tracks.map(t => `
+          <button onclick="almModelFieldPrompt('${t.replace(/'/g,"\'")}')" style="
+            padding:4px 9px;cursor:pointer;border:1px solid ${model.color}33;
+            color:${model.color};background:transparent;font-family:var(--f-mono);
+            font-size:7px;transition:all .12s"
+            onmouseenter="this.style.background='${model.color}11'"
+            onmouseleave="this.style.background='transparent'">${t}</button>
+        `).join('')}
+      </div>
+      <textarea id="alm-model-obs" placeholder="What are you noticing in the ${model.label} layer right now?" style="
+        width:100%;box-sizing:border-box;height:60px;resize:none;
+        font-family:var(--f-mono);font-size:8px;color:var(--bright);
+        background:rgba(0,0,0,.4);border:1px solid ${model.color}22;
+        padding:8px;line-height:1.6;outline:none"
+        onfocus="this.style.borderColor='${model.color}55'"
+        onblur="this.style.borderColor='${model.color}22'"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:7px">
+        <button onclick="almLogModel()" style="
+          padding:7px 18px;border:1px solid rgba(0,255,136,.35);
+          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
+          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG</button>
+        <button onclick="almModelToCanvas('${ALM_STATE.activeModel}')" style="
+          padding:7px 14px;border:1px solid rgba(255,255,255,.1);
+          color:var(--dim);background:transparent;cursor:pointer;
+          font-family:var(--f-mono);font-size:8px"
+          onmouseenter="this.style.background='rgba(255,255,255,.05)'"
+          onmouseleave="this.style.background='transparent'">→ CANVAS</button>
+      </div>
+    </div>
+
+    <!-- Recent observations -->
+    ${recent.length ? `
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">RECENT OBSERVATIONS</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${recent.map(l => `
+          <div style="padding:8px 12px;background:rgba(0,0,0,.3);
+            border-left:2px solid ${model.color}44;display:flex;gap:10px;align-items:flex-start">
+            ${l.field ? `<span style="font-family:var(--f-mono);font-size:7px;
+              color:${model.color};flex-shrink:0;padding:1px 6px;
+              border:1px solid ${model.color}33">${escH(l.field)}</span>` : ''}
+            <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+              flex:1;line-height:1.5">${escH(l.value)}</span>
+            <span style="font-family:var(--f-mono);font-size:7px;
+              color:var(--wire2);flex-shrink:0">${_almTimeAgo(l.ts)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+  `;
+  container.appendChild(right);
+}
+
+function almModelFieldPrompt(field) {
+  const ta = document.getElementById('alm-model-obs');
+  if (ta) { ta.placeholder = field + ': '; ta.focus(); }
+  window._almModelField = field;
+}
+
+function almLogModel() {
+  const val = document.getElementById('alm-model-obs')?.value?.trim();
+  if (!val) { mm_toast('Add an observation', 'warn'); return; }
+  ALM_STATE.modelLog.push({
+    modelKey: ALM_STATE.activeModel,
+    field: window._almModelField || null,
+    value: val,
+    ts: Date.now(),
+  });
+  window._almModelField = null;
+  almSave();
+  mm_toast('Observation logged', 'success', { dur: 1500 });
+  document.getElementById('alm-model-obs').value = '';
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+// ── TAB: Experiment ───────────────────────────────────────────────
+function _almTabExperiment(container) {
+  container.style.flexDirection = 'column';
+  container.style.overflowY = 'auto';
+  container.style.padding = '24px 30px';
+  container.style.gap = '22px';
+
+  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
+
+  container.innerHTML = `
+    <div>
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:4px">EXPERIMENT</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+        Deliberately use a function. Record what happens.
+        The loop: trigger → observe → log → adjust → repeat.
+      </div>
+    </div>
+
+    <!-- Function selector for experiment -->
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:9px">SELECT FUNCTION TO EXPERIMENT WITH</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+        ${Object.entries(COGNITIVE_FUNCTIONS).map(([key, f]) => `
+          <button onclick="almSelectExperimentFn('${key}')" style="
+            padding:7px 13px;cursor:pointer;
+            border:1px solid ${ALM_STATE.activeFunction===key ? f.color : f.color+'44'};
+            background:${ALM_STATE.activeFunction===key ? f.color+'15' : 'transparent'};
+            color:${f.color};font-family:var(--f-display);font-size:8.5px;
+            font-weight:700;transition:all .12s"
+            onmouseenter="this.style.background='${f.color}10'"
+            onmouseleave="this.style.background='${ALM_STATE.activeFunction===key ? f.color+'15' : 'transparent'}'"
+          >${f.icon} ${key}</button>
+        `).join('')}
+      </div>
+      ${fn ? `
+        <div style="padding:14px;background:${fn.color}08;border:1px solid ${fn.color}22">
+          <div style="font-family:var(--f-mono);font-size:7.5px;color:${fn.color};
+            letter-spacing:1.5px;margin-bottom:8px">EXPERIMENT PROTOCOL</div>
+          <div style="font-family:var(--f-mono);font-size:9px;color:var(--bright);
+            line-height:1.8;margin-bottom:8px">${fn.experiment}</div>
+          <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+            font-style:italic">${fn.feedback}</div>
+        </div>` : ''}
+    </div>
+
+    <!-- Log experiment result -->
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:9px">WHAT HAPPENED?</div>
+      <textarea id="alm-exp-obs" placeholder="What did you notice?
+Did the function activate cleanly or with resistance?
+What was the quality of the output?
+What surprised you?" style="
+        width:100%;box-sizing:border-box;height:90px;resize:none;
+        font-family:var(--f-mono);font-size:8px;color:var(--bright);
+        background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.2);
+        padding:10px;line-height:1.7;outline:none"
+        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+        onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+        <button onclick="almLogExperiment()" style="
+          padding:8px 20px;border:1px solid rgba(0,255,136,.4);
+          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
+          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG EXPERIMENT</button>
+      </div>
+    </div>
+
+    <!-- Past experiments -->
+    ${ALM_STATE.experiments.length ? `
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">EXPERIMENT LOG (${ALM_STATE.experiments.length})</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${[...ALM_STATE.experiments].reverse().slice(0,10).map(e => {
+          const f = COGNITIVE_FUNCTIONS[e.fnKey];
+          return `<div style="padding:10px 14px;background:rgba(0,0,0,.35);
+            border-left:3px solid ${f?.color||'#00ff88'}44">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
+              <span style="font-family:var(--f-display);font-size:9px;font-weight:700;
+                color:${f?.color||'#00ff88'}">${e.fnKey}</span>
+              <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">
+                ${_almTimeAgo(e.ts)}</span>
+            </div>
+            <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+              line-height:1.6">${escH(e.observation)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function almSelectExperimentFn(key) {
+  ALM_STATE.activeFunction = key;
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almRunExperiment(fnKey) {
+  ALM_STATE.activeFunction = fnKey;
+  ALM_STATE.activeTab = 'experiment';
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almLogExperiment() {
+  const obs = document.getElementById('alm-exp-obs')?.value?.trim();
+  if (!obs) { mm_toast('Record your observation first', 'warn'); return; }
+  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
+  ALM_STATE.experiments.push({
+    id: uuid(), fnKey: ALM_STATE.activeFunction,
+    prompt: fn?.experiment || '',
+    observation: obs, ts: Date.now(),
+  });
+  almSave();
+  mm_toast('Experiment logged', 'success', { dur: 1800 });
+  document.getElementById('alm-exp-obs').value = '';
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+// ── TAB: Externalize ──────────────────────────────────────────────
+function _almTabExternalize(container) {
+  container.style.flexDirection = 'row';
+
+  // Left: input
+  const left = document.createElement('div');
+  left.style.cssText = [
+    'width:360px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
+    'padding:22px 20px;display:flex;flex-direction:column;gap:14px',
+  ].join(';');
+
+  left.innerHTML = `
+    <div>
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:5px">EXTERNALIZE THOUGHT</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+        Get it out of your head. The act of externalizing is processing.
+        Label the type to route it.
+      </div>
+    </div>
+    <textarea id="alm-ext-text" placeholder="What's in your head right now?
+A question you keep circling?
+A half-formed observation?
+A hypothesis that needs testing?
+A pattern you keep seeing?
+Anything — just get it out." style="
+      flex:1;resize:none;
+      font-family:var(--f-mono);font-size:9px;color:var(--bright);
+      background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.2);
+      padding:12px;line-height:1.8;outline:none;min-height:160px"
+      onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+      onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
+    <div>
+      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:7px">TYPE</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        ${['question','observation','hypothesis','pattern','friction','insight'].map(t => {
+          const tc = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
+                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'}[t];
+          return `<button id="alm-ext-type-${t}" onclick="almExtSelectType('${t}')" style="
+            padding:5px 11px;cursor:pointer;
+            border:1px solid ${tc}44;color:${tc};
+            background:transparent;font-family:var(--f-mono);
+            font-size:7.5px;transition:all .12s"
+            onmouseenter="this.style.background='${tc}11'"
+            onmouseleave="almExtTypeHover('${t}')">${t}</button>`;
+        }).join('')}
+      </div>
+      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:7px">WHICH FUNCTION IS ACTIVE?</div>
+      <select id="alm-ext-fn" style="
+        width:100%;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+        color:var(--muted);padding:7px 9px;font-family:var(--f-mono);
+        font-size:8px;margin-bottom:12px">
+        <option value="">— function (optional)</option>
+        ${Object.entries(COGNITIVE_FUNCTIONS).map(([k,f]) =>
+          `<option value="${k}">${k} — ${f.label}</option>`).join('')}
+      </select>
+      <button onclick="almExternalizeLog()" style="
+        width:100%;padding:10px;border:1px solid rgba(0,255,136,.4);
+        color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
+        font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px"
+        onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+        onmouseleave="this.style.background='rgba(0,255,136,.07)'">✦ EXTERNALIZE</button>
+    </div>
+  `;
+  container.appendChild(left);
+
+  // Right: stream
+  const right = document.createElement('div');
+  right.style.cssText = 'flex:1;overflow-y:auto;padding:22px 24px';
+  const stream = [...ALM_STATE.externalizations].reverse();
+  const typeColors = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
+                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'};
+
+  right.innerHTML = `
+    <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+      color:var(--dim);margin-bottom:14px">THOUGHT STREAM (${stream.length})</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${stream.slice(0,40).map(e => {
+        const col = typeColors[e.type] || '#00ff88';
+        const fn = e.fnKey ? COGNITIVE_FUNCTIONS[e.fnKey] : null;
+        return `<div style="padding:11px 14px;background:rgba(0,0,0,.35);
+          border-left:2px solid ${col};display:flex;gap:11px;align-items:flex-start">
+          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:72px">
+            <span style="font-family:var(--f-mono);font-size:7px;color:${col};
+              border:1px solid ${col}44;padding:1px 5px">${e.type}</span>
+            ${fn ? `<span style="font-family:var(--f-mono);font-size:7px;
+              color:${fn.color}">${e.fnKey}</span>` : ''}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+              line-height:1.7;word-break:break-word">${escH(e.text)}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
+              margin-top:4px">${_almTimeAgo(e.ts)}</div>
+          </div>
+          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px">
+            <button onclick="almExtToCanvas('${e.id}')" style="
+              padding:3px 7px;border:1px solid rgba(255,255,255,.1);
+              color:var(--dim);background:transparent;cursor:pointer;
+              font-family:var(--f-mono);font-size:7px">→</button>
+            <button onclick="almExtDelete('${e.id}')" style="
+              padding:3px 7px;border:none;background:none;cursor:pointer;
+              color:var(--wire2);font-size:11px"
+              onmouseenter="this.style.color='var(--r)'"
+              onmouseleave="this.style.color='var(--wire2)'">×</button>
+          </div>
+        </div>`;
+      }).join('')}
+      ${!stream.length ? `<div style="font-family:var(--f-mono);font-size:8px;
+        color:var(--dim);padding:20px 0;line-height:2">
+        Nothing externalized yet.<br>
+        <span style="color:var(--wire2)">The stream captures thinking-in-progress.<br>
+        Not for polished thoughts — for raw ones.</span>
+      </div>` : ''}
+    </div>
+  `;
+  container.appendChild(right);
+
+  // Init type selection
+  window._almExtType = window._almExtType || 'observation';
+  setTimeout(() => almExtSelectType(window._almExtType), 50);
+}
+
+let _almExtType = 'observation';
+function almExtSelectType(t) {
+  _almExtType = t;
+  const typeColors = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
+                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'};
+  ['question','observation','hypothesis','pattern','friction','insight'].forEach(type => {
+    const btn = document.getElementById('alm-ext-type-' + type);
+    if (!btn) return;
+    const col = typeColors[type];
+    const isActive = type === t;
+    btn.style.background = isActive ? col + '18' : 'transparent';
+    btn.style.borderColor = isActive ? col : col + '44';
+  });
+}
+function almExtTypeHover(t) { almExtSelectType(_almExtType); }
+
+function almExternalizeLog() {
+  const text = document.getElementById('alm-ext-text')?.value?.trim();
+  if (!text) { mm_toast('Write something first', 'warn'); return; }
+  const fnKey = document.getElementById('alm-ext-fn')?.value || null;
+  ALM_STATE.externalizations.push({
+    id: uuid(), text, type: _almExtType, fnKey: fnKey || null, ts: Date.now(),
+  });
+  almSave();
+  document.getElementById('alm-ext-text').value = '';
+  mm_toast('Externalized', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almExtToCanvas(id) {
+  const e = ALM_STATE.externalizations.find(x => x.id === id);
+  if (!e) return;
+  const fn = e.fnKey ? COGNITIVE_FUNCTIONS[e.fnKey] : null;
+  const typeMap = {question:'question',observation:'insight',
+                   hypothesis:'seed',pattern:'pattern',friction:'friction',insight:'insight'};
+  CANVAS.spawnNode(typeMap[e.type]||'concept', undefined, undefined, {
+    title: e.text.slice(0,60),
+    body: e.text.length > 60 ? e.text : '',
+    color: fn?.color,
+    tags: [e.type.toUpperCase(), ...(e.fnKey ? [e.fnKey] : [])],
+  });
+  mm_toast('→ canvas', 'export', { dur: 1200 });
+}
+
+function almExtDelete(id) {
+  ALM_STATE.externalizations = ALM_STATE.externalizations.filter(x => x.id !== id);
+  almSave();
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+// ── TAB: Heuristics ───────────────────────────────────────────────
+function _almTabHeuristics(container) {
+  container.style.flexDirection = 'column';
+  container.style.overflowY = 'auto';
+  container.style.padding = '24px 30px';
+  container.style.gap = '18px';
+  container.style.maxWidth = '820px';
+
+  const domainColors = {Cognition:'#00c8ff',Affective:'#ff66aa',Behavioral:'#ff8c22',
+    Relational:'#11ddcc',Systems:'#ffe04a',Meta:'#cc44ff'};
+
+  container.innerHTML = `
+    <div>
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:5px">HEURISTICS</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+        Named rules of thumb for your mind. A heuristic is a pattern you've earned through
+        experience, distilled into a form you can apply without re-deriving it every time.
+      </div>
+    </div>
+
+    <!-- Add heuristic -->
+    <div style="padding:16px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15)">
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:#00ff88;margin-bottom:10px">+ NEW HEURISTIC</div>
+      <input id="alm-h-text" placeholder="When X, do Y. / If I notice Z, it usually means... / My best work happens when..." style="
+        width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:9px;
+        color:var(--bright);background:rgba(0,0,0,.5);
+        border:1px solid rgba(0,255,136,.2);padding:9px 12px;outline:none;margin-bottom:8px"
+        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+        onblur="this.style.borderColor='rgba(0,255,136,.2)'"
+        onkeydown="if(event.key==='Enter')almAddHeuristic()"/>
+      <div style="display:flex;gap:8px">
+        <select id="alm-h-domain" style="
+          flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+          color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
+          <option value="">Domain (optional)</option>
+          ${Object.keys(domainColors).map(d => `<option value="${d}">${d}</option>`).join('')}
+        </select>
+        <select id="alm-h-rel" style="
+          flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+          color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
+          <option value="">Reliability</option>
+          <option value="high">High — trust by default</option>
+          <option value="medium">Medium — verify first</option>
+          <option value="low">Low — provisional</option>
+        </select>
+        <button onclick="almAddHeuristic()" style="
+          padding:7px 18px;border:1px solid rgba(0,255,136,.4);
+          color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+          onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ ADD</button>
+      </div>
+    </div>
+
+    <!-- Heuristics list -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${ALM_STATE.heuristics.length ? ALM_STATE.heuristics.map(h => {
+        const dc = domainColors[h.domain] || '#00ff88';
+        const rc = {high:'#00ff88',medium:'#ff8c22',low:'#ff3355'}[h.reliability] || 'var(--dim)';
+        return `<div style="padding:12px 16px;background:rgba(0,0,0,.35);
+          border:1px solid rgba(255,255,255,.06);border-left:3px solid ${dc};
+          display:flex;align-items:flex-start;gap:12px">
+          <div style="flex:1">
+            <div style="font-family:var(--f-mono);font-size:9.5px;color:var(--bright);
+              line-height:1.7;margin-bottom:6px">${escH(h.text)}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${h.domain ? `<span style="font-family:var(--f-mono);font-size:7px;
+                color:${dc};border:1px solid ${dc}44;padding:1px 6px">${h.domain}</span>` : ''}
+              ${h.reliability ? `<span style="font-family:var(--f-mono);font-size:7px;
+                color:${rc}">${h.reliability} reliability</span>` : ''}
+              <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2)">
+                ${_almTimeAgo(h.ts)}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button onclick="almHeuristicToCanvas('${h.id}')" style="
+              padding:4px 9px;border:1px solid rgba(255,255,255,.1);
+              color:var(--dim);background:transparent;cursor:pointer;
+              font-family:var(--f-mono);font-size:7px"
+              onmouseenter="this.style.color='var(--c)'"
+              onmouseleave="this.style.color='var(--dim)'">→</button>
+            <button onclick="almDeleteHeuristic('${h.id}')" style="
+              padding:4px 7px;border:none;background:none;cursor:pointer;
+              color:var(--wire2);font-size:12px"
+              onmouseenter="this.style.color='var(--r)'"
+              onmouseleave="this.style.color='var(--wire2)'">×</button>
+          </div>
+        </div>`;
+      }).join('') : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+        padding:20px 0;line-height:2">
+        No heuristics yet.<br>
+        <span style="color:var(--wire2)">A heuristic is experience distilled.
+        "When I'm tired, Ti gets unreliable."<br>
+        "My Ni converges fastest in the hour after waking."<br>
+        "When I feel friction, it's often Si flagging a pattern mismatch."</span>
+      </div>`}
+    </div>
+  `;
+}
+
+function almAddHeuristic() {
+  const text = document.getElementById('alm-h-text')?.value?.trim();
+  if (!text) { mm_toast('Write the heuristic', 'warn'); return; }
+  ALM_STATE.heuristics.push({
+    id: uuid(), text,
+    domain: document.getElementById('alm-h-domain')?.value || '',
+    reliability: document.getElementById('alm-h-rel')?.value || 'medium',
+    ts: Date.now(),
+  });
+  almSave();
+  document.getElementById('alm-h-text').value = '';
+  mm_toast('Heuristic added', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almDeleteHeuristic(id) {
+  ALM_STATE.heuristics = ALM_STATE.heuristics.filter(h => h.id !== id);
+  almSave();
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almHeuristicToCanvas(id) {
+  const h = ALM_STATE.heuristics.find(x => x.id === id);
+  if (!h) return;
+  CANVAS.spawnNode('heuristic', undefined, undefined, {
+    title: h.text.slice(0,60),
+    tags: ['HEURISTIC', ...(h.domain ? [h.domain.toUpperCase()] : [])],
+  });
+  mm_toast('Heuristic → canvas', 'export', { dur: 1200 });
+}
+
+// ── TAB: Frameworks ───────────────────────────────────────────────
+function _almTabFrameworks(container) {
+  container.style.flexDirection = 'column';
+  container.style.overflowY = 'auto';
+  container.style.padding = '24px 30px';
+  container.style.gap = '18px';
+
+  // Built-in framework suggestions
+  const SUGGESTED = [
+    { name:'Polyvagal Theory', source:'Stephen Porges', desc:'Three nervous system states shape all behavior and cognition.' },
+    { name:'IFS — Internal Family Systems', source:'Richard Schwartz', desc:'Parts, Self, managers, firefighters, exiles.' },
+    { name:'NVC — Nonviolent Communication', source:'Marshall Rosenberg', desc:'Observation → Feeling → Need → Request.' },
+    { name:'Cynefin', source:'Dave Snowden', desc:'Obvious, Complicated, Complex, Chaotic domains require different action.' },
+    { name:'Double-Loop Learning', source:'Argyris', desc:'Change not just behavior but the governing variables that produce behavior.' },
+    { name:'Theory of Constraints', source:'Eli Goldratt', desc:'Every system has one constraint. Find it. Exploit it. Subordinate everything else.' },
+    { name:'OODA Loop', source:'Boyd', desc:'Observe → Orient → Decide → Act. Speed through the loop wins.' },
+  ];
+
+  container.innerHTML = `
+    <div>
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:5px">FRAMEWORKS</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+        Mental structures you actively use. Not a library — an active toolkit.
+        Add frameworks you're working with. Tag how you're applying them.
+      </div>
+    </div>
+
+    <!-- Add custom -->
+    <div style="padding:14px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.12)">
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:#00ff88;margin-bottom:9px">+ ADD FRAMEWORK</div>
+      <div style="display:flex;gap:7px;margin-bottom:7px">
+        <input id="alm-fw-name" placeholder="Framework name…" style="
+          flex:2;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+          background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+          padding:7px 10px;outline:none"
+          onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+          onblur="this.style.borderColor='rgba(0,255,136,.2)'"/>
+        <input id="alm-fw-source" placeholder="Source / author" style="
+          flex:1;font-family:var(--f-mono);font-size:8px;color:var(--muted);
+          background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.15);
+          padding:7px 9px;outline:none"/>
+      </div>
+      <textarea id="alm-fw-desc" placeholder="What does this framework do? How are you using it?" style="
+        width:100%;box-sizing:border-box;height:52px;resize:none;
+        font-family:var(--f-mono);font-size:8px;color:var(--bright);
+        background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.15);
+        padding:7px;line-height:1.6;outline:none;margin-bottom:7px"></textarea>
+      <div style="text-align:right">
+        <button onclick="almAddFramework()" style="
+          padding:7px 18px;border:1px solid rgba(0,255,136,.4);
+          color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+          onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ ADD</button>
+      </div>
+    </div>
+
+    <!-- Active frameworks -->
+    ${ALM_STATE.frameworks.length ? `
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">ACTIVE (${ALM_STATE.frameworks.length})</div>
+      ${ALM_STATE.frameworks.map(f => `
+        <div style="padding:12px 16px;background:rgba(0,0,0,.35);
+          border:1px solid rgba(255,255,255,.06);margin-bottom:7px;
+          display:flex;align-items:flex-start;gap:11px">
+          <div style="flex:1">
+            <div style="font-family:var(--f-display);font-size:10px;font-weight:700;
+              letter-spacing:1px;color:#00ff88;margin-bottom:3px">${escH(f.name)}</div>
+            ${f.source ? `<div style="font-family:var(--f-mono);font-size:7px;
+              color:var(--dim);margin-bottom:5px">${escH(f.source)}</div>` : ''}
+            ${f.desc ? `<div style="font-family:var(--f-mono);font-size:8px;
+              color:var(--muted);line-height:1.6">${escH(f.desc)}</div>` : ''}
+          </div>
+          <button onclick="almDeleteFramework('${f.id}')" style="
+            padding:4px 7px;border:none;background:none;cursor:pointer;
+            color:var(--wire2);font-size:12px;flex-shrink:0"
+            onmouseenter="this.style.color='var(--r)'"
+            onmouseleave="this.style.color='var(--wire2)'">×</button>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Suggested -->
+    <div>
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:var(--dim);margin-bottom:10px">SUGGESTED FRAMEWORKS</div>
+      ${SUGGESTED.map(s => `
+        <div style="padding:10px 14px;background:transparent;
+          border:1px solid rgba(255,255,255,.05);margin-bottom:6px;
+          display:flex;align-items:flex-start;gap:11px">
+          <div style="flex:1">
+            <div style="font-family:var(--f-display);font-size:9px;font-weight:700;
+              color:var(--bright);margin-bottom:2px">${s.name}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
+              margin-bottom:4px">${s.source}</div>
+            <div style="font-family:var(--f-mono);font-size:8px;
+              color:var(--muted)">${s.desc}</div>
+          </div>
+          <button onclick="almAddSuggestedFramework('${s.name.replace(/'/g,"\'")}','${s.source.replace(/'/g,"\'")}','${s.desc.replace(/'/g,"\'")}')" style="
+            padding:5px 11px;border:1px solid rgba(0,255,136,.3);
+            color:#00ff88;background:transparent;cursor:pointer;
+            font-family:var(--f-mono);font-size:7.5px;flex-shrink:0"
+            onmouseenter="this.style.background='rgba(0,255,136,.08)'"
+            onmouseleave="this.style.background='transparent'">+ ADD</button>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+function almAddFramework() {
+  const name = document.getElementById('alm-fw-name')?.value?.trim();
+  if (!name) { mm_toast('Name required', 'warn'); return; }
+  ALM_STATE.frameworks.push({
+    id: uuid(), name,
+    source: document.getElementById('alm-fw-source')?.value?.trim() || '',
+    desc: document.getElementById('alm-fw-desc')?.value?.trim() || '',
+    ts: Date.now(),
+  });
+  almSave();
+  mm_toast('Framework added', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almAddSuggestedFramework(name, source, desc) {
+  if (ALM_STATE.frameworks.some(f => f.name === name)) { mm_toast('Already in your toolkit', 'info'); return; }
+  ALM_STATE.frameworks.push({ id: uuid(), name, source, desc, ts: Date.now() });
+  almSave();
+  mm_toast(name + ' added', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+function almDeleteFramework(id) {
+  ALM_STATE.frameworks = ALM_STATE.frameworks.filter(f => f.id !== id);
+  almSave();
+  const overlay = document.getElementById('mm-alm-overlay');
+  if (overlay) _renderALM(overlay);
+}
+
+// ── TAB: Log (delta + legacy) ─────────────────────────────────────
+function _almTabLog(container) {
+  container.style.flexDirection = 'column';
+  container.style.overflowY = 'auto';
+  container.style.padding = '24px 30px';
+  container.style.gap = '16px';
+
+  const deltas = JSON.parse(localStorage.getItem(ALM_DELTAS_KEY) || '[]');
+  const typeColors = { insight:'#ff8c22',skill:'#00c8ff',pattern:'#cc44ff',
+    intuition:'#ff66aa','inner-work':'#7744ff',horizon:'#d4a820' };
+
+  container.innerHTML = `
+    <div>
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:5px">DELTA LOG</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        Log improvements, insights, skill gains. Track the trajectory of change.
+      </div>
+    </div>
+    <div style="display:flex;gap:7px">
+      <input id="alm-delta-input" placeholder="What improved, shifted, or landed today…" style="
+        flex:1;font-family:var(--f-mono);font-size:9px;color:var(--bright);
+        background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+        padding:8px 12px;outline:none"
+        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+        onblur="this.style.borderColor='rgba(0,255,136,.2)'"
+        onkeydown="if(event.key==='Enter')almLogDelta()"/>
+      <select id="alm-delta-type" style="
+        background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+        color:var(--muted);padding:7px 10px;font-family:var(--f-mono);font-size:8px">
+        <option value="insight">Insight</option>
+        <option value="skill">Skill</option>
+        <option value="pattern">Pattern</option>
+        <option value="intuition">Intuition</option>
+        <option value="inner-work">Inner Work</option>
+        <option value="horizon">Horizon</option>
+      </select>
+      <button onclick="almLogDelta()" style="
+        padding:8px 16px;border:1px solid rgba(0,255,136,.4);
+        color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
+        font-family:var(--f-mono);font-size:8px"
+        onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+        onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ LOG</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${deltas.slice(0,50).map(d => {
+        const col = typeColors[d.type] || '#00ff88';
+        return `<div style="padding:8px 12px;background:rgba(0,0,0,.3);
+          border-left:2px solid ${col};display:flex;align-items:center;gap:10px">
+          <span style="font-family:var(--f-mono);font-size:7px;color:${col};
+            border:1px solid ${col}44;padding:1px 6px;flex-shrink:0">${d.type}</span>
+          <span style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);flex:1">
+            ${escH(d.text)}</span>
+          <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);flex-shrink:0">
+            ${d.ts ? new Date(d.ts).toLocaleDateString() : ''}</span>
+        </div>`;
+      }).join('')}
+      ${!deltas.length ? `<div style="font-family:var(--f-mono);font-size:8px;
+        color:var(--dim);padding:16px 0">No deltas yet.</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Canvas export ─────────────────────────────────────────────────
+function almModelToCanvas(modelKey) {
+  const model = HUMAN_MODELS[modelKey];
+  if (!model) return;
+  closeALM();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const hub = CANVAS.spawnNode('framework', undefined, undefined, {
+      title: model.label + ' MODEL',
+      body: model.core, color: model.color,
+      tags: ['HUMAN-MODEL', model.loopType.toUpperCase()],
+    });
+    const obs = ALM_STATE.modelLog.filter(l => l.modelKey === modelKey).slice(-5);
+    obs.forEach(o => {
+      const n = CANVAS.spawnNode('insight', undefined, undefined, {
+        title: (o.field ? '[' + o.field + '] ' : '') + o.value.slice(0,50),
+        color: model.color, tags: [model.label.toUpperCase(), 'OBSERVATION'],
+      });
+      if (hub && n) CANVAS.addConn(hub.id, n.id, 'observed');
+    });
+    mm_toast(model.label + ' → canvas', 'export');
+  }, 200);
+}
+
+function almExportToCanvas() {
+  closeALM();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const cx = window.innerWidth/2, cy = window.innerHeight/2;
+    const models = Object.entries(HUMAN_MODELS);
+    const hub = CANVAS.spawnNode('synthesis', cx, cy, {
+      title: 'HUMAN SYSTEM', color: '#00ff88', tags: ['ALM', 'SYNTHESIS'],
+    });
+    models.forEach(([key, model], i) => {
+      const angle = (i / models.length) * Math.PI * 2 - Math.PI/2;
+      const r = 300;
+      const n = CANVAS.spawnNode('framework', cx + Math.cos(angle)*r, cy + Math.sin(angle)*r, {
+        title: model.label, color: model.color,
+        body: model.core, tags: ['MODEL', model.loopType.toUpperCase()],
+      });
+      if (hub && n) CANVAS.addConn(hub.id, n.id, model.loopType);
+    });
+    mm_toast('All 8 models → canvas', 'export');
+  }, 200);
+}
+
+// ── Utilities ─────────────────────────────────────────────────────
+function _almTimeAgo(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
 
 console.log('[MASTERMIND] ALM module loaded');
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SELF-APPLIED WHAT-IF LOOP — runs AT LOAD TIME on the system itself
+   
+   The engine introspects its own modules and asks:
+   "What if MODULE_A's output fed MODULE_B's input?"
+   "What if VOID's open loops triggered HORIZON plans?"
+   "What if Body state gated AI response quality?"
+   
+   Results populate VOID_STATE as seeds + create canvas connections
+   when the canvas is entered.
+═══════════════════════════════════════════════════════════════════ */
+
+const SYSTEM_CONNECTIONS = [
+  // Each entry: a discovered cross-module connection opportunity
+  // Format: { from, to, mechanism, strength, implemented }
+  // 'implemented' = true if wired in code, false = latent/proposed
+  {
+    from: 'VOID.openLoops',        to: 'HORIZON.plans',
+    mechanism: 'Open loop → reverse-causal seed: unresolved loops become Horizon end-states',
+    strength: 0.9, implemented: false,
+    whatif: 'What if every open loop automatically spawned a Horizon plan asking "what does resolution look like from the end-state?"',
+  },
+  {
+    from: 'BODY.nervousSystemState', to: 'VOID.primingMethod',
+    mechanism: 'Polyvagal state selects optimal priming: ventral→Ne divergence, dorsal→grounding',
+    strength: 0.95, implemented: false,
+    whatif: 'What if your nervous system state at session start automatically selected the priming method most likely to work right now?',
+  },
+  {
+    from: 'SIGNAL_STATE.items',    to: 'GAP_STATE.sessions',
+    mechanism: 'High-fidelity signals auto-seed gap bridging sessions between their domains',
+    strength: 0.8, implemented: false,
+    whatif: 'What if SIGNAL items rated >8 fidelity automatically opened a GAP session between the two highest-signal concepts?',
+  },
+  {
+    from: 'HORIZON_STATE.plans',   to: 'VOID_STATE.constraints',
+    mechanism: 'Horizon failure modes become Void constraints — known risks shape creative space',
+    strength: 0.85, implemented: false,
+    whatif: 'What if Horizon failure modes became live constraints in the Void — so your creative session already knows what cannot be crossed?',
+  },
+  {
+    from: 'VOID_STATE.whatifs',    to: 'CANVAS.nodes',
+    mechanism: 'What-if scoring creates typed canvas nodes (high novelty→seed, high coherence→invariant)',
+    strength: 0.9, implemented: true,
+    whatif: 'What if every scored what-if automatically spawned the correct node type based on its cognitive signature?',
+  },
+  {
+    from: 'BMV2.intelligenceRatings', to: 'VOID.primingMethod',
+    mechanism: 'Lowest-rated intelligence type gets targeted priming — weakest link strengthens the map',
+    strength: 0.75, implemented: false,
+    whatif: 'What if your weakest intelligence domain automatically became the entry point for today\'s creative session — systematically closing the gap?',
+  },
+  {
+    from: 'GAP_STATE.gaps',        to: 'HORIZON.plans',
+    mechanism: 'Unresolved gaps between concepts become Horizon conditions — gaps are planning constraints',
+    strength: 0.8, implemented: false,
+    whatif: 'What if unresolved GAP sessions automatically became blocking conditions on the Horizon plan most semantically related to them?',
+  },
+  {
+    from: 'BODY.somaticLog',       to: 'SIGNAL_STATE.items',
+    mechanism: 'Somatic entries with high resonance become candidate signals — body-felt → mind-verified',
+    strength: 0.7, implemented: false,
+    whatif: 'What if your somatic log\'s strongest signals were automatically submitted to SIGNAL for fidelity scoring — letting the body nominate ideas?',
+  },
+  {
+    from: 'THREAD_STATE.threads',  to: 'GAP.session',
+    mechanism: 'Emotional threads pointing in opposite directions → auto-spawn a GAP session between them',
+    strength: 0.85, implemented: false,
+    whatif: 'What if two emotional threads pulling in opposite directions automatically opened a GAP session — making the internal conflict a solvable structure?',
+  },
+  {
+    from: 'DOMAIN_STATE.intelligenceRatings', to: 'BMV2.crossDomainMatrix',
+    mechanism: 'Low-rated domains get auto-linked to their highest-rated neighbor — scaffold the weak with the strong',
+    strength: 0.8, implemented: false,
+    whatif: 'What if the cross-domain matrix automatically weighted edges by the geometric mean of both domains\' intelligence ratings — making the map show real cognitive topology?',
+  },
+];
+
+// ── What-if loop applied to the system itself ─────────────────────
+// Runs on demand, or triggered from the Void module.
+// Generates seeds from cross-module connection opportunities.
+async function runSystemWhatifLoop() {
+  mm_toast('↺ Running system what-if loop…', 'sync', { dur: 2000 });
+  MM_BUS?.emit('mm.system.whatif.start', {});
+
+  const unimplemented = SYSTEM_CONNECTIONS.filter(c => !c.implemented);
+
+  // Seed the Void with discovered connections as what-ifs
+  unimplemented.forEach(c => {
+    const exists = VOID_STATE.whatifs.some(w => w.text === c.whatif);
+    if (!exists) {
+      VOID_STATE.whatifs.push({
+        id: uuid(), text: c.whatif,
+        created: Date.now(), ai: true,
+        score: c.strength,
+        meta: { from: c.from, to: c.to, mechanism: c.mechanism },
+      });
+    }
+  });
+  saveVoidState();
+  _voidRenderWhatifs();
+
+  // Now run the recursive AI loop on the richest unimplemented connection
+  const richest = unimplemented.sort((a, b) => b.strength - a.strength)[0];
+  if (!richest) { mm_toast('All connections implemented', 'success'); return; }
+
+  mm_toast(`Recursing: ${richest.from} → ${richest.to}`, 'sync', { dur: 3000 });
+
+  await whatifLoopStart(richest.whatif, {
+    maxDepth: 3,
+    branchFactor: 3,
+    scoreThreshold: 0.55,
+    spawnCanvas: true,
+  });
+
+  MM_BUS?.emit('mm.system.whatif.complete', { connection: richest });
+}
+
+// ── Live cross-module wiring (implement the discovered connections) ──
+// These are the IMPLEMENTED wires — run after modules initialize.
+
+// Wire 1: BODY nervous system → VOID priming auto-select
+function _wireBodyToVoid() {
+  MM_BUS?.on('mm.body.state.changed', (d) => {
+    const stateMap = {
+      ventral:     'freewrite',   // safe/social → divergent expression
+      sympathetic: 'breathing',   // activated → regulate first
+      dorsal:      'movement',    // shutdown → mobilize body first
+    };
+    const method = stateMap[d?.state] || VOID_STATE.flowMethod;
+    if (method && method !== VOID_STATE.flowMethod) {
+      VOID_STATE.flowMethod = method;
+      saveVoidState();
+      mm_toast(`Body → Void: ${d.state} state → ${method} priming`, 'sync', { dur: 2500 });
+    }
+  });
+}
+
+// Wire 2: VOID open loops → HORIZON seeds
+function _wireVoidLoopsToHorizon() {
+  MM_BUS?.on('mm.void.loop.closed', (d) => {
+    // Closed loop → spawn a Horizon plan exploring what resolution looks like
+    if (!d?.text) return;
+    const endState = 'Fully resolved: ' + d.text;
+    horizonNewPlan(endState, 'What does complete resolution look like?', '3 Months');
+    mm_toast('Open loop → Horizon plan created', 'success', { dur: 2500 });
+  });
+}
+
+// Wire 3: SIGNAL high-fidelity → GAP auto-seed
+function _wireSignalToGap() {
+  MM_BUS?.on('mm.signal.rated', (d) => {
+    if (!d?.item || (d.item.alignment + d.item.fidelity) < 8) return;
+    // High-signal item: find another high-signal item and open a GAP
+    const highItems = SIGNAL_STATE.items
+      .filter(i => (i.alignment + i.fidelity) >= 8 && i.id !== d.item.id)
+      .slice(0, 1);
+    if (highItems.length) {
+      GAP_STATE.sessions.push({
+        id: uuid(), nodeA: d.item.text.slice(0, 40),
+        nodeB: highItems[0].text.slice(0, 40),
+        gaps: [], created: Date.now(), source: 'signal-auto',
+      });
+      saveGapState();
+      mm_toast('Signal → GAP: bridging high-fidelity concepts', 'sync', { dur: 3000 });
+    }
+  });
+}
+
+// Wire 4: HORIZON failure modes → VOID constraints
+function _wireHorizonToVoid() {
+  MM_BUS?.on('mm.horizon.plan.saved', (d) => {
+    const plan = HORIZON_STATE.plans.find(p => p.id === d?.planId);
+    if (!plan?.failureModes?.length) return;
+    plan.failureModes.forEach(fm => {
+      const text = 'CONSTRAINT (Horizon): ' + (fm.text || fm).slice(0, 80);
+      const exists = VOID_STATE.constraints.some(c => c.text === text);
+      if (!exists) {
+        VOID_STATE.constraints.push({ id: uuid(), text, created: Date.now(), source: 'horizon' });
+      }
+    });
+    saveVoidState();
+  });
+}
+
+// ── Initialize all wires at boot ──────────────────────────────────
+function _initCrossModuleWires() {
+  _wireBodyToVoid();
+  _wireVoidLoopsToHorizon();
+  _wireSignalToGap();
+  _wireHorizonToVoid();
+  MMLog?.info('system', 'Cross-module wires initialized: 4 active connections');
+  MM_BUS?.emit('mm.system.wires.ready', { count: 4 });
+}
+
+// Call after DOMContentLoaded (modules need to be ready)
+setTimeout(_initCrossModuleWires, 2000);
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   COGNITIVE MODE ENGINE — Ni / Ti / Ne / Te canvas operators
+   
+   Ni (Introverted Intuition) — CONTRACT
+     Collapses canvas toward invariants.
+     Finds the 1 node that all others point toward.
+     Prunes edges below confidence threshold.
+     Reveals the deep structure.
+   
+   Ti (Introverted Thinking) — ANALYZE  
+     Groups nodes by logical type.
+     Draws classification boundaries.
+     Surfaces contradictions (nodes with conflicting implications).
+     Reduces to minimum sufficient structure.
+   
+   Ne (Extraverted Intuition) — EXPAND
+     Fans out from every selected node.
+     AI-generates lateral connections across domains.
+     Maximizes divergence — finds the furthest conceptual reach.
+     Every node becomes a launching pad.
+   
+   Te (Extraverted Thinking) — EXECUTE
+     Converts nodes to action items with owners + timelines.
+     Connects to Horizon plans.
+     Prunes non-actionable nodes.
+     The canvas becomes a project.
+═══════════════════════════════════════════════════════════════════ */
+
+const COG_MODE = {
+  active: null,          // 'Ni'|'Ti'|'Ne'|'Te'|null
+  operationLog: [],      // history of cognitive operations applied
+};
+
+// ── Ni: CONTRACT — find the invariant core ────────────────────────
+async function cogNi() {
+  if (!CANVAS.NX.nodes.length) { mm_toast('Canvas empty', 'warn'); return; }
+  COG_MODE.active = 'Ni';
+  MM_BUS?.emit('mm.cog.mode', { mode: 'Ni', op: 'contract' });
+  mm_toast('Ni — Contracting to invariants…', 'sync', { dur: 2000 });
+
+  T.aiThinking?.();
+  const context = aiBuildContext();
+  const result = await aiCall(
+    'You are Introverted Intuition — a convergent depth-finder. Your job: find the invariant structure beneath the surface. Never describe the nodes. Find what is universally true across all of them.',
+    `Canvas map:\n${context}\n\nRespond with ONLY valid JSON:\n{"invariant": "The single deepest truth that all nodes point toward (1 sentence)", "convergence_nodes": ["id1","id2"], "prune_nodes": ["id_to_prune"], "synthesis": "How the remaining nodes form a coherent whole"}`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const d = JSON.parse(result.replace(/```json|```/g,'').trim());
+
+    // Spawn the invariant as a central synthesis node
+    const { x: cx, y: cy } = s2w(window.innerWidth / 2, window.innerHeight / 2 - 100);
+    const invNode = CANVAS.spawnNode('invariant', cx, cy, {
+      title: 'INVARIANT',
+      body: d.invariant || '',
+      tags: ['Ni', 'invariant', 'contracted'],
+      color: '#00c8ff',
+    });
+
+    // Connect convergence nodes to the invariant
+    (d.convergence_nodes || []).forEach(nid => {
+      const node = CANVAS.NX.nodes.find(n => n.id === nid);
+      if (node && invNode) CANVAS.addConn(nid, invNode.id, 'converges to');
+    });
+
+    // Collapse (but don't delete) low-signal nodes
+    (d.prune_nodes || []).forEach(nid => {
+      const el = document.getElementById('n_' + nid);
+      if (el) el.style.opacity = '0.3';
+    });
+
+    if (d.synthesis) {
+      mm_toast('Ni: ' + d.synthesis.slice(0, 80), 'success', { dur: 5000 });
+    }
+    COG_MODE.operationLog.push({ mode: 'Ni', ts: Date.now(), invariant: d.invariant });
+    vaultDirtySave(3000);
+  } catch(e) { mm_toast('Ni parse error: ' + e.message, 'error'); }
+}
+
+// ── Ti: ANALYZE — logical structure + contradiction detection ──────
+async function cogTi() {
+  if (!CANVAS.NX.nodes.length) { mm_toast('Canvas empty', 'warn'); return; }
+  COG_MODE.active = 'Ti';
+  MM_BUS?.emit('mm.cog.mode', { mode: 'Ti', op: 'analyze' });
+  mm_toast('Ti — Analyzing logical structure…', 'sync', { dur: 2000 });
+
+  T.aiThinking?.();
+  const context = aiBuildContext();
+  const result = await aiCall(
+    'You are Introverted Thinking — a precision classifier. Find the logical types, contradictions, and minimum sufficient structure. Be ruthlessly precise.',
+    `Canvas map:\n${context}\n\nRespond ONLY as valid JSON:\n{"type_groups": [{"type_name": "string", "node_ids": ["id"], "principle": "string"}], "contradictions": [{"node_a": "id", "node_b": "id", "conflict": "string"}], "minimum_structure": "The fewest nodes needed to preserve the complete logical content"}`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const d = JSON.parse(result.replace(/```json|```/g,'').trim());
+
+    // Visual: highlight type groups with color overlays
+    const groupColors = ['#00c8ff','#cc44ff','#ff8c22','#00ff88','#ffe04a'];
+    (d.type_groups || []).forEach((grp, gi) => {
+      const col = groupColors[gi % groupColors.length];
+      (grp.node_ids || []).forEach(nid => {
+        const el = document.getElementById('n_' + nid);
+        if (el) el.style.boxShadow = `0 0 0 2px ${col}88, 0 0 12px ${col}44`;
+      });
+    });
+
+    // Mark contradictions with red pulse
+    (d.contradictions || []).forEach(c => {
+      [c.node_a, c.node_b].forEach(nid => {
+        const el = document.getElementById('n_' + nid);
+        if (el) el.style.boxShadow = '0 0 0 2px #ff335588, 0 0 16px #ff335544';
+      });
+      if (c.node_a && c.node_b) CANVAS.addConn(c.node_a, c.node_b, '⚡ ' + (c.conflict || 'contradiction').slice(0,20));
+    });
+
+    const summary = `Ti: ${(d.type_groups||[]).length} types · ${(d.contradictions||[]).length} contradictions · ${d.minimum_structure?.slice(0,60)||''}`;
+    mm_toast(summary, 'success', { dur: 5000 });
+    COG_MODE.operationLog.push({ mode: 'Ti', ts: Date.now(), groups: d.type_groups?.length, contradictions: d.contradictions?.length });
+  } catch(e) { mm_toast('Ti parse error: ' + e.message, 'error'); }
+}
+
+// ── Ne: EXPAND — maximum divergence across domains ─────────────────
+async function cogNe() {
+  COG_MODE.active = 'Ne';
+  MM_BUS?.emit('mm.cog.mode', { mode: 'Ne', op: 'expand' });
+
+  const targets = CANVAS.NX.nodes.filter(n => CANVAS.NX.selected.has(n.id));
+  const seeds = targets.length ? targets : CANVAS.NX.nodes.slice(-3);
+  if (!seeds.length) { mm_toast('No nodes to expand from', 'warn'); return; }
+
+  mm_toast(`Ne — Expanding ${seeds.length} nodes across domains…`, 'sync', { dur: 2000 });
+  T.aiThinking?.();
+
+  // For each seed, find the most distant conceptual connection possible
+  const seedList = seeds.map(n => `"${n.title || n.body?.slice(0,40) || n.id}"`).join(', ');
+  const result = await aiCall(
+    'You are Extraverted Intuition — a lateral connection finder. Your job: find the most unexpected, generative connections between concepts. Cross every domain boundary. Find analogies from biology, physics, architecture, music, linguistics, economics — wherever the pattern lives.',
+    `Seed concepts: ${seedList}\n\nGenerate cross-domain expansions. For each seed, find 2 genuinely surprising connections to other fields.\n\nReturn ONLY valid JSON:\n[{"seed": "concept", "connection": "What connects it to...", "domain": "field", "node_type": "concept|insight|pattern|synthesis", "spawns_text": "The new node title"}]`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const expansions = JSON.parse(result.replace(/```json|```/g,'').trim());
+    const domainColors = { biology:'#00ff88', physics:'#00c8ff', music:'#cc44ff', economics:'#ffe04a', architecture:'#ff8c22', linguistics:'#ff66aa' };
+
+    expansions.forEach((exp, i) => {
+      const seed = seeds.find(n => (n.title||n.body||'').toLowerCase().includes(exp.seed?.toLowerCase().slice(0,10)||''));
+      const seedNode = seed || seeds[i % seeds.length];
+      const angle = (i / expansions.length) * Math.PI * 2;
+      const dist = 300 + Math.random() * 100;
+      const node = CANVAS.spawnNode(exp.node_type || 'insight',
+        seedNode.x + Math.cos(angle) * dist,
+        seedNode.y + Math.sin(angle) * dist,
+        {
+          title: (exp.spawns_text || exp.connection || '').slice(0, 60),
+          body: `Domain: ${exp.domain || ''}\n\n${exp.connection || ''}`,
+          tags: ['Ne', 'expansion', exp.domain || 'cross-domain'],
+          color: domainColors[exp.domain?.toLowerCase()] || '#cc44ff',
+        }
+      );
+      if (node && seedNode) CANVAS.addConn(seedNode.id, node.id, exp.domain || 'cross-domain');
+    });
+
+    mm_toast(`Ne: ${expansions.length} cross-domain connections spawned`, 'success', { dur: 3000 });
+    COG_MODE.operationLog.push({ mode: 'Ne', ts: Date.now(), expansions: expansions.length });
+    vaultDirtySave(3000);
+  } catch(e) { mm_toast('Ne parse error: ' + e.message, 'error'); }
+}
+
+// ── Te: EXECUTE — convert canvas to actionable project ────────────
+async function cogTe() {
+  if (!CANVAS.NX.nodes.length) { mm_toast('Canvas empty', 'warn'); return; }
+  COG_MODE.active = 'Te';
+  MM_BUS?.emit('mm.cog.mode', { mode: 'Te', op: 'execute' });
+  mm_toast('Te — Converting to execution structure…', 'sync', { dur: 2000 });
+
+  T.aiThinking?.();
+  const context = aiBuildContext();
+  const result = await aiCall(
+    'You are Extraverted Thinking — a execution-oriented system builder. Convert this conceptual map into concrete, actionable deliverables with sequence, dependencies, and measurable outcomes.',
+    `Canvas map:\n${context}\n\nReturn ONLY valid JSON:\n{"actions": [{"title": "string", "outcome": "string", "timeline": "string", "depends_on_node": "node_id_or_null", "priority": 1}], "critical_path": ["action_title_in_order"], "first_move": "The single most leveraged first action"}`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const d = JSON.parse(result.replace(/```json|```/g,'').trim());
+
+    // Spawn action nodes in a Gantt-like horizontal sequence
+    const startX = 200, startY = 600;
+    const prevNodes = [];
+
+    (d.actions || []).slice(0, 6).forEach((action, i) => {
+      const node = CANVAS.spawnNode('vector', startX + i * 280, startY, {
+        title: action.title?.slice(0, 50) || '',
+        body: `Outcome: ${action.outcome || ''}\nTimeline: ${action.timeline || ''}`,
+        tags: ['Te', 'action', 'execute'],
+        color: '#ffe04a',
+      });
+      if (node && i > 0 && prevNodes[i-1]) {
+        CANVAS.addConn(prevNodes[i-1].id, node.id, 'then');
+      }
+      if (node && action.depends_on_node) {
+        CANVAS.addConn(action.depends_on_node, node.id, 'enables');
+      }
+      prevNodes.push(node);
+
+      // Wire to Horizon if plan exists
+      if (HORIZON_STATE.plans.length) {
+        const plan = HORIZON_STATE.plans[0];
+        if (plan && node) {
+          plan.milestones = plan.milestones || [];
+          plan.milestones.push({ text: action.title, timeline: action.timeline, nodeId: node.id });
+        }
+      }
+    });
+
+    if (d.first_move) mm_toast('Te first move: ' + d.first_move.slice(0, 80), 'success', { dur: 6000 });
+    horizonSave();
+    COG_MODE.operationLog.push({ mode: 'Te', ts: Date.now(), actions: d.actions?.length });
+    vaultDirtySave(3000);
+  } catch(e) { mm_toast('Te parse error: ' + e.message, 'error'); }
+}
+
+// ── Cognitive mode reset ──────────────────────────────────────────
+function cogReset() {
+  COG_MODE.active = null;
+  CANVAS.NX.nodes.forEach(n => {
+    const el = document.getElementById('n_' + n.id);
+    if (el) { el.style.opacity = '1'; el.style.boxShadow = ''; }
+  });
+  mm_toast('Canvas reset — all modes cleared', 'info', { dur: 1500 });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SYSTEMS CANVAS — Causal Loop + Feedback Diagram Module
+   
+   Variables (stocks): accumulate values over time
+   Flows: rates of change in/out of stocks
+   Auxiliaries: computed from other variables
+   Links: causal (+/-), delays, non-linear
+   
+   Features:
+   - Draw causal loop diagrams (CLDs) on the main canvas
+   - Simulate stocks/flows numerically (Euler integration)
+   - AI discovers feedback loops automatically
+   - Cognitive modes apply (Ni finds the dominant loop)
+   - Export loop structure to Horizon failure modes
+   - "Automate the mind": map cognitive habits as feedback loops
+═══════════════════════════════════════════════════════════════════ */
+
+const SYSTEMS = {
+  id: 'module:systems',
+  variables: [],   // [{id, name, type:'stock'|'flow'|'auxiliary'|'constant', value, unit, nodeId}]
+  links: [],       // [{id, from, to, polarity:+1|-1, delay:0-3, label, linkType:'causal'|'flow'}]
+  loops: [],       // [{id, nodes[], polarity:'reinforcing'|'balancing', label}]
+  simState: null,  // current simulation values
+  simHistory: [],  // [{t, values:{varId:value}}]
+  running: false,
+};
+const SYSTEMS_KEY = 'nexus_systems_state';
+
+function systemsLoad() {
+  try {
+    const raw = localStorage.getItem(SYSTEMS_KEY);
+    if (raw) Object.assign(SYSTEMS, JSON.parse(raw));
+  } catch(e) {}
+}
+
+function systemsSave() {
+  try { localStorage.setItem(SYSTEMS_KEY, JSON.stringify({
+    variables: SYSTEMS.variables,
+    links: SYSTEMS.links,
+    loops: SYSTEMS.loops,
+  })); } catch(e) {}
+  if (typeof vaultDirtySave === 'function') vaultDirtySave(5000);
+}
+
+// ── Add a system variable ─────────────────────────────────────────
+function systemsAddVar(name, type = 'stock', value = 0, unit = '') {
+  const id = uuid();
+  const { x: wx, y: wy } = s2w(
+    window.innerWidth/2 + (Math.random()-0.5)*400,
+    window.innerHeight/2 + (Math.random()-0.5)*300
+  );
+
+  const typeColors = { stock: '#00c8ff', flow: '#ff8c22', auxiliary: '#cc44ff', constant: '#ffe04a' };
+  const typeIcons  = { stock: '⬡', flow: '→', auxiliary: '◎', constant: '◆' };
+  const node = CANVAS.spawnNode('concept', wx, wy, {
+    title: (typeIcons[type] || '') + ' ' + name,
+    body: `Type: ${type}\nValue: ${value}${unit ? ' ' + unit : ''}`,
+    tags: ['system', type, 'variable'],
+    color: typeColors[type] || '#00c8ff',
+  });
+
+  SYSTEMS.variables.push({ id, name, type, value, unit, nodeId: node?.id, init: value });
+  systemsSave();
+  mm_toast(`System variable: ${name} (${type})`, 'success', { dur: 2000 });
+  return id;
+}
+
+// ── Add a causal link ─────────────────────────────────────────────
+function systemsAddLink(fromVarId, toVarId, polarity, delay = 0, label = '') {
+  const fromVar = SYSTEMS.variables.find(v => v.id === fromVarId);
+  const toVar   = SYSTEMS.variables.find(v => v.id === toVarId);
+  if (!fromVar || !toVar) return;
+
+  const lid = uuid();
+  SYSTEMS.links.push({ id: lid, from: fromVarId, to: toVarId, polarity, delay, label });
+
+  // Draw on canvas
+  if (fromVar.nodeId && toVar.nodeId) {
+    const pol = polarity > 0 ? '+ ' : '− ';
+    CANVAS.addConn(fromVar.nodeId, toVar.nodeId, pol + (label || '').slice(0, 20));
+  }
+  systemsSave();
+
+  // Auto-detect loops after each link addition
+  _detectFeedbackLoops();
+  return lid;
+}
+
+// ── Detect feedback loops (DFS cycle detection) ───────────────────
+function _detectFeedbackLoops() {
+  const adj = new Map(); // varId → [toVarId]
+  SYSTEMS.links.forEach(l => {
+    if (!adj.has(l.from)) adj.set(l.from, []);
+    adj.get(l.from).push({ to: l.to, polarity: l.polarity });
+  });
+
+  const found = [];
+  const visited = new Set();
+  const stack = [];
+
+  function dfs(nodeId, startId, path, polarityProduct) {
+    if (path.length > 1 && nodeId === startId) {
+      // Found a cycle
+      const polarity = polarityProduct > 0 ? 'reinforcing' : 'balancing';
+      const signature = [...path].sort().join(',');
+      if (!found.some(f => f.signature === signature)) {
+        found.push({ nodes: [...path], polarity, signature, product: polarityProduct });
+      }
+      return;
+    }
+    if (visited.has(nodeId) && nodeId !== startId) return;
+    if (path.length > 8) return; // cap cycle length
+
+    visited.add(nodeId);
+    const neighbors = adj.get(nodeId) || [];
+    for (const { to, polarity } of neighbors) {
+      stack.push(to);
+      dfs(to, startId, [...path, to], polarityProduct * polarity);
+      stack.pop();
+    }
+    visited.delete(nodeId);
+  }
+
+  SYSTEMS.variables.forEach(v => {
+    visited.clear();
+    dfs(v.id, v.id, [v.id], 1);
+  });
+
+  // Store detected loops
+  SYSTEMS.loops = found.map((f, i) => ({
+    id: uuid(),
+    nodes: f.nodes,
+    polarity: f.polarity,
+    label: f.polarity === 'reinforcing' ? `R${i+1}` : `B${i+1}`,
+    signature: f.signature,
+  }));
+
+  if (SYSTEMS.loops.length) {
+    const r = SYSTEMS.loops.filter(l => l.polarity === 'reinforcing').length;
+    const b = SYSTEMS.loops.filter(l => l.polarity === 'balancing').length;
+    mm_toast(`Systems: ${r} reinforcing + ${b} balancing loops`, 'sync', { dur: 3000 });
+    MM_BUS?.emit('mm.systems.loops.detected', { reinforcing: r, balancing: b });
+  }
+}
+
+// ── Euler simulation ──────────────────────────────────────────────
+function systemsSimulate(steps = 50, dt = 0.1) {
+  if (!SYSTEMS.variables.length) { mm_toast('No variables defined', 'warn'); return; }
+  SYSTEMS.running = true;
+  SYSTEMS.simHistory = [];
+
+  // Init state
+  const state = {};
+  SYSTEMS.variables.forEach(v => state[v.id] = v.init ?? v.value);
+
+  const flowLinks = SYSTEMS.links.filter(l => {
+    const toVar = SYSTEMS.variables.find(v => v.id === l.to);
+    return toVar?.type === 'stock';
+  });
+
+  for (let step = 0; step < steps; step++) {
+    const snapshot = { t: step * dt, values: { ...state } };
+    SYSTEMS.simHistory.push(snapshot);
+
+    // Euler step: compute flows into/out of stocks
+    const diffs = {};
+    SYSTEMS.variables.forEach(v => diffs[v.id] = 0);
+
+    flowLinks.forEach(link => {
+      const fromVal = state[link.from] || 0;
+      const rate = fromVal * link.polarity * 0.1; // simplified linear rate
+      diffs[link.to] += rate * dt;
+      if (link.from in diffs) diffs[link.from] -= rate * dt; // conservation
+    });
+
+    SYSTEMS.variables.forEach(v => {
+      if (v.type === 'stock') {
+        state[v.id] = Math.max(0, (state[v.id] || 0) + (diffs[v.id] || 0));
+      }
+    });
+  }
+
+  SYSTEMS.simState = state;
+  SYSTEMS.running = false;
+
+  // Update node labels with final values
+  SYSTEMS.variables.forEach(v => {
+    if (!v.nodeId) return;
+    const el = document.getElementById('n_' + v.nodeId);
+    if (!el) return;
+    const finalVal = (state[v.id] || 0).toFixed(2);
+    const bodyEl = el.querySelector('.node-body');
+    if (bodyEl) bodyEl.textContent = `${v.type} · ${finalVal}${v.unit||''}`;
+  });
+
+  mm_toast(`Simulation complete: ${steps} steps · dt=${dt}`, 'success', { dur: 3000 });
+  MM_BUS?.emit('mm.systems.sim.complete', { steps, finalState: state });
+  systemsSave();
+}
+
+// ── AI discovers the system structure from canvas ─────────────────
+async function systemsAIDiscover() {
+  if (!CANVAS.NX.nodes.length) { mm_toast('Canvas needs nodes first', 'warn'); return; }
+  mm_toast('Systems AI: discovering feedback structure…', 'sync', { dur: 2000 });
+  T.aiThinking?.();
+
+  const context = aiBuildContext();
+  const result = await aiCall(
+    'You are a systems thinking analyst. Given a concept map, identify the underlying feedback loop structure. Find stocks (things that accumulate), flows (rates of change), and causal links. Identify reinforcing loops (growth/collapse) and balancing loops (stability/goals). Think Donella Meadows.',
+    `Concept map:\n${context}\n\nReturn ONLY valid JSON:\n{"stocks": [{"name":"string","description":"string"}], "flows": [{"name":"string","from_stock":"string","to_stock":"string","driver":"string"}], "causal_links": [{"from":"variable_name","to":"variable_name","polarity":1,"rationale":"string"}], "loops": [{"type":"reinforcing|balancing","variables":["name"],"story":"what drives this loop"}], "leverage_points": ["highest leverage variable names"]}`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const d = JSON.parse(result.replace(/```json|```/g,'').trim());
+
+    // Spawn discovered variables
+    const varIds = {};
+    (d.stocks || []).forEach(s => { varIds[s.name] = systemsAddVar(s.name, 'stock'); });
+    (d.flows  || []).forEach(f => { varIds[f.name] = systemsAddVar(f.name, 'flow'); });
+
+    // Wire causal links
+    setTimeout(() => {
+      (d.causal_links || []).forEach(link => {
+        const fid = varIds[link.from], tid = varIds[link.to];
+        if (fid && tid) systemsAddLink(fid, tid, link.polarity, 0, link.rationale?.slice(0,20)||'');
+      });
+
+      // Toast each loop story
+      (d.loops || []).forEach(loop => {
+        mm_toast(`${loop.type.toUpperCase()} LOOP: ${loop.story?.slice(0,80)||''}`, 'sync', { dur: 4000 });
+      });
+
+      // Leverage points → Horizon seeds
+      (d.leverage_points || []).forEach(lp => {
+        VOID_STATE.seeds.push({ id: uuid(), text: `LEVERAGE: ${lp}`, created: Date.now(), ai: true });
+      });
+      saveVoidState();
+    }, 500);
+
+    mm_toast(`Systems: ${(d.stocks||[]).length} stocks · ${(d.flows||[]).length} flows discovered`, 'success', { dur: 4000 });
+  } catch(e) { mm_toast('Systems parse error: ' + e.message, 'error'); }
+}
+
+// ── AI models the MIND as a system ───────────────────────────────
+// "Automate the mind" — maps cognitive patterns as feedback loops
+async function systemsModelMind() {
+  mm_toast('Mapping your mind as a system…', 'sync', { dur: 2000 });
+  T.aiThinking?.();
+
+  // Collect all self-knowledge from modules
+  const bodyState = BODY?.nervousSystemState || 'unknown';
+  const openLoops = VOID_STATE.openLoops.filter(l => l.status === 'open').map(l => l.text).slice(0,5);
+  const patterns  = BODY?.patternLog?.slice(0,3).map(p => p.text || p) || [];
+  const threads   = Object.entries(THREAD_STATE?.threads || {}).flatMap(([t, items]) => items.slice(0,2).map(i => `${t}: ${i.text}`));
+  const horizon   = HORIZON_STATE.plans.slice(0,2).map(p => p.title || p.endState);
+
+  const context = [
+    `Nervous system: ${bodyState}`,
+    `Open loops: ${openLoops.join('; ')}`,
+    `Patterns: ${patterns.join('; ')}`,
+    `Threads: ${threads.join('; ')}`,
+    `Horizon goals: ${horizon.join('; ')}`,
+  ].join('\n');
+
+  const result = await aiCall(
+    'You are a cognitive systems analyst. Model this person\'s mental architecture as a feedback system. Find the reinforcing loops that create their current state. Find the balancing loops keeping them from their goals. Find the leverage point — the single variable where a small change cascades into a new stable state. Think Polyvagal, IFS, Systems Thinking simultaneously.',
+    `Current cognitive state:\n${context}\n\nReturn ONLY valid JSON:\n{"reinforcing_loops": [{"name":"string","story":"how this loop amplifies itself","variables":["string"]}], "balancing_loops": [{"name":"string","story":"what this loop is trying to stabilize","variables":["string"]}], "leverage_point": {"variable":"string","intervention":"string","why":"string"}, "attractor_state": "the stable state this system is currently moving toward"}`
+  );
+  T.aiDone?.();
+  if (!result) return;
+
+  try {
+    const d = JSON.parse(result.replace(/```json|```/g,'').trim());
+
+    // Spawn mind-map system on canvas
+    const { x: cx, y: cy } = s2w(window.innerWidth/2, window.innerHeight/2);
+
+    // Leverage point as central invariant
+    if (d.leverage_point) {
+      const lev = CANVAS.spawnNode('invariant', cx, cy, {
+        title: 'LEVERAGE: ' + (d.leverage_point.variable||'').slice(0,40),
+        body: d.leverage_point.intervention + '\n\nWhy: ' + d.leverage_point.why,
+        tags: ['systems', 'leverage', 'mind-model'],
+        color: '#11ddcc',
+      });
+
+      // Reinforcing loops as seeds around leverage
+      (d.reinforcing_loops||[]).slice(0,3).forEach((loop, i) => {
+        const angle = (i/3) * Math.PI*2;
+        const n = CANVAS.spawnNode('pattern', cx + Math.cos(angle)*260, cy + Math.sin(angle)*260, {
+          title: 'R: ' + (loop.name||'').slice(0,40),
+          body: loop.story||'',
+          tags: ['reinforcing-loop', 'mind-model'],
+          color: '#ff8c22',
+        });
+        if (n && lev) CANVAS.addConn(n.id, lev.id, 'amplifies');
+      });
+
+      // Balancing loops as friction nodes
+      (d.balancing_loops||[]).slice(0,3).forEach((loop, i) => {
+        const angle = (i/3) * Math.PI*2 + Math.PI/3;
+        const n = CANVAS.spawnNode('friction', cx + Math.cos(angle)*360, cy + Math.sin(angle)*360, {
+          title: 'B: ' + (loop.name||'').slice(0,40),
+          body: loop.story||'',
+          tags: ['balancing-loop', 'mind-model'],
+          color: '#00ff88',
+        });
+        if (n && lev) CANVAS.addConn(lev.id, n.id, 'balanced by');
+      });
+    }
+
+    if (d.attractor_state) {
+      mm_toast('Attractor: ' + d.attractor_state.slice(0,100), 'success', { dur: 7000 });
+    }
+
+    vaultDirtySave(3000);
+    MM_BUS?.emit('mm.systems.mind.modeled', { leverage: d.leverage_point?.variable });
+  } catch(e) { mm_toast('Mind model error: ' + e.message, 'error'); }
+}
+
+// ── Open Systems module ───────────────────────────────────────────
+function openSystems() {
+  if (!_assertAuth()) return;
+  MM_BUS?.emit('mm.module.open', { module: 'systems' });
+  systemsLoad();
+
+  let overlay = document.getElementById('mm-systems-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'mm-systems-overlay';
+    overlay.style.cssText = 'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800;background:rgba(0,0,0,.97);backdrop-filter:blur(6px);display:flex;flex-direction:column';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  _renderSystemsUI(overlay);
+}
+
+function closeSystems() {
+  const el = document.getElementById('mm-systems-overlay');
+  if (el) el.style.display = 'none';
+}
+
+function _renderSystemsUI(container) {
+  const R = SYSTEMS.loops.filter(l => l.polarity === 'reinforcing').length;
+  const B = SYSTEMS.loops.filter(l => l.polarity === 'balancing').length;
+
+  container.innerHTML = '';
+
+  // ── Header ────────────────────────────────────────────────────────
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'display:flex;align-items:center;gap:14px;padding:12px 20px',
+    'border-bottom:1px solid rgba(17,221,204,.25)',
+    'background:rgba(17,221,204,.04);flex-shrink:0',
+  ].join(';');
+  hdr.innerHTML = `
+    <span style="font-size:18px;filter:drop-shadow(0 0 10px #11ddcc)">∿</span>
+    <div>
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:5px;color:#11ddcc">SYSTEMS CANVAS</div>
+      <div style="font-family:var(--f-mono);font-size:7px;
+        color:rgba(17,221,204,.5);letter-spacing:2px;margin-top:1px">
+        FEEDBACK LOOPS · STOCKS & FLOWS · CAUSAL STRUCTURE
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <span style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        <span style="color:#ff8c22">${R}R</span> ·
+        <span style="color:#00ff88">${B}B</span> ·
+        ${SYSTEMS.variables.length} vars
+      </span>
+      <button onclick="systemsAIDiscover()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid rgba(204,68,255,.3);color:#cc44ff;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(204,68,255,.1)'"
+        onmouseleave="this.style.background='transparent'">✦ AI DISCOVER</button>
+      <button onclick="systemsModelMind()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid rgba(0,200,255,.3);color:#00c8ff;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(0,200,255,.1)'"
+        onmouseleave="this.style.background='transparent'">⟁ MODEL MIND</button>
+      <button onclick="closeSystems();CANVAS.goHome()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
+    </div>
+  `;
+  container.appendChild(hdr);
+
+  // ── Body ──────────────────────────────────────────────────────────
+  const body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex:1;overflow:hidden';
+  container.appendChild(body);
+
+  // Left panel — controls
+  const left = _buildSystemsLeft();
+  body.appendChild(left);
+
+  // Center — live CLD canvas
+  const center = document.createElement('div');
+  center.style.cssText = [
+    'flex:1;position:relative;background:rgba(0,5,10,.8)',
+    'border-right:1px solid rgba(17,221,204,.1)',
+  ].join(';');
+  body.appendChild(center);
+
+  const cldCanvas = document.createElement('canvas');
+  cldCanvas.id = 'sys-cld-canvas';
+  cldCanvas.style.cssText = 'width:100%;height:100%;display:block';
+  center.appendChild(cldCanvas);
+
+  // CLD controls overlay
+  const cldControls = document.createElement('div');
+  cldControls.style.cssText = [
+    'position:absolute;bottom:14px;left:50%;transform:translateX(-50%)',
+    'display:flex;gap:8px',
+  ].join(';');
+  cldControls.innerHTML = `
+    <button onclick="systemsCLDLayout()" style="
+      font-family:var(--f-mono);font-size:7px;padding:5px 11px;
+      border:1px solid rgba(17,221,204,.3);color:#11ddcc;background:rgba(0,5,10,.9);cursor:pointer"
+      onmouseenter="this.style.background='rgba(17,221,204,.1)'"
+      onmouseleave="this.style.background='rgba(0,5,10,.9)'">⊞ AUTO-LAYOUT</button>
+    <button onclick="systemsSimulate(120,.04);_renderCLD()" style="
+      font-family:var(--f-mono);font-size:7px;padding:5px 11px;
+      border:1px solid rgba(255,140,34,.3);color:#ff8c22;background:rgba(0,5,10,.9);cursor:pointer"
+      onmouseenter="this.style.background='rgba(255,140,34,.1)'"
+      onmouseleave="this.style.background='rgba(0,5,10,.9)'">▶ SIMULATE</button>
+    <button onclick="systemsExportToMainCanvas()" style="
+      font-family:var(--f-mono);font-size:7px;padding:5px 11px;
+      border:1px solid rgba(255,255,255,.12);color:var(--dim);background:rgba(0,5,10,.9);cursor:pointer"
+      onmouseenter="this.style.background='rgba(255,255,255,.05)'"
+      onmouseleave="this.style.background='rgba(0,5,10,.9)'">→ MAIN CANVAS</button>
+  `;
+  center.appendChild(cldControls);
+
+  // Right panel — loops + simulation history
+  const right = _buildSystemsRight();
+  body.appendChild(right);
+
+  // Init CLD after DOM settles
+  requestAnimationFrame(() => {
+    _initCLD(cldCanvas);
+    _renderCLD();
+  });
+}
+
+// ── Left panel builder ────────────────────────────────────────────
+function _buildSystemsLeft() {
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'width:260px;flex-shrink:0;display:flex;flex-direction:column',
+    'border-right:1px solid rgba(17,221,204,.12);overflow-y:auto',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Add Variable -->
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:3px;
+          color:#11ddcc;margin-bottom:9px">⬡ VARIABLE</div>
+        <input id="sys-var-name" placeholder="Name…" style="
+          width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);
+          border:1px solid rgba(17,221,204,.25);color:var(--c);
+          padding:7px 10px;font-family:var(--f-mono);font-size:8px;margin-bottom:5px;outline:none"
+          onfocus="this.style.borderColor='rgba(17,221,204,.6)'"
+          onblur="this.style.borderColor='rgba(17,221,204,.25)'"
+          onkeydown="if(event.key==='Enter')systemsQuickAddVar()"/>
+        <div style="display:flex;gap:5px;margin-bottom:5px">
+          ${[
+            ['stock','⬡','#00c8ff','accumulates'],
+            ['flow','→','#ff8c22','rate'],
+            ['auxiliary','◎','#cc44ff','computed'],
+            ['constant','◆','#ffe04a','fixed'],
+          ].map(([type,icon,color,desc]) => `
+            <button id="sys-type-${type}" onclick="systemsSelectType('${type}')" style="
+              flex:1;padding:6px 3px;cursor:pointer;
+              border:1px solid ${color}44;background:transparent;
+              color:${color};font-size:10px;transition:all .12s"
+              title="${type}: ${desc}"
+              onmouseenter="this.style.background='${color}11'"
+              onmouseleave="if(!this.classList.contains('active'))this.style.background='transparent'"
+              >${icon}</button>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:5px;margin-bottom:5px">
+          <input id="sys-var-value" type="number" value="0" placeholder="Init" style="
+            flex:1;background:rgba(0,5,12,.8);border:1px solid rgba(17,221,204,.2);
+            color:var(--c);padding:6px 8px;font-family:var(--f-mono);font-size:8px;outline:none"/>
+          <input id="sys-var-unit" placeholder="unit" style="
+            width:55px;background:rgba(0,5,12,.8);border:1px solid rgba(17,221,204,.2);
+            color:var(--c);padding:6px 7px;font-family:var(--f-mono);font-size:8px;outline:none"/>
+        </div>
+        <button onclick="systemsQuickAddVar()" style="
+          width:100%;padding:8px;border:1px solid rgba(17,221,204,.35);
+          color:#11ddcc;background:rgba(17,221,204,.05);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(17,221,204,.12)'"
+          onmouseleave="this.style.background='rgba(17,221,204,.05)'">⊕ ADD</button>
+      </div>
+
+      <!-- Add Link -->
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:3px;
+          color:#11ddcc;margin-bottom:9px">→ CAUSAL LINK</div>
+        <select id="sys-link-from" style="
+          width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);
+          border:1px solid rgba(17,221,204,.2);color:var(--c);
+          padding:6px 8px;font-family:var(--f-mono);font-size:8px;margin-bottom:5px">
+          <option value="">From…</option>
+          ${SYSTEMS.variables.map(v => `<option value="${v.id}">${v.name}</option>`).join('')}
+        </select>
+        <select id="sys-link-to" style="
+          width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);
+          border:1px solid rgba(17,221,204,.2);color:var(--c);
+          padding:6px 8px;font-family:var(--f-mono);font-size:8px;margin-bottom:5px">
+          <option value="">To…</option>
+          ${SYSTEMS.variables.map(v => `<option value="${v.id}">${v.name}</option>`).join('')}
+        </select>
+        <div style="display:flex;gap:6px;margin-bottom:5px">
+          <button id="sys-pol-pos" onclick="systemsSelectPolarity(1)" style="
+            flex:1;padding:7px;cursor:pointer;
+            border:1px solid rgba(0,255,136,.4);color:#00ff88;
+            background:rgba(0,255,136,.08);font-family:var(--f-mono);
+            font-size:8px;font-weight:700"
+            onmouseenter="this.style.background='rgba(0,255,136,.18)'"
+            onmouseleave="this.style.background='rgba(0,255,136,.08)'">+ same dir</button>
+          <button id="sys-pol-neg" onclick="systemsSelectPolarity(-1)" style="
+            flex:1;padding:7px;cursor:pointer;
+            border:1px solid rgba(255,51,85,.3);color:#ff3355;
+            background:transparent;font-family:var(--f-mono);
+            font-size:8px;font-weight:700"
+            onmouseenter="this.style.background='rgba(255,51,85,.1)'"
+            onmouseleave="this.style.background='transparent'">− opposite</button>
+        </div>
+        <input id="sys-link-label" placeholder="Label (optional)" style="
+          width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);
+          border:1px solid rgba(17,221,204,.15);color:var(--c);
+          padding:6px 8px;font-family:var(--f-mono);font-size:8px;
+          margin-bottom:5px;outline:none"/>
+        <button onclick="systemsQuickAddLink()" style="
+          width:100%;padding:8px;border:1px solid rgba(17,221,204,.35);
+          color:#11ddcc;background:rgba(17,221,204,.05);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(17,221,204,.12)'"
+          onmouseleave="this.style.background='rgba(17,221,204,.05)'">→ LINK</button>
+      </div>
+
+      <!-- Simulation -->
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:3px;
+          color:#11ddcc;margin-bottom:9px">∿ SIMULATE</div>
+        <div style="display:flex;gap:5px;margin-bottom:5px">
+          <div style="flex:1">
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
+              margin-bottom:3px">STEPS</div>
+            <input id="sys-sim-steps" type="number" value="100" min="10" max="1000" style="
+              width:100%;background:rgba(0,5,12,.8);border:1px solid rgba(17,221,204,.2);
+              color:var(--c);padding:5px 7px;font-family:var(--f-mono);font-size:8px;outline:none"/>
+          </div>
+          <div style="flex:1">
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
+              margin-bottom:3px">dt</div>
+            <input id="sys-sim-dt" type="number" value="0.05" min="0.01" max="1" step="0.01" style="
+              width:100%;background:rgba(0,5,12,.8);border:1px solid rgba(17,221,204,.2);
+              color:var(--c);padding:5px 7px;font-family:var(--f-mono);font-size:8px;outline:none"/>
+          </div>
+        </div>
+        <button onclick="systemsRunAndAnimate()" style="
+          width:100%;padding:8px;border:1px solid rgba(255,140,34,.4);
+          color:#ff8c22;background:rgba(255,140,34,.06);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px;margin-bottom:5px"
+          onmouseenter="this.style.background='rgba(255,140,34,.14)'"
+          onmouseleave="this.style.background='rgba(255,140,34,.06)'">▶ RUN + ANIMATE</button>
+        <button onclick="systemsResetSim()" style="
+          width:100%;padding:7px;border:1px solid var(--wire2);
+          color:var(--dim);background:transparent;cursor:pointer;
+          font-family:var(--f-mono);font-size:7.5px"
+          onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+          onmouseleave="this.style.background='transparent'">↺ RESET VALUES</button>
+      </div>
+
+      <!-- What-if loop -->
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:3px;
+          color:#cc44ff;margin-bottom:9px">↺ RECURSIVE LOOP</div>
+        <input id="sys-whatif-seed" placeholder="Seed premise…" style="
+          width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);
+          border:1px solid rgba(204,68,255,.25);color:var(--c);
+          padding:7px 10px;font-family:var(--f-mono);font-size:8px;
+          margin-bottom:5px;outline:none"
+          onfocus="this.style.borderColor='rgba(204,68,255,.6)'"
+          onblur="this.style.borderColor='rgba(204,68,255,.25)'"/>
+        <div style="display:flex;gap:5px;margin-bottom:5px">
+          <select id="sys-loop-depth" style="flex:1;background:rgba(0,5,12,.8);
+            border:1px solid rgba(204,68,255,.2);color:var(--c);
+            padding:5px 6px;font-family:var(--f-mono);font-size:7.5px">
+            <option value="2">Depth 2</option>
+            <option value="3" selected>Depth 3</option>
+            <option value="4">Depth 4</option>
+            <option value="5">Depth 5</option>
+          </select>
+          <select id="sys-loop-branch" style="flex:1;background:rgba(0,5,12,.8);
+            border:1px solid rgba(204,68,255,.2);color:var(--c);
+            padding:5px 6px;font-family:var(--f-mono);font-size:7.5px">
+            <option value="2">2 branches</option>
+            <option value="3" selected>3 branches</option>
+            <option value="4">4 branches</option>
+          </select>
+        </div>
+        <button onclick="systemsStartWhatif()" style="
+          width:100%;padding:8px;border:1px solid rgba(204,68,255,.35);
+          color:#cc44ff;background:rgba(204,68,255,.06);cursor:pointer;
+          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+          onmouseenter="this.style.background='rgba(204,68,255,.14)'"
+          onmouseleave="this.style.background='rgba(204,68,255,.06)'">↺ RUN LOOP</button>
+      </div>
+
+      <!-- Clear -->
+      <div>
+        <button onclick="systemsClearAll()" style="
+          width:100%;padding:7px;border:1px solid rgba(255,51,85,.2);
+          color:var(--r);background:transparent;cursor:pointer;
+          font-family:var(--f-mono);font-size:7.5px"
+          onmouseenter="this.style.background='rgba(255,51,85,.06)'"
+          onmouseleave="this.style.background='transparent'">⚠ CLEAR ALL VARIABLES</button>
+      </div>
+    </div>
+  `;
+
+  // Init selected type
+  SYSTEMS._selectedType = SYSTEMS._selectedType || 'stock';
+  SYSTEMS._selectedPolarity = SYSTEMS._selectedPolarity ?? 1;
+  setTimeout(() => {
+    systemsSelectType(SYSTEMS._selectedType);
+    systemsSelectPolarity(SYSTEMS._selectedPolarity);
+  }, 50);
+
+  return panel;
+}
+
+// ── Right panel — loops + sim chart ──────────────────────────────
+function _buildSystemsRight() {
+  const panel = document.createElement('div');
+  panel.style.cssText = [
+    'width:280px;flex-shrink:0;display:flex;flex-direction:column',
+    'border-left:1px solid rgba(17,221,204,.1);overflow:hidden',
+  ].join(';');
+
+  // Detected loops
+  const loopsDiv = document.createElement('div');
+  loopsDiv.style.cssText = 'flex:1;overflow-y:auto;padding:14px 16px';
+  loopsDiv.innerHTML = `
+    <div style="font-family:var(--f-display);font-size:8px;letter-spacing:3px;
+      color:#11ddcc;margin-bottom:12px">FEEDBACK LOOPS</div>
+    ${SYSTEMS.loops.length ? SYSTEMS.loops.map(loop => {
+      const isR = loop.polarity === 'reinforcing';
+      const col = isR ? '#ff8c22' : '#00ff88';
+      const varNames = loop.nodes
+        .map(nid => SYSTEMS.variables.find(v => v.id === nid)?.name || nid)
+        .join(' → ');
+      return `
+        <div style="margin-bottom:9px;padding:10px 13px;
+          border-left:3px solid ${col};background:${col}08;
+          border:1px solid ${col}28;border-left:3px solid ${col}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <span style="font-family:var(--f-display);font-size:11px;
+              font-weight:800;color:${col}">${loop.label}</span>
+            <span style="font-family:var(--f-mono);font-size:7px;
+              color:var(--dim);text-transform:uppercase">${loop.polarity}</span>
+            <span style="margin-left:auto;font-family:var(--f-mono);
+              font-size:9px;color:${col}">${isR ? '⊕' : '⊝'}</span>
+          </div>
+          <div style="font-family:var(--f-mono);font-size:7px;
+            color:var(--muted);line-height:1.7">${varNames}</div>
+          <button onclick="systemsHighlightLoop('${loop.id}')" style="
+            margin-top:6px;padding:3px 8px;border:1px solid ${col}44;
+            color:${col};background:transparent;cursor:pointer;
+            font-family:var(--f-mono);font-size:7px"
+            onmouseenter="this.style.background='${col}11'"
+            onmouseleave="this.style.background='transparent'">HIGHLIGHT</button>
+        </div>`;
+    }).join('') : `
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+        padding:16px 0;line-height:2">
+        No loops yet.<br>
+        <span style="color:var(--wire2)">Add variables + links.<br>
+        Loops auto-detect on each link.</span>
+      </div>`}
+  `;
+  panel.appendChild(loopsDiv);
+
+  // Sim chart canvas
+  const chartWrap = document.createElement('div');
+  chartWrap.style.cssText = [
+    'height:180px;flex-shrink:0;border-top:1px solid rgba(17,221,204,.1)',
+    'padding:10px;background:rgba(0,0,0,.4)',
+  ].join(';');
+  chartWrap.innerHTML = `
+    <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:2px;
+      color:var(--dim);margin-bottom:6px">SIMULATION HISTORY</div>
+    <canvas id="sys-sim-chart" style="width:100%;height:130px;display:block"></canvas>
+  `;
+  panel.appendChild(chartWrap);
+
+  setTimeout(() => _renderSimChart(), 100);
+  return panel;
+}
+
+// ── CLD Canvas — Causal Loop Diagram renderer ─────────────────────
+const _CLD = {
+  ctx: null,
+  W: 0, H: 0,
+  pan: { x: 0, y: 0 },
+  zoom: 1,
+  dragging: null,
+  _raf: null,
+  _dirty: true,
+  _highlightLoop: null,
+  _animPhase: 0,
+};
+
+function _initCLD(canvas) {
+  _CLD.ctx = canvas.getContext('2d');
+  _CLD.W = canvas.width  = canvas.offsetWidth;
+  _CLD.H = canvas.height = canvas.offsetHeight;
+
+  // Auto-layout if no positions yet
+  if (SYSTEMS.variables.length && !SYSTEMS.variables[0]._cx) {
+    systemsCLDLayout();
+  }
+
+  // Mouse pan + node drag
+  let dragStart = null, panStart = null;
+  canvas.addEventListener('mousedown', e => {
+    const wx = (e.offsetX - _CLD.pan.x) / _CLD.zoom;
+    const wy = (e.offsetY - _CLD.pan.y) / _CLD.zoom;
+    const hit = SYSTEMS.variables.find(v => {
+      const dx = (v._cx||0) - wx, dy = (v._cy||0) - wy;
+      return Math.sqrt(dx*dx+dy*dy) < 36;
+    });
+    if (hit) {
+      _CLD.dragging = hit;
+      dragStart = { mx: e.offsetX, my: e.offsetY, ox: hit._cx||0, oy: hit._cy||0 };
+    } else {
+      panStart = { mx: e.offsetX, my: e.offsetY, px: _CLD.pan.x, py: _CLD.pan.y };
+    }
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (_CLD.dragging && dragStart) {
+      const dx = (e.offsetX - dragStart.mx) / _CLD.zoom;
+      const dy = (e.offsetY - dragStart.my) / _CLD.zoom;
+      _CLD.dragging._cx = dragStart.ox + dx;
+      _CLD.dragging._cy = dragStart.oy + dy;
+      _CLD.dirty = true;
+    } else if (panStart) {
+      _CLD.pan.x = panStart.px + (e.offsetX - panStart.mx);
+      _CLD.pan.y = panStart.py + (e.offsetY - panStart.my);
+      _CLD.dirty = true;
+    }
+  });
+  canvas.addEventListener('mouseup', () => { _CLD.dragging = null; dragStart = null; panStart = null; });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    _CLD.zoom = Math.max(0.2, Math.min(4, _CLD.zoom * factor));
+    _CLD.dirty = true;
+  }, { passive: false });
+
+  if (_CLD._raf) cancelAnimationFrame(_CLD._raf);
+  _cldLoop();
+}
+
+function _cldLoop() {
+  _CLD._raf = requestAnimationFrame(_cldLoop);
+  _CLD._animPhase += 0.025;
+  _renderCLD();
+}
+
+function systemsCLDLayout() {
+  // Force-directed layout: arrange variables in rings by type
+  const n = SYSTEMS.variables.length;
+  if (!n) return;
+  const cx = (_CLD.W || 600) / 2 / _CLD.zoom;
+  const cy = (_CLD.H || 400) / 2 / _CLD.zoom;
+  const stocks = SYSTEMS.variables.filter(v => v.type === 'stock');
+  const flows  = SYSTEMS.variables.filter(v => v.type === 'flow');
+  const others = SYSTEMS.variables.filter(v => v.type !== 'stock' && v.type !== 'flow');
+
+  // Stocks in inner ring
+  const r1 = 120;
+  stocks.forEach((v, i) => {
+    const a = (i / Math.max(stocks.length, 1)) * Math.PI * 2 - Math.PI/2;
+    v._cx = cx + Math.cos(a) * r1;
+    v._cy = cy + Math.sin(a) * r1;
+  });
+  // Flows in middle ring
+  const r2 = 220;
+  flows.forEach((v, i) => {
+    const a = (i / Math.max(flows.length, 1)) * Math.PI * 2 - Math.PI/6;
+    v._cx = cx + Math.cos(a) * r2;
+    v._cy = cy + Math.sin(a) * r2;
+  });
+  // Auxiliaries/constants in outer ring
+  const r3 = 300;
+  others.forEach((v, i) => {
+    const a = (i / Math.max(others.length, 1)) * Math.PI * 2;
+    v._cx = cx + Math.cos(a) * r3;
+    v._cy = cy + Math.sin(a) * r3;
+  });
+  _CLD.dirty = true;
+}
+
+function _renderCLD() {
+  const ctx = _CLD.ctx;
+  if (!ctx) return;
+  const W = _CLD.W, H = _CLD.H;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(17,221,204,.04)';
+  ctx.lineWidth = 1;
+  const gs = 40 * _CLD.zoom;
+  const ox = _CLD.pan.x % gs, oy = _CLD.pan.y % gs;
+  for (let x = ox; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = oy; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(_CLD.pan.x, _CLD.pan.y);
+  ctx.scale(_CLD.zoom, _CLD.zoom);
+
+  // Highlighted loop glow
+  if (_CLD._highlightLoop) {
+    const loop = SYSTEMS.loops.find(l => l.id === _CLD._highlightLoop);
+    if (loop) {
+      const col = loop.polarity === 'reinforcing' ? '#ff8c22' : '#00ff88';
+      const pulse = 0.3 + 0.7 * Math.abs(Math.sin(_CLD._animPhase * 2));
+      loop.nodes.forEach((nid, i) => {
+        const a = SYSTEMS.variables.find(v => v.id === nid);
+        const b = SYSTEMS.variables.find(v => v.id === loop.nodes[(i+1)%loop.nodes.length]);
+        if (!a || !b || a._cx == null || b._cx == null) return;
+        ctx.beginPath();
+        ctx.moveTo(a._cx, a._cy);
+        ctx.lineTo(b._cx, b._cy);
+        ctx.strokeStyle = col.replace(')', `,${pulse})`).replace('#', 'rgba(').replace(/([0-9a-f]{2})/g, m => parseInt(m,16)+',').replace(/,rgba|,\)/g, m => m === ',)' ? ')' : m).replace(/rgba\((.+)\)/, (_, s) => {
+          const parts = s.split(',').map(x => parseInt(x.trim(),16));
+          return `rgba(${parts[0]},${parts[1]},${parts[2]},${pulse})`;
+        });
+        // simpler:
+        const [r,g,b2] = col === '#ff8c22' ? [255,140,34] : [0,255,136];
+        ctx.strokeStyle = `rgba(${r},${g},${b2},${pulse * 0.8})`;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      });
+    }
+  }
+
+  // Draw links with curved arrows and polarity labels
+  SYSTEMS.links.forEach(link => {
+    const fromV = SYSTEMS.variables.find(v => v.id === link.from);
+    const toV   = SYSTEMS.variables.find(v => v.id === link.to);
+    if (!fromV || !toV || fromV._cx == null || toV._cx == null) return;
+
+    const fx = fromV._cx, fy = fromV._cy;
+    const tx = toV._cx,   ty = toV._cy;
+    const isPos = link.polarity > 0;
+    const col = isPos ? 'rgba(0,255,136,.7)' : 'rgba(255,51,85,.7)';
+
+    // Curved path (quadratic bezier perpendicular to midpoint)
+    const mx = (fx + tx) / 2, my = (fy + ty) / 2;
+    const len = Math.sqrt((tx-fx)**2 + (ty-fy)**2) || 1;
+    const nx = -(ty-fy)/len * 28, ny = (tx-fx)/len * 28; // normal offset
+    const cpx = mx + nx, cpy = my + ny;
+
+    // Arrowhead calc — point along curve near end
+    const t = 0.88;
+    const ax = (1-t)**2*fx + 2*(1-t)*t*cpx + t**2*tx;
+    const ay = (1-t)**2*fy + 2*(1-t)*t*cpy + t**2*ty;
+    const tang = Math.atan2(ty-ay, tx-ax);
+
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.quadraticCurveTo(cpx, cpy, tx, ty);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash(link.delay ? [4, 4] : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrowhead
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx - 10*Math.cos(tang-0.4), ty - 10*Math.sin(tang-0.4));
+    ctx.lineTo(tx - 10*Math.cos(tang+0.4), ty - 10*Math.sin(tang+0.4));
+    ctx.closePath();
+    ctx.fillStyle = col;
+    ctx.fill();
+
+    // Polarity label at curve midpoint
+    ctx.font = `bold ${12/_CLD.zoom < 8 ? 8 : 12}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isPos ? '#00ff88' : '#ff3355';
+    ctx.fillText(isPos ? '+' : '−', cpx, cpy);
+
+    // Link label
+    if (link.label) {
+      ctx.font = `${9}px monospace`;
+      ctx.fillStyle = 'rgba(200,220,240,.5)';
+      ctx.fillText(link.label.slice(0,16), (fx+cpx+tx)/3, (fy+cpy+ty)/3 - 10);
+    }
+  });
+
+  // Draw loop labels at centroid of each loop
+  SYSTEMS.loops.forEach(loop => {
+    const nodes = loop.nodes.map(nid => SYSTEMS.variables.find(v => v.id === nid)).filter(Boolean);
+    if (!nodes.length || nodes[0]._cx == null) return;
+    const cx2 = nodes.reduce((s,v) => s + v._cx, 0) / nodes.length;
+    const cy2 = nodes.reduce((s,v) => s + v._cy, 0) / nodes.length;
+    const isR = loop.polarity === 'reinforcing';
+    const col = isR ? '#ff8c22' : '#00ff88';
+    const pulse = 0.6 + 0.4 * Math.abs(Math.sin(_CLD._animPhase * (isR ? 1.2 : 0.8)));
+
+    // Loop label circle
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, 16, 0, Math.PI*2);
+    ctx.fillStyle = `${col}${Math.round(pulse*25).toString(16).padStart(2,'0')}`;
+    ctx.fill();
+    ctx.strokeStyle = `${col}88`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = col;
+    ctx.fillText(loop.label, cx2, cy2);
+
+    // Rotation arrow around label
+    const arrowA = _CLD._animPhase * (isR ? 1 : -1);
+    ctx.beginPath();
+    ctx.arc(cx2, cy2, 22, arrowA, arrowA + Math.PI * 1.6);
+    ctx.strokeStyle = `${col}55`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Draw variables
+  SYSTEMS.variables.forEach(v => {
+    if (v._cx == null) return;
+    const typeColors = { stock:'#00c8ff', flow:'#ff8c22', auxiliary:'#cc44ff', constant:'#ffe04a' };
+    const col = typeColors[v.type] || '#00c8ff';
+    const isStock = v.type === 'stock';
+    const isFlow  = v.type === 'flow';
+
+    // Get current sim value for animation
+    const curVal = SYSTEMS.simState?.[v.id] ?? v.value ?? 0;
+    const initVal = v.init ?? v.value ?? 0;
+    const ratio = initVal !== 0 ? Math.min(Math.abs(curVal / initVal), 3) : 1;
+
+    if (isStock) {
+      // Stock: rectangle with fill level showing accumulated value
+      const rw = 64, rh = 36;
+      const fill = Math.min(1, ratio * 0.4) * rh;
+      ctx.beginPath();
+      ctx.rect(v._cx - rw/2, v._cy - rh/2, rw, rh);
+      ctx.fillStyle = `${col}12`;
+      ctx.fill();
+      // Fill level from bottom
+      if (fill > 0) {
+        ctx.fillStyle = `${col}2a`;
+        ctx.fillRect(v._cx - rw/2, v._cy + rh/2 - fill, rw, fill);
+      }
+      ctx.strokeStyle = `${col}cc`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Inlet/outlet pipes (top and bottom center)
+      ctx.strokeStyle = `${col}66`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(v._cx, v._cy - rh/2); ctx.lineTo(v._cx, v._cy - rh/2 - 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(v._cx, v._cy + rh/2); ctx.lineTo(v._cx, v._cy + rh/2 + 10); ctx.stroke();
+    } else if (isFlow) {
+      // Flow: pipe/arrow shape
+      const pulse = 0.6 + 0.4 * Math.sin(_CLD._animPhase * 3 + v._cx * 0.01);
+      ctx.beginPath();
+      ctx.arc(v._cx, v._cy, 18 * pulse, 0, Math.PI*2);
+      ctx.fillStyle = `${col}18`;
+      ctx.fill();
+      ctx.strokeStyle = `${col}bb`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Flow direction arrow
+      ctx.beginPath();
+      ctx.moveTo(v._cx - 8, v._cy);
+      ctx.lineTo(v._cx + 2, v._cy);
+      ctx.lineTo(v._cx, v._cy - 4);
+      ctx.moveTo(v._cx + 2, v._cy);
+      ctx.lineTo(v._cx, v._cy + 4);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      // Auxiliary / constant: circle
+      ctx.beginPath();
+      ctx.arc(v._cx, v._cy, 22, 0, Math.PI*2);
+      ctx.fillStyle = `${col}0e`;
+      ctx.fill();
+      ctx.strokeStyle = `${col}88`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash(v.type === 'constant' ? [4,3] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Label
+    const label = v.name.length > 12 ? v.name.slice(0,11) + '…' : v.name;
+    ctx.font = `${isStock ? 9 : 8}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = col;
+    ctx.fillText(label, v._cx, v._cy + (isStock ? 22 : 20));
+
+    // Value badge
+    const displayVal = (curVal || 0).toFixed(1);
+    ctx.font = '7px monospace';
+    ctx.fillStyle = 'rgba(200,220,240,.6)';
+    ctx.fillText(displayVal + (v.unit ? ' '+v.unit : ''), v._cx, v._cy + (isStock ? 32 : 30));
+  });
+
+  ctx.restore();
+}
+
+// ── Sim chart renderer ────────────────────────────────────────────
+function _renderSimChart() {
+  const canvas = document.getElementById('sys-sim-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width  = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight || 130;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const hist = SYSTEMS.simHistory;
+  if (!hist || hist.length < 2) {
+    ctx.font = '8px monospace';
+    ctx.fillStyle = 'rgba(17,221,204,.3)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Run simulation to see history', W/2, H/2);
+    return;
+  }
+
+  const stocks = SYSTEMS.variables.filter(v => v.type === 'stock');
+  if (!stocks.length) return;
+
+  const typeColors = { stock:'#00c8ff', flow:'#ff8c22', auxiliary:'#cc44ff', constant:'#ffe04a' };
+
+  stocks.forEach((v, vi) => {
+    const vals = hist.map(h => h.values[v.id] || 0);
+    const minV = Math.min(...vals), maxV = Math.max(...vals);
+    const range = (maxV - minV) || 1;
+    const col = typeColors[v.type];
+    const [r,g,b] = col === '#00c8ff' ? [0,200,255] : col === '#ff8c22' ? [255,140,34] : [204,68,255];
+
+    ctx.beginPath();
+    vals.forEach((val, i) => {
+      const x = (i / (vals.length-1)) * W;
+      const y = H - ((val - minV) / range) * (H - 16) - 4;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.8)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Label at end
+    const lastY = H - ((vals[vals.length-1] - minV) / range) * (H-16) - 4;
+    ctx.font = '7px monospace';
+    ctx.fillStyle = col;
+    ctx.textAlign = 'right';
+    ctx.fillText(v.name.slice(0,10), W - 3, Math.max(10, Math.min(H-5, lastY)));
+  });
+}
+
+// ── Helper functions ──────────────────────────────────────────────
+function systemsSelectType(type) {
+  SYSTEMS._selectedType = type;
+  const types = ['stock','flow','auxiliary','constant'];
+  const colors = { stock:'#00c8ff', flow:'#ff8c22', auxiliary:'#cc44ff', constant:'#ffe04a' };
+  types.forEach(t => {
+    const btn = document.getElementById(`sys-type-${t}`);
+    if (!btn) return;
+    const isActive = t === type;
+    btn.style.background = isActive ? `${colors[t]}22` : 'transparent';
+    btn.style.borderColor = isActive ? colors[t] : `${colors[t]}44`;
+  });
+}
+
+function systemsSelectPolarity(pol) {
+  SYSTEMS._selectedPolarity = pol;
+  const posBtn = document.getElementById('sys-pol-pos');
+  const negBtn = document.getElementById('sys-pol-neg');
+  if (posBtn) {
+    posBtn.style.background = pol > 0 ? 'rgba(0,255,136,.2)' : 'transparent';
+    posBtn.style.borderColor = pol > 0 ? '#00ff88' : 'rgba(0,255,136,.3)';
+  }
+  if (negBtn) {
+    negBtn.style.background = pol < 0 ? 'rgba(255,51,85,.15)' : 'transparent';
+    negBtn.style.borderColor = pol < 0 ? '#ff3355' : 'rgba(255,51,85,.3)';
+  }
+}
+
+function systemsQuickAddVar() {
+  const name = document.getElementById('sys-var-name')?.value?.trim();
+  if (!name) { mm_toast('Enter a variable name', 'warn'); return; }
+  const type  = SYSTEMS._selectedType || 'stock';
+  const value = parseFloat(document.getElementById('sys-var-value')?.value) || 0;
+  const unit  = document.getElementById('sys-var-unit')?.value || '';
+  systemsAddVar(name, type, value, unit);
+  document.getElementById('sys-var-name').value = '';
+  // Rebuild UI to update select lists
+  const overlay = document.getElementById('mm-systems-overlay');
+  if (overlay) _renderSystemsUI(overlay);
+}
+
+function systemsQuickAddLink() {
+  const from = document.getElementById('sys-link-from')?.value;
+  const to   = document.getElementById('sys-link-to')?.value;
+  const pol  = SYSTEMS._selectedPolarity ?? 1;
+  const lbl  = document.getElementById('sys-link-label')?.value?.trim() || '';
+  if (!from || !to || from === to) { mm_toast('Select two different variables', 'warn'); return; }
+  systemsAddLink(from, to, pol, 0, lbl);
+  // Rebuild right panel to show new loop
+  const overlay = document.getElementById('mm-systems-overlay');
+  if (overlay) _renderSystemsUI(overlay);
+}
+
+function systemsRunAndAnimate() {
+  const steps = parseInt(document.getElementById('sys-sim-steps')?.value) || 100;
+  const dt    = parseFloat(document.getElementById('sys-sim-dt')?.value) || 0.05;
+  systemsSimulate(steps, dt);
+  _renderSimChart();
+  _CLD.dirty = true;
+}
+
+function systemsResetSim() {
+  SYSTEMS.simState = null;
+  SYSTEMS.simHistory = [];
+  SYSTEMS.variables.forEach(v => v.value = v.init ?? 0);
+  _renderSimChart();
+  _CLD.dirty = true;
+  mm_toast('Simulation reset', 'info');
+}
+
+function systemsClearAll() {
+  if (!confirm('Clear all variables and links? This cannot be undone.')) return;
+  SYSTEMS.variables = [];
+  SYSTEMS.links = [];
+  SYSTEMS.loops = [];
+  SYSTEMS.simState = null;
+  SYSTEMS.simHistory = [];
+  systemsSave();
+  const overlay = document.getElementById('mm-systems-overlay');
+  if (overlay) _renderSystemsUI(overlay);
+}
+
+function systemsHighlightLoop(loopId) {
+  _CLD._highlightLoop = _CLD._highlightLoop === loopId ? null : loopId;
+}
+
+function systemsStartWhatif() {
+  const seed = document.getElementById('sys-whatif-seed')?.value?.trim();
+  const d = parseInt(document.getElementById('sys-loop-depth')?.value) || 3;
+  const b = parseInt(document.getElementById('sys-loop-branch')?.value) || 3;
+  if (!seed) { runSystemWhatifLoop(); return; }
+  closeSystems();
+  whatifLoopStart(seed, { maxDepth: d, branchFactor: b, spawnCanvas: true });
+}
+
+function systemsExportToMainCanvas() {
+  closeSystems();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+    const nodeMap = {};
+    // Spawn each variable as appropriate node type
+    SYSTEMS.variables.forEach((v, i) => {
+      const angle = (i / SYSTEMS.variables.length) * Math.PI * 2;
+      const r = 280;
+      const typeMap = { stock: 'causal', flow: 'vector', auxiliary: 'feedback', constant: 'invariant' };
+      const nodeType = typeMap[v.type] || 'concept';
+      const typeColors = { stock:'#00c8ff', flow:'#ff8c22', auxiliary:'#cc44ff', constant:'#ffe04a' };
+      const n = CANVAS.spawnNode(nodeType, cx + Math.cos(angle)*r, cy + Math.sin(angle)*r, {
+        title: v.name,
+        body: `${v.type} · init: ${v.init ?? v.value}${v.unit ? ' '+v.unit : ''}`,
+        color: typeColors[v.type] || '#00c8ff',
+        tags: ['SYSTEMS', v.type.toUpperCase()],
+      });
+      nodeMap[v.id] = n?.id;
+    });
+    // Spawn links
+    setTimeout(() => {
+      SYSTEMS.links.forEach(link => {
+        const fn = nodeMap[link.from], tn = nodeMap[link.to];
+        if (fn && tn) {
+          CANVAS.addConn(fn, tn, (link.polarity > 0 ? '+ ' : '− ') + (link.label || ''));
+        }
+      });
+      mm_toast('System → canvas', 'export');
+    }, 300);
+  }, 200);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   RELATIONAL MODULE — v1.0.0
+   "You are shaped in relationship, not isolation."
+   
+   Architecture: fluid state, no rigid categories.
+   - People as living nodes with attachment fields
+   - Patterns emerge from logged moments, not imposed labels  
+   - Co-regulation map: who stabilizes you and how
+   - Relational needs: named but not medicalized
+   - Communication texture: what's actually happening between you
+   - Canvas integration: relational nodes spawn with full context
+   
+   Data model: flat arrays + derived views, not nested hierarchies.
+   User adds moments/observations; the module finds patterns.
+═══════════════════════════════════════════════════════════════════ */
+
+const RELATIONAL_STATE = {
+  _loaded: false,
+  
+  // People in your relational field
+  people: [],
+  // { id, name, color, role, attachmentNotes, coRegulationRating, 
+  //   lastContact, aliveness }
+  
+  // Raw moments — the source of truth
+  moments: [],
+  // { id, personId, text, quality, bodyLocation, timestamp, tags[] }
+  // quality: -2..+2 (disconnected → alive)
+  
+  // Active relational needs (not a fixed list)
+  needs: [],
+  // { id, text, urgency, personId|null, timestamp }
+  
+  // Communication threads (what's moving between you and someone)
+  threads: [],
+  // { id, personId, text, direction: 'toward'|'away'|'around', timestamp }
+  
+  // Patterns that have emerged (user-named or AI-surfaced)
+  patterns: [],
+  // { id, personId|null, text, frequency, lastSeen, canvasNodeId }
+};
+
+const RELATIONAL_KEY = 'mm_relational_state';
+
+function relationalLoad() {
+  try {
+    const raw = localStorage.getItem(RELATIONAL_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      Object.assign(RELATIONAL_STATE, d);
+      RELATIONAL_STATE._loaded = true;
+    }
+  } catch(e) {}
+  RELATIONAL_STATE._loaded = true;
+}
+
+function relationalSave() {
+  try {
+    const { _loaded, ...data } = RELATIONAL_STATE;
+    localStorage.setItem(RELATIONAL_KEY, JSON.stringify(data));
+  } catch(e) {}
+  if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
+}
+
+// ── Color palette for people nodes ────────────────────────────────
+const REL_COLORS = [
+  '#00c8ff','#cc44ff','#ff8c22','#00ff88','#ff66aa',
+  '#d4a820','#7744ff','#11ddcc','#ff3355','#88ffcc',
+];
+
+function _relColor(idx) { return REL_COLORS[idx % REL_COLORS.length]; }
+
+// ── Quality labels — felt sense, not clinical ─────────────────────
+const QUALITY_LABELS = {
+  '-2': { label: 'disconnected',  color: '#ff3355', icon: '▾' },
+  '-1': { label: 'contracted',    color: '#ff8c22', icon: '◦' },
+   '0': { label: 'neutral',       color: '#555',    icon: '─' },
+   '1': { label: 'present',       color: '#00c8ff', icon: '◉' },
+   '2': { label: 'alive',         color: '#00ff88', icon: '✦' },
+};
+
+function _qualityLabel(q) {
+  return QUALITY_LABELS[String(Math.round(q))] || QUALITY_LABELS['0'];
+}
+
+// ── Attachment orientation helper (not a diagnosis, a signal) ─────
+const ATTACH_HINTS = [
+  { id: 'secure',       label: 'Secure',       desc: 'Easy closeness + autonomy', color: '#00ff88' },
+  { id: 'anxious',      label: 'Anxious',      desc: 'Closeness feels urgent',    color: '#ff8c22' },
+  { id: 'avoidant',     label: 'Avoidant',     desc: 'Distance feels safer',      color: '#00c8ff' },
+  { id: 'disorganized', label: 'Disorganized', desc: 'Both pull in same moment',  color: '#cc44ff' },
+  { id: 'unknown',      label: 'Still figuring out', desc: '',                    color: '#555'    },
+];
+
+// ── Open / close ──────────────────────────────────────────────────
+function openRelational() {
+  if (!_assertAuth()) return;
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'relational' });
+  if (!RELATIONAL_STATE._loaded) relationalLoad();
+  
+  let overlay = document.getElementById('mm-relational-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'mm-relational-overlay';
+    overlay.style.cssText = [
+      'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800',
+      'background:rgba(1,3,8,.97);backdrop-filter:blur(8px)',
+      'display:flex;flex-direction:column;overflow:hidden',
+    ].join(';');
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  _renderRelationalUI(overlay);
+  if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.4, window.innerHeight * 0.5, 0.9);
+}
+
+function closeRelational() {
+  const el = document.getElementById('mm-relational-overlay');
+  if (el) el.style.display = 'none';
+  relationalSave();
+}
+
+// ── Main render ───────────────────────────────────────────────────
+function _renderRelationalUI(overlay) {
+  overlay.innerHTML = '';
+
+  // ── Header ──────────────────────────────────────────────────────
+  const header = document.createElement('div');
+  header.style.cssText = [
+    'display:flex;align-items:center;gap:14px;padding:12px 22px',
+    'border-bottom:1px solid rgba(255,102,170,.2)',
+    'background:rgba(255,102,170,.04);flex-shrink:0',
+  ].join(';');
+  header.innerHTML = `
+    <span style="font-size:20px;filter:drop-shadow(0 0 10px #ff66aa)">⬡</span>
+    <div>
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;letter-spacing:5px;
+        background:linear-gradient(135deg,#ff66aa,#cc44ff,#7744ff);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+        RELATIONAL
+      </div>
+      <div style="font-family:var(--f-mono);font-size:7px;color:rgba(255,102,170,.5);
+        letter-spacing:2px;margin-top:1px">
+        YOU ARE SHAPED IN RELATIONSHIP · NOT ISOLATION
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button onclick="relationalExportCanvas()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid rgba(255,102,170,.3);color:#ff66aa;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,102,170,.1)'"
+        onmouseleave="this.style.background='transparent'">→ CANVAS</button>
+      <button onclick="relationalAISurface()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid rgba(204,68,255,.3);color:#cc44ff;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(204,68,255,.1)'"
+        onmouseleave="this.style.background='transparent'">✦ SURFACE PATTERNS</button>
+      <button onclick="closeRelational();goHome()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 13px;
+        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
+    </div>
+  `;
+  overlay.appendChild(header);
+
+  // ── Body: two-column layout ──────────────────────────────────────
+  const body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex:1;overflow:hidden';
+  overlay.appendChild(body);
+
+  // Left: people field + quick-add moment
+  const left = document.createElement('div');
+  left.style.cssText = [
+    'width:340px;flex-shrink:0;display:flex;flex-direction:column',
+    'border-right:1px solid rgba(255,102,170,.12);overflow:hidden',
+  ].join(';');
+  body.appendChild(left);
+  _renderPeoplePanel(left);
+
+  // Right: detail view (moments / needs / threads / patterns)
+  const right = document.createElement('div');
+  right.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden';
+  body.appendChild(right);
+  _renderDetailPanel(right);
+}
+
+// ── People panel ──────────────────────────────────────────────────
+function _renderPeoplePanel(container) {
+  container.innerHTML = '';
+
+  // Section header + add button
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:14px 16px 10px;flex-shrink:0';
+  hdr.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;color:#ff66aa">
+        RELATIONAL FIELD
+      </span>
+      <button id="rel-add-person-btn" onclick="relationalAddPersonPrompt()" style="
+        font-family:var(--f-mono);font-size:7px;letter-spacing:1px;padding:5px 10px;
+        border:1px solid rgba(255,102,170,.4);color:#ff66aa;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,102,170,.12)'"
+        onmouseleave="this.style.background='transparent'">+ ADD PERSON</button>
+    </div>
+    <div id="rel-person-add-form" style="display:none;margin-bottom:10px"></div>
+  `;
+  container.appendChild(hdr);
+
+  // People list — scrollable
+  const list = document.createElement('div');
+  list.id = 'rel-people-list';
+  list.style.cssText = 'flex:1;overflow-y:auto;padding:0 16px 16px';
+  container.appendChild(list);
+
+  // Quick-add moment at bottom
+  const quickAdd = document.createElement('div');
+  quickAdd.style.cssText = [
+    'padding:12px 16px;border-top:1px solid rgba(255,102,170,.1)',
+    'flex-shrink:0;background:rgba(255,102,170,.03)',
+  ].join(';');
+  quickAdd.innerHTML = `
+    <div style="font-family:var(--f-mono);font-size:7px;color:rgba(255,102,170,.5);
+      letter-spacing:1.5px;margin-bottom:6px">QUICK LOG</div>
+    <textarea id="rel-moment-text" placeholder="What just happened in this relationship?  
+What did you notice in your body?  
+What do you need right now?" style="
+      width:100%;box-sizing:border-box;height:64px;resize:none;
+      font-family:var(--f-mono);font-size:8px;color:var(--bright);
+      background:rgba(0,0,0,.4);border:1px solid rgba(255,102,170,.2);
+      padding:8px;line-height:1.6;outline:none;
+      transition:border-color .15s"
+      onfocus="this.style.borderColor='rgba(255,102,170,.5)'"
+      onblur="this.style.borderColor='rgba(255,102,170,.2)'"></textarea>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+      <select id="rel-moment-person" style="
+        flex:1;font-family:var(--f-mono);font-size:7.5px;
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,102,170,.2);
+        color:var(--muted);padding:5px 7px;cursor:pointer">
+        <option value="">— person (optional)</option>
+        ${RELATIONAL_STATE.people.map(p => `<option value="${p.id}">${escH(p.name)}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:3px">
+        ${[-2,-1,0,1,2].map(q => {
+          const ql = _qualityLabel(q);
+          return `<button title="${ql.label}" onclick="relationalQuickLog(${q})" style="
+            width:22px;height:22px;border:1px solid ${ql.color}44;
+            background:${ql.color}11;color:${ql.color};font-size:10px;cursor:pointer;
+            transition:all .12s"
+            onmouseenter="this.style.background='${ql.color}33'"
+            onmouseleave="this.style.background='${ql.color}11'">${ql.icon}</button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  container.appendChild(quickAdd);
+
+  _renderPeopleList();
+}
+
+function _renderPeopleList() {
+  const list = document.getElementById('rel-people-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!RELATIONAL_STATE.people.length) {
+    list.innerHTML = `
+      <div style="padding:24px 0;text-align:center;color:var(--dim);font-family:var(--f-mono);font-size:8px;line-height:2">
+        No people in your relational field yet.<br>
+        <span style="color:var(--wire2)">Add someone you're in relationship with.<br>
+        Partner, friend, parent, colleague.<br>Anyone who shapes how you are.</span>
+      </div>`;
+    return;
+  }
+
+  RELATIONAL_STATE.people.forEach((person, idx) => {
+    const moments = RELATIONAL_STATE.moments.filter(m => m.personId === person.id);
+    const lastMoment = moments.sort((a,b) => b.timestamp - a.timestamp)[0];
+    const avgQ = moments.length
+      ? moments.slice(-5).reduce((s,m) => s + m.quality, 0) / Math.min(moments.length, 5)
+      : 0;
+    const ql = _qualityLabel(Math.round(avgQ));
+    const needCount = RELATIONAL_STATE.needs.filter(n => n.personId === person.id).length;
+    const threadCount = RELATIONAL_STATE.threads.filter(t => t.personId === person.id).length;
+    const isSelected = window._relSelectedPerson === person.id;
+
+    const card = document.createElement('div');
+    card.style.cssText = [
+      `padding:11px 13px;margin-bottom:7px;cursor:pointer`,
+      `border:1px solid ${isSelected ? person.color : 'rgba(255,255,255,.06)'}`,
+      `background:${isSelected ? `${person.color}0d` : 'rgba(0,0,0,.3)'}`,
+      `transition:all .15s;border-radius:2px`,
+    ].join(';');
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:9px;height:9px;border-radius:50%;background:${person.color};
+          flex-shrink:0;box-shadow:0 0 6px ${person.color}88"></div>
+        <span style="font-family:var(--f-display);font-size:10px;font-weight:700;
+          letter-spacing:2px;color:${person.color};flex:1">${escH(person.name.toUpperCase())}</span>
+        <span style="font-family:var(--f-mono);font-size:7px;color:${ql.color}"
+          title="Average felt quality (last 5 moments)">${ql.icon} ${ql.label}</span>
+      </div>
+      ${person.role ? `<div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
+        margin-top:3px;padding-left:18px">${escH(person.role)}</div>` : ''}
+      <div style="display:flex;gap:12px;margin-top:6px;padding-left:18px">
+        <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">
+          ${moments.length} moment${moments.length !== 1 ? 's' : ''}
+        </span>
+        ${needCount ? `<span style="font-family:var(--f-mono);font-size:7px;color:#ff8c22">
+          ${needCount} need${needCount !== 1 ? 's' : ''}</span>` : ''}
+        ${threadCount ? `<span style="font-family:var(--f-mono);font-size:7px;color:#00c8ff">
+          ${threadCount} thread${threadCount !== 1 ? 's' : ''}</span>` : ''}
+        ${lastMoment ? `<span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2)">
+          ${_relTimeAgo(lastMoment.timestamp)}</span>` : ''}
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      window._relSelectedPerson = isSelected ? null : person.id;
+      _renderPeopleList();
+      _renderDetailPanel(document.getElementById('mm-relational-overlay')?.querySelector('div[style*="flex:1"]'));
+    });
+    card.addEventListener('mouseenter', () => {
+      if (!isSelected) { card.style.borderColor = `${person.color}44`; card.style.background = `${person.color}08`; }
+    });
+    card.addEventListener('mouseleave', () => {
+      if (!isSelected) { card.style.borderColor = 'rgba(255,255,255,.06)'; card.style.background = 'rgba(0,0,0,.3)'; }
+    });
+    list.appendChild(card);
+  });
+}
+
+// ── Detail panel ──────────────────────────────────────────────────
+function _renderDetailPanel(container) {
+  if (!container) return;
+  container.innerHTML = '';
+  const person = RELATIONAL_STATE.people.find(p => p.id === window._relSelectedPerson);
+
+  if (!person) {
+    _renderRelationalOverview(container);
+    return;
+  }
+  _renderPersonDetail(container, person);
+}
+
+function _renderRelationalOverview(container) {
+  // Global view: needs, patterns, recent moments across all people
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'flex:1;overflow-y:auto;padding:22px 28px;display:flex;flex-direction:column;gap:28px';
+  container.appendChild(wrap);
+
+  // ── Active needs ─────────────────────────────────────────────────
+  const needsSection = document.createElement('div');
+  needsSection.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;color:#ff8c22">
+        RELATIONAL NEEDS
+      </span>
+      <button onclick="relationalAddNeed()" style="
+        font-family:var(--f-mono);font-size:7px;letter-spacing:1px;padding:4px 9px;
+        border:1px solid rgba(255,140,34,.3);color:#ff8c22;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,140,34,.1)'"
+        onmouseleave="this.style.background='transparent'">+ NEED</button>
+    </div>
+    <div id="rel-needs-list">${_renderNeedsList()}</div>
+  `;
+  wrap.appendChild(needsSection);
+
+  // ── Recent moments ────────────────────────────────────────────────
+  const momentsSection = document.createElement('div');
+  const recentMoments = [...RELATIONAL_STATE.moments]
+    .sort((a,b) => b.timestamp - a.timestamp)
+    .slice(0, 12);
+  momentsSection.innerHTML = `
+    <div style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;
+      color:var(--c);margin-bottom:12px">RECENT MOMENTS</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${recentMoments.length ? recentMoments.map(m => {
+        const ql = _qualityLabel(m.quality);
+        const person = RELATIONAL_STATE.people.find(p => p.id === m.personId);
+        return `<div style="padding:9px 12px;background:rgba(0,0,0,.35);
+          border-left:2px solid ${ql.color};display:flex;gap:10px;align-items:flex-start">
+          <span style="color:${ql.color};font-size:12px;flex-shrink:0;margin-top:1px">${ql.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--f-mono);font-size:8px;color:var(--bright);
+              line-height:1.5;word-break:break-word">${escH(m.text)}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-top:3px">
+              ${person ? `<span style="color:${person.color}">${escH(person.name)}</span> · ` : ''}
+              ${_relTimeAgo(m.timestamp)}
+              ${m.bodyLocation ? ` · <span style="color:var(--wire2)">${escH(m.bodyLocation)}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="relationalDeleteMoment('${m.id}')" style="
+            background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px;
+            flex-shrink:0;padding:0;line-height:1"
+            onmouseenter="this.style.color='var(--r)'"
+            onmouseleave="this.style.color='var(--wire2)'">×</button>
+        </div>`;
+      }).join('') : `<div style="color:var(--dim);font-family:var(--f-mono);font-size:8px;
+        padding:16px 0">No moments logged yet. Use the quick log to capture relational texture.</div>`}
+    </div>
+  `;
+  wrap.appendChild(momentsSection);
+
+  // ── Patterns ──────────────────────────────────────────────────────
+  if (RELATIONAL_STATE.patterns.length) {
+    const patternsSection = document.createElement('div');
+    patternsSection.innerHTML = `
+      <div style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;
+        color:#cc44ff;margin-bottom:12px">SURFACED PATTERNS</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${RELATIONAL_STATE.patterns.map(p => {
+          const person = RELATIONAL_STATE.people.find(pp => pp.id === p.personId);
+          return `<div style="padding:9px 12px;background:rgba(204,68,255,.06);
+            border:1px solid rgba(204,68,255,.15);display:flex;align-items:flex-start;gap:10px">
+            <span style="color:#cc44ff;font-size:10px;flex-shrink:0">◈</span>
+            <div style="flex:1">
+              <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright)">${escH(p.text)}</div>
+              ${person ? `<div style="font-family:var(--f-mono);font-size:7px;color:${person.color};margin-top:2px">
+                with ${escH(person.name)}</div>` : ''}
+            </div>
+            <button onclick="relationalPatternToCanvas('${p.id}')" style="
+              font-family:var(--f-mono);font-size:7px;padding:3px 7px;
+              border:1px solid rgba(204,68,255,.3);color:#cc44ff;background:transparent;cursor:pointer"
+              onmouseenter="this.style.background='rgba(204,68,255,.1)'"
+              onmouseleave="this.style.background='transparent'">→ NODE</button>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    wrap.appendChild(patternsSection);
+  }
+}
+
+function _renderPersonDetail(container, person) {
+  const ql = _qualityLabel(0);
+  const moments = [...RELATIONAL_STATE.moments]
+    .filter(m => m.personId === person.id)
+    .sort((a,b) => b.timestamp - a.timestamp);
+  const threads = RELATIONAL_STATE.threads.filter(t => t.personId === person.id);
+  const avgQ = moments.length
+    ? moments.slice(-5).reduce((s,m) => s + m.quality, 0) / Math.min(moments.length, 5)
+    : 0;
+  const currentQl = _qualityLabel(Math.round(avgQ));
+  const attachHint = ATTACH_HINTS.find(a => a.id === person.attachmentHint) || ATTACH_HINTS[4];
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'flex:1;overflow-y:auto;padding:22px 28px;display:flex;flex-direction:column;gap:24px';
+  container.appendChild(wrap);
+
+  // ── Person header ─────────────────────────────────────────────────
+  wrap.innerHTML += `
+    <div style="display:flex;align-items:flex-start;gap:18px">
+      <div style="width:44px;height:44px;border-radius:50%;background:${person.color}22;
+        border:2px solid ${person.color};display:flex;align-items:center;justify-content:center;
+        flex-shrink:0;font-size:18px;color:${person.color};box-shadow:0 0 16px ${person.color}44">
+        ${person.name[0].toUpperCase()}
+      </div>
+      <div style="flex:1">
+        <div style="font-family:var(--f-display);font-size:16px;font-weight:800;
+          letter-spacing:4px;color:${person.color}">${escH(person.name.toUpperCase())}</div>
+        ${person.role ? `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+          letter-spacing:1px;margin-top:2px">${escH(person.role)}</div>` : ''}
+        <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap">
+          <span style="font-family:var(--f-mono);font-size:7.5px;color:${currentQl.color}">
+            ${currentQl.icon} ${currentQl.label} (recent avg)</span>
+          <span style="font-family:var(--f-mono);font-size:7.5px;color:${attachHint.color}">
+            ◦ ${attachHint.label}</span>
+          <span style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim)">
+            ${moments.length} moment${moments.length !== 1 ? 's' : ''} logged</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;flex-shrink:0">
+        <button onclick="relationalEditPerson('${person.id}')" style="
+          font-family:var(--f-mono);font-size:7px;padding:5px 10px;
+          border:1px solid ${person.color}44;color:${person.color};background:transparent;cursor:pointer"
+          onmouseenter="this.style.background='${person.color}11'"
+          onmouseleave="this.style.background='transparent'">EDIT</button>
+        <button onclick="relationalPersonToCanvas('${person.id}')" style="
+          font-family:var(--f-mono);font-size:7px;padding:5px 10px;
+          border:1px solid rgba(255,255,255,.1);color:var(--dim);background:transparent;cursor:pointer"
+          onmouseenter="this.style.background='rgba(255,255,255,.05)'"
+          onmouseleave="this.style.background='transparent'">→ CANVAS</button>
+      </div>
+    </div>
+  `;
+
+  // ── Attachment + co-regulation ────────────────────────────────────
+  wrap.innerHTML += `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">ATTACHMENT SIGNAL</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${ATTACH_HINTS.map(hint => `
+            <div onclick="relationalSetAttachment('${person.id}','${hint.id}')"
+              style="padding:6px 9px;cursor:pointer;border:1px solid ${
+                person.attachmentHint === hint.id ? hint.color : 'rgba(255,255,255,.05)'};
+              background:${person.attachmentHint === hint.id ? hint.color + '11' : 'transparent'};
+              display:flex;align-items:center;gap:8px;transition:all .12s"
+              onmouseenter="this.style.background='${hint.color}0d'"
+              onmouseleave="this.style.background='${person.attachmentHint === hint.id ? hint.color+'11' : 'transparent'}'">
+              <div style="width:7px;height:7px;border-radius:50%;
+                background:${person.attachmentHint === hint.id ? hint.color : 'transparent'};
+                border:1px solid ${hint.color};flex-shrink:0"></div>
+              <div>
+                <div style="font-family:var(--f-mono);font-size:8px;color:${hint.color}">${hint.label}</div>
+                ${hint.desc ? `<div style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">${hint.desc}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">CO-REGULATION</div>
+        <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);
+          margin-bottom:8px">How regulated do you feel with them?</div>
+        <div style="display:flex;gap:4px;margin-bottom:10px">
+          ${[1,2,3,4,5].map(n => `
+            <div onclick="relationalSetCoReg('${person.id}',${n})" style="
+              flex:1;height:26px;cursor:pointer;display:flex;align-items:center;
+              justify-content:center;font-family:var(--f-mono);font-size:8px;
+              border:1px solid ${(person.coRegRating||0)>=n ? '#00ff8866' : 'rgba(255,255,255,.08)'};
+              background:${(person.coRegRating||0)>=n ? 'rgba(0,255,136,.08)' : 'transparent'};
+              color:${(person.coRegRating||0)>=n ? '#00ff88' : 'var(--wire2)'};
+              transition:all .12s">${n}</div>
+          `).join('')}
+        </div>
+        <textarea id="rel-coreg-notes-${person.id}" placeholder="What actually helps you regulate with them?" style="
+          width:100%;box-sizing:border-box;height:55px;resize:none;
+          font-family:var(--f-mono);font-size:7.5px;color:var(--bright);
+          background:rgba(0,0,0,.4);border:1px solid rgba(0,255,136,.15);
+          padding:7px;line-height:1.5;outline:none"
+          onblur="relationalSaveCoRegNotes('${person.id}',this.value)"
+          onfocus="this.style.borderColor='rgba(0,255,136,.4)'"
+          >${escH(person.coRegNotes || '')}</textarea>
+      </div>
+    </div>
+  `;
+
+  // ── Active communication threads ──────────────────────────────────
+  const threadSection = document.createElement('div');
+  threadSection.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;color:#00c8ff">
+        COMMUNICATION THREADS
+      </span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px" id="rel-threads-${person.id}">
+      ${threads.length ? threads.map(t => {
+        const dirColor = { toward: '#00ff88', away: '#ff3355', around: '#ff8c22' }[t.direction] || '#00c8ff';
+        const dirLabel = { toward: '→ toward', away: '↙ away', around: '↻ around' }[t.direction] || '→';
+        return `<div style="padding:8px 11px;background:rgba(0,200,255,.05);
+          border-left:2px solid ${dirColor};display:flex;gap:10px;align-items:center">
+          <span style="font-family:var(--f-mono);font-size:7px;color:${dirColor};
+            flex-shrink:0;min-width:56px">${dirLabel}</span>
+          <span style="font-family:var(--f-mono);font-size:8px;color:var(--bright);flex:1">
+            ${escH(t.text)}</span>
+          <button onclick="relationalDeleteThread('${t.id}')" style="
+            background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px"
+            onmouseenter="this.style.color='var(--r)'"
+            onmouseleave="this.style.color='var(--wire2)'">×</button>
+        </div>`;
+      }).join('') : `<div style="color:var(--dim);font-family:var(--f-mono);font-size:7.5px;
+        padding:8px 0">What's moving between you two right now?</div>`}
+    </div>
+    <div style="display:flex;gap:7px">
+      <input id="rel-thread-input-${person.id}" placeholder="What's moving between you..." style="
+        flex:1;font-family:var(--f-mono);font-size:8px;padding:7px 10px;
+        background:rgba(0,0,0,.4);border:1px solid rgba(0,200,255,.2);
+        color:var(--bright);outline:none"
+        onfocus="this.style.borderColor='rgba(0,200,255,.5)'"
+        onblur="this.style.borderColor='rgba(0,200,255,.2)'"
+        onkeydown="if(event.key==='Enter')relationalAddThread('${person.id}')"/>
+      ${['toward','around','away'].map(dir => {
+        const dc = { toward: '#00ff88', around: '#ff8c22', away: '#ff3355' }[dir];
+        const dl = { toward: '→', around: '↻', away: '↙' }[dir];
+        return `<button onclick="relationalAddThread('${person.id}','${dir}')" style="
+          font-family:var(--f-mono);font-size:7px;padding:5px 9px;cursor:pointer;
+          border:1px solid ${dc}44;color:${dc};background:transparent"
+          onmouseenter="this.style.background='${dc}11'"
+          onmouseleave="this.style.background='transparent'"
+          title="${dir}">${dl} ${dir}</button>`;
+      }).join('')}
+    </div>
+  `;
+  wrap.appendChild(threadSection);
+
+  // ── Moment log for this person ────────────────────────────────────
+  const momSection = document.createElement('div');
+  momSection.innerHTML = `
+    <div style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;
+      color:${person.color};margin-bottom:12px">MOMENTS WITH ${escH(person.name.toUpperCase())}</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${moments.slice(0,20).map(m => {
+        const ql = _qualityLabel(m.quality);
+        return `<div style="padding:9px 12px;background:rgba(0,0,0,.3);
+          border-left:2px solid ${ql.color};display:flex;gap:10px;align-items:flex-start">
+          <span style="color:${ql.color};font-size:12px;flex-shrink:0;margin-top:1px">${ql.icon}</span>
+          <div style="flex:1">
+            <div style="font-family:var(--f-mono);font-size:8px;color:var(--bright);line-height:1.5">
+              ${escH(m.text)}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-top:3px">
+              ${_relTimeAgo(m.timestamp)}
+              ${m.bodyLocation ? ` · <span style="color:var(--wire2)">${escH(m.bodyLocation)}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="relationalDeleteMoment('${m.id}')" style="
+            background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px"
+            onmouseenter="this.style.color='var(--r)'"
+            onmouseleave="this.style.color='var(--wire2)'">×</button>
+        </div>`;
+      }).join('')}
+      ${!moments.length ? `<div style="color:var(--dim);font-family:var(--f-mono);font-size:8px;
+        padding:10px 0">No moments logged yet for this person.</div>` : ''}
+    </div>
+  `;
+  wrap.appendChild(momSection);
+}
+
+function _renderNeedsList() {
+  const active = RELATIONAL_STATE.needs.filter(n => !n.met);
+  if (!active.length) {
+    return `<div style="color:var(--dim);font-family:var(--f-mono);font-size:8px;padding:8px 0">
+      No active relational needs. What do you need in your relationships right now?</div>`;
+  }
+  return active.map(n => {
+    const person = RELATIONAL_STATE.people.find(p => p.id === n.personId);
+    const urgencyColor = ['#555','#ff8c22','#ff3355'][Math.min(n.urgency || 0, 2)];
+    return `<div style="padding:8px 12px;margin-bottom:5px;background:rgba(255,140,34,.06);
+      border:1px solid rgba(255,140,34,.15);display:flex;align-items:center;gap:10px">
+      <div style="width:6px;height:6px;border-radius:50%;background:${urgencyColor};
+        flex-shrink:0;box-shadow:0 0 4px ${urgencyColor}66"></div>
+      <div style="flex:1">
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright)">${escH(n.text)}</div>
+        ${person ? `<div style="font-family:var(--f-mono);font-size:7px;color:${person.color};
+          margin-top:2px">with ${escH(person.name)}</div>` : ''}
+      </div>
+      <button onclick="relationalMarkNeedMet('${n.id}')" style="
+        font-family:var(--f-mono);font-size:7px;padding:3px 7px;
+        border:1px solid rgba(0,255,136,.3);color:#00ff88;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(0,255,136,.08)'"
+        onmouseleave="this.style.background='transparent'">✓ met</button>
+      <button onclick="relationalDeleteNeed('${n.id}')" style="
+        background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px"
+        onmouseenter="this.style.color='var(--r)'"
+        onmouseleave="this.style.color='var(--wire2)'">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Action handlers ───────────────────────────────────────────────
+function relationalAddPersonPrompt() {
+  const form = document.getElementById('rel-person-add-form');
+  if (!form) return;
+  const isOpen = form.style.display !== 'none';
+  if (isOpen) { form.style.display = 'none'; return; }
+  form.style.display = 'block';
+  form.innerHTML = `
+    <div style="padding:12px;background:rgba(255,102,170,.06);
+      border:1px solid rgba(255,102,170,.2);display:flex;flex-direction:column;gap:8px">
+      <input id="rel-new-name" placeholder="Name" style="
+        font-family:var(--f-mono);font-size:8.5px;padding:7px 10px;
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,102,170,.25);
+        color:var(--bright);outline:none;width:100%;box-sizing:border-box"
+        onfocus="this.style.borderColor='rgba(255,102,170,.5)'"
+        onblur="this.style.borderColor='rgba(255,102,170,.25)'"
+        onkeydown="if(event.key==='Enter')relationalConfirmAddPerson()"/>
+      <input id="rel-new-role" placeholder="Role (partner, friend, parent… whatever fits)" style="
+        font-family:var(--f-mono);font-size:8px;padding:6px 10px;
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);
+        color:var(--bright);outline:none;width:100%;box-sizing:border-box"/>
+      <div style="display:flex;gap:7px">
+        <button onclick="relationalConfirmAddPerson()" style="
+          flex:1;padding:7px;font-family:var(--f-mono);font-size:8px;letter-spacing:1px;
+          border:1px solid rgba(255,102,170,.4);color:#ff66aa;background:transparent;cursor:pointer"
+          onmouseenter="this.style.background='rgba(255,102,170,.1)'"
+          onmouseleave="this.style.background='transparent'">ADD TO FIELD</button>
+        <button onclick="document.getElementById('rel-person-add-form').style.display='none'" style="
+          padding:7px 12px;font-family:var(--f-mono);font-size:8px;
+          border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer">
+          CANCEL</button>
+      </div>
+    </div>
+  `;
+  setTimeout(() => document.getElementById('rel-new-name')?.focus(), 60);
+}
+
+function relationalConfirmAddPerson() {
+  const name = document.getElementById('rel-new-name')?.value.trim();
+  if (!name) return;
+  const role = document.getElementById('rel-new-role')?.value.trim();
+  const color = _relColor(RELATIONAL_STATE.people.length);
+  RELATIONAL_STATE.people.push({
+    id: uuid(), name, role: role || '', color,
+    attachmentHint: 'unknown', coRegRating: 0, coRegNotes: '',
+    created: Date.now(),
+  });
+  relationalSave();
+  document.getElementById('rel-person-add-form').style.display = 'none';
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalQuickLog(quality) {
+  const text = document.getElementById('rel-moment-text')?.value.trim();
+  if (!text) { mm_toast('Add a moment first', 'warn'); return; }
+  const personId = document.getElementById('rel-moment-person')?.value || null;
+  RELATIONAL_STATE.moments.push({
+    id: uuid(), personId: personId || null, text,
+    quality, bodyLocation: '', timestamp: Date.now(), tags: [],
+  });
+  document.getElementById('rel-moment-text').value = '';
+  relationalSave();
+  mm_toast('Moment logged', 'success', { dur: 1500 });
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalAddNeed() {
+  const text = prompt('What do you need in your relationships right now?');
+  if (!text?.trim()) return;
+  const personId = window._relSelectedPerson || null;
+  RELATIONAL_STATE.needs.push({
+    id: uuid(), text: text.trim(), urgency: 1,
+    personId, met: false, timestamp: Date.now(),
+  });
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalMarkNeedMet(id) {
+  const n = RELATIONAL_STATE.needs.find(x => x.id === id);
+  if (n) { n.met = true; n.metAt = Date.now(); }
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalDeleteNeed(id) {
+  RELATIONAL_STATE.needs = RELATIONAL_STATE.needs.filter(n => n.id !== id);
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalDeleteMoment(id) {
+  RELATIONAL_STATE.moments = RELATIONAL_STATE.moments.filter(m => m.id !== id);
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalAddThread(personId, direction) {
+  const inp = document.getElementById(`rel-thread-input-${personId}`);
+  const text = inp?.value.trim();
+  if (!text) return;
+  RELATIONAL_STATE.threads.push({
+    id: uuid(), personId, text,
+    direction: direction || 'toward', timestamp: Date.now(),
+  });
+  if (inp) inp.value = '';
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalDeleteThread(id) {
+  RELATIONAL_STATE.threads = RELATIONAL_STATE.threads.filter(t => t.id !== id);
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalSetAttachment(personId, hint) {
+  const p = RELATIONAL_STATE.people.find(x => x.id === personId);
+  if (p) p.attachmentHint = hint;
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalSetCoReg(personId, rating) {
+  const p = RELATIONAL_STATE.people.find(x => x.id === personId);
+  if (p) p.coRegRating = rating;
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalSaveCoRegNotes(personId, notes) {
+  const p = RELATIONAL_STATE.people.find(x => x.id === personId);
+  if (p) p.coRegNotes = notes;
+  relationalSave();
+}
+
+function relationalEditPerson(id) {
+  const p = RELATIONAL_STATE.people.find(x => x.id === id);
+  if (!p) return;
+  const name = prompt('Name:', p.name);
+  if (!name?.trim()) return;
+  const role = prompt('Role (partner, friend, parent…):', p.role);
+  p.name = name.trim();
+  p.role = (role || '').trim();
+  relationalSave();
+  const overlay = document.getElementById('mm-relational-overlay');
+  if (overlay) _renderRelationalUI(overlay);
+}
+
+function relationalPersonToCanvas(personId) {
+  const p = RELATIONAL_STATE.people.find(x => x.id === personId);
+  if (!p) return;
+  closeRelational();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const personNode = CANVAS.spawnNode('relational', undefined, undefined, {
+      title: p.name, body: p.role || '', color: p.color,
+      tags: ['RELATIONAL', p.attachmentHint?.toUpperCase() || 'PERSON'],
+    });
+    // Spawn recent moments as connected nodes
+    const moments = [...RELATIONAL_STATE.moments]
+      .filter(m => m.personId === personId)
+      .sort((a,b) => b.timestamp - a.timestamp)
+      .slice(0, 4);
+    moments.forEach((m, i) => {
+      const ql = _qualityLabel(m.quality);
+      const mNode = CANVAS.spawnNode('pattern', undefined, undefined, {
+        title: m.text.slice(0, 50), color: ql.color,
+        tags: ['MOMENT', ql.label.toUpperCase()],
+      });
+      CANVAS.addConn(personNode.id, mNode.id, 'moment');
+    });
+    // Spawn active needs
+    RELATIONAL_STATE.needs.filter(n => n.personId === personId && !n.met).forEach(n => {
+      const nNode = CANVAS.spawnNode('gap', undefined, undefined, {
+        title: n.text, tags: ['NEED', 'RELATIONAL'],
+      });
+      CANVAS.addConn(personNode.id, nNode.id, 'needs');
+    });
+    mm_toast(`${p.name} → canvas`, 'export');
+  }, 200);
+}
+
+function relationalPatternToCanvas(patternId) {
+  const pat = RELATIONAL_STATE.patterns.find(x => x.id === patternId);
+  if (!pat) return;
+  closeRelational();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    CANVAS.spawnNode('pattern', undefined, undefined, {
+      title: pat.text, tags: ['RELATIONAL PATTERN'],
+      color: '#cc44ff',
+    });
+    mm_toast('Pattern → canvas', 'export');
+  }, 200);
+}
+
+function relationalExportCanvas() {
+  closeRelational();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const cx = 600, cy = 400, personR = 320;
+    // Hub node
+    const hub = CANVAS.spawnNode('synthesis', cx, cy, {
+      title: 'Relational Field', color: '#ff66aa', tags: ['RELATIONAL', 'FIELD'],
+    });
+    // Each person as a node in a circle
+    RELATIONAL_STATE.people.forEach((p, i) => {
+      const angle = (i / RELATIONAL_STATE.people.length) * Math.PI * 2;
+      const px = cx + Math.cos(angle) * personR;
+      const py = cy + Math.sin(angle) * personR;
+      const pNode = CANVAS.spawnNode('relational', px, py, {
+        title: p.name, body: p.role || '', color: p.color,
+        tags: ['PERSON', p.attachmentHint?.toUpperCase() || ''],
+      });
+      CANVAS.addConn(hub.id, pNode.id, 'relational field');
+      // Active threads as child nodes
+      RELATIONAL_STATE.threads
+        .filter(t => t.personId === p.id)
+        .slice(0, 2)
+        .forEach(t => {
+          const dir = { toward: '→', away: '↙', around: '↻' }[t.direction] || '→';
+          const tNode = CANVAS.spawnNode('vector', px + 80, py, {
+            title: `${dir} ${t.text.slice(0,35)}`, color: p.color,
+          });
+          CANVAS.addConn(pNode.id, tNode.id, t.direction);
+        });
+    });
+    // Active needs as gap nodes
+    RELATIONAL_STATE.needs.filter(n => !n.met).forEach(n => {
+      const needNode = CANVAS.spawnNode('gap', undefined, undefined, {
+        title: n.text, tags: ['NEED', 'RELATIONAL'],
+      });
+      CANVAS.addConn(hub.id, needNode.id, 'needs');
+    });
+    mm_toast('Relational field → canvas', 'export');
+  }, 200);
+}
+
+async function relationalAISurface() {
+  if (!AI?.enabled || !AI?.apiKey) {
+    mm_toast('Enable AI in settings first', 'warn'); return;
+  }
+  const moments = RELATIONAL_STATE.moments.slice(-20);
+  if (moments.length < 3) {
+    mm_toast('Log a few moments first — patterns need data', 'info'); return;
+  }
+  mm_toast('Surfacing patterns…', 'loading');
+  const context = moments.map(m => {
+    const p = RELATIONAL_STATE.people.find(x => x.id === m.personId);
+    const ql = _qualityLabel(m.quality);
+    return `[${p ? p.name : 'self'}|${ql.label}] ${m.text}`;
+  }).join('\n');
+
+  try {
+    const prompt = `You're looking at a person's relational moment log. Surface 2-3 patterns — not categories, not diagnoses. What's actually moving? What keeps appearing? What's the shape of this person's relational life right now?\n\nMoments:\n${context}\n\nReturn a JSON array of pattern strings. Each one should be one honest sentence about what you notice. No bullet points, no headers.`;
+    const res = await fetch(AI.apiBase || 'https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': AI.apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: AI.model || 'claude-opus-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const match = text.match(/\[[\s\S]*\]/);
+    if (match) {
+      const patterns = JSON.parse(match[0]);
+      patterns.forEach(p => {
+        if (typeof p === 'string' && p.trim()) {
+          RELATIONAL_STATE.patterns.push({
+            id: uuid(), text: p.trim(), personId: null,
+            timestamp: Date.now(), source: 'ai',
+          });
+        }
+      });
+      relationalSave();
+      mm_toast(`${patterns.length} pattern${patterns.length !== 1 ? 's' : ''} surfaced`, 'success');
+      const overlay = document.getElementById('mm-relational-overlay');
+      if (overlay) _renderRelationalUI(overlay);
+    } else {
+      mm_toast('Could not parse patterns — try again', 'error');
+    }
+  } catch(e) {
+    mm_toast('AI error: ' + e.message, 'error');
+  }
+}
+
+// ── Utility ───────────────────────────────────────────────────────
+function _relTimeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+

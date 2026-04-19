@@ -17,7 +17,7 @@
 
 :root {
   /* UI scaling — controlled by slider in Settings */
-  --ui-scale: 1;
+  --ui-scale: 1.35;
   --fs-base: calc(13px * var(--ui-scale));
   --fs-mono: calc(8px  * var(--ui-scale));
   --fs-sm:   calc(7px  * var(--ui-scale));
@@ -1957,6 +1957,7 @@ input[type=file] { display: none; }
   color: var(--c); cursor: pointer;
   font-family: var(--f-display); font-size: 9px; font-weight: 700;
   letter-spacing: 2px; transition: all .18s;
+  outline: none !important;
 }
 .spawn-menu-trigger:hover { background: rgba(0,200,255,.15); }
 
@@ -2522,6 +2523,11 @@ input[type=file] { display: none; }
     <div class="tb-sep" style="margin:0 3px"></div>
     <button class="tb-btn" onclick="openSearch()" style="-webkit-app-region:no-drag">⌕</button>
     <button class="tb-btn" onclick="openBrainMap()" style="-webkit-app-region:no-drag">◎ BRAIN</button>
+    <button class="tb-btn" onclick="openSystems()" style="-webkit-app-region:no-drag;color:#11ddcc" title="Systems Canvas">∿ SYS</button>
+    <button class="tb-btn" onclick="cogNi()" style="-webkit-app-region:no-drag;color:#00c8ff" title="Contract (Ni)">Ni</button>
+    <button class="tb-btn" onclick="cogNe()" style="-webkit-app-region:no-drag;color:#00ff88" title="Expand (Ne)">Ne</button>
+    <button class="tb-btn" onclick="cogTi()" style="-webkit-app-region:no-drag;color:#cc44ff" title="Analyze (Ti)">Ti</button>
+    <button class="tb-btn" onclick="cogTe()" style="-webkit-app-region:no-drag;color:#ffe04a" title="Execute (Te)">Te</button>
     <button class="tb-btn" onclick="toggleSidePanel()" style="-webkit-app-region:no-drag">⊞ INTEL</button>
     <button class="tb-btn" onclick="saveCanvas()" style="-webkit-app-region:no-drag">↓ SAVE</button>
     <button class="tb-btn danger" onclick="clearConfirm()" style="-webkit-app-region:no-drag">✕ CLEAR</button>
@@ -2552,6 +2558,9 @@ input[type=file] { display: none; }
 </div>
 
 <!-- RGB border line -->
+<!-- ── BAYESIAN BACKGROUND ─────────────────────────────────────── -->
+<canvas id="mm-bg-cvs" style="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0.7"></canvas>
+
 <div id="rgb-border-top"></div>
 
 <!-- ── MAIN APP ──────────────────────────────────────────────────── -->
@@ -3142,6 +3151,20 @@ input[type=file] { display: none; }
       </div>
 
       <!-- 4. ALM -->
+      <div class="hp-mode-card" data-feature="systems" style="--mode-color:#11ddcc" onclick="openSystems()">
+        <div class="hp-mc-tag">SYSTEMS</div>
+        <div class="hp-mc-icon" style="color:#11ddcc">∿</div>
+        <div class="hp-mc-title">SYSTEMS CANVAS</div>
+        <div class="hp-mc-body">Feedback loops, stocks &amp; flows. Map the mind as a causal system. Reinforcing vs balancing loops. Simulate. Automate cognitive patterns.</div>
+        <ul class="hp-mc-list">
+          <li>Causal loop diagrams</li>
+          <li>AI discovers loop structure</li>
+          <li>Model mind as system</li>
+          <li>Recursive what-if engine</li>
+        </ul>
+        <button class="hp-mc-cta" style="--mode-color:#11ddcc" onclick="event.stopPropagation();openSystems()">∿ OPEN SYSTEMS</button>
+      </div>
+
       <div class="hp-mode-card" data-feature="alm" style="--mode-color:#00ff88" onclick="openALM()">
         <span class="hp-mc-corner">ALM</span>
         <div class="hp-mc-icon">∞</div>
@@ -4722,9 +4745,11 @@ input[type=file] { display: none; }
 </div><!-- /#app -->
 
 <!-- ── SCRIPTS ────────────────────────────────────────────────── -->
+  <script src="bayesian-bg.js" onerror="console.warn('bayesian-bg.js not found — background disabled')"></script>
   <script src="mastermind-siso-jaa.js" onerror="console.warn('mastermind-siso-jaa.js not found — SISO/JAA using stubs')"></script>
 <script src="mastermind-foundation.js" onerror="console.warn('mastermind-foundation.js not found — foundation features disabled')"></script>
 <script src="nexus-canvas.js" onerror="document.body.innerHTML='<div style=&quot;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#02040a;color:#ff3355;font-family:monospace;font-size:14px&quot;>CANVAS MODULE LOAD FAILED — place nexus-canvas.js in the same folder as index.html</div>'"></script>
+<script src="mastermind-bg.js" onerror="console.warn('mastermind-bg.js not found')"></script>
 <script src="mastermind-vault.js" onerror="console.error('[MASTERMIND] mastermind-vault.js failed to load — vault, encryption and persistence disabled')"></script>
 <script src="nexus-engine.js" onerror="document.body.innerHTML='<div style=&quot;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#02040a;color:#ff3355;font-family:monospace;font-size:14px&quot;>ENGINE LOAD FAILED — place nexus-engine.js in the same folder as index.html</div>'"></script>
 </body>

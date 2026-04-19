@@ -812,9 +812,26 @@ async function _vaultRecreate() {
           placeholder="Username" readonly/>
         <input id="vault-recovery-pw" type="password"
           style="width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);border:1px solid var(--wire2);
+                 color:var(--c);padding:7px 10px;font-family:var(--f-mono);font-size:8px;margin-bottom:6px"
+          placeholder="Your password" autocomplete="current-password"
+          oninput="(function(){
+            const pw=document.getElementById('vault-recovery-pw')?.value||'';
+            const cf=document.getElementById('vault-recovery-pw-confirm')?.value||'';
+            const ind=document.getElementById('vault-recovery-match');
+            if(ind){ind.textContent=cf?pw===cf?'✓ match':'✗ no match':'';ind.style.color=pw===cf?'var(--g)':'var(--r)';}
+          })()"/>
+        <input id="vault-recovery-pw-confirm" type="password"
+          style="width:100%;box-sizing:border-box;background:rgba(0,5,12,.8);border:1px solid var(--wire2);
                  color:var(--c);padding:7px 10px;font-family:var(--f-mono);font-size:8px"
-          placeholder="Your password" autocomplete="current-password"/>
+          placeholder="Confirm password" autocomplete="current-password"
+          oninput="(function(){
+            const pw=document.getElementById('vault-recovery-pw')?.value||'';
+            const cf=document.getElementById('vault-recovery-pw-confirm')?.value||'';
+            const ind=document.getElementById('vault-recovery-match');
+            if(ind){ind.textContent=cf?pw===cf?'✓ match':'✗ no match':'';ind.style.color=pw===cf?'var(--g)':'var(--r)';}
+          })()"/>
       </div>
+      <div id="vault-recovery-match" style="font-family:var(--f-mono);font-size:7px;min-height:12px;margin-bottom:6px;text-align:right"></div>
       <div id="vault-recovery-error" style="color:var(--r);font-family:var(--f-mono);font-size:7px;min-height:14px;margin-bottom:8px"></div>
       <div style="display:flex;gap:8px">
         <button onclick="_vaultRecreateConfirm()"
@@ -849,11 +866,14 @@ async function _vaultRecreate() {
 
 async function _vaultRecreateConfirm() {
   const pw = document.getElementById('vault-recovery-pw')?.value;
+  const cf = document.getElementById('vault-recovery-pw-confirm')?.value;
   const errEl = document.getElementById('vault-recovery-error');
   const setErr = msg => { if (errEl) errEl.textContent = msg; };
   setErr('');
 
   if (!pw) { setErr('Password required'); return; }
+  if (!cf) { setErr('Please confirm your password'); return; }
+  if (pw !== cf) { setErr('Passwords do not match'); return; }
 
   const meta = _authLoadMeta();
   if (!meta?.salt) { setErr('No identity found — cannot recover. Complete setup again.'); return; }
@@ -882,6 +902,10 @@ async function _vaultRecreateConfirm() {
     setErr('Incorrect password — try again');
     if (btn) { btn.textContent = '⬡ CREATE NEW VAULT'; btn.disabled = false; }
     document.getElementById('vault-recovery-pw').value = '';
+    const cfEl = document.getElementById('vault-recovery-pw-confirm');
+    if (cfEl) cfEl.value = '';
+    const matchEl = document.getElementById('vault-recovery-match');
+    if (matchEl) matchEl.textContent = '';
     document.getElementById('vault-recovery-pw')?.focus();
   }
 }
@@ -898,13 +922,44 @@ async function _vaultRecreateWithKey() {
     return;
   }
   const vaultPath = dataDir + '/mastermind.vault';
+
+  // ── Re-generate RSA key pair so the new password produces fresh keys ──────
+  // This is the fix: _vaultRecreateConfirm verified the old password but the
+  // recreation needs NEW keys derived from the new session to avoid the
+  // "wrong password after recreation" bug where Gate 2 (encPrivKey verification)
+  // fails because the stored RSA blob was encrypted with the OLD key.
+  let newPubKey = null, newEncPrivKey = null;
+  if (AUTH.key && AUTH.encrypted) {
+    try {
+      const kp = await crypto.subtle.generateKey(
+        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
+        true, ['encrypt','decrypt']
+      );
+      const pubRaw  = await crypto.subtle.exportKey('spki', kp.publicKey);
+      const privRaw = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+      newEncPrivKey = await _aesEncrypt(AUTH.key, new Uint8Array(privRaw));
+      newPubKey = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
+
+      // Update the RSA blob in localStorage so Gate 2 validates correctly
+      localStorage.setItem(typeof AUTH_VAULT_KEY !== 'undefined' ? AUTH_VAULT_KEY : 'nexus_auth_vault',
+        JSON.stringify({ pubKey: newPubKey, encPrivKey: newEncPrivKey }));
+
+      // Update _AUTH_STORE keys
+      _authStoreSet(_AUTH_STORE.meta, { pubKey: newPubKey, encPrivKey: newEncPrivKey });
+    } catch(e) {
+      MMLog?.warn('vault', 'RSA regen failed (non-fatal): ' + e.message);
+    }
+  }
+
   // Write an empty but properly keyed vault
   const emptyData = JSON.stringify({
     version: 5, format: 'nexus-vault', saved: Date.now(),
     canvas: { nodes: [], conns: [], viewport: { zoom: 1, panX: 0, panY: 0 }, clipboard: [] },
-    modules: { void: null, gaps: null, signal: null, threads: null, options: OPTS, features: AUTH.features },
+    modules: { void: null, gaps: null, signal: null, threads: null,
+               options: typeof OPTS !== 'undefined' ? OPTS : {},
+               features: typeof AUTH !== 'undefined' ? AUTH.features : {} },
     identity: _AUTH_STORE.meta || null,
-    keys: _AUTH_STORE.keys || null,
+    keys: newPubKey ? { pubKey: newPubKey, encPrivKey: newEncPrivKey } : (_AUTH_STORE.keys || null),
     jaa: {},
   });
 
@@ -927,9 +982,11 @@ async function _vaultRecreateWithKey() {
       NX_CONFIG.vaultPath = vaultPath;
       MMLog?.info('vault', 'Vault recreated at ' + vaultPath);
       if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.recreated', { path: vaultPath });
-      mm_toast('✓ New vault created · previous data not recoverable', 'vault');
-      _sealSession(AUTH.username || 'operator');
-      setTimeout(() => startupRoute(), 900);
+      mm_toast('✓ New vault created — login with your password', 'vault');
+      // Reload to login screen cleanly so new keys are read fresh
+      setTimeout(() => {
+        if (typeof startupRoute === 'function') startupRoute();
+      }, 900);
     } else {
       mm_toast('⚡ Write failed: ' + (result?.error || 'unknown'), 'error');
     }
