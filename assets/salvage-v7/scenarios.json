@@ -1,0 +1,290 @@
+{
+  "learning": [
+    {
+      "ctx": "Child — ADHD",
+      "title": "Hyperfocus Engine Learning Plan",
+      "text": "Map the child's natural hyperfocus cycles. Design work sprints around peaks. Build in deliberate recovery. Remove the assumption that attention must be sustained — instead, harness its native rhythm.",
+      "action": "Identify the 2-3 topics that trigger hyperfocus. Build the entire curriculum as entry points through those obsessions.",
+      "intel": [
+        "Divergent Thinking",
+        "Meta-Learning",
+        "Learning Agility",
+        "Meta-Cognition"
+      ]
+    },
+    {
+      "ctx": "Child — Dyslexia",
+      "title": "Phonological Bypass Routes",
+      "text": "The brain is not broken — it routes differently. Build bypass routes: audio, visual mapping, kinesthetic anchoring. Invert the problem: stop trying to fix the decoding pathway. Build around it.",
+      "action": "Identify which sensory channel is strongest. Build that as the primary reading interface. Make decoding a secondary skill.",
+      "intel": [
+        "Learning Agility",
+        "Design / Aesthetic",
+        "Embodied Intelligence",
+        "Real-World Problem Solving"
+      ]
+    },
+    {
+      "ctx": "Child — Gifted Underachiever",
+      "title": "What Does Underachievement Protect Against?",
+      "text": "Second-order thinking: gifted underachievement often protects against the terror of performing at true ceiling. Or it's environment mismatch — the speed is too fast for peers, so the brain throttles.",
+      "action": "Run End-State Simulation: what does this child's flourishing look like at 22? Work backward from that. What needs to change in the environment today?",
+      "intel": [
+        "Meta-Cognition",
+        "Systems Thinking",
+        "Emotional Awareness",
+        "Self-Sovereignty"
+      ]
+    },
+    {
+      "ctx": "Child — Autism + Deep Interests",
+      "title": "Special Interest as Curriculum Engine",
+      "text": "Cross-domain synthesis: the special interest IS the delivery mechanism. Map the interest to every subject. The pattern of deep focus is a strength architecture, not a behavior to manage.",
+      "action": "Take the special interest. Ask: how does history appear in it? Math? Language? Social dynamics? Build cross-domain bridges from the one thing they love.",
+      "intel": [
+        "Innovative / Disruptive",
+        "Meta-Learning",
+        "Systems Thinking",
+        "Self-Sovereignty"
+      ]
+    },
+    {
+      "ctx": "Student — Processing Differences",
+      "title": "Cognitive Load Reduction Plan",
+      "text": "Meta Compression applied to curriculum: what are the 3 concepts that unlock everything else in this unit? Build from those. Everything else is scaffold, not structure.",
+      "action": "Identify the irreducible minimum for each unit. Remove all else from primary instruction. Add back complexity only after the core coheres.",
+      "intel": [
+        "Meta-Cognition",
+        "Adaptive Strategy",
+        "Systems Thinking",
+        "Learning Agility"
+      ]
+    }
+  ],
+  "worth": [
+    {
+      "ctx": "Adult — Identity After Diagnosis",
+      "title": "Intelligence Profile Without Labels",
+      "text": "Map across all 6 intelligence domains. Where does time disappear? Where do you see what others miss? Where do problems feel like puzzles rather than walls? Your real intelligence signature cannot be captured by any test.",
+      "action": "Run Six Eyes on your own history. What patterns keep appearing in what you are drawn to, what you create, what you cannot stop thinking about? Map the signature.",
+      "intel": [
+        "Reflective / Integrative",
+        "Emotional Awareness",
+        "Meta-Cognition",
+        "Self-Sovereignty"
+      ]
+    },
+    {
+      "ctx": "Any Age — Learned Helplessness",
+      "title": "Agency Recovery Protocol",
+      "text": "Sandbox OS applied to self: what small variable can I actually control right now? First Principles: who am I under the labels, diagnoses, and the stories others told me? Council Method: which internal parts are still believing the old story?",
+      "action": "Identify one concrete action you can take today that no one else controls. Do it. Build from there. Each act of agency rewires the helplessness loop.",
+      "intel": [
+        "Self-Sovereignty",
+        "Real-World Problem Solving",
+        "Resilience & Self-Regulation",
+        "Emotional Awareness"
+      ]
+    },
+    {
+      "ctx": "Adult — Struggles as Inverted Strengths",
+      "title": "What Your Struggles Are Actually Telling You",
+      "text": "Tension Harvest: what frustrates you most? Inversion: what does that frustration reveal about your standards, values, and unmet capacity? Struggles are often inverted strengths that have not found their domain yet.",
+      "action": "Take the 3 things that bother you most in others. Invert them: they are likely your values in disguise. Take the 3 things you struggle with most. What capacity do they require when they work?",
+      "intel": [
+        "Reflective / Integrative",
+        "Emotional Awareness",
+        "Divergent Thinking",
+        "Meta-Learning"
+      ]
+    },
+    {
+      "ctx": "Teen — Self-Worth",
+      "title": "Building Worth From the Inside Out",
+      "text": "Bayesian approach: self-worth based on external validation is a fragile variable. Rebuild it on internal evidence: what have I actually done? What do I actually know? What do I genuinely value?",
+      "action": "Build an evidence log. Not feelings — actual instances. Times you helped someone. Problems you solved. Things you learned. Beliefs update on evidence, not affirmations.",
+      "intel": [
+        "Meta-Cognition",
+        "Ethical Reasoning",
+        "Resilience & Self-Regulation",
+        "Self-Sovereignty"
+      ]
+    }
+  ],
+  "mental": [
+    {
+      "ctx": "Assessment — Emotional Intelligence",
+      "title": "Emotional Granularity Baseline",
+      "text": "Tension Harvest as diagnostic: can the person name emotions with precision? The difference between \"angry\" and \"ashamed\" and \"contemptuous\" is the difference between being enslaved by emotion and reading it as data.",
+      "action": "Present 20 emotional scenarios. Measure vocabulary precision. This predicts wellbeing outcomes more reliably than most clinical assessments.",
+      "intel": [
+        "Emotional Awareness",
+        "Meta-Cognition",
+        "Resilience & Self-Regulation",
+        "Reflective / Integrative"
+      ]
+    },
+    {
+      "ctx": "Assessment — Attachment Patterns",
+      "title": "Relational Oscillation Mapping",
+      "text": "Oscillation Theory applied: how does this person move between closeness and autonomy? What triggers pull toward or away? Map without pathologizing — all attachment styles have an origin that made sense when it formed.",
+      "action": "Build a relational timeline: 5 significant relationships. Map each one's closeness/distance oscillation. Find the structural pattern. That pattern is the data.",
+      "intel": [
+        "Attachment / Relational",
+        "Social Cognition",
+        "Reflective / Integrative",
+        "Pattern Recognition & Forecasting"
+      ]
+    },
+    {
+      "ctx": "Intervention — Trauma Recovery",
+      "title": "Resilience Architecture From What Already Worked",
+      "text": "Meta-Compression of what has already worked: what has this person survived? What internal resources were active in those moments? The resilience is already there. Map it. Amplify it. Oscillation: recovery IS part of the rhythm.",
+      "action": "Map the 3 hardest things this person has already survived. For each: what internal resource was most active? That resource is the foundation to build from.",
+      "intel": [
+        "Resilience & Self-Regulation",
+        "Embodied Intelligence",
+        "Emotional Awareness",
+        "Self-Sovereignty"
+      ]
+    },
+    {
+      "ctx": "Assessment — Cognitive Load",
+      "title": "Executive Function as Resource Map",
+      "text": "This is not a deficit assessment — it is a resource map. When is thinking clearest? What conditions optimize function? What drains it? Build accommodations from the actual map, not from the diagnostic category.",
+      "action": "Track for 5 days: time of day, energy level, task type, and whether thinking felt clear or foggy. The map will reveal the optimization targets.",
+      "intel": [
+        "Meta-Cognition",
+        "Learning Agility",
+        "Environmental Awareness",
+        "Adaptive Strategy"
+      ]
+    }
+  ],
+  "potential": [
+    {
+      "ctx": "Any Age — Purpose Finding",
+      "title": "Your Cognitive Signature",
+      "text": "Six Eyes on your own history: what patterns keep appearing? What problems feel like puzzles rather than walls? What do you see that others seem to miss? Your obsessions are your operating system. Map them without judgment.",
+      "action": "List every topic you have voluntarily studied, every problem you have returned to unprompted, every injustice you cannot ignore. The pattern across them is your signature.",
+      "intel": [
+        "Pattern Recognition & Forecasting",
+        "Reflective / Integrative",
+        "Imaginative / Conceptual",
+        "Self-Sovereignty"
+      ]
+    },
+    {
+      "ctx": "Neurodivergent — Finding Domain",
+      "title": "Same Wiring, Different Domain",
+      "text": "Cross-Domain Synthesis applied to neurodivergent capacity: ADHD hyperfocus + creative divergence + sensory sensitivity is extraordinary in the right domain. The wiring that makes the standard world difficult makes certain domains exceptional.",
+      "action": "Map the specific cognitive profile — not deficits, patterns. Then map all known domains where that exact pattern is an advantage. Find the fit.",
+      "intel": [
+        "Divergent Thinking",
+        "Pattern Recognition & Forecasting",
+        "Learning Agility",
+        "Meta-Cognition"
+      ]
+    },
+    {
+      "ctx": "Adult — Purpose from Pain",
+      "title": "The Wound Becomes the Medicine",
+      "text": "Tension Harvest extended: what has caused the most suffering? That domain often becomes the area of greatest capacity. Not toxic positivity — actual pattern recognition. The person who has been lost knows the terrain of being lost.",
+      "action": "Identify the primary wound. Ask: who else experiences this? What do I understand about this that others don't? What would I have needed that didn't exist? Build from there.",
+      "intel": [
+        "Emotional Awareness",
+        "Ethical-Creative Synthesis",
+        "Reflective / Integrative",
+        "Innovative / Disruptive"
+      ]
+    }
+  ],
+  "neurodiv": [
+    {
+      "ctx": "ADHD",
+      "title": "Time Blindness Workaround Systems",
+      "text": "First Principles: time blindness is not laziness — it is a different relationship to time. The solution is not \"try harder\" — it is externalizing time entirely. Build systems that make time visible, not demands that require neurotypical time perception.",
+      "action": "Replace all time-based demands with external cues: timers, alarms, visual schedules. The goal is to remove internal time-tracking from the equation entirely.",
+      "intel": [
+        "Real-World Problem Solving",
+        "Adaptive Strategy",
+        "Environmental Awareness",
+        "Meta-Learning"
+      ]
+    },
+    {
+      "ctx": "Autism",
+      "title": "Social Script Library Building",
+      "text": "Social cognition as a learnable map rather than an intuition. Autistic social intelligence often works analytically rather than intuitively — and analytical is actually more flexible once built.",
+      "action": "Build explicit scenario maps: what typically happens in X type of interaction? What are the likely scripts? Practice as pattern recognition, not performance.",
+      "intel": [
+        "Social Cognition",
+        "Pattern Recognition & Forecasting",
+        "Meta-Cognition",
+        "Learning Agility"
+      ]
+    },
+    {
+      "ctx": "Dyspraxia",
+      "title": "Proprioceptive Compensation Routes",
+      "text": "Embodied Intelligence applied differently: dyspraxia is a disconnect between intention and motor execution. The solution is building richer proprioceptive feedback loops — not demanding accuracy.",
+      "action": "Introduce weighted tools, tactile anchors, and movement-before-task protocols. Somatic priming before fine motor tasks dramatically reduces error rates.",
+      "intel": [
+        "Embodied Intelligence",
+        "Learning Agility",
+        "Environmental Awareness",
+        "Adaptive Strategy"
+      ]
+    },
+    {
+      "ctx": "Twice Exceptional (2e)",
+      "title": "Asynchronous Development Plan",
+      "text": "The child is simultaneously years ahead and years behind in different domains. The error is using one domain's level to set expectations for another. Each domain gets its own trajectory.",
+      "action": "Map each domain independently: emotional maturity, intellectual capacity, physical development, social skill, executive function. Build support for each independently. Never average them.",
+      "intel": [
+        "Systems Thinking",
+        "Meta-Learning",
+        "Adaptive Strategy",
+        "Self-Sovereignty"
+      ]
+    }
+  ],
+  "seniors": [
+    {
+      "ctx": "Senior — Post-Retirement",
+      "title": "Integrated Wisdom Mapping",
+      "text": "End-State reflection: what have you learned that no book contains? Fractal Pattern recognition: what life patterns can you see clearly now that were invisible at 30? Reflective intelligence grows with age. This is the most undervalued form of intelligence in the culture.",
+      "action": "Build a wisdom inventory: domains where you have earned deep knowledge, patterns you can now see, mistakes you understand from the inside. This is transmissible.",
+      "intel": [
+        "Reflective / Integrative",
+        "Pattern Recognition & Forecasting",
+        "Ethical Reasoning",
+        "Embodied Intelligence"
+      ]
+    },
+    {
+      "ctx": "Senior — Reinvention",
+      "title": "Non-Linear Horizon Planning",
+      "text": "Horizon Planning for the second half: orientation, not timelines. The question is not \"what can I still do?\" — that frames capacity as loss. The question is \"what have I been building toward that I haven't done yet?\"",
+      "action": "Long horizon: what would you build if given 20 more years? Medium: what project could be done in 2? Short: what calls you this week? Start with the short. The long follows.",
+      "intel": [
+        "Adaptive Strategy",
+        "Systems Thinking",
+        "Self-Sovereignty",
+        "Imaginative / Conceptual"
+      ]
+    },
+    {
+      "ctx": "Senior — Purpose and Legacy",
+      "title": "What You Know That Others Need",
+      "text": "Meta-Compression of a lifetime: what are the 3 most important things you have learned? What do you wish you had known at 25? What mistakes do you see young people making that you could map?",
+      "action": "Build a knowledge transmission project: write it, record it, teach it, mentor through it. Wisdom that is not transmitted is lost. The act of transmitting it also synthesizes it.",
+      "intel": [
+        "Meta-Cognition",
+        "Ethical-Creative Synthesis",
+        "Virtue & Character",
+        "Reflective / Integrative"
+      ]
+    }
+  ]
+}

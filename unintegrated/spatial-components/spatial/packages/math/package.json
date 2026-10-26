@@ -1,0 +1,9 @@
+{
+  "name": "@spatial/math",
+  "version": "1.0.0",
+  "description": "Zero-dependency math primitives shared across Spatial packages. RollingStats, OLS slope, FNV-1a hash, statistical utilities.",
+  "type": "module",
+  "exports": { ".": "./src/index.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

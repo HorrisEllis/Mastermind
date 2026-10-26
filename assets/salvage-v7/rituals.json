@@ -1,0 +1,56 @@
+[
+  {
+    "id": "R001",
+    "name": "Pre-Session Ignition",
+    "icon": "🔥",
+    "timing": "BEFORE-SESSION",
+    "duration": 3,
+    "desc": "Prime the cognitive state before externalizing. Shift from reactive to generative mode.",
+    "steps": [
+      "Set phone to silent. Remove distractions.",
+      "Open NEXUS Voice Lattice.",
+      "Set mode: EXTERNALIZING.",
+      "State out loud: I am capturing everything. Nothing is too small.",
+      "Take 3 slow breaths. Begin."
+    ],
+    "heuristics": "Somatic Validation",
+    "streak": 0,
+    "lastDone": null
+  },
+  {
+    "id": "R002",
+    "name": "Post-Session Integration",
+    "icon": "◈",
+    "timing": "POST-CAPTURE",
+    "duration": 5,
+    "desc": "Extract the 3 highest-signal seeds. Tag deltas. Flag codex candidates.",
+    "steps": [
+      "Review SEEDS tab — pin top 3.",
+      "Scan DELTA tab for evolution patterns.",
+      "If any node feels like a law or principle — copy to CODEX.",
+      "Run REBUILD on Word Bank.",
+      "Write one sentence: what shifted this session?"
+    ],
+    "heuristics": "Signal vs Noise Filter",
+    "streak": 0,
+    "lastDone": null
+  },
+  {
+    "id": "R003",
+    "name": "Morning Externalization Burst",
+    "icon": "⏺",
+    "timing": "MORNING",
+    "duration": 10,
+    "desc": "Capture the hypnagogic residue — the half-awake insights that evaporate by noon.",
+    "steps": [
+      "Within 5 minutes of waking, open Voice Lattice.",
+      "Set mode: EXTERNALIZING.",
+      "Record for 3 minutes without editing. Dump everything.",
+      "Flag any image, feeling, or fragment as SEED.",
+      "Do NOT review immediately — let it settle."
+    ],
+    "heuristics": "Somatic Validation,Signal vs Noise Filter",
+    "streak": 0,
+    "lastDone": null
+  }
+]

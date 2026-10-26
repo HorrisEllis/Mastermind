@@ -1,0 +1,46 @@
+{
+  "default": "SYS",
+  "rules": [
+    {
+      "tag": "FRICTION",
+      "pattern": "\\buh+h?\\b|\\bum+m?\\b|\\berr+\\b|\\bhm+\\b|\\bhmm+\\b"
+    },
+    {
+      "tag": "BLOCK",
+      "pattern": "\\bblocked?\\b|\\bstuck\\b|can't|cannot|\\bunable\\b"
+    },
+    {
+      "tag": "LOOP",
+      "pattern": "\\bagain\\b|\\bsame\\b|\\bevery time\\b|\\balways\\b|\\bkeep\\b"
+    },
+    {
+      "tag": "GAP",
+      "pattern": "\\bgap\\b|\\bmissing\\b|\\bunknown\\b|\\bdon't know\\b|unclear"
+    },
+    {
+      "tag": "REL",
+      "pattern": "\\bconnect(ed|s)?\\b|\\blink(ed|s)?\\b|\\brelat(e|es|ed)\\b"
+    }
+  ],
+  "association": {
+    "minWordLength": 4,
+    "minSharedWords": 1,
+    "bidirectional": true
+  },
+  "loopDetection": {
+    "minFrequency": 3,
+    "tag": "LOOP"
+  },
+  "modes": [
+    "EXTERNALIZING",
+    "INTROSPECTING",
+    "PROCESSING",
+    "AUTO"
+  ],
+  "physics": {
+    "centerGravity": 0.004,
+    "repulsion": "1/d^2",
+    "attraction": 0.6,
+    "damping": 0.85
+  }
+}

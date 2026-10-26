@@ -1,0 +1,58 @@
+[
+  {
+    "id": "being",
+    "icon": "◎",
+    "name": "Who I Am Becoming",
+    "color": "var(--y)",
+    "desc": "Identity, character, ways of being"
+  },
+  {
+    "id": "relational",
+    "icon": "⟡",
+    "name": "Relational",
+    "color": "var(--v)",
+    "desc": "Relationships, love, connection, trust"
+  },
+  {
+    "id": "financial",
+    "icon": "⬡",
+    "name": "Financial / Material",
+    "color": "var(--g)",
+    "desc": "Wealth, resources, independence"
+  },
+  {
+    "id": "cognitive",
+    "icon": "◈",
+    "name": "Cognitive / Intellectual",
+    "color": "var(--c)",
+    "desc": "Knowledge, reasoning, mastery"
+  },
+  {
+    "id": "health",
+    "icon": "⚡",
+    "name": "Physical / Health",
+    "color": "var(--pk)",
+    "desc": "Body, energy, vitality"
+  },
+  {
+    "id": "creative",
+    "icon": "✦",
+    "name": "Creative / Expression",
+    "color": "var(--o)",
+    "desc": "Making, art, craft, innovation"
+  },
+  {
+    "id": "social",
+    "icon": "∿",
+    "name": "Social / Impact",
+    "color": "var(--teal)",
+    "desc": "Community, contribution, legacy"
+  },
+  {
+    "id": "custom",
+    "icon": "⬢",
+    "name": "Custom Domain",
+    "color": "var(--mid)",
+    "desc": "Define your own domain"
+  }
+]

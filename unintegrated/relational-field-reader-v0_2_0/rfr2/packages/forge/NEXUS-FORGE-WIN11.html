@@ -1,0 +1,3088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NEXUS/FORGE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   NEXUS/FORGE — Windows 11 Renderer
+   Architecture: SISO multi-page router
+   Every page transition = NexusEvent('ROUTE', {page})
+   DOM is the state. Pages are hidden/shown by Router gate.
+   Model: deepseek-coder-v2:16b-lite-instruct-q4_K_M
+═══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* Core palette */
+  --bg0:#06060a;--bg1:#0a0a0f;--bg2:#0e0e14;--bg3:#131318;--bg4:#18181f;--bg5:#1e1e26;
+  --ink:#e4e4ee;--ink2:#a0a0b0;--ink3:#606070;--ink4:#30303a;
+  --rule:#ffffff0b;--rule2:#ffffff14;--rule3:#ffffff1e;
+  /* Accent — amber-gold */
+  --a0:#d46a18;--a1:#e88030;--a2:#f5a060;--a3:rgba(212,106,24,.12);
+  /* Semantic */
+  --ok:#28804a;--ok2:#38a060;
+  --err:#8a2222;--err2:#c04040;
+  --warn:#8a6010;--warn2:#c09020;
+  --info:#1a5a8a;--info2:#2a7aba;
+  --purple:#6030b0;--purple2:#8050d0;
+  --cyan:#107888;--cyan2:#18a8b8;
+  /* Typography */
+  --f-display:'Instrument Serif',Georgia,serif;
+  --f-ui:'Syne',system-ui,sans-serif;
+  --f-code:'JetBrains Mono','Cascadia Code','Consolas',monospace;
+  /* Windows 11 elevation */
+  --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+  --shadow-md:0 4px 20px rgba(0,0,0,.5);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.6);
+}
+
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg0);color:var(--ink);font-family:var(--f-ui);font-size:13px;-webkit-font-smoothing:antialiased}
+
+/* ─── SHELL GRID ─────────────────────────────────── */
+#shell{
+  display:grid;
+  grid-template-rows:32px 1fr;       /* Win11 titlebar + content */
+  grid-template-columns:52px 1fr;    /* icon rail + main */
+  height:100vh;width:100vw;overflow:hidden;
+}
+
+/* ─── WIN11 TITLEBAR ─────────────────────────────── */
+#titlebar{
+  grid-column:1/-1;
+  display:flex;align-items:center;
+  background:var(--bg0);
+  border-bottom:1px solid var(--rule);
+  -webkit-app-region:drag;
+  user-select:none;position:relative;z-index:300;
+}
+.tb-appname{
+  -webkit-app-region:drag;
+  padding:0 16px;
+  font-family:var(--f-ui);font-size:12px;font-weight:600;
+  color:var(--ink3);letter-spacing:.04em;
+  display:flex;align-items:center;gap:8px;
+}
+.tb-appname .logo{font-family:var(--f-display);font-style:italic;font-size:14px;color:var(--a1)}
+.tb-appname .logo-slash{color:var(--ink4)}
+
+/* File menu bar */
+.tb-menu{display:flex;-webkit-app-region:no-drag;height:100%}
+.tb-menu-item{
+  display:flex;align-items:center;padding:0 11px;
+  font-size:12px;color:var(--ink3);cursor:pointer;
+  transition:background .1s,color .1s;white-space:nowrap;
+}
+.tb-menu-item:hover{background:var(--bg3);color:var(--ink)}
+
+/* Editor file tabs */
+.tb-tabs{
+  flex:1;display:flex;align-items:flex-end;
+  -webkit-app-region:no-drag;overflow:hidden;
+  padding:0 4px;gap:0;height:100%;
+}
+.tb-tab{
+  display:flex;align-items:center;gap:6px;
+  padding:0 12px;height:100%;
+  font-family:var(--f-code);font-size:11px;
+  color:var(--ink3);cursor:pointer;
+  border-right:1px solid var(--rule);
+  border-bottom:2px solid transparent;
+  transition:all .1s;white-space:nowrap;max-width:180px;
+  position:relative;flex-shrink:0;
+}
+.tb-tab:hover{background:var(--bg2);color:var(--ink)}
+.tb-tab.active{color:var(--a1);border-bottom-color:var(--a0);background:rgba(212,106,24,.06)}
+.tb-tab .tc{
+  opacity:0;font-size:11px;color:var(--ink4);
+  margin-left:2px;transition:opacity .1s;flex-shrink:0;
+  width:14px;text-align:center;
+}
+.tb-tab:hover .tc{opacity:1}
+.tb-tab.dirty::after{content:'●';font-size:6px;color:var(--a1);position:absolute;top:6px;right:4px}
+
+/* Win11 window controls */
+.tb-winbtns{
+  display:flex;-webkit-app-region:no-drag;margin-left:auto;height:100%;
+}
+.winbtn{
+  width:46px;height:100%;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .1s;font-size:11px;color:var(--ink3);
+}
+.winbtn:hover{background:var(--bg3);color:var(--ink)}
+.winbtn.close:hover{background:#c42b1c;color:#fff}
+
+/* ─── ICON RAIL (left) ───────────────────────────── */
+#icon-rail{
+  grid-row:2;
+  background:var(--bg1);border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;align-items:center;
+  padding:6px 0;gap:2px;position:relative;z-index:200;
+}
+.rail-btn{
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:6px;transition:all .12s;
+  font-size:18px;color:var(--ink4);position:relative;
+  border:1px solid transparent;
+}
+.rail-btn:hover{background:var(--bg3);color:var(--ink2);border-color:var(--rule2)}
+.rail-btn.active{background:var(--a3);color:var(--a1);border-color:rgba(212,106,24,.25)}
+.rail-btn::after{
+  content:attr(data-tooltip);
+  position:absolute;left:48px;top:50%;transform:translateY(-50%);
+  background:var(--bg4);border:1px solid var(--rule2);
+  color:var(--ink);font-family:var(--f-code);font-size:10px;
+  padding:4px 10px;border-radius:4px;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;
+  box-shadow:var(--shadow-sm);
+}
+.rail-btn:hover::after{opacity:1}
+.rail-sep{width:28px;height:1px;background:var(--rule);margin:4px 0}
+.rail-bottom{margin-top:auto}
+
+/* ─── MAIN CONTENT ───────────────────────────────── */
+#main-content{
+  grid-row:2;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+}
+
+/* ─── PAGE SYSTEM (SISO-routed) ──────────────────── */
+/* Every .page is display:none by default.
+   The RouterGate shows exactly one at a time.
+   No CSS transitions needed — instant DOM swap.       */
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ─── SHARED INNER LAYOUT ────────────────────────── */
+.page-split{flex:1;display:flex;overflow:hidden}
+.pane-left{flex-shrink:0;border-right:1px solid var(--rule);overflow:hidden;display:flex;flex-direction:column}
+.pane-right{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* ─── PANEL HEADERS ──────────────────────────────── */
+.panel-head{
+  display:flex;align-items:center;gap:8px;
+  padding:0 10px;height:28px;flex-shrink:0;
+  background:var(--bg1);border-bottom:1px solid var(--rule);
+  font-family:var(--f-code);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink3);
+}
+.ph-title{flex:1}
+.ph-dot{width:5px;height:5px;border-radius:50%;background:var(--a0);animation:pulse 1.4s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ─── SCROLLABLE AREAS ───────────────────────────── */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* ─── BUTTONS ────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border:1px solid;border-radius:4px;
+  font-family:var(--f-code);font-size:11px;cursor:pointer;
+  background:transparent;transition:all .12s;white-space:nowrap;
+  letter-spacing:.03em;
+}
+.btn-a{border-color:var(--a0);color:var(--a1)}
+.btn-a:hover{background:var(--a0);color:#000}
+.btn-ghost{border-color:var(--rule2);color:var(--ink2)}
+.btn-ghost:hover{border-color:var(--rule3);color:var(--ink)}
+.btn-ok{border-color:rgba(40,128,74,.5);color:var(--ok2)}
+.btn-ok:hover{background:var(--ok);color:#fff}
+.btn-err{border-color:rgba(138,34,34,.5);color:var(--err2)}
+.btn-err:hover{background:var(--err);color:#fff}
+.btn-sm{padding:3px 10px;font-size:10px}
+.btn-xs{padding:2px 7px;font-size:9px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ─── INPUTS ─────────────────────────────────────── */
+input.inp,textarea.inp,select.inp{
+  background:var(--bg2);border:1px solid var(--rule2);
+  color:var(--ink);font-family:var(--f-code);font-size:11px;
+  padding:6px 9px;border-radius:4px;outline:none;width:100%;
+  transition:border-color .12s;
+}
+input.inp:focus,textarea.inp:focus,select.inp:focus{border-color:var(--a0);box-shadow:0 0 0 2px rgba(212,106,24,.1)}
+textarea.inp{resize:vertical;line-height:1.6}
+select.inp{appearance:none;cursor:pointer}
+
+/* ─── TAGS ───────────────────────────────────────── */
+.tag-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;background:var(--bg4);border:1px solid var(--rule2);
+  border-radius:3px;font-family:var(--f-code);font-size:10px;color:var(--ink2);
+}
+.tag-x{cursor:pointer;color:var(--ink3);transition:color .1s}
+.tag-x:hover{color:var(--err2)}
+
+/* ─── FORM LABELS ────────────────────────────────── */
+.fl{
+  display:block;font-family:var(--f-code);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--a1);
+  margin-bottom:5px;margin-top:14px;
+}
+.fl:first-child{margin-top:0}
+
+/* ─── PROGRESS BAR ───────────────────────────────── */
+.prog{height:2px;background:var(--bg4);border-radius:1px;overflow:hidden;flex-shrink:0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--a0),var(--a1));border-radius:1px;transition:width .4s ease}
+
+/* ─── SCROLLBAR ──────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--rule2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--rule3)}
+
+/* ─── ANIMATIONS ─────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.fade-up{animation:fadeUp .2s ease}
+.slide-in{animation:slideIn .18s ease}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 1: HOME / WELCOME
+═══════════════════════════════════════════════════ */
+#page-home{background:var(--bg0)}
+.home-hero{
+  padding:52px 56px 44px;border-bottom:1px solid var(--rule);
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.home-hero::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 80% at 0% 60%,rgba(212,106,24,.07) 0%,transparent 70%),
+    radial-gradient(ellipse 30% 40% at 90% 10%,rgba(24,168,184,.04) 0%,transparent 60%);
+}
+.home-hero::after{
+  content:'E→G→S→DOM';
+  position:absolute;right:-8px;top:8px;
+  font-family:var(--f-display);font-style:italic;
+  font-size:120px;color:rgba(255,255,255,.018);
+  line-height:1;pointer-events:none;user-select:none;
+  letter-spacing:-4px;
+}
+.hero-eyebrow{
+  font-family:var(--f-code);font-size:9px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--a0);margin-bottom:18px;
+  display:flex;align-items:center;gap:12px;
+}
+.hero-eyebrow::before{content:'';width:28px;height:1px;background:var(--a0)}
+.hero-title{
+  font-family:var(--f-display);font-size:52px;line-height:1.0;
+  letter-spacing:-.5px;margin-bottom:10px;position:relative;
+}
+.hero-title em{color:var(--a1)}
+.hero-sub{
+  font-size:13px;color:var(--ink2);line-height:1.7;
+  max-width:520px;margin-bottom:28px;font-weight:400;
+}
+.hero-code-pill{
+  display:inline-block;
+  font-family:var(--f-code);font-size:11px;color:var(--a1);
+  background:rgba(212,106,24,.08);border:1px solid rgba(212,106,24,.2);
+  padding:8px 16px;border-radius:3px;margin-bottom:28px;letter-spacing:.04em;
+}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* Home grid: two columns */
+.home-body{flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:0}
+.home-col{border-right:1px solid var(--rule);padding:24px 28px}
+.home-col:last-child{border-right:none}
+.home-col-head{
+  font-family:var(--f-code);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink3);margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.home-col-head::after{content:'';flex:1;height:1px;background:var(--rule)}
+
+/* Pillars */
+.pillar{background:var(--bg2);border:1px solid var(--rule);border-radius:5px;padding:16px;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.pillar:hover{border-color:var(--rule3)}
+.pillar-label{font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--a0);margin-bottom:5px}
+.pillar-title{font-family:var(--f-display);font-style:italic;font-size:18px;margin-bottom:5px}
+.pillar-desc{font-size:11px;color:var(--ink2);line-height:1.55;font-weight:400}
+
+/* Recent files */
+.recent-row{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 10px;border-radius:4px;cursor:pointer;
+  transition:background .1s;font-family:var(--f-code);font-size:11px;
+}
+.recent-row:hover{background:var(--bg3)}
+.recent-icon{font-size:13px;flex-shrink:0;width:16px}
+.recent-name{flex:1;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-path{font-size:9px;color:var(--ink4)}
+.recent-phase{font-size:9px;padding:1px 7px;border-radius:2px;border:1px solid;flex-shrink:0}
+.recent-phase.spec{color:var(--warn2);border-color:rgba(192,144,32,.25)}
+.recent-phase.gates{color:var(--purple2);border-color:rgba(128,80,208,.25)}
+.recent-phase.done{color:var(--ok2);border-color:rgba(56,160,96,.25)}
+
+/* Keybinding table */
+.kb-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-family:var(--f-code);font-size:10px;border-bottom:1px solid var(--rule)}
+.kb-row:last-child{border-bottom:none}
+.kb-key{flex-shrink:0;padding:1px 7px;background:var(--bg4);border:1px solid var(--rule3);border-radius:3px;color:var(--ink2);font-size:9px}
+.kb-desc{flex:1;color:var(--ink3)}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 2: EDITOR (dual pane + sidebar)
+═══════════════════════════════════════════════════ */
+#page-editor{flex-direction:row}
+
+/* Sidebar */
+.editor-sidebar{
+  width:220px;flex-shrink:0;border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;background:var(--bg1);
+}
+.esb-tabs{display:flex;border-bottom:1px solid var(--rule);flex-shrink:0}
+.esb-tab{
+  flex:1;height:28px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;cursor:pointer;color:var(--ink4);
+  border-bottom:2px solid transparent;transition:all .1s;
+}
+.esb-tab:hover{color:var(--ink2);background:var(--bg2)}
+.esb-tab.active{color:var(--a1);border-bottom-color:var(--a0)}
+
+.esb-panel{display:none;flex-direction:column;flex:1;overflow:hidden}
+.esb-panel.active{display:flex}
+
+/* File tree */
+.fb-head{
+  display:flex;align-items:center;padding:0 8px;height:28px;
+  border-bottom:1px solid var(--rule);flex-shrink:0;
+}
+.fb-root{font-family:var(--f-code);font-size:10px;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-acts{display:flex;gap:0}
+.ib{
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border:none;background:transparent;color:var(--ink4);
+  font-size:12px;border-radius:3px;transition:all .1s;
+}
+.ib:hover{background:var(--bg3);color:var(--ink)}
+
+#file-tree{flex:1;overflow-y:auto;padding:2px 0}
+.ft-item{
+  display:flex;align-items:center;gap:5px;
+  padding:2px 8px;cursor:pointer;
+  font-family:var(--f-code);font-size:11px;color:var(--ink3);
+  border-left:2px solid transparent;transition:background .08s;
+  white-space:nowrap;
+}
+.ft-item:hover{background:var(--bg2);color:var(--ink)}
+.ft-item.active{background:rgba(212,106,24,.07);color:var(--a1);border-left-color:var(--a0)}
+.ft-item.ft-dir{color:var(--cyan2)}
+.ft-item.ft-mod{color:var(--warn2)}
+.ft-item.ft-new{color:var(--ok2)}
+.ft-item .fi{font-size:11px;width:14px;text-align:center;flex-shrink:0}
+.ft-item .fn{flex:1;overflow:hidden;text-overflow:ellipsis}
+.ft-badge{font-size:8px;padding:0 5px;border-radius:2px;border:1px solid;flex-shrink:0}
+.ft-badge.m{color:var(--warn2);border-color:rgba(192,144,32,.3)}
+.ft-badge.u{color:var(--ok2);border-color:rgba(56,160,96,.3)}
+
+/* Editor panes */
+.editor-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.editor-split{flex:1;display:flex;overflow:hidden}
+.editor-pane{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--rule)}
+.editor-pane:last-child{border-right:none}
+.pane-head{
+  display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;
+  background:var(--bg1);border-bottom:1px solid var(--rule);flex-shrink:0;
+  font-family:var(--f-code);font-size:10px;
+}
+.pane-title{flex:1;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pane-lang{
+  font-size:9px;padding:1px 7px;border-radius:2px;
+  border:1px solid var(--rule2);color:var(--ink3);
+}
+.monaco-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg0)}
+
+/* Preview pane */
+.preview-toolbar{
+  display:flex;align-items:center;gap:6px;
+  height:28px;padding:0 8px;
+  background:var(--bg1);border-bottom:1px solid var(--rule);flex-shrink:0;
+}
+#preview-url{
+  flex:1;background:var(--bg2);border:1px solid var(--rule2);
+  color:var(--ink2);font-family:var(--f-code);font-size:10px;
+  padding:2px 8px;border-radius:10px;outline:none;
+}
+#preview-frame{width:100%;height:100%;border:none}
+
+/* Pane divider */
+.pane-div{
+  width:3px;background:var(--rule);cursor:col-resize;flex-shrink:0;
+  transition:background .1s;
+}
+.pane-div:hover,.pane-div.dragging{background:var(--a0)}
+
+/* H-divider */
+.h-div{height:3px;background:var(--rule);cursor:row-resize;flex-shrink:0;transition:background .1s}
+.h-div:hover,.h-div.dragging{background:var(--a0)}
+
+/* Terminal */
+.terminal-wrap{height:190px;display:flex;flex-direction:column;flex-shrink:0;border-top:1px solid var(--rule)}
+.term-tabs{
+  display:flex;align-items:center;height:26px;
+  background:var(--bg1);border-bottom:1px solid var(--rule);flex-shrink:0;overflow-x:auto;
+}
+.term-tab{
+  display:flex;align-items:center;gap:5px;
+  padding:0 12px;height:100%;font-family:var(--f-code);font-size:10px;
+  color:var(--ink4);cursor:pointer;border-right:1px solid var(--rule);
+  white-space:nowrap;transition:all .1s;
+}
+.term-tab.active{color:var(--a1);background:rgba(212,106,24,.06)}
+.term-tab:hover:not(.active){color:var(--ink2);background:var(--bg2)}
+.tdot{width:5px;height:5px;border-radius:50%}
+
+.term-body{
+  flex:1;overflow-y:auto;padding:8px 14px;
+  font-family:var(--f-code);font-size:11px;line-height:1.8;
+  background:var(--bg0);
+}
+.tl{display:block}
+.tl.prompt{color:var(--ok2)}
+.tl.out{color:var(--ink3)}
+.tl.err{color:var(--err2)}
+.tl.info{color:var(--cyan2)}
+.tl.warn{color:var(--warn2)}
+.tl.siso{color:var(--purple2)}
+.tl.ok{color:var(--ok2)}
+.tl .ts{color:var(--ink4);margin-right:8px;font-size:9px}
+
+.term-input-row{
+  display:flex;align-items:center;gap:8px;
+  padding:4px 14px;border-top:1px solid var(--rule);
+  background:var(--bg0);flex-shrink:0;
+}
+.term-ps{color:var(--ok2);font-family:var(--f-code);font-size:11px;flex-shrink:0}
+.term-in{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--ink);font-family:var(--f-code);font-size:11px;
+}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 3: AI PIPELINE / NEXUS FORGE WIZARD
+═══════════════════════════════════════════════════ */
+#page-forge{background:var(--bg0)}
+.forge-layout{flex:1;display:flex;overflow:hidden}
+
+/* Left: wizard steps */
+.forge-steps{
+  width:200px;flex-shrink:0;border-right:1px solid var(--rule);
+  background:var(--bg1);display:flex;flex-direction:column;
+  padding:16px 0;
+}
+.forge-step-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 14px;cursor:pointer;
+  font-family:var(--f-code);font-size:11px;color:var(--ink4);
+  border-left:2px solid transparent;transition:all .1s;
+}
+.forge-step-item:hover{color:var(--ink2);background:var(--bg2)}
+.forge-step-item.active{color:var(--a1);border-left-color:var(--a0);background:var(--a3)}
+.forge-step-item.done{color:var(--ok2);border-left-color:var(--ok)}
+.fsi-num{
+  width:18px;height:18px;border-radius:50%;border:1px solid currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;flex-shrink:0;
+}
+.fsi-label{flex:1}
+
+/* Center: form */
+.forge-form{flex:1;overflow-y:auto;padding:32px 40px;max-width:640px}
+.forge-step-title{
+  font-family:var(--f-display);font-size:28px;font-style:italic;
+  margin-bottom:6px;
+}
+.forge-step-sub{font-size:12px;color:var(--ink2);margin-bottom:24px;line-height:1.6}
+.form-row{display:flex;gap:10px}
+.form-row .fc{flex:1}
+.module-entry{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:var(--bg2);border:1px solid var(--rule);
+  border-radius:4px;margin-bottom:4px;
+  font-family:var(--f-code);font-size:11px;
+}
+.me-ord{color:var(--a0);width:28px;flex-shrink:0}
+.me-name{font-weight:500;flex:1;color:var(--ink)}
+.me-desc{color:var(--ink3);font-size:10px}
+
+/* Right: live output log */
+.forge-log{
+  width:300px;flex-shrink:0;border-left:1px solid var(--rule);
+  display:flex;flex-direction:column;background:var(--bg1);
+}
+.forge-log-body{
+  flex:1;overflow-y:auto;padding:10px 12px;
+  font-family:var(--f-code);font-size:10px;line-height:1.9;
+}
+.ll{display:block}
+.ll.gate{color:var(--a1)}
+.ll.ok{color:var(--ok2)}
+.ll.err{color:var(--err2)}
+.ll.warn{color:var(--warn2)}
+.ll.siso{color:var(--purple2)}
+.ll.info{color:var(--ink3)}
+.ll.gen{color:var(--cyan2)}
+.ll .ts{color:var(--ink4);margin-right:6px;font-size:9px}
+
+/* Gate cards */
+.gate-cards{padding:8px}
+.gate-card{
+  border:1px solid var(--rule);background:var(--bg2);
+  border-radius:4px;margin-bottom:6px;overflow:hidden;
+  transition:border-color .2s;
+}
+.gate-card.running{border-color:rgba(212,106,24,.4)}
+.gate-card.pass{border-color:rgba(40,128,74,.35)}
+.gate-card.fail{border-color:rgba(138,34,34,.4)}
+.gc-head{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 10px;border-bottom:1px solid var(--rule);
+  font-family:var(--f-code);font-size:10px;
+}
+.gc-icon{font-size:11px;flex-shrink:0}
+.gc-title{flex:1;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-badge{
+  font-size:8px;letter-spacing:.08em;text-transform:uppercase;
+  padding:1px 7px;border:1px solid;border-radius:2px;flex-shrink:0;
+}
+.gc-badge.running{color:var(--a1);border-color:rgba(212,106,24,.3)}
+.gc-badge.pass{color:var(--ok2);border-color:rgba(40,128,74,.3)}
+.gc-badge.fail{color:var(--err2);border-color:rgba(138,34,34,.3)}
+.gc-badge.pending{color:var(--ink4);border-color:var(--rule)}
+.gc-body{
+  padding:6px 10px;font-family:var(--f-code);font-size:9px;
+  line-height:1.6;color:var(--ink4);max-height:80px;overflow-y:auto;
+}
+
+.forge-footer{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 40px;border-top:1px solid var(--rule);
+  background:var(--bg1);flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 4: ROADMAP
+═══════════════════════════════════════════════════ */
+#page-roadmap{background:var(--bg0)}
+.roadmap-layout{flex:1;display:flex;overflow:hidden}
+
+/* Roadmap board */
+.roadmap-board{flex:1;overflow-x:auto;display:flex;gap:0;padding:20px}
+.rm-col{
+  min-width:260px;max-width:280px;flex-shrink:0;
+  background:var(--bg2);border:1px solid var(--rule);border-radius:6px;
+  margin-right:14px;display:flex;flex-direction:column;overflow:hidden;
+}
+.rm-col-head{
+  padding:12px 14px;border-bottom:1px solid var(--rule);flex-shrink:0;
+  display:flex;align-items:center;gap:8px;
+}
+.rm-col-title{font-family:var(--f-ui);font-weight:700;font-size:12px;flex:1}
+.rm-col-count{
+  font-family:var(--f-code);font-size:10px;
+  padding:1px 8px;border-radius:10px;border:1px solid var(--rule2);color:var(--ink3);
+}
+.rm-col-body{flex:1;overflow-y:auto;padding:8px}
+.rm-card{
+  background:var(--bg3);border:1px solid var(--rule2);border-radius:5px;
+  margin-bottom:6px;overflow:hidden;cursor:pointer;
+  transition:border-color .1s,transform .1s;
+}
+.rm-card:hover{border-color:var(--rule3);transform:translateY(-1px)}
+.rm-card-head{
+  padding:10px 12px 6px;display:flex;align-items:flex-start;gap:8px;
+}
+.rm-card-title{font-size:12px;font-weight:600;flex:1;line-height:1.4}
+.rm-card-pri{
+  font-size:9px;padding:1px 7px;border-radius:2px;border:1px solid;flex-shrink:0;margin-top:1px;
+}
+.rm-card-pri.high{color:var(--err2);border-color:rgba(138,34,34,.3)}
+.rm-card-pri.med{color:var(--warn2);border-color:rgba(192,144,32,.3)}
+.rm-card-pri.low{color:var(--ok2);border-color:rgba(40,128,74,.3)}
+.rm-card-body{
+  padding:0 12px 10px;font-size:11px;color:var(--ink2);line-height:1.5;
+}
+.rm-card-foot{
+  display:flex;align-items:center;gap:6px;padding:6px 12px;
+  border-top:1px solid var(--rule);
+  font-family:var(--f-code);font-size:9px;color:var(--ink4);
+}
+.rm-tag{
+  padding:1px 7px;border-radius:2px;border:1px solid var(--rule2);
+  color:var(--ink3);
+}
+.rm-prog{
+  height:3px;background:var(--bg4);border-radius:2px;
+  margin:0 12px 10px;overflow:hidden;
+}
+.rm-prog-fill{height:100%;background:var(--a0);border-radius:2px;transition:width .3s}
+.rm-col-add{
+  margin:6px 8px 8px;width:calc(100% - 16px);padding:6px;
+  background:transparent;border:1px dashed var(--rule2);border-radius:4px;
+  color:var(--ink4);font-family:var(--f-code);font-size:10px;cursor:pointer;
+  transition:all .1s;
+}
+.rm-col-add:hover{border-color:var(--a0);color:var(--a1)}
+
+/* Roadmap sidebar */
+.roadmap-side{
+  width:260px;flex-shrink:0;border-left:1px solid var(--rule);
+  background:var(--bg1);display:flex;flex-direction:column;
+}
+.rm-detail{padding:16px;flex:1;overflow-y:auto}
+.rm-detail-empty{
+  padding:40px 20px;text-align:center;
+  font-family:var(--f-code);font-size:10px;color:var(--ink4);
+}
+.rm-milestone-row{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:var(--bg2);border:1px solid var(--rule);
+  border-radius:4px;margin-bottom:6px;
+}
+.rm-ms-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rm-ms-name{font-size:12px;font-weight:500;flex:1}
+.rm-ms-pct{font-family:var(--f-code);font-size:10px;color:var(--ink3)}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 5: AI ASSISTANT (full page chat)
+═══════════════════════════════════════════════════ */
+#page-ai{flex-direction:row}
+.ai-history{flex:1;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid var(--rule)}
+.ai-msgs{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+.ai-bubble{
+  max-width:680px;border-radius:6px;overflow:hidden;
+  border:1px solid var(--rule);animation:fadeUp .2s ease;
+}
+.ai-bubble.user{background:rgba(212,106,24,.06);border-color:rgba(212,106,24,.15)}
+.ai-bubble.ai{background:var(--bg2)}
+.ai-bubble.sys{background:rgba(24,96,136,.06);border-color:rgba(26,90,138,.2);font-size:11px;max-width:100%}
+.ai-bubble-role{
+  padding:6px 14px 0;font-family:var(--f-code);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink4);
+}
+.ai-bubble-content{
+  padding:8px 14px 12px;font-size:12px;line-height:1.7;color:var(--ink2);
+  white-space:pre-wrap;font-family:var(--f-code);
+}
+.ai-bubble.user .ai-bubble-content{color:var(--ink)}
+
+.ai-input-area{
+  padding:14px 20px;border-top:1px solid var(--rule);
+  background:var(--bg1);flex-shrink:0;
+}
+.ai-mode-strip{display:flex;gap:0;margin-bottom:10px;border:1px solid var(--rule2);border-radius:4px;overflow:hidden;width:fit-content}
+.ai-mode-btn{
+  padding:4px 12px;font-family:var(--f-code);font-size:9px;
+  letter-spacing:.06em;text-transform:uppercase;
+  background:transparent;border:none;color:var(--ink3);cursor:pointer;
+  transition:all .1s;
+}
+.ai-mode-btn.active{background:var(--a3);color:var(--a1)}
+.ai-mode-btn:hover:not(.active){color:var(--ink)}
+
+.ai-inp-row{display:flex;gap:8px;align-items:flex-end}
+.ai-inp{
+  flex:1;background:var(--bg2);border:1px solid var(--rule2);
+  color:var(--ink);font-family:var(--f-code);font-size:11px;
+  padding:9px 12px;border-radius:4px;outline:none;resize:none;
+  line-height:1.6;min-height:60px;max-height:120px;
+  transition:border-color .12s;
+}
+.ai-inp:focus{border-color:var(--a0)}
+
+/* AI config panel */
+.ai-config{
+  width:240px;flex-shrink:0;border-left:1px solid var(--rule);
+  background:var(--bg1);display:flex;flex-direction:column;
+  padding:16px;gap:14px;overflow-y:auto;
+}
+.cfg-section{margin-bottom:0}
+.cfg-head{
+  font-family:var(--f-code);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--a0);margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;
+}
+.cfg-head::after{content:'';flex:1;height:1px;background:rgba(212,106,24,.2)}
+.model-card{
+  background:var(--bg2);border:1px solid var(--rule2);border-radius:4px;
+  padding:8px 10px;cursor:pointer;transition:border-color .1s;margin-bottom:5px;
+}
+.model-card:hover{border-color:var(--rule3)}
+.model-card.active{border-color:rgba(212,106,24,.4);background:var(--a3)}
+.mc-name{font-family:var(--f-code);font-size:11px;color:var(--ink);margin-bottom:3px}
+.mc-meta{font-family:var(--f-code);font-size:9px;color:var(--ink4)}
+.mc-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+/* Stats */
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--rule)}
+.stat-row:last-child{border-bottom:none}
+.stat-key{font-family:var(--f-code);font-size:9px;color:var(--ink4)}
+.stat-val{font-family:var(--f-code);font-size:10px;color:var(--ink)}
+.stat-val.ok{color:var(--ok2)}
+.stat-val.amber{color:var(--a1)}
+.stat-val.err{color:var(--err2)}
+
+/* ═══════════════════════════════════════════════════
+   PAGE 6: SETTINGS
+═══════════════════════════════════════════════════ */
+#page-settings{background:var(--bg0)}
+.settings-layout{flex:1;display:flex;overflow:hidden}
+.settings-nav{
+  width:200px;flex-shrink:0;border-right:1px solid var(--rule);
+  background:var(--bg1);padding:12px 0;
+}
+.settings-nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 16px;cursor:pointer;font-size:12px;color:var(--ink3);
+  border-left:2px solid transparent;transition:all .1s;
+}
+.settings-nav-item:hover{background:var(--bg2);color:var(--ink)}
+.settings-nav-item.active{color:var(--a1);border-left-color:var(--a0);background:var(--a3)}
+.settings-body{flex:1;overflow-y:auto;padding:32px 40px;max-width:700px}
+.settings-section{margin-bottom:32px}
+.settings-title{
+  font-family:var(--f-display);font-style:italic;font-size:24px;
+  margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--rule);
+}
+.setting-row{
+  display:flex;align-items:center;gap:16px;
+  padding:12px 0;border-bottom:1px solid var(--rule);
+}
+.setting-row:last-child{border-bottom:none}
+.sr-info{flex:1}
+.sr-label{font-size:13px;font-weight:600;margin-bottom:3px}
+.sr-desc{font-size:11px;color:var(--ink3);line-height:1.5}
+.sr-control{flex-shrink:0;min-width:180px;text-align:right}
+
+/* Toggle */
+.toggle{
+  width:36px;height:20px;background:var(--bg4);border-radius:10px;
+  cursor:pointer;position:relative;transition:background .2s;border:1px solid var(--rule2);
+  display:inline-block;flex-shrink:0;vertical-align:middle;
+}
+.toggle.on{background:var(--a0);border-color:var(--a0)}
+.toggle::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:14px;height:14px;border-radius:50%;background:#fff;
+  transition:transform .2s;
+}
+.toggle.on::after{transform:translateX(16px)}
+
+/* ═══════════════════════════════════════════════════
+   COMMAND PALETTE (global overlay)
+═══════════════════════════════════════════════════ */
+#cmd-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;
+  display:none;align-items:flex-start;justify-content:center;
+  padding-top:15vh;backdrop-filter:blur(3px);
+}
+#cmd-overlay.open{display:flex}
+#cmd-box{
+  width:580px;background:var(--bg2);border:1px solid var(--rule3);
+  border-radius:8px;box-shadow:var(--shadow-lg);overflow:hidden;
+  animation:fadeUp .15s ease;
+}
+#cmd-inp{
+  width:100%;padding:14px 16px;background:transparent;border:none;
+  border-bottom:1px solid var(--rule);color:var(--ink);
+  font-family:var(--f-code);font-size:13px;outline:none;
+}
+#cmd-list{max-height:320px;overflow-y:auto}
+.cmd-group-head{
+  padding:5px 16px 3px;font-family:var(--f-code);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink4);
+  background:var(--bg3);border-bottom:1px solid var(--rule);
+}
+.cmd-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 16px;cursor:pointer;font-family:var(--f-code);font-size:11px;
+  transition:background .08s;
+}
+.cmd-item:hover,.cmd-item.sel{background:rgba(212,106,24,.08);color:var(--a1)}
+.cmd-icon{width:16px;text-align:center;color:var(--ink4);flex-shrink:0;font-size:13px}
+.cmd-label{flex:1;color:var(--ink)}
+.cmd-item:hover .cmd-label,.cmd-item.sel .cmd-label{color:var(--a1)}
+.cmd-kbd{
+  font-size:9px;padding:1px 6px;background:var(--bg4);
+  border:1px solid var(--rule2);border-radius:3px;color:var(--ink4);
+}
+
+/* ═══════════════════════════════════════════════════
+   AI GENERATION OVERLAY
+═══════════════════════════════════════════════════ */
+#gen-overlay{
+  position:fixed;bottom:220px;right:20px;
+  width:380px;max-height:300px;
+  background:var(--bg2);border:1px solid var(--rule3);border-radius:6px;
+  box-shadow:var(--shadow-lg);z-index:1000;
+  display:none;flex-direction:column;
+}
+#gen-overlay.open{display:flex}
+.gen-head{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-bottom:1px solid var(--rule);flex-shrink:0;
+  font-family:var(--f-code);font-size:10px;color:var(--ink2);
+}
+.gen-stream{
+  flex:1;overflow-y:auto;padding:10px 12px;
+  font-family:var(--f-code);font-size:10px;line-height:1.75;
+  color:var(--cyan2);white-space:pre-wrap;
+}
+.gen-actions{
+  display:flex;gap:6px;padding:8px 12px;
+  border-top:1px solid var(--rule);flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════
+   STATUS BAR
+═══════════════════════════════════════════════════ */
+#statusbar{
+  height:22px;display:flex;align-items:center;
+  background:var(--bg0);border-top:1px solid var(--rule);
+  font-family:var(--f-code);font-size:10px;
+  flex-shrink:0;overflow:hidden;
+  grid-column:1/-1; /* spans full width */
+  position:relative;
+}
+/* Statusbar sits outside the shell grid — placed manually */
+.sb-item{
+  display:flex;align-items:center;gap:4px;
+  padding:0 10px;height:100%;color:var(--ink4);
+  border-right:1px solid var(--rule);white-space:nowrap;
+  cursor:default;transition:background .1s;
+}
+.sb-item.clickable{cursor:pointer}
+.sb-item.clickable:hover{background:var(--bg2);color:var(--ink2)}
+.sb-item.amber{color:var(--a1)}
+.sb-item.green{color:var(--ok2)}
+.sb-item.red{color:var(--err2)}
+.sb-item.purple{color:var(--purple2)}
+.sb-sep{flex:1}
+.sb-live{width:6px;height:6px;border-radius:50%;background:var(--ok2);animation:pulse 2s infinite}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:32px;right:20px;z-index:3000;
+  background:var(--bg3);border:1px solid var(--rule2);border-radius:5px;
+  padding:10px 16px;font-family:var(--f-code);font-size:11px;
+  box-shadow:var(--shadow-md);max-width:320px;animation:fadeUp .2s ease;
+}
+.toast.ok{border-left:3px solid var(--ok2)}
+.toast.err{border-left:3px solid var(--err2)}
+.toast.warn{border-left:3px solid var(--warn2)}
+.toast.info{border-left:3px solid var(--a1)}
+</style>
+</head>
+<body>
+
+<!-- ═══ FULL-APP WRAPPER ══════════════════════════════ -->
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
+
+<!-- TITLEBAR -->
+<div id="titlebar">
+  <div class="tb-appname">
+    <span class="logo">Nexus</span><span class="logo-slash">/</span><span style="color:var(--ink2);font-size:13px;font-weight:700;font-family:var(--f-ui)">Forge</span>
+  </div>
+  <div class="tb-menu">
+    <div class="tb-menu-item" onclick="menuFile()">File</div>
+    <div class="tb-menu-item" onclick="menuEdit()">Edit</div>
+    <div class="tb-menu-item" onclick="menuView()">View</div>
+    <div class="tb-menu-item" onclick="menuAI()">AI</div>
+    <div class="tb-menu-item" onclick="menuHelp()">Help</div>
+  </div>
+  <div class="tb-tabs" id="editor-tabs">
+    <div class="tb-tab active" data-file="welcome" onclick="S.emit(E('TAB_ACTIVATE',{file:'welcome'}))">
+      <span>⬡</span> Welcome <span class="tc" onclick="event.stopPropagation()">×</span>
+    </div>
+  </div>
+  <div class="tb-winbtns" id="winbtns" style="-webkit-app-region:no-drag">
+    <div class="winbtn" onclick="window.nf?.minimize()" title="Minimize">─</div>
+    <div class="winbtn" onclick="window.nf?.maximize()" title="Maximize">□</div>
+    <div class="winbtn close" onclick="window.nf?.close()" title="Close">✕</div>
+  </div>
+</div>
+
+<!-- MAIN SHELL: icon rail + content -->
+<div id="shell" style="flex:1;min-height:0">
+
+<!-- ICON RAIL -->
+<div id="icon-rail">
+  <div class="rail-btn active" data-page="home" data-tooltip="Home" onclick="route('home')">⌂</div>
+  <div class="rail-btn" data-page="editor" data-tooltip="Editor  Ctrl+1" onclick="route('editor')">✎</div>
+  <div class="rail-btn" data-page="forge" data-tooltip="AI Pipeline  Ctrl+2" onclick="route('forge')">◈</div>
+  <div class="rail-btn" data-page="roadmap" data-tooltip="Roadmap  Ctrl+3" onclick="route('roadmap')">⊞</div>
+  <div class="rail-btn" data-page="ai" data-tooltip="AI Assistant  Ctrl+4" onclick="route('ai')">⟁</div>
+  <div class="rail-sep"></div>
+  <div class="rail-btn" data-page="settings" data-tooltip="Settings" onclick="route('settings')">⚙</div>
+  <div class="rail-bottom">
+    <div class="rail-btn" data-tooltip="Command Palette  Ctrl+P" onclick="openCmd()" style="font-size:14px">⌘</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT (pages) -->
+<div id="main-content">
+
+<!-- ════════ PAGE: HOME ════════ -->
+<div id="page-home" class="page active fade-up">
+  <div class="home-hero">
+    <div class="hero-eyebrow">NEXUS/FORGE — Windows 11 · Ollama · SISO</div>
+    <h1 class="hero-title">Welcome,<br><em>Builder of emerging<br>meaning and visionary.</em></h1>
+    <p class="hero-sub">Enterprise AI coding suite. Pure functional SISO architecture. Every page is an event. Every action is a Gate. DOM is state.</p>
+    <div class="hero-code-pill">deepseek-coder-v2:16b-lite-instruct-q4_K_M &nbsp;·&nbsp; 4K tokens &nbsp;·&nbsp; 7 threads</div>
+    <div class="hero-actions">
+      <button class="btn btn-a" onclick="openFolder()">📂 Open Folder</button>
+      <button class="btn btn-ghost" onclick="route('forge')">◈ New AI Project</button>
+      <button class="btn btn-ghost" onclick="openCmd()">⌘ Command Palette</button>
+    </div>
+  </div>
+  <div class="home-body">
+    <div class="home-col">
+      <div class="home-col-head">SISO Pillars</div>
+      <div class="pillar" onclick="route('forge')">
+        <div class="pillar-label">01 — Event</div>
+        <div class="pillar-title">Immutable Events</div>
+        <div class="pillar-desc">Every action creates an event. Events carry data, never change. Gates consume and transform.</div>
+      </div>
+      <div class="pillar" onclick="route('forge')">
+        <div class="pillar-label">02 — Gate</div>
+        <div class="pillar-title">Pure Gates</div>
+        <div class="pillar-desc">Each Gate does one thing. matches() + transform(). Infinite-loop guard built in. Single responsibility.</div>
+      </div>
+      <div class="pillar" onclick="route('forge')">
+        <div class="pillar-label">03 — Stream</div>
+        <div class="pillar-title">Stream Orchestration</div>
+        <div class="pillar-desc">Streams route events through gates. Process until stable. Composable, parallelizable, inspectable.</div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="home-col-head">Recent Projects</div>
+        <div id="recent-projects-list">
+          <div style="font-family:var(--f-code);font-size:10px;color:var(--ink4);padding:8px 0">// No recent projects</div>
+        </div>
+      </div>
+    </div>
+    <div class="home-col">
+      <div class="home-col-head">Keyboard Shortcuts</div>
+      <div class="kb-row"><span class="kb-key">Ctrl+P</span><span class="kb-desc">Command Palette</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+1</span><span class="kb-desc">Editor</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+2</span><span class="kb-desc">AI Pipeline</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+3</span><span class="kb-desc">Roadmap</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+4</span><span class="kb-desc">AI Assistant</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+G</span><span class="kb-desc">AI Generate</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+Shift+G</span><span class="kb-desc">Generate SISO Gate</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+\</span><span class="kb-desc">Split editor</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+`</span><span class="kb-desc">Toggle terminal</span></div>
+      <div class="kb-row"><span class="kb-key">Alt+Shift+F</span><span class="kb-desc">Format document</span></div>
+      <div class="kb-row"><span class="kb-key">Ctrl+S</span><span class="kb-desc">Save file</span></div>
+      <div class="kb-row"><span class="kb-key">F2</span><span class="kb-desc">Rename symbol</span></div>
+      <div style="margin-top:16px">
+        <div class="home-col-head">System</div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--ok2)" id="sb-sys-ollama">checking…</span><span class="kb-desc">Ollama status</span></div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--cyan2)">R7 3700x</span><span class="kb-desc">7 threads · 16GB RAM</span></div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--a1)">q4_K_M</span><span class="kb-desc">4-bit quantized · ~6GB VRAM</span></div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--purple2)">Guardian</span><span class="kb-desc" id="guardian-status">checking port 7771…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PAGE: EDITOR ════════ -->
+<div id="page-editor" class="page fade-up">
+  <!-- Sidebar -->
+  <div class="editor-sidebar">
+    <div class="esb-tabs">
+      <div class="esb-tab active" data-panel="files" onclick="switchEsbPanel('files')" title="Files">📁</div>
+      <div class="esb-tab" data-panel="git" onclick="switchEsbPanel('git')" title="Git">⎇</div>
+      <div class="esb-tab" data-panel="search" onclick="switchEsbPanel('search')" title="Search">⌕</div>
+      <div class="esb-tab" data-panel="outline" onclick="switchEsbPanel('outline')" title="Outline">≡</div>
+    </div>
+    <!-- Files panel -->
+    <div class="esb-panel active" id="esb-files">
+      <div class="fb-head">
+        <span class="fb-root" id="fb-root-label">no project</span>
+        <div class="fb-acts">
+          <button class="ib" onclick="openFolder()" title="Open">📂</button>
+          <button class="ib" onclick="newFile()" title="New file">+</button>
+          <button class="ib" onclick="S.emit(E('REFRESH_TREE',{}))" title="Refresh">↺</button>
+        </div>
+      </div>
+      <div style="padding:5px 8px;border-bottom:1px solid var(--rule);flex-shrink:0">
+        <input class="inp" style="padding:3px 7px;font-size:10px" placeholder="Filter files…" oninput="filterTree(this.value)">
+      </div>
+      <div id="file-tree">
+        <div style="padding:16px 12px;font-family:var(--f-code);font-size:10px;color:var(--ink4);line-height:2">
+          // Open a folder to begin<br>// Ctrl+K O or click 📂
+        </div>
+      </div>
+    </div>
+    <!-- Git panel -->
+    <div class="esb-panel" id="esb-git" style="padding:10px;overflow-y:auto">
+      <div style="font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Source Control</div>
+      <input class="inp" id="commit-msg" placeholder="Commit message…" style="margin-bottom:8px">
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="btn btn-ghost btn-sm" onclick="gitStage()">Stage All</button>
+        <button class="btn btn-a btn-sm" onclick="gitCommit()">Commit</button>
+      </div>
+      <div id="git-changes" style="font-family:var(--f-code);font-size:10px;color:var(--ink4)">// Open a git repo</div>
+      <div style="margin-top:10px">
+        <div style="font-family:var(--f-code);font-size:9px;color:var(--ink4);margin-bottom:4px">BRANCH</div>
+        <div id="git-branch-label" style="font-family:var(--f-code);font-size:11px;color:var(--cyan2)">—</div>
+      </div>
+    </div>
+    <!-- Search panel -->
+    <div class="esb-panel" id="esb-search" style="padding:10px;overflow-y:auto">
+      <div style="font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Global Search</div>
+      <input class="inp" id="global-search" placeholder="Search in all files…" oninput="globalSearch(this.value)" style="margin-bottom:6px">
+      <div style="display:flex;gap:10px;margin-bottom:8px;font-family:var(--f-code);font-size:10px;color:var(--ink3)">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="sr-regex"> Regex</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="sr-case"> Case</label>
+      </div>
+      <div id="search-results" style="font-family:var(--f-code);font-size:10px;color:var(--ink4)"></div>
+    </div>
+    <!-- Outline panel -->
+    <div class="esb-panel" id="esb-outline" style="padding:10px;overflow-y:auto">
+      <div style="font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Document Outline</div>
+      <div id="outline-list" style="font-family:var(--f-code);font-size:10px;color:var(--ink4)">// Open a file</div>
+    </div>
+  </div>
+
+  <!-- Editor main -->
+  <div class="editor-main">
+    <div class="editor-split" id="editor-split">
+      <!-- Left (primary) pane -->
+      <div class="editor-pane" id="left-pane">
+        <div class="pane-head">
+          <span class="pane-title" id="left-pane-title">Welcome</span>
+          <span class="pane-lang" id="left-pane-lang">—</span>
+          <div style="display:flex;gap:2px">
+            <button class="ib" onclick="formatLeft()" title="Format">⎇</button>
+            <button class="ib" onclick="splitRight()" title="Split right">⊞</button>
+          </div>
+        </div>
+        <div class="monaco-wrap" id="left-monaco">
+          <div id="editor-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--ink4);font-family:var(--f-code);font-size:11px">
+            <div style="font-size:28px;opacity:.3">✎</div>
+            <div>Open a file to start editing</div>
+            <div style="font-size:10px;color:var(--ink4)">Ctrl+P → search files</div>
+          </div>
+        </div>
+      </div>
+      <!-- Divider -->
+      <div class="pane-div" id="pane-div" style="display:none" onmousedown="startPaneDrag(event)"></div>
+      <!-- Right pane -->
+      <div class="editor-pane" id="right-pane" style="display:none">
+        <div class="pane-head" id="right-pane-head">
+          <span class="pane-title" id="right-pane-title">Preview</span>
+          <div style="display:flex;gap:2px">
+            <button class="ib" onclick="setRightMode('preview')" title="Preview">👁</button>
+            <button class="ib" onclick="setRightMode('editor')" title="Editor">✎</button>
+            <button class="ib" onclick="closeRightPane()" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="preview-toolbar" id="preview-tb" style="display:none">
+          <button class="ib" onclick="document.getElementById('preview-frame').contentWindow?.history.back()">←</button>
+          <button class="ib" onclick="refreshPreview()">↺</button>
+          <input id="preview-url" placeholder="about:blank">
+          <button class="ib" onclick="window.open(document.getElementById('preview-url').value)">↗</button>
+        </div>
+        <div class="monaco-wrap" id="right-monaco" style="display:none"></div>
+        <iframe id="preview-frame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms" style="width:100%;height:100%;border:none"></iframe>
+      </div>
+    </div>
+    <!-- H-divider -->
+    <div class="h-div" id="h-div" onmousedown="startHDrag(event)"></div>
+    <!-- Terminal -->
+    <div class="terminal-wrap" id="terminal-wrap">
+      <div class="term-tabs" id="term-tabs">
+        <div class="term-tab active" data-term="shell"><span class="tdot" style="background:var(--ok2)"></span>PowerShell</div>
+        <div class="term-tab" data-term="node"><span class="tdot" style="background:var(--a1)"></span>Node</div>
+        <div class="term-tab" data-term="siso"><span class="tdot" style="background:var(--purple2)"></span>SISO</div>
+        <div style="flex:1"></div>
+        <button class="ib" onclick="addTermTab()">+</button>
+        <button class="ib" onclick="toggleTerminal()">⌄</button>
+      </div>
+      <div class="term-body" id="term-body">
+        <span class="tl info"><span class="ts" id="term-ts-1"></span>NEXUS/FORGE terminal — Windows 11</span><br>
+        <span class="tl siso"><span class="ts"></span>SISO stream active — 11 gates registered</span><br>
+        <span class="tl info"><span class="ts"></span>Model: deepseek-coder-v2:16b-lite-instruct-q4_K_M</span><br>
+        <span class="tl info"><span class="ts"></span>Threads: 7  ·  Token budget: 4096  ·  RAM: 16GB</span><br>
+      </div>
+      <div class="term-input-row">
+        <span class="term-ps">PS&gt;</span>
+        <input class="term-in" id="term-in" placeholder="command…" onkeydown="termKey(event)" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PAGE: AI PIPELINE / FORGE ════════ -->
+<div id="page-forge" class="page fade-up">
+  <div class="forge-layout">
+    <!-- Step nav -->
+    <div class="forge-steps">
+      <div style="padding:12px 14px 8px;font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4);border-bottom:1px solid var(--rule);margin-bottom:6px">Build Pipeline</div>
+      <div class="forge-step-item active" data-fstep="0" onclick="goForgeStep(0)">
+        <span class="fsi-num">1</span><span class="fsi-label">Identity</span>
+      </div>
+      <div class="forge-step-item" data-fstep="1" onclick="goForgeStep(1)">
+        <span class="fsi-num">2</span><span class="fsi-label">Vision</span>
+      </div>
+      <div class="forge-step-item" data-fstep="2" onclick="goForgeStep(2)">
+        <span class="fsi-num">3</span><span class="fsi-label">Stack</span>
+      </div>
+      <div class="forge-step-item" data-fstep="3" onclick="goForgeStep(3)">
+        <span class="fsi-num">4</span><span class="fsi-label">Gate Groups</span>
+      </div>
+      <div class="forge-step-item" data-fstep="4" onclick="goForgeStep(4)">
+        <span class="fsi-num">5</span><span class="fsi-label">Output</span>
+      </div>
+      <div class="forge-step-item" data-fstep="5" onclick="goForgeStep(5)">
+        <span class="fsi-num">6</span><span class="fsi-label">Run Pipeline</span>
+      </div>
+      <div style="margin-top:auto;padding:12px 14px;border-top:1px solid var(--rule)">
+        <div style="font-family:var(--f-code);font-size:9px;color:var(--ink4);line-height:1.8">
+          <div id="forge-nex-name" style="color:var(--a1)">// no project</div>
+          <div id="forge-nex-time">auto-saves every 10s</div>
+          <div id="forge-gate-count">0 gate groups</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form area -->
+    <div class="forge-form" id="forge-form-area">
+      <!-- Step 0: Identity -->
+      <div id="forge-step-0" class="forge-step-form">
+        <div class="forge-step-title">Name Your Build</div>
+        <div class="forge-step-sub">Give your project an identity. This becomes the root of your .nex file and all Gate class names.</div>
+        <label class="fl">Project Name</label>
+        <input class="inp" id="fw-name" placeholder="e.g. SISOAuthSystem, NexusDataPipeline">
+        <label class="fl">Target Language</label>
+        <select class="inp" id="fw-lang">
+          <option value="javascript">JavaScript (ES2023+)</option>
+          <option value="typescript">TypeScript (strict)</option>
+          <option value="python">Python 3.11+</option>
+          <option value="rust">Rust (safe)</option>
+          <option value="go">Go (idiomatic)</option>
+          <option value="php">PHP 8.2+</option>
+          <option value="java">Java 21+</option>
+          <option value="csharp">C# 12</option>
+          <option value="cpp">C++ 20</option>
+        </select>
+        <label class="fl">SISO Schema</label>
+        <select class="inp" id="fw-arch">
+          <option value="siso-classic">Classic SISO — backend / API systems</option>
+          <option value="siso-ui">SISO/UI — browser DOM as state</option>
+          <option value="siso-hybrid">Hybrid — classic backend + SISO/UI frontend</option>
+          <option value="standard">Standard — no SISO constraints</option>
+        </select>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-a" onclick="forgeNext()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 1: Vision -->
+      <div id="forge-step-1" class="forge-step-form" style="display:none">
+        <div class="forge-step-title">Define the Vision</div>
+        <div class="forge-step-sub">Describe the system precisely. This text is injected into every Gate generation prompt as shared context.</div>
+        <label class="fl">System Description</label>
+        <textarea class="inp" id="fw-desc" rows="6" placeholder="A pure functional SQL engine that processes DDL/DML through a SISO gate pipeline. Supports CREATE TABLE, INSERT, SELECT with WHERE/ORDER BY, UPDATE, DELETE, and JSON persistence. No mutable shared state…"></textarea>
+        <label class="fl">Constraints / Non-goals</label>
+        <div style="display:flex;gap:7px">
+          <input class="inp" id="fw-con-in" placeholder="e.g. no external APIs, must run offline" style="flex:1" onkeydown="if(event.key==='Enter')addFwTag('constraints')">
+          <button class="btn btn-ghost btn-sm" onclick="addFwTag('constraints')">Add</button>
+        </div>
+        <div class="tag-row" id="fw-constraints-tags"></div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-ghost" onclick="forgePrev()">← Back</button>
+          <button class="btn btn-a" onclick="forgeNext()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Stack -->
+      <div id="forge-step-2" class="forge-step-form" style="display:none">
+        <div class="forge-step-title">Tech Stack</div>
+        <div class="forge-step-sub">Libraries, frameworks, databases. Each tag shapes the Gate generation prompts.</div>
+        <label class="fl">Technologies</label>
+        <div style="display:flex;gap:7px">
+          <input class="inp" id="fw-stk-in" placeholder="e.g. Express, PostgreSQL, Redis" style="flex:1" onkeydown="if(event.key==='Enter')addFwTag('stack')">
+          <button class="btn btn-ghost btn-sm" onclick="addFwTag('stack')">Add</button>
+        </div>
+        <div class="tag-row" id="fw-stack-tags"></div>
+        <label class="fl" style="margin-top:16px">AI Model</label>
+        <select class="inp" id="fw-model">
+          <option value="deepseek-coder-v2:16b-lite-instruct-q4_K_M">deepseek-coder-v2:16b-lite-instruct-q4_K_M (local · recommended)</option>
+          <option value="qwen2.5-coder:7b">qwen2.5-coder:7b (local · fast)</option>
+          <option value="qwen2.5-coder:14b">qwen2.5-coder:14b (local · balanced)</option>
+          <option value="codellama:13b">codellama:13b (local · multilang)</option>
+          <option value="guardian:sonnet">Guardian → Claude Sonnet 4 (cloud · fallback)</option>
+          <option value="guardian:opus">Guardian → Claude Opus 4 (cloud · premium)</option>
+        </select>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-ghost" onclick="forgePrev()">← Back</button>
+          <button class="btn btn-a" onclick="forgeNext()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Gate Groups -->
+      <div id="forge-step-3" class="forge-step-form" style="display:none">
+        <div class="forge-step-title">Gate Groups</div>
+        <div class="forge-step-sub">Each module becomes a <strong style="color:var(--a1)">Gate Group</strong> — generated independently, staying under 4K tokens per request. Think in transforms: ParseGate → ValidateGate → TransformGate.</div>
+        <div style="display:flex;gap:7px;margin-bottom:8px">
+          <input class="inp" id="fw-mod-name" placeholder="Gate Group name (e.g. SelectPipeline)" style="flex:1">
+          <input class="inp" id="fw-mod-desc" placeholder="Purpose / transforms" style="flex:2">
+          <button class="btn btn-ghost btn-sm" onclick="addFwModule()">+</button>
+        </div>
+        <div id="fw-module-list"></div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-ghost" onclick="forgePrev()">← Back</button>
+          <button class="btn btn-a" onclick="forgeNext()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Output -->
+      <div id="forge-step-4" class="forge-step-form" style="display:none">
+        <div class="forge-step-title">Output Format</div>
+        <div class="forge-step-sub">After all Gate Groups pass verification, the pipeline consolidates into a final deliverable.</div>
+        <label class="fl">Consolidation Target</label>
+        <select class="inp" id="fw-output">
+          <option value="html">Single HTML — self-contained SISO/UI app</option>
+          <option value="module-tree">Module tree — one file per Gate Group</option>
+          <option value="single-file">Single file — all Gates concatenated</option>
+          <option value="test-suite">With test suite — Gates + full tests</option>
+        </select>
+        <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--rule);border-radius:4px;padding:14px;font-family:var(--f-code);font-size:10px;color:var(--ink3);line-height:1.9">
+          // Infinite loop guard injected into every re-emitting Gate:<br>
+          matches(e) {'{ return !e.wasProcessedBy(this.constructor.name) && /* … */; }'}<br>
+          transform(e, s) {'{ e.markProcessedBy(this.constructor.name); /* one thing */ }'}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:20px">
+          <button class="btn btn-ghost" onclick="forgePrev()">← Back</button>
+          <button class="btn btn-a" onclick="forgeNext()">Review & Launch →</button>
+        </div>
+      </div>
+
+      <!-- Step 5: Review + Launch -->
+      <div id="forge-step-5" class="forge-step-form" style="display:none">
+        <div class="forge-step-title">Review & Launch</div>
+        <div class="forge-step-sub">Confirm the spec and run the AI Gate Pipeline.</div>
+        <div id="forge-summary" style="background:var(--bg2);border:1px solid var(--rule);border-radius:4px;padding:14px;font-family:var(--f-code);font-size:11px;line-height:2;margin-bottom:14px"></div>
+        <div style="background:rgba(212,106,24,.06);border:1px solid rgba(212,106,24,.18);border-radius:4px;padding:12px 14px;font-size:11px;color:var(--ink2);line-height:1.7;margin-bottom:16px">
+          <strong style="color:var(--a1)">Pipeline will:</strong> Generate Gate specs via deepseek-coder-v2, chunk to ≤4K tokens, verify each chunk (PASS/FAIL → retry with error context), save to .nex every 10s and at every gate. DOM = build graph. Inspect DevTools for full truth.
+        </div>
+        <div id="forge-prog" class="prog" style="margin-bottom:10px"><div class="prog-fill" id="forge-prog-fill" style="width:0%"></div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="forgePrev()">← Back</button>
+          <button class="btn btn-a" id="forge-launch-btn" onclick="launchPipeline()">◈ Launch Pipeline</button>
+          <button class="btn btn-err" id="forge-abort-btn" onclick="abortPipeline()" style="display:none">■ Abort</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live log + gate cards -->
+    <div class="forge-log">
+      <div class="panel-head">
+        <span id="forge-log-dot" class="ph-dot" style="display:none"></span>
+        <span class="ph-title">Gate Log</span>
+        <span id="forge-gate-score" style="font-size:9px;color:var(--ink4)"></span>
+      </div>
+      <div class="forge-log-body" id="forge-log-body">
+        <span class="ll info">// Pipeline ready</span><br>
+        <span class="ll info">// Complete the spec and launch</span><br>
+      </div>
+      <div style="border-top:1px solid var(--rule);flex-shrink:0">
+        <div class="panel-head" style="border-bottom:1px solid var(--rule)"><span class="ph-title">Gate Cards</span></div>
+        <div id="forge-gate-cards" style="max-height:220px;overflow-y:auto;padding:8px">
+          <div style="font-family:var(--f-code);font-size:10px;color:var(--ink4);padding:8px 4px">// Gates appear here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="forge-footer">
+    <div style="font-family:var(--f-code);font-size:10px;color:var(--ink4)" id="forge-nex-status">No .nex file loaded</div>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost btn-sm" onclick="importNex()">↑ Import .nex</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportNex()">↓ Export .nex</button>
+    <button class="btn btn-ok btn-sm" id="forge-dl-btn" style="display:none" onclick="downloadOutput()">↓ Download Output</button>
+  </div>
+</div>
+
+<!-- ════════ PAGE: ROADMAP ════════ -->
+<div id="page-roadmap" class="page fade-up">
+  <div class="roadmap-layout">
+    <div class="roadmap-board" id="roadmap-board">
+      <!-- Columns populated by RoadmapGate -->
+    </div>
+    <div class="roadmap-side">
+      <div class="panel-head"><span class="ph-title">Milestones</span>
+        <button class="btn btn-xs btn-a" onclick="addMilestone()" style="margin-left:auto">+ Add</button>
+      </div>
+      <div id="roadmap-milestones" class="scroll" style="padding:10px">
+        <div class="rm-detail-empty">// No milestones yet</div>
+      </div>
+      <div style="padding:10px;border-top:1px solid var(--rule);flex-shrink:0">
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="addColumn()">+ Add Column</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PAGE: AI ASSISTANT ════════ -->
+<div id="page-ai" class="page fade-up">
+  <div class="ai-history">
+    <div class="panel-head">
+      <span id="ai-page-dot" class="ph-dot" style="display:none"></span>
+      <span class="ph-title">AI Assistant</span>
+      <span id="ai-model-label" style="font-family:var(--f-code);font-size:9px;color:var(--ink4);margin-left:auto">deepseek-coder-v2:16b-lite-instruct-q4_K_M</span>
+    </div>
+    <div class="ai-msgs" id="ai-msgs">
+      <div class="ai-bubble sys">
+        <div class="ai-bubble-role">System</div>
+        <div class="ai-bubble-content">NEXUS/FORGE AI — SISO-native, 4K token budget enforced, context compressed before every request. Guardian fallback on Ollama timeout. All requests routed through SmartRouter.</div>
+      </div>
+    </div>
+    <div class="ai-input-area">
+      <div class="ai-mode-strip" id="ai-mode-strip">
+        <button class="ai-mode-btn active" data-mode="chat" onclick="setAiMode('chat')">Chat</button>
+        <button class="ai-mode-btn" data-mode="complete" onclick="setAiMode('complete')">Complete</button>
+        <button class="ai-mode-btn" data-mode="refactor" onclick="setAiMode('refactor')">Refactor</button>
+        <button class="ai-mode-btn" data-mode="explain" onclick="setAiMode('explain')">Explain</button>
+        <button class="ai-mode-btn" data-mode="test" onclick="setAiMode('test')">Tests</button>
+        <button class="ai-mode-btn" data-mode="gate" onclick="setAiMode('gate')">Gate</button>
+        <button class="ai-mode-btn" data-mode="fix" onclick="setAiMode('fix')">Fix Bug</button>
+      </div>
+      <div class="ai-inp-row">
+        <textarea class="ai-inp" id="ai-inp" rows="3" placeholder="Ask anything… Ctrl+Enter to send" onkeydown="aiKey(event)"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-a btn-sm" onclick="sendAI()" id="ai-send-btn">Send</button>
+          <button class="btn btn-err btn-sm" onclick="abortAI()" id="ai-abort-btn" style="display:none">■</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Config panel -->
+  <div class="ai-config">
+    <div class="cfg-section">
+      <div class="cfg-head">Model</div>
+      <div class="model-card active" data-model="deepseek-coder-v2:16b-lite-instruct-q4_K_M" onclick="selectModel(this)">
+        <div class="mc-name"><span class="mc-dot" style="background:var(--ok2)"></span>deepseek-coder-v2</div>
+        <div class="mc-meta">16b-lite-instruct-q4_K_M · local · ~6GB</div>
+      </div>
+      <div class="model-card" data-model="qwen2.5-coder:7b" onclick="selectModel(this)">
+        <div class="mc-name"><span class="mc-dot" style="background:var(--ok)"></span>qwen2.5-coder:7b</div>
+        <div class="mc-meta">local · fast · ~4GB</div>
+      </div>
+      <div class="model-card" data-model="guardian:sonnet" onclick="selectModel(this)">
+        <div class="mc-name"><span class="mc-dot" style="background:var(--purple2)"></span>Claude Sonnet 4</div>
+        <div class="mc-meta">Guardian API · cloud fallback</div>
+      </div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-head">Stats</div>
+      <div class="stat-row"><span class="stat-key">requests</span><span class="stat-val" id="stat-req">0</span></div>
+      <div class="stat-row"><span class="stat-key">tokens used</span><span class="stat-val amber" id="stat-tok">0</span></div>
+      <div class="stat-row"><span class="stat-key">cache hits</span><span class="stat-val ok" id="stat-cache">0</span></div>
+      <div class="stat-row"><span class="stat-key">guardian calls</span><span class="stat-val" id="stat-grd">0</span></div>
+      <div class="stat-row"><span class="stat-key">ollama</span><span class="stat-val ok" id="stat-ollama">—</span></div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-head">Context</div>
+      <div class="stat-row"><span class="stat-key">budget</span><span class="stat-val">4096 tok</span></div>
+      <div class="stat-row"><span class="stat-key">threads</span><span class="stat-val">7 (R7 3700x)</span></div>
+      <div class="stat-row"><span class="stat-key">temperature</span><span class="stat-val">0.15</span></div>
+      <div class="stat-row"><span class="stat-key">top_p</span><span class="stat-val">0.92</span></div>
+    </div>
+    <div style="margin-top:auto">
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:6px" onclick="clearAiHistory()">Clear History</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PAGE: SETTINGS ════════ -->
+<div id="page-settings" class="page fade-up">
+  <div class="settings-layout">
+    <div class="settings-nav">
+      <div style="padding:8px 16px 6px;font-family:var(--f-code);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)">Settings</div>
+      <div class="settings-nav-item active" data-spage="ollama" onclick="switchSettingsPage('ollama')">🤖 Ollama / AI</div>
+      <div class="settings-nav-item" data-spage="guardian" onclick="switchSettingsPage('guardian')">⟁ Guardian API</div>
+      <div class="settings-nav-item" data-spage="editor" onclick="switchSettingsPage('editor')">✎ Editor</div>
+      <div class="settings-nav-item" data-spage="terminal" onclick="switchSettingsPage('terminal')">⬛ Terminal</div>
+      <div class="settings-nav-item" data-spage="keybindings" onclick="switchSettingsPage('keybindings')">⌨ Keybindings</div>
+      <div class="settings-nav-item" data-spage="about" onclick="switchSettingsPage('about')">ℹ About</div>
+    </div>
+    <div class="settings-body">
+      <!-- Ollama -->
+      <div id="sp-ollama" class="settings-section">
+        <div class="settings-title">Ollama & AI</div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Ollama Endpoint</div><div class="sr-desc">Base URL for the local Ollama server</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-ollama-url" value="http://localhost:11434" style="width:200px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Primary Model</div><div class="sr-desc">Model used for all AI requests</div></div>
+          <div class="sr-control">
+            <select class="inp" id="cfg-model" style="width:200px">
+              <option value="deepseek-coder-v2:16b-lite-instruct-q4_K_M" selected>deepseek-coder-v2:16b-lite (q4)</option>
+              <option value="qwen2.5-coder:7b">qwen2.5-coder:7b</option>
+              <option value="qwen2.5-coder:14b">qwen2.5-coder:14b</option>
+              <option value="codellama:13b">codellama:13b</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Token Budget</div><div class="sr-desc">Max tokens per request (num_ctx). 4096 optimal for q4_K_M on 16GB</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-tokens" value="4096" type="number" style="width:100px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Thread Count</div><div class="sr-desc">CPU threads for Ollama. R7 3700x = 8 cores, recommended 7</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-threads" value="7" type="number" style="width:100px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Temperature</div><div class="sr-desc">Lower = more deterministic code. 0.15 recommended for coding</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-temp" value="0.15" type="number" step="0.05" style="width:100px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Auto-install models</div><div class="sr-desc">Run ollama pull automatically on first use</div></div>
+          <div class="sr-control"><div class="toggle on" id="tog-autopull" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-a btn-sm" onclick="saveSettings()">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="testOllama()">Test Connection</button>
+        </div>
+      </div>
+
+      <!-- Guardian -->
+      <div id="sp-guardian" class="settings-section" style="display:none">
+        <div class="settings-title">Guardian API</div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Guardian Port</div><div class="sr-desc">Port the Guardian web extension listens on</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-guardian-port" value="7771" type="number" style="width:100px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Enable Auto-Failover</div><div class="sr-desc">Automatically route to Guardian when Ollama times out</div></div>
+          <div class="sr-control"><div class="toggle on" id="tog-failover" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Failover Timeout</div><div class="sr-desc">Seconds before switching to Guardian (ms)</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-failover-ms" value="8000" type="number" style="width:100px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Preferred Cloud Model</div><div class="sr-desc">Guardian model to use on failover</div></div>
+          <div class="sr-control">
+            <select class="inp" id="cfg-guardian-model" style="width:180px">
+              <option value="claude-sonnet-4-5">Claude Sonnet 4</option>
+              <option value="claude-opus-4-5">Claude Opus 4</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-a btn-sm" onclick="saveSettings()">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="testGuardian()">Test Connection</button>
+        </div>
+      </div>
+
+      <!-- Editor -->
+      <div id="sp-editor" class="settings-section" style="display:none">
+        <div class="settings-title">Editor</div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Font Size</div><div class="sr-desc">Monaco editor font size in pixels</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-font-size" value="13" type="number" style="width:80px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Font Family</div><div class="sr-desc">Monospace font for editor</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-font" value="JetBrains Mono" style="width:180px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Tab Size</div><div class="sr-desc">Spaces per indent level</div></div>
+          <div class="sr-control"><input class="inp" id="cfg-tab" value="2" type="number" style="width:80px"></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Word Wrap</div><div class="sr-desc">Wrap long lines in editor</div></div>
+          <div class="sr-control"><div class="toggle" id="tog-wrap" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Minimap</div><div class="sr-desc">Show code minimap on right side</div></div>
+          <div class="sr-control"><div class="toggle on" id="tog-minimap" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Format on Save</div></div>
+          <div class="sr-control"><div class="toggle on" id="tog-fmt-save" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Auto-save Interval (ms)</div><div class="sr-desc">.nex auto-save interval</div></div>
+          <div class="sr-control"><input class="inp" value="10000" type="number" style="width:100px"></div>
+        </div>
+        <button class="btn btn-a btn-sm" onclick="saveSettings()" style="margin-top:12px">Save</button>
+      </div>
+
+      <!-- Terminal -->
+      <div id="sp-terminal" class="settings-section" style="display:none">
+        <div class="settings-title">Terminal</div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Shell</div><div class="sr-desc">Default shell (Windows: powershell.exe or cmd.exe)</div></div>
+          <div class="sr-control">
+            <select class="inp" id="cfg-shell" style="width:180px">
+              <option value="powershell.exe">PowerShell</option>
+              <option value="cmd.exe">Command Prompt</option>
+              <option value="wsl.exe">WSL (bash)</option>
+              <option value="pwsh.exe">PowerShell 7+</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="sr-info"><div class="sr-label">Font Size</div></div>
+          <div class="sr-control"><input class="inp" value="11" type="number" style="width:80px"></div>
+        </div>
+        <button class="btn btn-a btn-sm" onclick="saveSettings()" style="margin-top:12px">Save</button>
+      </div>
+
+      <!-- Keybindings -->
+      <div id="sp-keybindings" class="settings-section" style="display:none">
+        <div class="settings-title">Keybindings</div>
+        <div style="font-family:var(--f-code);font-size:10px;color:var(--ink3);margin-bottom:12px">Windows 11 default bindings (read-only in this version)</div>
+        <div class="kb-row"><span class="kb-key">Ctrl+P</span><span class="kb-desc">Command Palette</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+1</span><span class="kb-desc">Go to Editor</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+2</span><span class="kb-desc">Go to AI Pipeline</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+3</span><span class="kb-desc">Go to Roadmap</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+4</span><span class="kb-desc">Go to AI Assistant</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+G</span><span class="kb-desc">AI: Generate code</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+Shift+G</span><span class="kb-desc">AI: Generate SISO Gate</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+S</span><span class="kb-desc">Save file</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+\</span><span class="kb-desc">Split editor</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+`</span><span class="kb-desc">Toggle terminal</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+Shift+F</span><span class="kb-desc">Global search</span></div>
+        <div class="kb-row"><span class="kb-key">Alt+Shift+F</span><span class="kb-desc">Format document</span></div>
+        <div class="kb-row"><span class="kb-key">F2</span><span class="kb-desc">Rename symbol</span></div>
+        <div class="kb-row"><span class="kb-key">Ctrl+Z</span><span class="kb-desc">Undo</span></div>
+        <div class="kb-row"><span class="kb-key">Escape</span><span class="kb-desc">Close overlays</span></div>
+      </div>
+
+      <!-- About -->
+      <div id="sp-about" class="settings-section" style="display:none">
+        <div class="settings-title">About NEXUS/FORGE</div>
+        <div style="font-family:var(--f-display);font-style:italic;font-size:36px;color:var(--a1);margin-bottom:4px">Nexus/Forge</div>
+        <div style="font-family:var(--f-code);font-size:11px;color:var(--ink3);margin-bottom:20px">v1.0.0 — Windows 11 · Electron · SISO Architecture</div>
+        <div style="font-size:12px;color:var(--ink2);line-height:1.8;max-width:500px">
+          Enterprise AI coding suite built on the SISO (Stream In, Stream Out) pure functional framework by Jonathan Bailey (2025).<br><br>
+          Every action is an event. Every mutation is a Gate. The DOM is the state. Nothing is duplicated. Everything is verifiable.<br><br>
+          Optimized for: deepseek-coder-v2:16b-lite-instruct-q4_K_M on AMD R7 3700x with 16GB RAM.
+        </div>
+        <div style="margin-top:16px;font-family:var(--f-code);font-size:10px;color:var(--ink4);line-height:2">
+          <div>Architecture: SISO Event/Gate/Stream + SISO/UI (DOM as state)</div>
+          <div>AI: Ollama primary · Guardian web ext fallback</div>
+          <div>Editor: Monaco Editor 0.45</div>
+          <div>Token budget: 4096 (enforced per request)</div>
+          <div>Gates registered: 11 UI gates + AI pipeline gates</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main-content -->
+</div><!-- /shell -->
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <div class="sb-item amber" id="sb-branch">⎇ main</div>
+  <div class="sb-item clickable" id="sb-errors">⚠ 0  ✕ 0</div>
+  <div class="sb-item" id="sb-lang">—</div>
+  <div class="sb-item" id="sb-cursor">Ln 1, Col 1</div>
+  <div class="sb-sep"></div>
+  <div class="sb-item" id="sb-ai-status">AI ready</div>
+  <div class="sb-item green clickable" id="sb-model" onclick="route('settings')">
+    <span class="sb-live" id="sb-live"></span>
+    deepseek-coder-v2
+  </div>
+  <div class="sb-item clickable" onclick="route('settings')">⚙</div>
+</div>
+
+</div><!-- /app wrapper -->
+
+<!-- ═══ COMMAND PALETTE ═══ -->
+<div id="cmd-overlay" onclick="if(event.target===this)closeCmd()">
+  <div id="cmd-box">
+    <input id="cmd-inp" placeholder="Type a command or search…" oninput="cmdFilter(this.value)" onkeydown="cmdKey(event)" autocomplete="off">
+    <div id="cmd-list"></div>
+  </div>
+</div>
+
+<!-- ═══ AI GENERATION OVERLAY ═══ -->
+<div id="gen-overlay">
+  <div class="gen-head">
+    <span id="gen-dot" style="width:6px;height:6px;border-radius:50%;background:var(--a0);animation:pulse 1s infinite;flex-shrink:0"></span>
+    <span id="gen-title">Generating…</span>
+    <button class="btn btn-err btn-xs" onclick="abortAI()" style="margin-left:auto">■ Abort</button>
+  </div>
+  <div id="gen-stream" class="gen-stream"></div>
+  <div id="gen-actions" class="gen-actions" style="display:none">
+    <button class="btn btn-ok btn-sm" onclick="acceptGen()">✓ Accept</button>
+    <button class="btn btn-ghost btn-sm" onclick="insertGen()">↓ Insert</button>
+    <button class="btn btn-ghost btn-sm" onclick="rejectGen()">✕ Reject</button>
+  </div>
+</div>
+
+<!-- Monaco -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════
+   NEXUS/FORGE — SISO Runtime + Router + All Gates
+   
+   ARCHITECTURE:
+   - Every page transition is a ROUTE event
+   - RouterGate is the only gate that toggles .page.active
+   - All UI state lives in DOM (SISO/UI)
+   - No external state objects
+   - Ollama: deepseek-coder-v2:16b-lite-instruct-q4_K_M
+   - Guardian bridge: localhost:7771
+═══════════════════════════════════════════════════════ */
+
+// ── SISO CORE ─────────────────────────────────────────
+class NexusEvent {
+  constructor(type, data={}) {
+    this.type=type; this.data=data;
+    this.id=`${type}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    this.ts=Date.now(); this._p=new Set();
+  }
+  wasProcessedBy(g){return this._p.has(g)}
+  markProcessedBy(g){this._p.add(g);return this}
+}
+// Shorthand constructor
+const E = (type, data={}) => new NexusEvent(type, data);
+
+class NexusGate {
+  matches(e){return false}
+  transform(e,s){}
+}
+
+class NexusStream {
+  constructor(){this.gates=[];this.q=[];this._r=false}
+  register(g){this.gates.push(g);return this}
+  emit(e){
+    if(!(e instanceof NexusEvent)){console.warn('Non-event emitted:',e);return this}
+    this.q.push(e);
+    if(!this._r) this._drain();
+    return this;
+  }
+  _drain(){
+    this._r=true;
+    while(this.q.length){
+      const ev=this.q.shift();
+      for(const g of this.gates){
+        if(g.matches(ev)){
+          try{g.transform(ev,this)}
+          catch(err){console.error(`[Gate:${g.constructor.name}]`,err)}
+          break;
+        }
+      }
+    }
+    this._r=false;
+  }
+}
+
+// Global stream — DOM is the state
+const S = new NexusStream();
+
+// ── GATE DEFINITIONS ──────────────────────────────────
+
+/** RouterGate — page navigation, the core of multi-page SISO */
+class RouterGate extends NexusGate {
+  matches(e){return e.type==='ROUTE'&&!e.wasProcessedBy('RouterGate')}
+  transform(e,s){
+    e.markProcessedBy('RouterGate');
+    const pg=e.data.page;
+    // Deactivate all pages
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    // Activate target page
+    const target=document.getElementById(`page-${pg}`);
+    if(target){target.classList.add('active');target.classList.add('fade-up')}
+    // Update rail buttons
+    document.querySelectorAll('.rail-btn[data-page]').forEach(b=>{
+      b.classList.toggle('active',b.dataset.page===pg);
+    });
+    // Store current page in DOM (SISO/UI)
+    document.body.dataset.page=pg;
+    // Update title bar
+    const names={home:'Home',editor:'Editor',forge:'AI Pipeline',roadmap:'Roadmap',ai:'AI Assistant',settings:'Settings'};
+    document.title=`NEXUS/FORGE — ${names[pg]||pg}`;
+  }
+}
+
+/** TermLogGate — appends to terminal body */
+class TermLogGate extends NexusGate {
+  matches(e){return e.type==='TERM_LOG'&&!e.wasProcessedBy('TermLogGate')}
+  transform(e,s){
+    e.markProcessedBy('TermLogGate');
+    const body=document.getElementById('term-body');
+    if(!body) return;
+    const ts=new Date().toLocaleTimeString('en',{hour12:false});
+    const sp=document.createElement('span');
+    sp.className=`tl ${e.data.cls||'out'}`;
+    sp.innerHTML=`<span class="ts">${ts}</span>${esc(e.data.msg)}`;
+    body.appendChild(sp);
+    body.appendChild(document.createElement('br'));
+    body.scrollTop=body.scrollHeight;
+  }
+}
+
+/** ForgeLogGate — appends to forge pipeline log */
+class ForgeLogGate extends NexusGate {
+  matches(e){return e.type==='FORGE_LOG'&&!e.wasProcessedBy('ForgeLogGate')}
+  transform(e,s){
+    e.markProcessedBy('ForgeLogGate');
+    const body=document.getElementById('forge-log-body');
+    if(!body) return;
+    const ts=new Date().toLocaleTimeString('en',{hour12:false});
+    const sp=document.createElement('span');
+    sp.className=`ll ${e.data.cls||'info'}`;
+    sp.innerHTML=`<span class="ts">${ts}</span>${esc(e.data.msg)}`;
+    body.appendChild(sp);
+    body.appendChild(document.createElement('br'));
+    body.scrollTop=body.scrollHeight;
+  }
+}
+
+/** AIStreamGate — drives the generation overlay */
+class AIStreamGate extends NexusGate {
+  matches(e){return e.type==='AI_STREAM'&&!e.wasProcessedBy('AIStreamGate')}
+  transform(e,s){
+    e.markProcessedBy('AIStreamGate');
+    const ov=document.getElementById('gen-overlay');
+    const stream=document.getElementById('gen-stream');
+    const acts=document.getElementById('gen-actions');
+    const dot=document.getElementById('gen-dot');
+    const title=document.getElementById('gen-title');
+    if(e.data.reset){
+      stream.textContent='';
+      ov.classList.add('open');
+      acts.style.display='none';
+      if(dot)dot.style.animation='pulse 1s infinite';
+      if(title)title.textContent=e.data.title||'Generating…';
+      document.getElementById('ai-page-dot').style.display='';
+    }
+    if(e.data.chunk){
+      stream.textContent+=e.data.chunk;
+      stream.scrollTop=stream.scrollHeight;
+    }
+    if(e.data.done){
+      if(dot)dot.style.animation='none';
+      acts.style.display='flex';
+      if(title)title.textContent='Complete';
+      document.getElementById('ai-page-dot').style.display='none';
+      _genBuffer=stream.textContent;
+    }
+    if(e.data.abort){
+      ov.classList.remove('open');
+      document.getElementById('ai-page-dot').style.display='none';
+    }
+  }
+}
+
+/** AIMsgGate — adds message to AI chat panel */
+class AIMsgGate extends NexusGate {
+  matches(e){return e.type==='AI_MSG'&&!e.wasProcessedBy('AIMsgGate')}
+  transform(e,s){
+    e.markProcessedBy('AIMsgGate');
+    const msgs=document.getElementById('ai-msgs');
+    if(!msgs) return;
+    const div=document.createElement('div');
+    div.className=`ai-bubble ${e.data.role} fade-up`;
+    const labels={user:'You',ai:'Assistant',sys:'System'};
+    div.innerHTML=`<div class="ai-bubble-role">${labels[e.data.role]||e.data.role}</div><div class="ai-bubble-content">${esc(e.data.content)}</div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop=msgs.scrollHeight;
+  }
+}
+
+/** StatusGate — updates status bar */
+class StatusGate extends NexusGate {
+  matches(e){return e.type==='STATUS'&&!e.wasProcessedBy('StatusGate')}
+  transform(e,s){
+    e.markProcessedBy('StatusGate');
+    const d=e.data;
+    if(d.lang!==undefined){document.getElementById('sb-lang').textContent=d.lang||'—';const lpl=document.getElementById('left-pane-lang');if(lpl)lpl.textContent=d.lang||'—'}
+    if(d.cursor!==undefined) document.getElementById('sb-cursor').textContent=d.cursor;
+    if(d.branch!==undefined) document.getElementById('sb-branch').textContent=`⎇ ${d.branch}`;
+    if(d.aiText!==undefined) document.getElementById('sb-ai-status').textContent=d.aiText;
+    if(d.errors!==undefined) document.getElementById('sb-errors').textContent=`⚠ ${d.warnings||0}  ✕ ${d.errors}`;
+  }
+}
+
+/** OllamaStatusGate — updates all Ollama indicators */
+class OllamaStatusGate extends NexusGate {
+  matches(e){return e.type==='OLLAMA_STATUS'&&!e.wasProcessedBy('OllamaStatusGate')}
+  transform(e,s){
+    e.markProcessedBy('OllamaStatusGate');
+    const {ok,model}=e.data;
+    document.body.dataset.ollamaOk=ok?'true':'false';
+    if(model) document.body.dataset.currentModel=model;
+    const sbm=document.getElementById('sb-model');
+    const sbl=document.getElementById('sb-live');
+    const syo=document.getElementById('sb-sys-ollama');
+    if(sbm){sbm.textContent='';if(sbl){sbl.style.background=ok?'var(--ok2)':'var(--err2)';sbm.appendChild(sbl)}sbm.append(` ${ok?model:'offline'}`);}
+    if(syo){syo.textContent=ok?`● ${model}`:'● offline';syo.style.color=ok?'var(--ok2)':'var(--err2)'}
+    const stat=document.getElementById('stat-ollama');
+    if(stat){stat.textContent=ok?'live':'offline';stat.className=`stat-val ${ok?'ok':'err'}`}
+    // Update AI page model label
+    const aml=document.getElementById('ai-model-label');
+    if(aml&&ok&&model) aml.textContent=model;
+  }
+}
+
+/** ModelSwitchGate — switches active model across all panels */
+class ModelSwitchGate extends NexusGate {
+  matches(e){return e.type==='MODEL_SWITCH'&&!e.wasProcessedBy('ModelSwitchGate')}
+  transform(e,s){
+    e.markProcessedBy('ModelSwitchGate');
+    const m=e.data.model;
+    document.body.dataset.currentModel=m;
+    const isG=m.startsWith('guardian:');
+    document.querySelectorAll('.model-card').forEach(c=>c.classList.toggle('active',c.dataset.model===m));
+    const sbm=document.getElementById('sb-model');
+    if(sbm){
+      const dot=document.getElementById('sb-live');
+      if(dot){dot.style.background=isG?'var(--purple2)':'var(--ok2)';sbm.textContent='';sbm.appendChild(dot)}
+      sbm.append(` ${isG?m.replace('guardian:','G:'):m.split(':')[0]}`);
+    }
+    s.emit(E('TERM_LOG',{msg:`Model → ${m}`,cls:'siso'}));
+  }
+}
+
+/** FileTreeGate — renders the file tree */
+class FileTreeGate extends NexusGate {
+  matches(e){return e.type==='FILE_TREE'&&!e.wasProcessedBy('FileTreeGate')}
+  transform(e,s){
+    e.markProcessedBy('FileTreeGate');
+    const tree=document.getElementById('file-tree');
+    const root=document.getElementById('fb-root-label');
+    if(!tree) return;
+    if(root) root.textContent=e.data.root||'project';
+    tree.innerHTML='';
+    FileTreeGate._render(e.data.nodes||[],tree,0,s);
+  }
+  static _render(nodes,container,depth,stream){
+    for(const n of nodes){
+      const d=document.createElement('div');
+      let cls='ft-item';
+      if(n.type==='dir') cls+=' ft-dir';
+      if(n.gitStatus==='modified') cls+=' ft-mod';
+      if(n.gitStatus==='new') cls+=' ft-new';
+      d.className=cls;
+      d.style.paddingLeft=`${8+depth*14}px`;
+      const badge=n.gitStatus==='modified'?`<span class="ft-badge m">M</span>`:n.gitStatus==='new'?`<span class="ft-badge u">U</span>`:'';
+      d.innerHTML=`<span class="fi">${n.type==='dir'?'▸':getIcon(n.name)}</span><span class="fn">${esc(n.name)}</span>${badge}`;
+      if(n.type==='dir'){
+        const cw=document.createElement('div');let exp=true;
+        d.onclick=ev=>{ev.stopPropagation();exp=!exp;cw.style.display=exp?'block':'none';d.querySelector('.fi').textContent=exp?'▾':'▸'};
+        container.appendChild(d);
+        if(n.children) FileTreeGate._render(n.children,cw,depth+1,stream);
+        container.appendChild(cw);
+      } else {
+        d.onclick=()=>stream.emit(E('OPEN_FILE',{path:n.path||n.name,name:n.name}));
+        container.appendChild(d);
+      }
+    }
+  }
+}
+
+/** OpenFileGate — opens file in Monaco */
+class OpenFileGate extends NexusGate {
+  matches(e){return e.type==='OPEN_FILE'&&!e.wasProcessedBy('OpenFileGate')}
+  transform(e,s){
+    e.markProcessedBy('OpenFileGate');
+    const {path,name,line}=e.data;
+    const displayName=name||path.split(/[/\\]/).pop();
+    const lang=getLang(displayName);
+    document.body.dataset.currentFile=path;
+    document.body.dataset.currentLang=lang;
+    // Hide placeholder
+    const ph=document.getElementById('editor-placeholder');
+    if(ph)ph.style.display='none';
+    // Update pane header
+    const pt=document.getElementById('left-pane-title');
+    if(pt)pt.textContent=displayName;
+    // Activate in editor page
+    if(document.body.dataset.page!=='editor') s.emit(E('ROUTE',{page:'editor'}));
+    // Load content
+    if(window.nf){
+      window.nf.readFile(path).then(r=>{
+        if(r.ok&&monacoLeft){
+          const model=monaco.editor.createModel(r.content,lang);
+          monacoLeft.setModel(model);
+          if(line) monacoLeft.revealLineInCenter(line);
+          s.emit(E('STATUS',{lang:lang.charAt(0).toUpperCase()+lang.slice(1)}));
+        }
+      });
+    } else {
+      // Demo: set template
+      if(monacoLeft){
+        monacoLeft.setValue(demoCode(lang,displayName));
+        const m=monacoLeft.getModel();
+        if(m) monaco.editor.setModelLanguage(m,lang);
+        s.emit(E('STATUS',{lang:lang.charAt(0).toUpperCase()+lang.slice(1)}));
+      }
+    }
+    // Add tab
+    s.emit(E('TAB_OPEN',{file:path,label:displayName}));
+    // Update tree active state
+    document.querySelectorAll('.ft-item').forEach(i=>i.classList.remove('active'));
+    // Mark active (best effort)
+    document.querySelectorAll('.fn').forEach(el=>{if(el.textContent===displayName)el.closest('.ft-item')?.classList.add('active')});
+  }
+}
+
+/** TabGate — manages editor tabs in titlebar */
+class TabGate extends NexusGate {
+  matches(e){return (e.type==='TAB_OPEN'||e.type==='TAB_CLOSE'||e.type==='TAB_DIRTY'||e.type==='TAB_SAVED'||e.type==='TAB_ACTIVATE')&&!e.wasProcessedBy('TabGate')}
+  transform(e,s){
+    e.markProcessedBy('TabGate');
+    const tabs=document.getElementById('editor-tabs');
+    if(!tabs) return;
+    const {type}=e;
+    if(type==='TAB_OPEN'){
+      const {file,label}=e.data;
+      if(tabs.querySelector(`[data-file="${CSS.escape(file)}"]`)){
+        s.emit(E('TAB_ACTIVATE',{file}));return;
+      }
+      tabs.querySelectorAll('.tb-tab').forEach(t=>t.classList.remove('active'));
+      const tab=document.createElement('div');
+      tab.className='tb-tab active slide-in';tab.dataset.file=file;
+      tab.innerHTML=`<span>${getIcon(label)}</span> ${esc(label)}<span class="tc" onclick="event.stopPropagation();S.emit(E('TAB_CLOSE',{file:'${esc(file)}'}))">×</span>`;
+      tab.onclick=()=>s.emit(E('OPEN_FILE',{path:file,name:label}));
+      tabs.insertBefore(tab,tabs.lastElementChild);
+      const lpt=document.getElementById('left-pane-title');
+      if(lpt)lpt.textContent=label;
+    }
+    if(type==='TAB_CLOSE'){
+      tabs.querySelector(`[data-file="${CSS.escape(e.data.file)}"]`)?.remove();
+    }
+    if(type==='TAB_DIRTY') tabs.querySelector(`[data-file="${CSS.escape(e.data.file)}"]`)?.classList.add('dirty');
+    if(type==='TAB_SAVED') tabs.querySelector(`[data-file="${CSS.escape(e.data.file)}"]`)?.classList.remove('dirty');
+    if(type==='TAB_ACTIVATE'){
+      tabs.querySelectorAll('.tb-tab').forEach(t=>t.classList.toggle('active',t.dataset.file===e.data.file));
+    }
+  }
+}
+
+/** GateCardGate — updates gate verification cards */
+class GateCardGate extends NexusGate {
+  matches(e){return e.type==='GATE_CARD'&&!e.wasProcessedBy('GateCardGate')}
+  transform(e,s){
+    e.markProcessedBy('GateCardGate');
+    const container=document.getElementById('forge-gate-cards');
+    if(!container) return;
+    const em=container.querySelector('[style*="color:var(--ink4)"]');
+    if(em)em.remove();
+    const existing=document.getElementById(`gc-${e.data.id}`);
+    const icon={running:'⟳',pass:'✓',fail:'✗',pending:'○'}[e.data.status]||'○';
+    const html=`<div class="gc-head"><span class="gc-icon">${icon}</span><span class="gc-title">${esc(e.data.title)}</span><span class="gc-badge ${e.data.status}">${e.data.status}</span></div>${e.data.log?`<div class="gc-body">${esc(e.data.log)}</div>`:''}`;
+    if(existing){existing.className=`gate-card ${e.data.status}`;existing.innerHTML=html}
+    else{
+      const c=document.createElement('div');
+      c.className=`gate-card ${e.data.status}`;c.id=`gc-${e.data.id}`;
+      c.innerHTML=html;container.appendChild(c);
+    }
+  }
+}
+
+/** ProgressGate — updates progress bars */
+class ProgressGate extends NexusGate {
+  matches(e){return e.type==='PROGRESS'&&!e.wasProcessedBy('ProgressGate')}
+  transform(e,s){
+    e.markProcessedBy('ProgressGate');
+    const fill=document.getElementById(`${e.data.bar||'forge'}-prog-fill`);
+    if(fill)fill.style.width=`${Math.min(100,Math.max(0,e.data.pct))}%`;
+  }
+}
+
+/** ToastGate — shows temporary notifications */
+class ToastGate extends NexusGate {
+  matches(e){return e.type==='TOAST'&&!e.wasProcessedBy('ToastGate')}
+  transform(e,s){
+    e.markProcessedBy('ToastGate');
+    const t=document.createElement('div');
+    t.className=`toast ${e.data.type||'info'}`;
+    t.textContent=e.data.msg;
+    t.style.bottom=`${32+(ToastGate._n||0)*50}px`;
+    document.body.appendChild(t);
+    ToastGate._n=(ToastGate._n||0)+1;
+    setTimeout(()=>{t.remove();ToastGate._n=Math.max(0,(ToastGate._n||1)-1)},(e.data.duration||3000));
+  }
+}
+ToastGate._n=0;
+
+/** RoadmapGate — renders roadmap board */
+class RoadmapGate extends NexusGate {
+  matches(e){return e.type==='ROADMAP_RENDER'&&!e.wasProcessedBy('RoadmapGate')}
+  transform(e,s){
+    e.markProcessedBy('RoadmapGate');
+    const board=document.getElementById('roadmap-board');
+    if(!board) return;
+    board.innerHTML='';
+    for(const col of (e.data.columns||[])){
+      const c=document.createElement('div');c.className='rm-col';
+      c.innerHTML=`<div class="rm-col-head"><span class="rm-col-title">${esc(col.title)}</span><span class="rm-col-count">${(col.cards||[]).length}</span></div>`;
+      const body=document.createElement('div');body.className='rm-col-body';
+      for(const card of (col.cards||[])){
+        const d=document.createElement('div');d.className='rm-card';
+        d.innerHTML=`<div class="rm-card-head"><span class="rm-card-title">${esc(card.title)}</span>${card.priority?`<span class="rm-card-pri ${card.priority}">${card.priority}</span>`:''}</div>${card.desc?`<div class="rm-card-body">${esc(card.desc)}</div>`:''}${card.progress!==undefined?`<div class="rm-prog"><div class="rm-prog-fill" style="width:${card.progress}%"></div></div>`:''}<div class="rm-card-foot">${(card.tags||[]).map(t=>`<span class="rm-tag">${esc(t)}</span>`).join('')}</div>`;
+        body.appendChild(d);
+      }
+      const add=document.createElement('button');add.className='rm-col-add';add.textContent='+ Add card';add.onclick=()=>addCard(col.id);
+      body.appendChild(add);
+      c.appendChild(body);board.appendChild(c);
+    }
+    // Milestones
+    const ms=document.getElementById('roadmap-milestones');
+    if(ms&&e.data.milestones){
+      ms.innerHTML='';
+      for(const m of e.data.milestones){
+        const row=document.createElement('div');row.className='rm-milestone-row';
+        row.innerHTML=`<div class="rm-ms-dot" style="background:${m.color||'var(--a1)'}"></div><span class="rm-ms-name">${esc(m.name)}</span><span class="rm-ms-pct">${m.pct||0}%</span>`;
+        ms.appendChild(row);
+        const pg=document.createElement('div');pg.className='prog';pg.style.margin='4px 10px 8px';
+        pg.innerHTML=`<div class="prog-fill" style="width:${m.pct||0}%"></div>`;ms.appendChild(pg);
+      }
+    }
+  }
+}
+
+// Register all gates
+S.register(new RouterGate())
+ .register(new TermLogGate())
+ .register(new ForgeLogGate())
+ .register(new AIStreamGate())
+ .register(new AIMsgGate())
+ .register(new StatusGate())
+ .register(new OllamaStatusGate())
+ .register(new ModelSwitchGate())
+ .register(new FileTreeGate())
+ .register(new OpenFileGate())
+ .register(new TabGate())
+ .register(new GateCardGate())
+ .register(new ProgressGate())
+ .register(new ToastGate())
+ .register(new RoadmapGate());
+
+// ── ROUTING ───────────────────────────────────────────
+function route(page){ S.emit(E('ROUTE',{page})); }
+
+// ── OLLAMA ────────────────────────────────────────────
+const OLLAMA='http://localhost:11434';
+const MODEL='deepseek-coder-v2:16b-lite-instruct-q4_K_M';
+const TOKEN_BUDGET=4096;
+const THREADS=7;
+let _abort=null;
+let _genBuffer='';
+let _isGenerating=false;
+
+async function checkOllama(){
+  try{
+    const r=await fetch(`${OLLAMA}/api/tags`,{signal:AbortSignal.timeout(2500)});
+    if(r.ok){
+      const d=await r.json();
+      const models=(d.models||[]).map(m=>m.name);
+      // Find our model or a coding model
+      const preferred=models.find(m=>m.includes('deepseek-coder'))||models.find(m=>m.includes('qwen'))||models.find(m=>m.includes('codellama'))||models[0]||MODEL;
+      S.emit(E('OLLAMA_STATUS',{ok:true,model:preferred}));
+      document.body.dataset.ollamaOk='true';
+      document.body.dataset.currentModel=preferred;
+    } else throw new Error();
+  } catch {
+    S.emit(E('OLLAMA_STATUS',{ok:false,model:''}));
+    document.body.dataset.ollamaOk='false';
+  }
+}
+
+async function ollamaStream(prompt,model,onChunk,signal){
+  const res=await fetch(`${OLLAMA}/api/generate`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:model||document.body.dataset.currentModel||MODEL,
+      prompt,stream:true,
+      options:{temperature:0.15,top_p:0.92,num_ctx:TOKEN_BUDGET,num_thread:THREADS,repeat_penalty:1.1}
+    }),signal
+  });
+  if(!res.ok) throw new Error(`Ollama ${res.status}`);
+  const reader=res.body.getReader();const dec=new TextDecoder();let full='';
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n').filter(Boolean)){
+      try{const j=JSON.parse(line);if(j.response){full+=j.response;onChunk(j.response)}if(j.done)return full}catch{}
+    }
+  }
+  return full;
+}
+
+async function guardianRequest(prompt,model){
+  const port=parseInt(document.getElementById('cfg-guardian-port')?.value||'7771');
+  try{
+    const r=await fetch(`http://localhost:${port}/api/complete`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:model.replace('guardian:',''),prompt,stream:false}),
+      signal:AbortSignal.timeout(30000)
+    });
+    if(!r.ok) throw new Error(`Guardian ${r.status}`);
+    const d=await r.json();return d.content||d.text||'';
+  }catch(e){
+    S.emit(E('TERM_LOG',{msg:`Guardian error: ${e.message}`,cls:'err'}));
+    return null;
+  }
+}
+
+async function smartRoute(prompt,onChunk,signal){
+  const model=document.body.dataset.currentModel||MODEL;
+  const isG=model.startsWith('guardian:');
+  if(isG){
+    const result=await guardianRequest(prompt,model);
+    if(result){onChunk(result);return result}
+    return '';
+  }
+  if(document.body.dataset.ollamaOk==='true'){
+    try{return await ollamaStream(prompt,model,onChunk,signal)}
+    catch(e){
+      if(e.name==='AbortError') throw e;
+      S.emit(E('TERM_LOG',{msg:`Ollama failed: ${e.message} → Guardian fallback`,cls:'warn'}));
+      const r=await guardianRequest(prompt,'claude-sonnet-4-5');
+      if(r){onChunk(r);return r}
+    }
+  }
+  throw new Error('No AI available. Start Ollama or enable Guardian.');
+}
+
+// Token compressor
+function compressCtx(system,user,code='',history=[]){
+  const est=t=>Math.ceil(t.length/3.8);
+  const sysT=est(system),userT=est(user);
+  let rem=TOKEN_BUDGET-sysT-userT-200;
+  let hist='';
+  for(let i=history.length-1;i>=0&&est(hist)<rem*0.3;i--){
+    const l=`${history[i].role==='user'?'H':'A'}: ${history[i].content.slice(0,300)}\n`;
+    if(est(hist+l)>rem*0.3)break;hist=l+hist;
+  }
+  rem-=est(hist);
+  let ctx=code;
+  if(est(code)>rem){ctx=code.slice(0,Math.floor(rem*3.8))+'// [...truncated: 4K budget]';}
+  return`${system}\n${hist?`\n${hist}\n`:''}${ctx?`\`\`\`\n${ctx}\n\`\`\`\n`:''}\nUser: ${user}\nAssistant:`;
+}
+
+// ── AI MODES ──────────────────────────────────────────
+let _aiMode='chat';
+let _aiHistory=[];
+let _aiStats={req:0,tok:0,cache:0,grd:0};
+
+function setAiMode(mode){
+  _aiMode=mode;
+  document.querySelectorAll('.ai-mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+}
+
+function aiKey(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();sendAI()}}
+
+async function sendAI(){
+  if(_isGenerating)return;
+  const input=document.getElementById('ai-inp');
+  const msg=input.value.trim();
+  if(!msg)return;
+  input.value='';
+  _isGenerating=true;
+  _aiStats.req++;
+  document.getElementById('ai-send-btn').style.display='none';
+  document.getElementById('ai-abort-btn').style.display='';
+  S.emit(E('AI_MSG',{role:'user',content:msg}));
+  S.emit(E('STATUS',{aiText:'Generating…'}));
+
+  const lang=document.body.dataset.currentLang||'javascript';
+  const code=monacoLeft?monacoLeft.getValue().slice(0,3000):'';
+  const langHints={javascript:'ES2023+, const/let, async/await',typescript:'Strict TypeScript',python:'Python 3.11+, type hints',rust:'Safe Rust, Result<>',go:'Idiomatic Go'};
+  const system=`Expert ${lang} developer (${langHints[lang]||'clean code'}). SISO architecture where applicable.`;
+  const prompt=compressCtx(system,msg,_aiMode!=='chat'?code:'',_aiHistory);
+  const estT=Math.ceil(prompt.length/3.8);
+  _aiStats.tok+=estT;
+  S.emit(E('STATUS',{aiText:`~${estT} tokens`}));
+  S.emit(E('AI_STREAM',{reset:true,title:`${_aiMode.charAt(0).toUpperCase()+_aiMode.slice(1)}…`}));
+
+  _abort=new AbortController();
+  let full='';
+  try{
+    full=await smartRoute(prompt,chunk=>S.emit(E('AI_STREAM',{chunk})),_abort.signal);
+    if(full){
+      S.emit(E('AI_MSG',{role:'ai',content:full}));
+      S.emit(E('AI_STREAM',{done:true}));
+      _aiHistory.push({role:'user',content:msg},{role:'assistant',content:full.slice(0,300)});
+      if(_aiHistory.length>20) _aiHistory=_aiHistory.slice(-20);
+      _genBuffer=full;
+    }
+  } catch(e){
+    if(e.name!=='AbortError'){S.emit(E('AI_MSG',{role:'ai',content:`Error: ${e.message}`}));S.emit(E('AI_STREAM',{abort:true}));}
+    else S.emit(E('AI_STREAM',{abort:true}));
+  }
+  _isGenerating=false;
+  document.getElementById('ai-send-btn').style.display='';
+  document.getElementById('ai-abort-btn').style.display='none';
+  S.emit(E('STATUS',{aiText:'AI ready'}));
+  // Update stats
+  document.getElementById('stat-req').textContent=_aiStats.req;
+  document.getElementById('stat-tok').textContent=_aiStats.tok;
+}
+
+function abortAI(){if(_abort)_abort.abort();_isGenerating=false;S.emit(E('AI_STREAM',{abort:true}));S.emit(E('STATUS',{aiText:'Aborted'}))}
+
+function acceptGen(){
+  if(!_genBuffer||!monacoLeft)return;
+  monacoLeft.setValue(_genBuffer);
+  document.getElementById('gen-overlay').classList.remove('open');
+  S.emit(E('TOAST',{msg:'Generation accepted',type:'ok'}));
+}
+function insertGen(){
+  if(!_genBuffer||!monacoLeft)return;
+  const pos=monacoLeft.getPosition();
+  const code=_genBuffer.match(/```[\w]*\n?([\s\S]*?)```/)?.[1]||_genBuffer;
+  monacoLeft.executeEdits('ai',[{range:{startLineNumber:pos.lineNumber,startColumn:pos.column,endLineNumber:pos.lineNumber,endColumn:pos.column},text:code}]);
+  document.getElementById('gen-overlay').classList.remove('open');
+}
+function rejectGen(){document.getElementById('gen-overlay').classList.remove('open')}
+function clearAiHistory(){_aiHistory=[];document.getElementById('ai-msgs').innerHTML='';S.emit(E('TOAST',{msg:'History cleared',type:'info'}))}
+
+function selectModel(card){
+  document.querySelectorAll('.model-card').forEach(c=>c.classList.remove('active'));
+  card.classList.add('active');
+  S.emit(E('MODEL_SWITCH',{model:card.dataset.model}));
+}
+
+// ── FORGE PIPELINE ────────────────────────────────────
+let _fStep=0;
+let _fTags={constraints:[],stack:[]};
+let _fModules=[];
+let _fAbort=null;
+let _fRunning=false;
+let _nexData=null;
+let _nexOutput='';
+let _saveTimer=null;
+
+const FORGE_STEPS=['identity','vision','stack','gates','output','launch'];
+
+function goForgeStep(n){
+  _fStep=n;
+  document.querySelectorAll('.forge-step-form').forEach((el,i)=>el.style.display=i===n?'block':'none');
+  document.querySelectorAll('.forge-step-item').forEach((el,i)=>{
+    el.classList.toggle('active',i===n);
+    if(i<n)el.classList.add('done');
+  });
+  if(n===5) buildForgeSummary();
+}
+function forgeNext(){
+  if(_fStep===0){
+    const name=document.getElementById('fw-name').value.trim();
+    if(!name){S.emit(E('TOAST',{msg:'Enter a project name',type:'warn'}));return}
+  }
+  if(_fStep===3&&_fModules.length===0){S.emit(E('TOAST',{msg:'Add at least one Gate Group',type:'warn'}));return}
+  goForgeStep(Math.min(_fStep+1,5));
+}
+function forgePrev(){goForgeStep(Math.max(_fStep-1,0))}
+
+function addFwTag(field){
+  const inputId=field==='constraints'?'fw-con-in':'fw-stk-in';
+  const inp=document.getElementById(inputId);
+  const val=inp.value.trim();
+  if(!val||_fTags[field].includes(val))return;
+  _fTags[field].push(val);inp.value='';
+  const container=document.getElementById(`fw-${field}-tags`);
+  container.innerHTML=_fTags[field].map((t,i)=>
+    `<span class="tag">${esc(t)}<span class="tag-x" onclick="_fTags['${field}'].splice(${i},1);addFwTag('${field}')">×</span></span>`
+  ).join('');
+}
+
+function addFwModule(){
+  const name=document.getElementById('fw-mod-name').value.trim();
+  const desc=document.getElementById('fw-mod-desc').value.trim();
+  if(!name)return;
+  _fModules.push({id:`m${Date.now()}`,name,desc,status:'pending',spec:''});
+  document.getElementById('fw-mod-name').value='';
+  document.getElementById('fw-mod-desc').value='';
+  renderFwModules();
+  document.getElementById('forge-gate-count').textContent=`${_fModules.length} gate group${_fModules.length!==1?'s':''}`;
+}
+
+function renderFwModules(){
+  document.getElementById('fw-module-list').innerHTML=_fModules.map((m,i)=>
+    `<div class="module-entry"><span class="me-ord">G${String(i+1).padStart(2,'0')}</span><span class="me-name">${esc(m.name)}</span><span class="me-desc">${esc(m.desc)}</span><button class="btn btn-xs" style="margin-left:auto;border-color:var(--rule2);color:var(--ink4)" onclick="_fModules.splice(${i},1);renderFwModules()">×</button></div>`
+  ).join('');
+}
+
+function buildForgeSummary(){
+  const name=document.getElementById('fw-name').value;
+  const lang=document.getElementById('fw-lang').value;
+  const arch=document.getElementById('fw-arch').value;
+  const model=document.getElementById('fw-model').value;
+  const output=document.getElementById('fw-output').value;
+  document.getElementById('forge-summary').innerHTML=`<span style="color:var(--a0)">name</span> : ${esc(name)}<br><span style="color:var(--a0)">language</span> : ${esc(lang)}<br><span style="color:var(--a0)">arch</span> : ${esc(arch)}<br><span style="color:var(--a0)">model</span> : ${esc(model)}<br><span style="color:var(--a0)">gate groups</span> : ${_fModules.length}<br><span style="color:var(--a0)">stack</span> : ${esc(_fTags.stack.join(', ')||'(none)')}<br><span style="color:var(--a0)">output</span> : ${esc(output)}`;
+  document.getElementById('forge-nex-name').textContent=`// ${name||'unnamed'}`;
+}
+
+async function launchPipeline(){
+  if(_fRunning) return;
+  _fRunning=true;
+  _nexOutput='';
+  document.getElementById('forge-launch-btn').style.display='none';
+  document.getElementById('forge-abort-btn').style.display='';
+  document.getElementById('forge-log-dot').style.display='';
+  document.getElementById('forge-gate-cards').innerHTML='';
+  const flog=m=>S.emit(E('FORGE_LOG',{msg:m,cls:'info'}));
+  const elog=(m,c)=>S.emit(E('FORGE_LOG',{msg:m,cls:c}));
+
+  const name=document.getElementById('fw-name').value.trim();
+  const lang=document.getElementById('fw-lang').value;
+  const arch=document.getElementById('fw-arch').value;
+  const model=document.getElementById('fw-model').value;
+  const stack=_fTags.stack.join(', ')||'standard library';
+  const desc=document.getElementById('fw-desc').value;
+  const outputType=document.getElementById('fw-output').value;
+
+  // Switch model for pipeline
+  if(model!==document.body.dataset.currentModel) S.emit(E('MODEL_SWITCH',{model}));
+
+  // Init NEX
+  _nexData={version:'1.0.0',id:`nex_${Date.now()}`,name,lang,arch,stack,desc,outputType,modules:_fModules.map(m=>({...m})),gates:[],output:null};
+  S.emit(E('TERM_LOG',{msg:`Pipeline started: ${name}`,cls:'siso'}));
+  elog('// NEXUS/FORGE GATE PIPELINE','gate');
+  elog(`// Project: ${name} · Language: ${lang} · Gates: ${_fModules.length}`,'siso');
+  elog('',' ');
+
+  _fAbort=new AbortController();
+  const modules=[..._fModules];
+  let totalGates=0,passedGates=0;
+
+  for(let i=0;i<modules.length;i++){
+    const mod=modules[i];
+    S.emit(E('PROGRESS',{bar:'forge',pct:Math.round(i/modules.length*100)}));
+    elog(`[G${String(i+1).padStart(2,'0')}] Generating: ${mod.name}`,'gate');
+    S.emit(E('GATE_CARD',{id:`gen-${mod.id}`,title:`Generating: ${mod.name}`,status:'running'}));
+
+    const genPrompt=buildGatePrompt(name,lang,arch,stack,desc,mod);
+    let specText='';
+    try{
+      specText=await smartRoute(genPrompt,chunk=>{specText+=chunk;},_fAbort.signal);
+      if(_fAbort.signal.aborted){elog('// Aborted','err');break}
+      _nexData.modules[i].spec=specText;
+      elog(`  ✓ Generated — ~${Math.round(specText.length/3.8)} tokens`,'ok');
+      S.emit(E('GATE_CARD',{id:`gen-${mod.id}`,title:`Generated: ${mod.name}`,status:'pass',log:specText.slice(0,150)}));
+    } catch(e){
+      if(e.name==='AbortError'){elog('// Aborted by user','err');break}
+      elog(`  ✗ Error: ${e.message}`,'err');
+      S.emit(E('GATE_CARD',{id:`gen-${mod.id}`,title:mod.name,status:'fail',log:e.message}));
+      continue;
+    }
+
+    // Verify in 4K chunks
+    const chunks=chunkText(specText,3600);
+    elog(`  → Verifying ${chunks.length} chunk(s)`,'info');
+    for(let ci=0;ci<chunks.length;ci++){
+      totalGates++;
+      const gid=`${mod.id}_c${ci}`;
+      const gtitle=`${mod.name} · ${ci+1}/${chunks.length}`;
+      S.emit(E('GATE_CARD',{id:gid,title:gtitle,status:'running'}));
+      const vp=buildVerifyPrompt(mod.name,chunks[ci],ci,chunks.length,lang,arch);
+      let vr='';
+      try{
+        const{AbortController:ac}=window;const vc=new AbortController();
+        // Share parent abort
+        _fAbort.signal.addEventListener('abort',()=>vc.abort());
+        vr=await smartRoute(vp,()=>{},vc.signal);
+      }catch(e){if(e.name==='AbortError')break;vr='FAIL: '+e.message}
+      const passed=/^PASS/i.test(vr.trim());
+      if(!passed){
+        elog(`  ✗ Chunk ${ci+1} FAIL — retrying`,'warn');
+        let rr='';
+        try{rr=await smartRoute(buildRetryPrompt(mod.name,chunks[ci],vr,lang),()=>{},_fAbort.signal)}catch{}
+        const rp=/^PASS/i.test(rr.trim());
+        S.emit(E('GATE_CARD',{id:gid,title:gtitle,status:rp?'pass':'fail',log:(rp?rr:vr).slice(0,200)}));
+        if(rp){passedGates++;elog(`  ✓ Retry PASS`,'ok')}
+        else elog(`  ✗ FAIL after retry`,'err');
+        _nexData.gates.push({moduleId:mod.id,chunk:ci,passed:rp,ts:Date.now()});
+      } else {
+        passedGates++;
+        S.emit(E('GATE_CARD',{id:gid,title:gtitle,status:'pass',log:vr.slice(0,200)}));
+        elog(`  ✓ Gate PASS`,'ok');
+        _nexData.gates.push({moduleId:mod.id,chunk:ci,passed:true,ts:Date.now()});
+      }
+      document.getElementById('forge-gate-score').textContent=`${passedGates}/${totalGates}`;
+    }
+    // Auto-save NEX
+    nexSave();
+    elog('',' ');
+  }
+
+  S.emit(E('PROGRESS',{bar:'forge',pct:100}));
+  elog(`// ${passedGates}/${totalGates} gates passed`,'ok');
+  elog('// Consolidating…','gate');
+
+  // Consolidate
+  const conPrompt=buildConsolidatePrompt(name,lang,arch,_nexData.modules,outputType);
+  try{
+    await smartRoute(conPrompt,chunk=>{_nexOutput+=chunk;},_fAbort.signal);
+    _nexData.output=_nexOutput;
+    elog('// OUTPUT COMPLETE ✓','ok');
+    nexSave();
+    document.getElementById('forge-dl-btn').style.display='';
+    S.emit(E('TOAST',{msg:'Build complete! Click ↓ Download',type:'ok',duration:5000}));
+  } catch(e){elog(`Consolidation error: ${e.message}`,'err')}
+
+  _fRunning=false;
+  document.getElementById('forge-launch-btn').style.display='';
+  document.getElementById('forge-abort-btn').style.display='none';
+  document.getElementById('forge-log-dot').style.display='none';
+}
+
+function abortPipeline(){
+  if(_fAbort)_fAbort.abort();
+  _fRunning=false;
+  S.emit(E('FORGE_LOG',{msg:'// Pipeline aborted',cls:'err'}));
+  document.getElementById('forge-launch-btn').style.display='';
+  document.getElementById('forge-abort-btn').style.display='none';
+  document.getElementById('forge-log-dot').style.display='none';
+}
+
+// ── PROMPT BUILDERS ───────────────────────────────────
+function buildGatePrompt(projName,lang,arch,stack,desc,mod){
+  const sisoNote=arch.includes('siso')?`\nSISO rules:\n- Events immutable\n- Each Gate: matches()+transform() ONLY\n- Single Responsibility per Gate\n- Re-emitting gates: wasProcessedBy/markProcessedBy guard\n- No shared mutable state`:'';
+  return`You are DeepSeek-Coder-v2, an expert ${lang} engineer.\nProject: ${projName}\nDescription: ${desc}\nStack: ${stack}${sisoNote}\n\nGenerate a complete ${lang} SISO Gate Group for:\nName: ${mod.name}\nPurpose: ${mod.desc||'See project description'}\n\nInclude: Event definitions, Gate classes (each with matches()+transform()), Stream registration, inline usage example.\nNo placeholders. Production code only.`;
+}
+
+function buildVerifyPrompt(modName,chunk,idx,total,lang,arch){
+  return`SISO Gate Verification — ${modName} chunk ${idx+1}/${total}\nLanguage: ${lang}\n\nCODE:\n---\n${chunk}\n---\n\nVerify:\n1. Every Gate has exactly matches()+transform()\n2. matches() is a pure predicate\n3. transform() does ONE thing only\n4. Re-emitting Gates have wasProcessedBy/markProcessedBy\n5. Valid ${lang} syntax\n\nRespond: PASS or FAIL then 1-line summary.`;
+}
+
+function buildRetryPrompt(modName,chunk,failLog,lang){
+  return`SISO Gate fix required — ${modName}\nLanguage: ${lang}\n\nFailed code:\n---\n${chunk}\n---\n\nFailure:\n${failLog}\n\nFix all issues. Output corrected code. Then: PASS if fixed, FAIL if not.`;
+}
+
+function buildConsolidatePrompt(name,lang,arch,modules,outputType){
+  const specs=modules.map((m,i)=>`/* ═══ G${i+1}: ${m.name} ═══ */\n${m.spec||''}`).join('\n\n');
+  if(outputType==='html') return`Consolidate these SISO Gate implementations into one self-contained HTML file.\nProject: ${name} | Language: ${lang} | Arch: ${arch}\n\nRequirements: SISO runtime included, all Gates registered, CSS+HTML+JS in one file, immediately runnable.\n\n${specs}`;
+  return`Consolidate these SISO Gate implementations.\nProject: ${name} | Language: ${lang} | Arch: ${arch}\n\nInclude file path comments: // FILE: src/...\nSISO runtime included. All Gates registered.\n\n${specs}`;
+}
+
+// ── NEX STATE ─────────────────────────────────────────
+function nexSave(){
+  if(!_nexData)return;
+  _nexData.savedAt=Date.now();
+  try{localStorage.setItem(`nex_${_nexData.id}`,JSON.stringify(_nexData));}catch{}
+  document.getElementById('forge-nex-status').textContent=`${_nexData.name}.nex saved ${new Date().toLocaleTimeString()}`;
+}
+
+function exportNex(){
+  if(!_nexData){S.emit(E('TOAST',{msg:'No .nex data to export',type:'warn'}));return}
+  const b=new Blob([JSON.stringify(_nexData,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`${_nexData.name||'project'}.nex`;a.click();
+}
+
+function importNex(){
+  const input=document.createElement('input');input.type='file';input.accept='.nex,.json';
+  input.onchange=ev=>{
+    const file=ev.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{
+      try{_nexData=JSON.parse(e.target.result);
+        _fModules=_nexData.modules||[];
+        document.getElementById('fw-name').value=_nexData.name||'';
+        renderFwModules();
+        document.getElementById('forge-nex-status').textContent=`Loaded: ${_nexData.name}.nex`;
+        S.emit(E('TOAST',{msg:`Loaded: ${_nexData.name}`,type:'ok'}));
+      }catch{S.emit(E('TOAST',{msg:'Invalid .nex file',type:'err'}))}
+    };r.readAsText(file);
+  };input.click();
+}
+
+function downloadOutput(){
+  if(!_nexOutput){S.emit(E('TOAST',{msg:'No output yet',type:'warn'}));return}
+  const ext=_nexData?.outputType==='html'?'html':'txt';
+  const b=new Blob([_nexOutput],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`${_nexData?.name||'output'}.${ext}`;a.click();
+}
+
+// Auto-save every 10s
+setInterval(()=>{if(_nexData&&_fRunning)nexSave();},10000);
+
+// ── MONACO EDITOR ─────────────────────────────────────
+let monacoLeft=null;
+let monacoRight=null;
+
+function initMonaco(){
+  require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'}});
+  require(['vs/editor/editor.main'],()=>{
+    monaco.editor.defineTheme('nexus',{
+      base:'vs-dark',inherit:true,
+      rules:[
+        {token:'comment',foreground:'383846',fontStyle:'italic'},
+        {token:'keyword',foreground:'d46a18'},
+        {token:'string',foreground:'28804a'},
+        {token:'number',foreground:'18a8b8'},
+        {token:'type',foreground:'7030b0'},
+        {token:'function',foreground:'e88030'},
+        {token:'variable',foreground:'e4e4ee'},
+      ],
+      colors:{
+        'editor.background':'#06060a',
+        'editor.foreground':'#e4e4ee',
+        'editor.lineHighlightBackground':'#0e0e14',
+        'editor.selectionBackground':'#d46a1830',
+        'editorLineNumber.foreground':'#1e1e26',
+        'editorLineNumber.activeForeground':'#606070',
+        'editorCursor.foreground':'#d46a18',
+        'editorIndentGuide.background1':'#131318',
+        'editorSuggestWidget.background':'#0a0a0f',
+        'editorSuggestWidget.border':'#18181f',
+        'editorSuggestWidget.selectedBackground':'#131320',
+      }
+    });
+
+    monacoLeft=monaco.editor.create(document.getElementById('left-monaco'),{
+      value:'// NEXUS/FORGE — Open a file or generate code with Ctrl+G\n',
+      language:'javascript',theme:'nexus',
+      fontSize:13,fontFamily:"'JetBrains Mono','Cascadia Code','Consolas',monospace",
+      fontLigatures:true,lineHeight:22,
+      minimap:{enabled:true,side:'right'},
+      scrollBeyondLastLine:false,
+      automaticLayout:true,tabSize:2,
+      formatOnPaste:true,
+      suggestOnTriggerCharacters:true,
+      quickSuggestions:{other:true,comments:false,strings:false},
+      bracketPairColorization:{enabled:true},
+      guides:{bracketPairs:true,indentation:true},
+      padding:{top:10,bottom:10},
+      folding:true,glyphMargin:true,
+      wordWrap:'off',
+    });
+
+    monacoLeft.onDidChangeCursorPosition(e=>{
+      S.emit(E('STATUS',{cursor:`Ln ${e.position.lineNumber}, Col ${e.position.column}`}));
+    });
+    monacoLeft.onDidChangeModelContent(()=>{
+      const f=document.body.dataset.currentFile;
+      if(f)S.emit(E('TAB_DIRTY',{file:f}));
+    });
+
+    // Editor shortcuts
+    monacoLeft.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyG,()=>triggerGenerate());
+    monacoLeft.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyMod.Shift|monaco.KeyCode.KeyG,()=>triggerGate());
+    monacoLeft.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyP,()=>openCmd());
+    monacoLeft.addCommand(monaco.KeyMod.Alt|monaco.KeyMod.Shift|monaco.KeyCode.KeyF,()=>monacoLeft.getAction('editor.action.formatDocument')?.run());
+    monacoLeft.addCommand(monaco.KeyCode.F2,()=>monacoLeft.getAction('editor.action.rename')?.run());
+    monacoLeft.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS,()=>saveFile());
+
+    S.emit(E('TERM_LOG',{msg:'Monaco editor initialized',cls:'ok'}));
+    S.emit(E('TERM_LOG',{msg:'Ctrl+G — generate  ·  Ctrl+Shift+G — generate Gate',cls:'siso'}));
+  });
+}
+
+function formatLeft(){monacoLeft?.getAction('editor.action.formatDocument')?.run()}
+
+async function triggerGenerate(){
+  const prompt=window.prompt('What should I generate?','Generate a pure SISO Gate class for…');
+  if(!prompt)return;
+  document.getElementById('ai-inp').value=prompt;
+  route('ai');
+  setAiMode('gate');
+  await sendAI();
+}
+
+async function triggerGate(){
+  const desc=window.prompt('Gate name and purpose:','AuthGate — validates JWT tokens and emits AUTHENTICATED or REJECTED events');
+  if(!desc)return;
+  document.getElementById('ai-inp').value=desc;
+  route('ai');
+  setAiMode('gate');
+  await sendAI();
+}
+
+// ── FILE OPERATIONS ───────────────────────────────────
+async function openFolder(){
+  if(window.nf){
+    const folder=await window.nf.openFolderDialog();
+    if(!folder)return;
+    const result=await window.nf.scanDir(folder);
+    if(result.ok){
+      S.emit(E('FILE_TREE',{root:folder.split(/[/\\]/).pop(),nodes:result.tree}));
+      S.emit(E('STATUS',{branch:'main'}));
+      await window.nf.gitInit(folder).then(()=>window.nf.gitStatus().then(r=>{
+        if(r.ok){
+          S.emit(E('STATUS',{branch:r.branch}));
+          document.getElementById('git-branch-label').textContent=r.branch;
+        }
+      }));
+      S.emit(E('ROUTE',{page:'editor'}));
+      S.emit(E('TERM_LOG',{msg:`Opened: ${folder}`,cls:'ok'}));
+    }
+  } else {
+    // Demo mode
+    const name=prompt('Project folder name (demo):','my-siso-project');
+    if(!name)return;
+    S.emit(E('FILE_TREE',{root:name,nodes:demoTree(name)}));
+    S.emit(E('STATUS',{branch:'main'}));
+    S.emit(E('ROUTE',{page:'editor'}));
+    S.emit(E('TERM_LOG',{msg:`Opened (demo): ${name}`,cls:'ok'}));
+  }
+}
+
+function demoTree(root){
+  return[
+    {name:'src',type:'dir',children:[
+      {name:'main.js',type:'file',path:`${root}/src/main.js`,gitStatus:'modified'},
+      {name:'gates.js',type:'file',path:`${root}/src/gates.js`},
+      {name:'stream.js',type:'file',path:`${root}/src/stream.js`,gitStatus:'new'},
+    ]},
+    {name:'tests',type:'dir',children:[{name:'gates.test.js',type:'file',path:`${root}/tests/gates.test.js`}]},
+    {name:'package.json',type:'file',path:`${root}/package.json`},
+    {name:'README.md',type:'file',path:`${root}/README.md`},
+    {name:'.gitignore',type:'file',path:`${root}/.gitignore`},
+  ];
+}
+
+function newFile(){
+  const name=prompt('New file name:','untitled.js');
+  if(!name)return;
+  S.emit(E('OPEN_FILE',{path:name,name,content:''}));
+}
+
+function saveFile(){
+  const f=document.body.dataset.currentFile;
+  if(!f)return;
+  if(window.nf&&monacoLeft){
+    window.nf.writeFile(f,monacoLeft.getValue()).then(r=>{
+      if(r.ok){S.emit(E('TAB_SAVED',{file:f}));S.emit(E('TOAST',{msg:'Saved',type:'ok'}))}
+    });
+  } else {
+    S.emit(E('TAB_SAVED',{file:f}));
+    S.emit(E('TOAST',{msg:'Saved (demo)',type:'ok'}));
+  }
+}
+
+function filterTree(q){
+  document.querySelectorAll('.ft-item').forEach(i=>{
+    const n=i.querySelector('.fn')?.textContent||'';
+    i.style.display=n.toLowerCase().includes(q.toLowerCase())||i.classList.contains('ft-dir')?'':'none';
+  });
+}
+
+function globalSearch(q){
+  const results=document.getElementById('search-results');
+  if(!q){results.innerHTML='';return}
+  results.innerHTML=`<div style="color:var(--ink3);margin-bottom:6px;font-size:9px">"${esc(q)}" — demo results</div>`+
+    [`src/gates.js:12:  class ${q}Gate extends NexusGate`,`src/main.js:4:  // ${q} initialization`,`README.md:7:  ## ${q}`].map(r=>
+      `<div style="padding:3px 0;border-bottom:1px solid var(--rule);cursor:pointer;font-size:10px;line-height:1.6"><span style="color:var(--a1)">${esc(r.split(':')[0])}</span>:${r.split(':')[1]}: ${esc(r.split(':').slice(2).join(':'))}</div>`
+    ).join('');
+}
+
+// Editor sidebar panels
+function switchEsbPanel(id){
+  document.querySelectorAll('.esb-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.esb-tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===id));
+  document.getElementById(`esb-${id}`)?.classList.add('active');
+}
+
+// Git
+function gitStage(){S.emit(E('TERM_LOG',{msg:'git add .',cls:'prompt'}))}
+function gitCommit(){
+  const msg=document.getElementById('commit-msg').value.trim();
+  if(!msg){S.emit(E('TOAST',{msg:'Enter commit message',type:'warn'}));return}
+  if(window.nf){window.nf.gitCommit(msg).then(r=>S.emit(E('TERM_LOG',{msg:r.ok?`Committed: ${msg}`:`Error: ${r.error}`,cls:r.ok?'ok':'err'})))}
+  else S.emit(E('TERM_LOG',{msg:`[demo] git commit -m "${msg}"`,cls:'prompt'}));
+  document.getElementById('commit-msg').value='';
+}
+
+// ── SPLIT PANE ────────────────────────────────────────
+let _paneDrag=null,_hDrag=null;
+
+function splitRight(){
+  document.getElementById('right-pane').style.display='flex';
+  document.getElementById('pane-div').style.display='';
+  if(!monacoRight&&monacoLeft){
+    monacoRight=monaco.editor.create(document.getElementById('right-monaco'),{
+      value:'// Right pane',language:document.body.dataset.currentLang||'javascript',
+      theme:'nexus',fontSize:13,fontFamily:"'JetBrains Mono','Consolas',monospace",
+      automaticLayout:true,minimap:{enabled:false},
+    });
+    document.getElementById('right-monaco').style.display='flex';
+    document.getElementById('preview-frame').style.display='none';
+    document.getElementById('preview-tb').style.display='none';
+  }
+}
+
+function setRightMode(mode){
+  document.getElementById('preview-frame').style.display=mode==='preview'?'block':'none';
+  document.getElementById('preview-tb').style.display=mode==='preview'?'flex':'none';
+  document.getElementById('right-monaco').style.display=mode==='editor'?'flex':'none';
+  if(mode==='preview'){refreshPreview()}
+  document.getElementById('right-pane').style.display='flex';
+  document.getElementById('pane-div').style.display='';
+}
+
+function closeRightPane(){
+  document.getElementById('right-pane').style.display='none';
+  document.getElementById('pane-div').style.display='none';
+}
+
+function refreshPreview(){
+  if(!monacoLeft)return;
+  const code=monacoLeft.getValue();
+  if(code.trim().startsWith('<')||document.body.dataset.currentLang==='html'){
+    const b=new Blob([code],{type:'text/html'});
+    document.getElementById('preview-frame').src=URL.createObjectURL(b);
+  }
+}
+
+function startPaneDrag(e){
+  _paneDrag={x:e.clientX,w:document.getElementById('left-pane').offsetWidth};
+  document.getElementById('pane-div').classList.add('dragging');
+  document.addEventListener('mousemove',onPaneDrag);document.addEventListener('mouseup',endPaneDrag);
+}
+function onPaneDrag(e){
+  if(!_paneDrag)return;
+  const dx=e.clientX-_paneDrag.x;
+  const split=document.getElementById('editor-split');
+  const nw=Math.max(200,Math.min(split.offsetWidth-200,_paneDrag.w+dx));
+  document.getElementById('left-pane').style.flex=`0 0 ${nw}px`;
+}
+function endPaneDrag(){
+  _paneDrag=null;document.getElementById('pane-div').classList.remove('dragging');
+  document.removeEventListener('mousemove',onPaneDrag);document.removeEventListener('mouseup',endPaneDrag);
+  monacoLeft?.layout();monacoRight?.layout();
+}
+
+function startHDrag(e){
+  _hDrag={y:e.clientY,h:document.getElementById('terminal-wrap').offsetHeight};
+  document.getElementById('h-div').classList.add('dragging');
+  document.addEventListener('mousemove',onHDrag);document.addEventListener('mouseup',endHDrag);
+}
+function onHDrag(e){
+  if(!_hDrag)return;
+  const dy=_hDrag.y-e.clientY;
+  const nh=Math.max(60,Math.min(500,_hDrag.h+dy));
+  document.getElementById('terminal-wrap').style.height=`${nh}px`;
+}
+function endHDrag(){
+  _hDrag=null;document.getElementById('h-div').classList.remove('dragging');
+  document.removeEventListener('mousemove',onHDrag);document.removeEventListener('mouseup',endHDrag);
+  monacoLeft?.layout();
+}
+
+function toggleTerminal(){
+  const tw=document.getElementById('terminal-wrap');
+  tw.style.display=tw.style.display==='none'?'flex':'none';
+  monacoLeft?.layout();
+}
+
+function addTermTab(){
+  const tabs=document.getElementById('term-tabs');
+  const tab=document.createElement('div');tab.className='term-tab';
+  tab.innerHTML=`<span class="tdot" style="background:var(--cyan2)"></span>bash-${Date.now()%1000}`;
+  tabs.insertBefore(tab,tabs.lastElementChild);
+}
+
+// ── TERMINAL ──────────────────────────────────────────
+const _termHistory=[];let _termIdx=-1;
+
+function termKey(e){
+  const inp=document.getElementById('term-in');
+  if(e.key==='Enter'){const cmd=inp.value.trim();if(!cmd)return;_termHistory.unshift(cmd);_termIdx=-1;inp.value='';execCmd(cmd)}
+  if(e.key==='ArrowUp'){_termIdx=Math.min(_termIdx+1,_termHistory.length-1);if(_termIdx>=0)inp.value=_termHistory[_termIdx]}
+  if(e.key==='ArrowDown'){_termIdx=Math.max(_termIdx-1,-1);inp.value=_termIdx>=0?_termHistory[_termIdx]:''}
+}
+
+function execCmd(cmd){
+  S.emit(E('TERM_LOG',{msg:`PS> ${cmd}`,cls:'prompt'}));
+  const c=cmd.split(' ')[0].toLowerCase();
+  if(c==='cls'||c==='clear'){document.getElementById('term-body').innerHTML='';return}
+  if(c==='help'){['clear — clear terminal','siso — gate registry','ollama — status','generate — AI generate'].forEach(l=>S.emit(E('TERM_LOG',{msg:l,cls:'out'})));return}
+  if(c==='siso'){['RouterGate','TermLogGate','ForgeLogGate','AIStreamGate','AIMsgGate','StatusGate','OllamaStatusGate','ModelSwitchGate','FileTreeGate','OpenFileGate','TabGate','GateCardGate','ProgressGate','ToastGate','RoadmapGate'].forEach(g=>S.emit(E('TERM_LOG',{msg:`  ✓ ${g}`,cls:'siso'})));return}
+  if(c==='ollama'){checkOllama();return}
+  if(c==='generate'){triggerGenerate();return}
+  if(window.nf){
+    window.nf.termWrite('shell',cmd+'\r\n').catch(()=>S.emit(E('TERM_LOG',{msg:`Command: ${cmd} (Electron IPC in full build)`,cls:'out'})));
+  } else {
+    S.emit(E('TERM_LOG',{msg:`Command not found: ${cmd}  (Electron IPC in full build)`,cls:'warn'}));
+  }
+}
+
+// ── COMMAND PALETTE ───────────────────────────────────
+const CMDS=[
+  {g:'Navigate',icon:'⌂',label:'Home',action:()=>route('home')},
+  {g:'Navigate',icon:'✎',label:'Editor',kbd:'Ctrl+1',action:()=>route('editor')},
+  {g:'Navigate',icon:'◈',label:'AI Pipeline',kbd:'Ctrl+2',action:()=>route('forge')},
+  {g:'Navigate',icon:'⊞',label:'Roadmap',kbd:'Ctrl+3',action:()=>route('roadmap')},
+  {g:'Navigate',icon:'⟁',label:'AI Assistant',kbd:'Ctrl+4',action:()=>route('ai')},
+  {g:'Navigate',icon:'⚙',label:'Settings',action:()=>route('settings')},
+  {g:'File',icon:'📂',label:'Open Folder',action:()=>openFolder()},
+  {g:'File',icon:'📄',label:'New File',kbd:'Ctrl+N',action:()=>newFile()},
+  {g:'File',icon:'💾',label:'Save',kbd:'Ctrl+S',action:()=>saveFile()},
+  {g:'Editor',icon:'⊞',label:'Split Editor',kbd:'Ctrl+\\',action:()=>splitRight()},
+  {g:'Editor',icon:'👁',label:'Preview in Right Pane',action:()=>setRightMode('preview')},
+  {g:'Editor',icon:'⎇',label:'Format Document',kbd:'Alt+Shift+F',action:()=>formatLeft()},
+  {g:'AI',icon:'⚡',label:'Generate Code',kbd:'Ctrl+G',action:()=>triggerGenerate()},
+  {g:'AI',icon:'⟁',label:'Generate SISO Gate',kbd:'Ctrl+Shift+G',action:()=>triggerGate()},
+  {g:'AI',icon:'✎',label:'Refactor Selection',action:()=>{setAiMode('refactor');route('ai')}},
+  {g:'AI',icon:'🔍',label:'Explain Code',action:()=>{setAiMode('explain');route('ai')}},
+  {g:'AI',icon:'🧪',label:'Generate Tests',action:()=>{setAiMode('test');route('ai')}},
+  {g:'AI',icon:'🐛',label:'Fix Bug',action:()=>{setAiMode('fix');route('ai')}},
+  {g:'Roadmap',icon:'⊞',label:'Add Milestone',action:()=>addMilestone()},
+  {g:'View',icon:'⬛',label:'Toggle Terminal',kbd:'Ctrl+`',action:()=>toggleTerminal()},
+  {g:'View',icon:'⌕',label:'Global Search',kbd:'Ctrl+Shift+F',action:()=>switchEsbPanel('search')},
+];
+
+let _cmdSel=0;
+function openCmd(){document.getElementById('cmd-overlay').classList.add('open');document.getElementById('cmd-inp').value='';document.getElementById('cmd-inp').focus();renderCmds('')}
+function closeCmd(){document.getElementById('cmd-overlay').classList.remove('open')}
+
+function renderCmds(q){
+  const filtered=q?CMDS.filter(c=>c.label.toLowerCase().includes(q.toLowerCase())||c.g.toLowerCase().includes(q.toLowerCase())):CMDS;
+  let html='',lastG='';
+  filtered.forEach((c,i)=>{
+    if(c.g!==lastG){html+=`<div class="cmd-group-head">${esc(c.g)}</div>`;lastG=c.g}
+    html+=`<div class="cmd-item${i===_cmdSel?' sel':''}" onclick="execCmdItem(${CMDS.indexOf(c)})"><span class="cmd-icon">${c.icon}</span><span class="cmd-label">${esc(c.label)}</span>${c.kbd?`<span class="cmd-kbd">${esc(c.kbd)}</span>`:''}</div>`;
+  });
+  document.getElementById('cmd-list').innerHTML=html||'<div style="padding:12px 16px;font-family:var(--f-code);font-size:10px;color:var(--ink4)">No commands found</div>';
+}
+
+function cmdFilter(q){_cmdSel=0;renderCmds(q)}
+function cmdKey(e){
+  const items=document.querySelectorAll('.cmd-item');
+  if(e.key==='ArrowDown'){_cmdSel=Math.min(_cmdSel+1,items.length-1)}
+  else if(e.key==='ArrowUp'){_cmdSel=Math.max(_cmdSel-1,0)}
+  else if(e.key==='Enter'){
+    const q=document.getElementById('cmd-inp').value;
+    const filtered=q?CMDS.filter(c=>c.label.toLowerCase().includes(q.toLowerCase())):CMDS;
+    if(filtered[_cmdSel]){execCmdItem(CMDS.indexOf(filtered[_cmdSel]))}
+    return;
+  }
+  else if(e.key==='Escape'){closeCmd();return}
+  items.forEach((it,i)=>it.classList.toggle('sel',i===_cmdSel));
+}
+function execCmdItem(idx){closeCmd();CMDS[idx]?.action()}
+
+// ── ROADMAP ───────────────────────────────────────────
+const _roadmapData={
+  columns:[
+    {id:'todo',title:'To Do',cards:[
+      {title:'SISO runtime tests',desc:'Unit tests for Event/Gate/Stream',priority:'high',tags:['testing'],progress:0},
+      {title:'LSP integration',desc:'Language server protocol bridge',priority:'med',tags:['editor']},
+    ]},
+    {id:'doing',title:'In Progress',cards:[
+      {title:'Guardian failover',desc:'Auto-route on Ollama timeout',priority:'high',tags:['ai'],progress:60},
+      {title:'File watcher',desc:'chokidar real-time updates',priority:'med',tags:['fs'],progress:30},
+    ]},
+    {id:'done',title:'Done',cards:[
+      {title:'SISO event bus',desc:'Core Event/Gate/Stream runtime',priority:'high',tags:['core'],progress:100},
+      {title:'Monaco dual-pane',priority:'med',tags:['editor'],progress:100},
+      {title:'AI pipeline wizard',priority:'high',tags:['ai'],progress:100},
+    ]},
+  ],
+  milestones:[
+    {name:'Core Architecture',pct:85,color:'var(--ok2)'},
+    {name:'AI Pipeline',pct:70,color:'var(--a1)'},
+    {name:'IDE Features',pct:50,color:'var(--cyan2)'},
+    {name:'Windows 11 Polish',pct:40,color:'var(--purple2)'},
+  ]
+};
+
+function addMilestone(){
+  const name=prompt('Milestone name:');if(!name)return;
+  _roadmapData.milestones.push({name,pct:0,color:'var(--ink2)'});
+  S.emit(E('ROADMAP_RENDER',_roadmapData));
+}
+function addColumn(){
+  const name=prompt('Column name:');if(!name)return;
+  _roadmapData.columns.push({id:`col_${Date.now()}`,title:name,cards:[]});
+  S.emit(E('ROADMAP_RENDER',_roadmapData));
+}
+function addCard(colId){
+  const title=prompt('Card title:');if(!title)return;
+  const col=_roadmapData.columns.find(c=>c.id===colId);
+  if(col){col.cards.push({title,priority:'med',tags:[]});S.emit(E('ROADMAP_RENDER',_roadmapData))}
+}
+
+// ── SETTINGS PAGES ────────────────────────────────────
+function switchSettingsPage(id){
+  document.querySelectorAll('.settings-section').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.settings-nav-item').forEach(i=>i.classList.toggle('active',i.dataset.spage===id));
+  document.getElementById(`sp-${id}`).style.display='block';
+}
+function toggleSetting(el){el.classList.toggle('on')}
+function saveSettings(){S.emit(E('TOAST',{msg:'Settings saved',type:'ok'}))}
+function testOllama(){checkOllama().then(()=>S.emit(E('TOAST',{msg:'Ollama check complete',type:'info'})))}
+function testGuardian(){
+  const port=document.getElementById('cfg-guardian-port').value;
+  fetch(`http://localhost:${port}/ping`,{signal:AbortSignal.timeout(2000)})
+    .then(r=>S.emit(E('TOAST',{msg:r.ok?'Guardian online':'Guardian responded with error',type:r.ok?'ok':'warn'})))
+    .catch(()=>S.emit(E('TOAST',{msg:'Guardian not reachable on port '+port,type:'err'})));
+}
+
+// ── MENU STUBS ────────────────────────────────────────
+function menuFile(){openCmd()}
+function menuEdit(){openCmd()}
+function menuView(){openCmd()}
+function menuAI(){route('ai')}
+function menuHelp(){route('settings');switchSettingsPage('about')}
+
+// ── UTILITIES ─────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function getIcon(f){
+  const ext=(f||'').split('.').pop().toLowerCase();
+  const m={js:'🟨',ts:'🔷',jsx:'⚛',tsx:'⚛',py:'🐍',rs:'🦀',go:'🐹',php:'🐘',java:'☕',cs:'♯',cpp:'⚙',c:'⚙',rb:'💎',swift:'🍎',kt:'🔻',html:'🌐',css:'🎨',scss:'🎨',json:'{}',md:'📝',sh:'⬛',sql:'🗄',yaml:'📋',yml:'📋',toml:'🔧',env:'🔑',lock:'🔒',vue:'💚',svelte:'🔥',zig:'⚡',lua:'🌙'};
+  return m[ext]||'📄';
+}
+
+function getLang(f){
+  const ext=(f||'').split('.').pop().toLowerCase();
+  const m={js:'javascript',ts:'typescript',jsx:'javascript',tsx:'typescript',py:'python',rs:'rust',go:'go',php:'php',java:'java',cs:'csharp',cpp:'cpp',c:'c',rb:'ruby',swift:'swift',kt:'kotlin',html:'html',css:'css',scss:'scss',json:'json',yaml:'yaml',yml:'yaml',md:'markdown',sh:'shell',bash:'shell',sql:'sql',lua:'lua',zig:'zig'};
+  return m[ext]||'plaintext';
+}
+
+function chunkText(text,size){const chunks=[];for(let i=0;i<text.length;i+=size)chunks.push(text.slice(i,i+size));return chunks}
+
+function demoCode(lang,name){
+  if(name?.includes('gates'))return`// SISO Gate Group: ${name}
+// Auto-detected: pure functional SISO architecture
+
+class AuthEvent extends NexusEvent {
+  constructor(data) { super('AUTH', data); }
+}
+
+class AuthGate extends NexusGate {
+  // Single responsibility: validate JWT token
+  matches(e) {
+    return e.type === 'REQUEST'
+      && !e.wasProcessedBy('AuthGate');
+  }
+
+  transform(e, stream) {
+    e.markProcessedBy('AuthGate');
+    const token = e.data.headers?.authorization;
+    const valid  = validateJWT(token); // pure function
+    stream.emit(new AuthEvent({
+      valid,
+      userId: valid ? decodeJWT(token).sub : null,
+      original: e.data,
+    }));
+  }
+}
+
+// Register
+const stream = new NexusStream();
+stream.register(new AuthGate());
+`;
+  const t={javascript:`// NEXUS/FORGE — ${name}
+// E → G → S → DOM
+
+'use strict';
+
+const app = {
+  init() {
+    console.log('Ready');
+  }
+};
+
+app.init();`,typescript:`// NEXUS/FORGE — ${name}
+interface Config {
+  name: string;
+  version: string;
+}
+
+const config: Config = {
+  name: '${name?.replace('.ts','')||'app'}',
+  version: '1.0.0',
+};
+
+export default config;`,python:`# NEXUS/FORGE — ${name}
+from dataclasses import dataclass
+
+@dataclass
+class Config:
+    name: str
+    version: str
+
+def main() -> None:
+    config = Config(name="${name?.replace('.py','')||'app'}", version="1.0.0")
+    print(f"Ready: {config.name}")
+
+if __name__ == "__main__":
+    main()`,};
+  return t[lang]||`// ${name||'file'}\n`;
+}
+
+// ── GLOBAL KEYBOARD SHORTCUTS ─────────────────────────
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey){
+    if(e.key==='p'){e.preventDefault();openCmd()}
+    if(e.key==='1'){e.preventDefault();route('editor')}
+    if(e.key==='2'){e.preventDefault();route('forge')}
+    if(e.key==='3'){e.preventDefault();route('roadmap')}
+    if(e.key==='4'){e.preventDefault();route('ai')}
+    if(e.key==='s'&&document.body.dataset.page==='editor'){e.preventDefault();saveFile()}
+    if(e.key==='`'){e.preventDefault();toggleTerminal()}
+    if(e.key==='\\'){e.preventDefault();splitRight()}
+  }
+  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key==='F'){e.preventDefault();route('editor');switchEsbPanel('search')}
+  if(e.key==='Escape'){
+    closeCmd();
+    document.getElementById('gen-overlay').classList.remove('open');
+    document.getElementById('cmd-overlay').classList.remove('open');
+  }
+});
+
+// Close cmd on outside click
+document.getElementById('cmd-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCmd()});
+
+// ── INIT ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  // Set timestamp
+  const ts=document.getElementById('term-ts-1');
+  if(ts) ts.textContent=new Date().toLocaleTimeString('en',{hour12:false});
+
+  // Electron IPC listeners
+  window.nf?.on('open-folder',path=>{
+    window.nf.scanDir(path).then(r=>{
+      if(r.ok) S.emit(E('FILE_TREE',{root:path.split(/[/\\]/).pop(),nodes:r.tree}));
+    });
+  });
+  window.nf?.on('ipc',msg=>{
+    if(msg.type==='NEW_FILE') newFile();
+    if(msg.type==='OPEN_SETTINGS') route('settings');
+    if(msg.type==='CMD_PALETTE') openCmd();
+    if(msg.type==='SIDE_PANEL') switchEsbPanel(msg.id);
+    if(msg.type==='SPLIT') splitRight();
+    if(msg.type==='TOGGLE_TERM') toggleTerminal();
+    if(msg.type==='AI_GENERATE') triggerGenerate();
+    if(msg.type==='AI_GATE') triggerGate();
+    if(msg.type==='FORMAT') formatLeft();
+    if(msg.type==='SAVE') saveFile();
+    if(msg.type==='TOGGLE_SIDEBAR'){const sb=document.querySelector('.editor-sidebar');if(sb)sb.style.display=sb.style.display==='none'?'flex':'none';}
+  });
+
+  // Checks
+  checkOllama();
+  setInterval(checkOllama,30000);
+
+  // Load Monaco
+  initMonaco();
+
+  // Load roadmap
+  S.emit(E('ROADMAP_RENDER',_roadmapData));
+
+  // Check Guardian
+  fetch('http://localhost:7771/ping',{signal:AbortSignal.timeout(1500)})
+    .then(()=>{document.getElementById('guardian-status').textContent='● online';document.getElementById('guardian-status').style.color='var(--ok2)'})
+    .catch(()=>{document.getElementById('guardian-status').textContent='not detected on :7771';});
+
+  console.log('%cNEXUS/FORGE%c ready\nE→G→S→DOM · 15 gates registered · deepseek-coder-v2:16b-lite-instruct-q4_K_M','color:#d46a18;font-size:18px;font-weight:bold','color:#606070');
+});
+</script>
+</body>
+</html>

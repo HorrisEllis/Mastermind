@@ -1,0 +1,196 @@
+{
+  "signals": {
+    "valence": {
+      "id": "valence",
+      "createdAt": 1748736000000,
+      "observations": [
+        {
+          "ts": 1748736000000,
+          "value": 0.58,
+          "source": "philosophy-book:estimated"
+        },
+        {
+          "ts": 1759017600000,
+          "value": 0.08,
+          "source": "silence-the-darkness:confirmed"
+        },
+        {
+          "ts": 1788307200000,
+          "value": 0.18,
+          "source": "life-event-clio-breakup:confirmed"
+        },
+        {
+          "ts": 1790553600000,
+          "value": 0.32,
+          "source": "strangers-again:confirmed"
+        },
+        {
+          "ts": 1790726400000,
+          "value": 0.52,
+          "source": "scream-into-void-volta:confirmed"
+        },
+        {
+          "ts": 1790899200000,
+          "value": 0.28,
+          "source": "untitled-10-02:confirmed"
+        },
+        {
+          "ts": 1791849600000,
+          "value": 0.71,
+          "source": "after-raven:confirmed"
+        },
+        {
+          "ts": 1794700800000,
+          "value": 0.74,
+          "source": "life-event-met-raven:estimated"
+        },
+        {
+          "ts": 1823558400000,
+          "value": 0.82,
+          "source": "mirror-into-infinity:estimated"
+        },
+        {
+          "ts": 1834185600000,
+          "value": 0.25,
+          "source": "grief-sequence:estimated"
+        }
+      ],
+      "updatedAt": 1834185600000
+    },
+    "integration": {
+      "id": "integration",
+      "createdAt": 1748736000000,
+      "observations": [
+        {
+          "ts": 1748736000000,
+          "value": 0.65,
+          "source": "philosophy-book:estimated"
+        },
+        {
+          "ts": 1759017600000,
+          "value": 0.05,
+          "source": "silence-the-darkness:confirmed"
+        },
+        {
+          "ts": 1788307200000,
+          "value": 0.2,
+          "source": "life-event-clio-breakup:confirmed"
+        },
+        {
+          "ts": 1790553600000,
+          "value": 0.35,
+          "source": "strangers-again:confirmed"
+        },
+        {
+          "ts": 1790726400000,
+          "value": 0.55,
+          "source": "scream-into-void-volta:confirmed"
+        },
+        {
+          "ts": 1790899200000,
+          "value": 0.45,
+          "source": "untitled-10-02:confirmed"
+        },
+        {
+          "ts": 1791849600000,
+          "value": 0.75,
+          "source": "after-raven:confirmed"
+        },
+        {
+          "ts": 1794700800000,
+          "value": 0.78,
+          "source": "life-event-met-raven:estimated"
+        },
+        {
+          "ts": 1823558400000,
+          "value": 0.8,
+          "source": "mirror-into-infinity:estimated"
+        },
+        {
+          "ts": 1834185600000,
+          "value": 0.55,
+          "source": "grief-sequence:estimated"
+        }
+      ],
+      "updatedAt": 1834185600000
+    },
+    "suppression": {
+      "id": "suppression",
+      "createdAt": 1748736000000,
+      "observations": [
+        {
+          "ts": 1748736000000,
+          "value": 0.3,
+          "source": "philosophy-book:estimated"
+        },
+        {
+          "ts": 1759017600000,
+          "value": 0.6,
+          "source": "silence-the-darkness:confirmed"
+        },
+        {
+          "ts": 1790726400000,
+          "value": 0.25,
+          "source": "scream-into-void-volta:confirmed"
+        },
+        {
+          "ts": 1791849600000,
+          "value": 0.12,
+          "source": "after-raven:confirmed"
+        },
+        {
+          "ts": 1823558400000,
+          "value": 0.08,
+          "source": "mirror-into-infinity:estimated"
+        }
+      ],
+      "updatedAt": 1823558400000
+    },
+    "arousal": {
+      "id": "arousal",
+      "createdAt": 1759017600000,
+      "observations": [
+        {
+          "ts": 1759017600000,
+          "value": 0.35,
+          "source": "silence-the-darkness:confirmed"
+        },
+        {
+          "ts": 1788307200000,
+          "value": 0.55,
+          "source": "life-event-clio-breakup:confirmed"
+        },
+        {
+          "ts": 1790553600000,
+          "value": 0.48,
+          "source": "strangers-again:confirmed"
+        },
+        {
+          "ts": 1790726400000,
+          "value": 0.78,
+          "source": "scream-into-void-volta:confirmed"
+        },
+        {
+          "ts": 1791849600000,
+          "value": 0.72,
+          "source": "after-raven:confirmed"
+        },
+        {
+          "ts": 1823558400000,
+          "value": 0.85,
+          "source": "mirror-into-infinity:estimated"
+        },
+        {
+          "ts": 1834185600000,
+          "value": 0.62,
+          "source": "grief-sequence:estimated"
+        }
+      ],
+      "updatedAt": 1834185600000
+    }
+  },
+  "meta": {
+    "createdAt": 1779237555532,
+    "version": "0.1.0"
+  }
+}

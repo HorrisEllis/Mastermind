@@ -1,0 +1,64 @@
+{
+  "name": "rheon",
+  "version": "0.3.0",
+  "description": "Spec library, project repository, spec builder, and idea ledger. GitHub with higher leverage.",
+  "type": "module",
+  "uuid": "rheon-hub-0000-2026-0606-jamesbrooks-001",
+  "bin": {
+    "rheon": "./cli/index.js"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "cli": "node cli/index.js",
+    "test": "node test/storage.test.js",
+    "test:all": "node test/storage.test.js && node test/bus.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.2"
+  },
+  "axioms": [
+    "§1.1 Nothing exists until proven.",
+    "§1.2 Nothing pretends to work — and nothing silently fails.",
+    "§1.3 No fake, mock, stub, placeholder, or skeleton in production.",
+    "§2.1 Persistence is the golden rule. Temporary storage for temporary data only.",
+    "§2.2 The storage device is the source of truth. Nothing works without persistence.",
+    "§2.3 All state must be observable. Invisible state does not exist.",
+    "§3.1 Bottom-up only. Foundation and architecture before modules. Modules before UI.",
+    "§3.2 Logical time (eventTs) is the ordering axis. Wall clock is display metadata only.",
+    "§4.1 A system that cannot be tested cannot be trusted.",
+    "§4.2 Fix bugs pre-emptively. Attack the weakest link before shipping.",
+    "§4.3 Enterprise grade. Military grade security. Cybersecurity grade privacy.",
+    "§5.1 Everything has a UUID, hook, and event bus registration.",
+    "§5.2 Everything implements the bridge.",
+    "§5.3 No monkey patches — full system patches only.",
+    "§5.4 Versions persist across the entire project. One version. Everywhere.",
+    "§5.5 What does not exist must be built. No external runtime dependencies.",
+    "§5.6 Structural self-similarity — the same pattern across every abstraction layer.",
+    "§5.7 Low coupling, high cohesion. All inter-module communication via event bus only.",
+    "§5.8 Composability over configuration. Behaviour emerges from composition, not config."
+  ],
+  "seams": {
+    "STORAGE_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active"
+    },
+    "UI_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active"
+    },
+    "CLI_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active"
+    },
+    "LATTICE_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active"
+    }
+  },
+  "siso": {
+    "uuid": "siso-core-f0und4t10n-layer-0000-000000000001",
+    "source": "core/",
+    "note": "Copied verbatim from SISO Core v1.0.0. Zero modification. Foundation layer."
+  }
+}

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ALK · Mic Bridge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --ink:#020705;--signal:#39ff6a;--glow:rgba(57,255,106,.15);
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;
+  --rose:#ff4455;--amber:#ffcc00;--cyan:#00ffee;
+  --mono:'Courier New',monospace;
+}
+html,body{
+  width:100%;height:100vh;overflow:hidden;
+  background:var(--ink);color:var(--bright);
+  font-family:var(--mono);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(57,255,106,.015) 2px,rgba(57,255,106,.015) 3px);
+  pointer-events:none;
+}
+
+/* ── Header ── */
+#header{
+  position:fixed;top:0;left:0;right:0;
+  padding:16px;display:flex;align-items:center;gap:10px;
+  background:rgba(2,7,5,.95);border-bottom:1px solid rgba(57,255,106,.1);
+  z-index:100;
+}
+.logo-mark{
+  width:28px;height:28px;border:1px solid var(--signal);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--signal);
+  animation:pulse 3s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 16px var(--signal),inset 0 0 8px rgba(57,255,106,.2)}}
+.title{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;}
+.subtitle{font-size:7px;letter-spacing:2px;color:var(--dim);margin-top:2px;}
+
+/* ── Main ── */
+#main{
+  display:flex;flex-direction:column;align-items:center;
+  gap:32px;padding:20px;
+  margin-top:72px;
+  width:100%;max-width:360px;
+}
+
+/* ── Status ring ── */
+#status-ring{
+  width:160px;height:160px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.ring-svg{width:100%;height:100%;transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:rgba(57,255,106,.1);stroke-width:3;}
+.ring-fill{fill:none;stroke:var(--signal);stroke-width:3;stroke-linecap:round;
+  stroke-dasharray:440;stroke-dashoffset:440;transition:stroke-dashoffset .3s ease;}
+.ring-fill.active{stroke-dashoffset:0;}
+.ring-fill.connecting{stroke-dashoffset:220;stroke:var(--amber);}
+.ring-fill.error{stroke-dashoffset:110;stroke:var(--rose);}
+#ring-icon{
+  position:absolute;font-size:48px;
+  transition:all .3s;
+}
+#ring-label{
+  position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);
+  font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;
+  white-space:nowrap;
+}
+
+/* ── Energy meter ── */
+#energy-meter{
+  width:100%;height:4px;background:rgba(57,255,106,.1);
+  border-radius:2px;overflow:hidden;
+}
+#energy-fill{
+  height:100%;background:var(--signal);width:0%;
+  transition:width .05s;border-radius:2px;
+}
+
+/* ── Level display ── */
+#level-display{
+  display:flex;gap:3px;align-items:flex-end;height:40px;
+}
+.level-bar{
+  width:6px;background:rgba(57,255,106,.15);border-radius:2px;
+  transition:height .05s,background .1s;height:4px;
+}
+
+/* ── Buttons ── */
+.btn{
+  width:100%;padding:16px;border:1px solid rgba(57,255,106,.3);
+  background:transparent;color:var(--signal);font-family:var(--mono);
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  cursor:pointer;transition:all .2s;
+}
+.btn:hover,.btn:active{background:var(--glow);border-color:var(--signal);}
+.btn.primary{border-color:var(--signal);font-size:12px;letter-spacing:4px;}
+.btn.secondary{border-color:rgba(57,255,106,.2);color:var(--dim);}
+.btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* ── Info rows ── */
+.info-row{
+  width:100%;display:flex;justify-content:space-between;
+  font-size:8px;padding:8px 0;
+  border-bottom:1px solid rgba(57,255,106,.05);
+}
+.info-label{color:var(--dim);letter-spacing:1px;}
+.info-val{color:var(--muted);}
+.info-val.signal{color:var(--signal);}
+.info-val.warn{color:var(--amber);}
+.info-val.error{color:var(--rose);}
+
+/* ── QR / Magnet ── */
+#magnet-section{
+  width:100%;display:none;
+  flex-direction:column;align-items:center;gap:12px;
+}
+#magnet-section.visible{display:flex;}
+#qr-canvas{
+  border:1px solid rgba(57,255,106,.2);
+  image-rendering:pixelated;
+}
+#magnet-text{
+  font-size:7px;color:var(--dim);letter-spacing:1px;
+  word-break:break-all;text-align:center;line-height:1.6;
+  padding:8px;border:1px solid rgba(57,255,106,.1);
+  width:100%;
+}
+#copy-btn{
+  font-size:8px;letter-spacing:2px;padding:8px 16px;
+  border:1px solid rgba(57,255,106,.2);color:var(--mid);
+  background:none;cursor:pointer;font-family:var(--mono);
+}
+
+/* ── Toast notifications ── */
+#toast-stack{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:999;pointer-events:none;width:calc(100% - 48px);max-width:320px;
+}
+.toast{
+  width:100%;padding:10px 14px;
+  font-size:8px;letter-spacing:2px;text-transform:uppercase;
+  border:1px solid rgba(57,255,106,.3);background:rgba(2,7,5,.96);
+  color:var(--bright);font-family:var(--mono);
+  display:flex;align-items:center;gap:10px;
+  opacity:0;transform:translateY(8px);
+  transition:opacity .2s ease,transform .2s ease;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok  {border-color:var(--signal);color:var(--signal);}
+.toast.fail{border-color:var(--rose);color:var(--rose);}
+.toast.info{border-color:var(--amber);color:var(--amber);}
+.toast-icon{font-size:12px;flex-shrink:0;}
+
+/* ── Input for magnet paste ── */
+#magnet-input{
+  width:100%;padding:10px;
+  background:rgba(57,255,106,.03);border:1px solid rgba(57,255,106,.2);
+  color:var(--bright);font-family:var(--mono);font-size:9px;
+  display:none;
+}
+#magnet-input.visible{display:block;}
+#magnet-input::placeholder{color:var(--dim);}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo-mark">⬡</div>
+  <div>
+    <div class="title">ALK · Mic Bridge</div>
+    <div class="subtitle">v1.0.0 · zero-server audio relay</div>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- Status ring -->
+  <div id="status-ring">
+    <svg class="ring-svg" viewBox="0 0 160 160">
+      <circle class="ring-bg" cx="80" cy="80" r="70"/>
+      <circle class="ring-fill" id="ring-fill" cx="80" cy="80" r="70"/>
+    </svg>
+    <div id="ring-icon">🎙</div>
+    <div id="ring-label">IDLE</div>
+  </div>
+
+  <!-- Energy meter -->
+  <div id="energy-meter"><div id="energy-fill"></div></div>
+
+  <!-- Level bars -->
+  <div id="level-display">
+    <div class="level-bar" id="lb0"></div>
+    <div class="level-bar" id="lb1"></div>
+    <div class="level-bar" id="lb2"></div>
+    <div class="level-bar" id="lb3"></div>
+    <div class="level-bar" id="lb4"></div>
+    <div class="level-bar" id="lb5"></div>
+    <div class="level-bar" id="lb6"></div>
+    <div class="level-bar" id="lb7"></div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast-stack"></div>
+
+  <!-- Magnet paste (manual fallback) -->
+  <input id="magnet-input" class="" placeholder="paste alk:// magnet link here" oninput="onMagnetPaste(this.value)"/>
+
+  <!-- Main action button -->
+  <button class="btn primary" id="main-btn" onclick="mainAction()">
+    START CAPTURE
+  </button>
+
+  <button class="btn secondary" id="stop-btn" onclick="stopCapture()" style="display:none">
+    STOP
+  </button>
+
+  <!-- Info rows -->
+  <div style="width:100%">
+    <div class="info-row">
+      <span class="info-label">TRANSPORT</span>
+      <span class="info-val" id="info-transport">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">SESSION</span>
+      <span class="info-val" id="info-session">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">AUDIO</span>
+      <span class="info-val" id="info-audio">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">ENERGY σ</span>
+      <span class="info-val" id="info-sigma">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">PEER</span>
+      <span class="info-val" id="info-peer">awaiting connection</span>
+    </div>
+  </div>
+
+  <!-- QR / Magnet display (when not on same device) -->
+  <div id="magnet-section">
+    <div style="font-size:7px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;">Scan on host device</div>
+    <canvas id="qr-canvas" width="200" height="200"></canvas>
+    <div id="magnet-text">—</div>
+    <button id="copy-btn" onclick="copyMagnet()">COPY MAGNET LINK</button>
+  </div>
+
+</div>
+
+<script type="module">
+import { ALKMesh, MagnetLink } from './modules/mesh/alk-mesh.js';
+import { SISOBus, StreamLog } from './siso.js';
+
+// ── Bus ────────────────────────────────────────────────────────────────────────
+const bus = new SISOBus({ log: new StreamLog('EVENTS') });
+let mesh    = null;
+let stream  = null;
+let audioCtx = null;
+let analyser = null;
+let rafId    = null;
+let currentMagnet = null;
+let connected     = false;
+
+// ── Toast system ──────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info', duration = 3000) {
+  const stack = document.getElementById('toast-stack');
+  const t = document.createElement('div');
+  const icons = { ok: '✓', fail: '✗', info: '◈' };
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type] ?? '◈'}</span><span>${msg}</span>`;
+  stack.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 250);
+  }, duration);
+}
+
+// ── Auto-connect on load ──────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setStatus('idle', '🎙', 'TAP TO START');
+});
+
+window.mainAction = async function() {
+  document.getElementById('main-btn').disabled = true;
+  setStatus('connecting', '⏳', 'REQUESTING MIC');
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl:  false,
+        sampleRate:       { ideal: 48000 },
+        channelCount:     1,
+      },
+      video: false,
+    });
+  } catch (e) {
+    setStatus('error', '✗', 'MIC DENIED');
+    setInfo('info-audio', e.message, 'error');
+    showToast('Mic access denied', 'fail');
+    document.getElementById('main-btn').disabled = false;
+    return;
+  }
+
+  setInfo('info-audio', '48kHz · mono · captured', 'signal');
+  startLevelMeter(stream);
+
+  mesh = new ALKMesh({
+    bus,
+    headless: false,
+    onStream: () => {},
+    onMagnet: (magnet) => showMagnet(magnet),
+  });
+
+  // ── Handshake events → toasts ─────────────────────────────────────────────
+  bus.on('alk.mesh.handshake.attempt', (ev) => {
+    const label = ev.transport === 'lan' ? 'LAN' : ev.transport === 'broadcast' ? 'SAME DEV' : ev.transport;
+    showToast(`Trying ${label}…`, 'info', 2500);
+    setStatus('connecting', '⏳', `${label} HANDSHAKE`);
+  });
+
+  bus.on('alk.mesh.handshake.result', (ev) => {
+    const label = ev.transport === 'lan' ? 'LAN' : ev.transport === 'broadcast' ? 'SAME DEV' : ev.transport;
+    if (ev.ok === true) {
+      showToast(`${label} handshake OK`, 'ok', 3000);
+    } else if (ev.ok === false) {
+      showToast(`${label} not found`, 'fail', 2500);
+    } else {
+      // null = magnet fallback pending — pulse will keep re-emitting
+      showToast('Showing magnet · pulses every 15s', 'info', 4000);
+    }
+  });
+
+  // ── Peer connected ────────────────────────────────────────────────────────
+  bus.on('alk.mesh.transport.ready', (ev) => {
+    setInfo('info-transport', ev.transport?.toUpperCase(), 'signal');
+    setStatus('active', '🎙', 'LIVE');
+  });
+
+  bus.on('alk.mesh.peer.connected', (ev) => {
+    connected = true;
+    setInfo('info-peer', `connected · ${ev.transport}`, 'signal');
+    setInfo('info-session', ev.sessionId?.slice(0,8) ?? '—', 'signal');
+    setStatus('active', '🔴', 'STREAMING');
+    document.getElementById('ring-fill').style.stroke = 'var(--rose)';
+    showToast('Connected · streaming', 'ok', 4000);
+  });
+
+  bus.on('alk.mesh.peer.disconnected', () => {
+    if (connected) {
+      connected = false;
+      setInfo('info-peer', 'disconnected', 'warn');
+      setStatus('connecting', '⏳', 'RECONNECTING');
+      showToast('Peer disconnected', 'fail', 3000);
+    }
+  });
+
+  // ── Magnet re-pulse (every 15s from host heartbeat) ───────────────────────
+  bus.on('alk.mesh.magnet', (ev) => {
+    showMagnet(ev.magnet);
+    if (ev.repulse) showToast('Magnet refreshed · scan to connect', 'info', 3000);
+  });
+
+  bus.on('alk.mesh.error', (ev) => {
+    console.warn('[ALK-Mesh]', ev.context, ev.message);
+  });
+
+  setStatus('connecting', '⏳', 'CONNECTING');
+
+  // Kick off: LAN first, BC fallback, magnet/QR if neither (see alk-mesh.js)
+  const pastedMagnet = document.getElementById('magnet-input').value.trim() || null;
+  await mesh.connectAsMic(pastedMagnet, stream);
+
+  document.getElementById('main-btn').style.display = 'none';
+  document.getElementById('stop-btn').style.display = '';
+};
+
+window.stopCapture = function() {
+  mesh?.stopAll();
+  stream?.getTracks().forEach(t => t.stop());
+  cancelAnimationFrame(rafId);
+  audioCtx?.close();
+  connected = false;
+  stream = null; audioCtx = null; analyser = null;
+  setStatus('idle', '🎙', 'IDLE');
+  setInfo('info-transport', '—');
+  setInfo('info-peer', 'awaiting connection');
+  setInfo('info-session', '—');
+  document.getElementById('main-btn').style.display = '';
+  document.getElementById('main-btn').disabled = false;
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('magnet-section').classList.remove('visible');
+  document.getElementById('ring-fill').style.stroke = 'var(--signal)';
+};
+
+window.onMagnetPaste = function(val) {
+  if (val.startsWith('alk://')) showToast('Magnet link ready', 'ok', 2000);
+};
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+const energyHistory = [];
+let energyMean = 0, energySigma = 0;
+
+function startLevelMeter(str) {
+  audioCtx = new AudioContext({ sampleRate: 48000 });
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  audioCtx.createMediaStreamSource(str).connect(analyser);
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+
+  function tick() {
+    rafId = requestAnimationFrame(tick);
+    analyser.getByteTimeDomainData(buf);
+
+    let sum = 0;
+    for (const b of buf) { const s = (b - 128) / 128; sum += s * s; }
+    const rms = Math.sqrt(sum / buf.length);
+
+    // Rolling stats for σ
+    energyHistory.push(rms);
+    if (energyHistory.length > 30) energyHistory.shift();
+    energyMean  = energyHistory.reduce((a,b)=>a+b,0) / energyHistory.length;
+    const variance = energyHistory.reduce((a,b)=>a+(b-energyMean)**2,0) / energyHistory.length;
+    energySigma = Math.sqrt(variance);
+    const zScore = energySigma > 0 ? (rms - energyMean) / energySigma : 0;
+
+    // Update energy fill
+    document.getElementById('energy-fill').style.width = Math.min(100, rms * 400) + '%';
+    document.getElementById('info-sigma').textContent  = zScore.toFixed(2) + 'σ';
+
+    // 8-bar level display
+    analyser.getByteFrequencyData(buf);
+    const step = Math.floor(buf.length / 8);
+    for (let i = 0; i < 8; i++) {
+      const avg = (buf[i*step] + (buf[i*step+1]||0)) / 2;
+      const h = Math.max(4, Math.round(avg / 255 * 36));
+      const bar = document.getElementById(`lb${i}`);
+      if (bar) {
+        bar.style.height = h + 'px';
+        bar.style.background = h > 28 ? 'var(--rose)' : h > 16 ? 'var(--amber)' : 'var(--signal)';
+      }
+    }
+  }
+  tick();
+}
+
+// ── QR code generation (micro, no deps) ──────────────────────────────────────
+// Simple QR: just display magnet as dense text matrix for now.
+// A full QR encoder is ~3KB — inline here as a minimal implementation.
+
+function showMagnet(magnetStr) {
+  currentMagnet = magnetStr;
+  document.getElementById('magnet-section').classList.add('visible');
+  document.getElementById('magnet-text').textContent = magnetStr;
+
+  // Draw minimal visual representation (text-based, scannable as URL)
+  const canvas = document.getElementById('qr-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#020705';
+  ctx.fillRect(0,0,200,200);
+
+  // Draw the magnet link as a dense grid of characters (placeholder for QR)
+  // In production: use a proper QR encoder. This makes the text visible at least.
+  ctx.fillStyle = '#39ff6a';
+  ctx.font = '7px Courier New';
+  const lines = [];
+  for (let i = 0; i < magnetStr.length; i += 28) {
+    lines.push(magnetStr.slice(i, i+28));
+  }
+  lines.forEach((line, i) => ctx.fillText(line, 4, 16 + i*10));
+
+  // Draw border
+  ctx.strokeStyle = 'rgba(57,255,106,.3)';
+  ctx.strokeRect(0,0,200,200);
+
+  // Display session info
+  try {
+    const m = MagnetLink.parse(magnetStr);
+    setInfo('info-session', m.sessionId?.slice(0,8), 'signal');
+  } catch (_) {}
+}
+
+window.copyMagnet = function() {
+  if (currentMagnet) {
+    navigator.clipboard.writeText(currentMagnet).then(() => {
+      document.getElementById('copy-btn').textContent = 'COPIED ✓';
+      setTimeout(() => { document.getElementById('copy-btn').textContent = 'COPY MAGNET LINK'; }, 2000);
+    });
+  }
+};
+
+// ── Status helpers ────────────────────────────────────────────────────────────
+function setStatus(state, icon, label) {
+  document.getElementById('ring-icon').textContent = icon;
+  document.getElementById('ring-label').textContent = label;
+  const fill = document.getElementById('ring-fill');
+  fill.className = 'ring-fill ' + state;
+}
+
+function setInfo(id, val, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val ?? '—';
+  el.className = 'info-val' + (cls ? ' ' + cls : '');
+}
+
+
+</script>
+</body>
+</html>

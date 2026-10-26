@@ -221,7 +221,7 @@
 <div class="doc-header">
   <div class="doc-title">MASTERMIND</div>
   <div class="doc-sub">LIVING DOCUMENTATION · COGNITIVE MAPPING OS · SISO + JAA ARCHITECTURE</div>
-  <div class="doc-version">v3.0.5 · Build 2026-04-05 · 9,300+ lines · 5 files</div>
+  <div class="doc-version">Written against package.json's version — check Options → About in the running app for the exact build. This page doesn't self-update; see §20 for the most recent addendum.</div>
 </div>
 
 <nav class="doc-nav">
@@ -242,6 +242,10 @@
   <a href="#ipc">ELECTRON IPC</a>
   <a href="#node-types">NODE TYPES</a>
   <a href="#domains">META-DOMAINS</a>
+  <a href="#lattice">LATTICE</a>
+  <a href="#coherence">COHERENCE</a>
+  <a href="#voice">VOICE</a>
+  <a href="#agents">AI AGENTS</a>
   <a href="#known-issues">KNOWN ISSUES</a>
 </nav>
 
@@ -252,33 +256,49 @@
     <div class="section-id">§01</div>
   </div>
 
-  <p>Mastermind is a single-page Electron application structured as three files: <span class="hl-c">index-browser.html</span> (UI + CSS), <span class="hl-v">nexus-engine.js</span> (application logic, ~9,300 lines), and <span class="hl-g">mastermind-foundation.js</span> (bedrock layer: registry, vault, tags, events). A fourth file, <span class="hl-o">mastermind-siso-jaa.js</span>, provides the SISO stream runtime and JAA delta ledger — loaded first before any other script.</p>
+  <p>Mastermind is an Electron application mid-way through a deliberate de-monolithing. Two large files remain (<span class="hl-c">index-browser.html</span> — all UI + CSS; <span class="hl-g">nexus-engine.js</span> — the un-extracted remainder), while everything bedrock lives under <span class="hl-v">foundation/</span> and everything feature-shaped lives under <span class="hl-o">modules/</span>. Twenty-four scripts load in a strict order; the order is not cosmetic, it encodes dependency direction.</p>
 
   <div class="code">
-<span class="cm">/* Load order — strict */</span>
-<span class="fn">mastermind-siso-jaa.js</span>      <span class="cm">← FIRST  · SISO stream + JAA gates + MM_BUS + MM_RUNNER</span>
-<span class="fn">mastermind-foundation.js</span>     <span class="cm">← SECOND · MMRegistry, MMVault, MMLog, MMTags, MMDomains</span>
-<span class="fn">nexus-engine.js</span>             <span class="cm">← THIRD  · all modules, canvas, auth, UI</span>
+<span class="cm">/* Real load order — read straight out of index-browser.html */</span>
+foundation/siso-jaa/mastermind-siso-jaa.js   <span class="cm">← SISO stream, JAA gates, MM_BUS, MM_RUNNER</span>
+foundation/bus/event-ledger.js               <span class="cm">← ring buffer over BOTH buses (must precede emitters)</span>
+foundation/core/mastermind-foundation.js     <span class="cm">← MMRegistry, MMDelta, MMTags, MMDomains, MMLog…</span>
+nexus-canvas.js                              <span class="cm">← canvas engine + global error/hit-test capture</span>
+foundation/theme/mastermind-bg.js
+foundation/ui/mm-dialogs.js                  <span class="cm">← mmPrompt / mmConfirm (window.prompt is unusable here)</span>
+foundation/vault/mastermind-vault.js
+foundation/ai/clearglass-transport.js
+nexus-engine.js                              <span class="cm">← the remaining monolith</span>
+modules/alm/{engine,ui,events}.js
+foundation/bus/{warp-core,mastermind-warp-spine}.js
+modules/leverage-map/{engine,events,ui}.js
+modules/voice-lattice/engine.js              <span class="cm">← association / friction / predictive engines</span>
+modules/pattern-engine/engine.js
+modules/lattice/lattice.js                   <span class="cm">← universal substrate</span>
+modules/lattice/coherence.js                 <span class="cm">← ripple / contradiction / incoherence</span>
+modules/voice-lattice/{dictation,recall,speech}.js
   </div>
+
+  <p style="margin-top:14px"><b>Two buses exist and this matters.</b> The global <span class="hl-c">MM_BUS</span> is SISO's (from <span class="hl-c">mastermind-siso-jaa.js</span>); foundation exposes its own separate bus as <span class="hl-v">_MM_BUS</span>. Different implementations, different events. The event ledger taps <i>both</i> and tags each entry with its origin — anything assuming a single bus will silently miss half the traffic.</p>
 
   <div class="card-grid" style="margin-top:20px">
     <div class="card">
       <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--c),transparent)"></div>
-      <div class="card-label hl-c">MASTERMIND-SISO-JAA.JS</div>
-      <div class="card-desc">Pure functional event pipeline. SISOEvent, SISOGate, SISOStream, SISOStreamLog. JAAPureGate, JAAStateGate, JAAMutationBatch, JAAReadSet. JAAMemoryStore (SHA-256 content-addressed), JAAMemoryRefs (name→hash). JAARunner (resolve reads → apply mutations). MMEventBus (live SISO-backed pub/sub). Global instances: MM_BUS, MM_RUNNER.</div>
-      <div class="card-meta">Size: ~600 lines · No dependencies</div>
+      <div class="card-label hl-c">FOUNDATION/</div>
+      <div class="card-desc">Bedrock. <b>siso-jaa</b> (388) stream runtime + MM_BUS with wildcard dispatch at emit level. <b>core</b> (1,827) MMRegistry, MMDelta, MMTags, MMDomains, MMVault, MMLog, MMRipple, MMDiag, MMToast. <b>vault</b> (1,095) AES-256-GCM · PBKDF2-SHA256 310k · atomic writes. <b>bus</b> warp-core (222) + spine (159) + event-ledger (86). <b>ai</b> clearglass-main (323, main process) + transport (177). <b>ui</b> mm-dialogs (87). <b>theme</b> (210).</div>
+      <div class="card-meta">11 files · ~4,600 lines</div>
     </div>
     <div class="card">
       <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--v),transparent)"></div>
-      <div class="card-label hl-v">MASTERMIND-FOUNDATION.JS</div>
-      <div class="card-desc">Bedrock layer. MMRegistry (UUID entity ledger), MMDelta (immutable change history), MMTags (6-category tag system), MMDomains (400+ taxonomy), MMVault (AES-256-GCM encrypted storage), MMLog (structured ring-buffer logger), MMRipple (event bus), MMDiag (diagnostic runner), MMToast (toast coordinator), MMTagsUI (pill renderer).</div>
-      <div class="card-meta">Size: 1,827 lines · Globals: 10</div>
+      <div class="card-label hl-v">MODULES/</div>
+      <div class="card-desc">Extracted features, each engine/ui/events with a documented bus contract in its own events.js. <b>alm</b> (1,698) 8 tabs incl. Feedback Loops + Delta Log. <b>leverage-map</b> (273) L = tension × weight × slope. <b>voice-lattice</b> (1,039) association engines, dictation, rolling recall, speech. <b>lattice</b> (498) universal substrate + coherence. <b>pattern-engine</b> (184) memory + crystallisation.</div>
+      <div class="card-meta">14 files · ~3,700 lines</div>
     </div>
     <div class="card">
       <div class="card-accent" style="background:linear-gradient(90deg,transparent,var(--g),transparent)"></div>
-      <div class="card-label hl-g">NEXUS-ENGINE.JS</div>
-      <div class="card-desc">All application logic. Canvas (infinite pan/zoom, 18 node types, connections, force layout), Auth (PBKDF2+AES-256-GCM+RSA-OAEP), Startup flow (watchdog, vault gates), Brain Map V2 (3D sphere, 13 meta-domains), Spatial Void + Creative (merged), Horizon Living, ALM, Options, AI (Anthropic/OpenAI/Ollama/LM Studio), Import (5 formats), Toast system (48 named toasts).</div>
-      <div class="card-meta">Size: ~9,300 lines · Functions: 300+</div>
+      <div class="card-label hl-g">NOT YET EXTRACTED</div>
+      <div class="card-desc"><b>nexus-engine.js</b> still holds Brain Map, Horizon, Spatial Void, Systems, Relational, Mirror, auth, options and the import system. <b>nexus-canvas.js</b> is the whole canvas engine plus the global uncaught-error capture and the hit-test diagnostic. Both are targets for the same engine/ui/events split the extracted modules use.</div>
+      <div class="card-meta">The honest remainder</div>
     </div>
   </div>
 </div>
@@ -426,7 +446,7 @@ loadCanvas()
   <table>
     <tr><th>Action</th><th>Function</th><th>What It Does</th></tr>
     <tr><td>RECREATE VAULT</td><td>_vaultRecreate()</td><td>Writes a fresh mastermind.vault to current dataDir. Re-runs startupRoute() on success.</td></tr>
-    <tr><td>CHOOSE NEW FOLDER</td><td>pickStartupFolder()</td><td>Opens folder picker dialog. User selects a folder containing an existing vault.</td></tr>
+    <tr><td>CHOOSE NEW FOLDER</td><td>pickStartupFolder()</td><td>Vault-missing recovery only. Opens folder picker, persists the choice, re-runs startupRoute().</td></tr>
     <tr><td>RESTORE FROM BACKUP</td><td>_vaultRestoreFromBackup()</td><td>Opens file picker. Validates JSON. Writes to dataDir/mastermind.vault. Restarts.</td></tr>
   </table>
 </div>
@@ -437,6 +457,18 @@ loadCanvas()
     <div class="section-title" style="color:var(--y)">Module System</div>
     <div class="section-id">§04</div>
   </div>
+
+  <p><b>Where each module actually lives.</b> This drifted badly during extraction, so it is stated explicitly:</p>
+  <table>
+    <tr><th>Module</th><th>File(s)</th></tr>
+    <tr><td>ALM</td><td>modules/alm/{engine,ui,events}.js — extracted, no longer in nexus-engine.js</td></tr>
+    <tr><td>Leverage Map</td><td>modules/leverage-map/{engine,ui,events}.js</td></tr>
+    <tr><td>Voice Lattice</td><td>modules/voice-lattice/{engine,dictation,recall,speech}.js + vlAddNode in nexus-engine.js</td></tr>
+    <tr><td>Lattice / Coherence</td><td>modules/lattice/{lattice,coherence}.js</td></tr>
+    <tr><td>Pattern engine</td><td>modules/pattern-engine/engine.js</td></tr>
+    <tr><td>Brain Map · Horizon · Spatial Void · Systems · Relational · Mirror</td><td>still in nexus-engine.js</td></tr>
+    <tr><td>Canvas</td><td>nexus-canvas.js (unsplit)</td></tr>
+  </table>
 
   <p>Four core modules are gated by the feature selection screen (ss-features). Each module has a card on the homepage, a back/home button in its overlay, and a ? HELP button that renders MODULE_HELP documentation. All module opens emit MM_BUS events.</p>
 
@@ -577,7 +609,7 @@ loadCanvas()
     <tr><td>mm.ai.error</td><td>aiCall() failure</td><td>{ provider, error }</td></tr>
     <tr><td>mm.void.seed.add</td><td>voidAddSeed()</td><td>{ text }</td></tr>
     <tr><td>mm.void.ai.expand</td><td>voidExpandWhatifAI()</td><td>{ count }</td></tr>
-    <tr><td>mm.vault.loaded</td><td>enterFromStartup() Step 4</td><td>{ path }</td></tr>
+    <tr><td>mm.vault.imported</td><td>_importFinalize()</td><td>{ path }</td></tr>
     <tr><td>mm.vault.recreated</td><td>_vaultRecreate()</td><td>{ path }</td></tr>
     <tr><td>mm.help.open</td><td>showModuleHelp()</td><td>{ key }</td></tr>
     <tr><td>mm.vault.created</td><td>setupCreateVault()</td><td>{ path, username }</td></tr>
@@ -703,6 +735,90 @@ Atomic writes:      Write to .tmp → rename (NTFS atomic via Electron IPC)
 </div>
 
 <!-- KNOWN ISSUES -->
+<!-- LATTICE -->
+<div id="lattice" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--c)">Associative Lattice</div>
+    <div class="section-id">§16</div>
+  </div>
+  <p>One substrate every module feeds. Anything entering it is automatically tagged, linked to whatever came before with an <b>inferred relation</b>, and linked to earlier items by vocabulary overlap and shared tags. Nothing about this is manual — the explicit versions of these actions still exist, this is what happens without asking.</p>
+  <table>
+    <tr><th>Edge type</th><th>Meaning</th></tr>
+    <tr><td>sequence</td><td>Connected to the previous entry, labelled with the inferred relation</td></tr>
+    <tr><td>association</td><td>Jaccard overlap on content words ≥ 0.12</td></tr>
+    <tr><td>shared-tag</td><td>Same distinctive tag within a 120-node lookback</td></tr>
+  </table>
+  <p style="margin-top:12px"><b>Relations</b> (heuristic, not comprehension): <span class="hl-c">opens</span> · <span class="hl-c">elaborates</span> (same kind, strong overlap) · <span class="hl-c">returns to</span> (strong overlap after a &gt;30min gap) · <span class="hl-c">crosses into</span> (different kind, related topic) · <span class="hl-c">shifts to</span> (little overlap).</p>
+  <div class="code">
+<span class="cm">// Every module calls exactly one entry point</span>
+<span class="fn">latticeIngest</span>(kind, sourceId, text, meta)
+
+<span class="cm">// Sources wired automatically — none optional</span>
+canvas.node · voice.utterance · alm.delta · horizon.seed
+horizon.commit · pattern.crystal · identity.marker
+
+<span class="cm">// Read side</span>
+<span class="fn">latticeNeighborhood</span>(id)  <span class="cm">→ everything connected, ranked</span>
+<span class="fn">latticeThread</span>(id)        <span class="cm">→ walk sequence edges back = a line of thought</span>
+<span class="fn">latticeBridges</span>(minKinds) <span class="cm">→ concepts spanning MULTIPLE modules</span>
+  </div>
+</div>
+
+<!-- COHERENCE -->
+<div id="coherence" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--o)">Coherence Engine</div>
+    <div class="section-id">§17</div>
+  </div>
+  <p>Runs automatically on every lattice ingest. Findings write into ALM's delta log, so they become part of the growth record rather than a toast you missed.</p>
+  <table>
+    <tr><th>Finding</th><th>Trigger</th></tr>
+    <tr><td><span class="hl-c">RIPPLE</span></td><td>What you wrote touches a Horizon seed or commitment — names the plan</td></tr>
+    <tr><td><span class="hl-o">CONTRADICTION</span></td><td>Same subject, opposite polarity, ≥ 0.22 topical overlap</td></tr>
+    <tr><td><span class="hl-r">INCOHERENCE</span></td><td>Conflicts with a commitment you actually made — held separate, heavier</td></tr>
+  </table>
+  <p style="margin-top:12px"><b>Honest limits.</b> Polarity is grammatical-negation counting, not language understanding — it misses sarcasm and conditionals. Semantic negatives (<i>avoid</i>, <i>stop</i>, <i>fail</i>) are deliberately <i>excluded</i> from the negation set: including them made a commitment that merely mentioned avoidance match the polarity of its own violation, and incoherence went undetected. Thresholds are tuned to stay quiet, because a detector that cries wolf gets ignored.</p>
+  <p><b>Intelligence types are automatic.</b> <span class="fn">cohIntelligenceFromLattice()</span> derives ratings from real lattice activity with a 14-day half-life and syncs them into ALM/DOMAIN_STATE. The Ni/Ne/Ti/Te and INTEL titlebar buttons were removed — they were panels maintained by hand.</p>
+</div>
+
+<!-- VOICE -->
+<div id="voice" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--v)">Voice: Dictation · Recall · Capture</div>
+    <div class="section-id">§18</div>
+  </div>
+  <p><b>Dictation is a capability on every field</b>, not a feature in one module. Focus any input, textarea or contenteditable → a mic appears; <span class="hl-c">F2</span> toggles. Text inserts <i>at the cursor</i>, not appended. Spoken punctuation, <i>new line</i>, <i>new paragraph</i>, and <i>scratch that</i> all work. Everything dictated joins the lattice exactly like typed text.</p>
+  <p><b>Rolling recall</b> keeps a trailing 10-minute audio ring and cuts each segment from <b>onset minus 3 seconds</b> — detection always lags the first syllable, so reaching backwards is the only way not to clip it. RMS detection with hysteresis keeps one utterance from fragmenting on every breath. <b>Off by default</b>: an always-on microphone is a deliberate choice, not a quiet default.</p>
+  <div class="code">
+<span class="fn">dictApplyCommands</span>(raw)      <span class="cm">// spoken → written, punctuation tidied</span>
+<span class="fn">dictInsertInto</span>(el, text)    <span class="cm">// cursor-accurate, React-safe value setter</span>
+<span class="fn">recallPrune</span>(chunks, now, windowMs)
+<span class="fn">recallSelectSegment</span>(chunks, onsetTs, prerollMs, endTs)
+<span class="kw">class</span> <span class="fn">RecallVAD</span>          <span class="cm">// push(rms, ts) → 'start' | 'end' | null</span>
+  </div>
+  <p style="margin-top:12px"><b>Testing honesty.</b> No microphone or SpeechRecognition exists in the build environment. The pure logic — command substitution, cursor insertion across three field types, ring pruning, pre-roll selection, VAD hysteresis — is genuinely tested. The hardware wiring is not, and is flagged as such wherever it appears.</p>
+</div>
+
+<!-- AI AGENTS -->
+<div id="agents" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--g)">Web AI Agents</div>
+    <div class="section-id">§19</div>
+  </div>
+  <p>ChatGPT, Claude, Perplexity and Gemini run <b>inside Mastermind's own Electron process</b> (<span class="hl-v">foundation/ai/clearglass-main.js</span>). No separate app, no userscript manager, no external browser. Each agent gets its own BrowserWindow; each <i>account</i> gets its own session partition (<span class="hl-c">persist:cg-&lt;agent&gt;-&lt;accountId&gt;</span>), so multiple logins for one provider never collide.</p>
+  <table>
+    <tr><th>Behaviour</th><th>Why</th></tr>
+    <tr><td>backgroundThrottling: false</td><td>Necessary but not sufficient. Stops Chromium throttling a hidden window's <i>timers</i> — but a window built with <span class="hl-c">show:false</span> and never shown also reports <span class="hl-c">document.hidden === true</span> to its own page <i>permanently</i>, independent of timer throttling. Sites can legitimately defer streaming/render work while they believe they're backgrounded. Fixed in §20 by keeping windows OS-realized ("parked" off-display) instead of ever leaving them unshown.</td></tr>
+    <tr><td>Fresh conversation per ask</td><td>Otherwise every ask piles into one chat and later prompts are answered by a model that read the earlier ones</td></tr>
+    <tr><td>Strict login probe</td><td>URL on the agent's host + not a login path + <i>visible</i> composer. Any-composer counting reported "signed in" on a Google sign-in page</td></tr>
+    <tr><td>Serial per account</td><td>One chat tab is inherently sequential; different agents/accounts run in parallel</td></tr>
+    <tr><td>Named failures</td><td>NO_COMPOSER · SEND_NEVER_STARTED · TEXT_INJECTION_FAILED · TIMEOUT_WAITING_REPLY — never a silent hang</td></tr>
+  </table>
+  <p style="margin-top:12px"><b>Model selection stays in each agent's own UI</b> — native picker, always current, nothing to keep in sync. The <b>default</b> checkbox in Options → AI sets provider and account together, so the panel and the routing cannot disagree.</p>
+  <p><b>Selector honesty:</b> Claude and ChatGPT are confirmed against the live sites. Perplexity and Gemini are best-known guesses and say so in the UI.</p>
+  <p><b>Fallback relay.</b> For browser-mode Mastermind, <span class="hl-o">integrations/clearglass/mastermind-ai-bridge.user.js</span> drives a tab via clear-glass-lite. Built for the CORS/CSP-hardened build: reads <span class="fn">window.__CGL_BRIDGE__</span> for the live origin and per-install token, sends <span class="fn">X-CGL-Token</span> on every route past /health, uses <span class="hl-c">mastermind-requests</span> / <span class="hl-c">mastermind-responses</span>, and DELETEs processed rows. It replaces the ERAVOS bridge.</p>
+</div>
+
 <div id="known-issues" class="doc-section">
   <div class="section-head">
     <div class="section-title" style="color:var(--r)">Known Issues</div>
@@ -710,23 +826,92 @@ Atomic writes:      Write to .tmp → rename (NTFS atomic via Electron IPC)
   </div>
   <table>
     <tr><th>#</th><th>Issue</th><th>Status</th></tr>
-    <tr><td>1</td><td>nexus_theme key — theme uses consistent nexus_theme key everywhere (was a stale note)</td><td>Non-issue ✓</td></tr>
-    <tr><td>2</td><td>ALM module sections are stubs — intel card grid works, deeper sections placeholder</td><td>Partial</td></tr>
-    <tr><td>3</td><td>Canvas PNG export — toast exists, no implementation</td><td>Gated</td></tr>
-    <tr><td>4</td><td>Auto-lock timer — fully implemented: 30s check interval, mousemove/keydown/click reset, lock returns to login, timer starts on login success</td><td>Fixed ✓</td></tr>
-    <tr><td>5</td><td>writeVaultAtomic IPC — resolved: engine now calls vaultWrite (matches preload exposure)</td><td>Fixed ✓</td></tr>
-    <tr><td>6</td><td>T.aiThinking() — no auto-dismiss if AI fails silently</td><td>Bug</td></tr>
-    <tr><td>7</td><td>Multi-tab protection — two browser tabs write to same localStorage (last-write-wins)</td><td>By design</td></tr>
-    <tr><td>8</td><td>Emotions standalone module — exists only as Brain Map mode</td><td>Planned</td></tr>
-    <tr><td>9</td><td>Collaboration (P2P PeerJS) — gated, not built</td><td>Planned</td></tr>
-    <tr><td>10</td><td>Voice input — gated, not built</td><td>Planned</td></tr>
-    <tr><td>11</td><td>vaultLoad decryption path — {iv, data} spread may need key match on encrypted object shape</td><td>Edge case</td></tr>
-    <tr><td>12</td><td>Brain map 3D sphere — older low-power GPUs may see slow RAF; no fallback renderer</td><td>Known</td></tr>
+    <tr><td>1</td><td><b>#app closed ~3,000 lines early</b> — a stray &lt;/div&gt; made canvas-wrap a SIBLING of #app instead of a child, so #app (z-index:1) silently swallowed every canvas click. No error, no visual tell.</td><td>Fixed ✓</td></tr>
+    <tr><td>2</td><td><b>window.prompt() is unusable</b> in this frameless BrowserWindow — it broke node linking outright and 22 other call sites incl. password/PIN/encryption. Replaced by foundation/ui/mm-dialogs.js.</td><td>Fixed ✓</td></tr>
+    <tr><td>3</td><td><b>setTool ↔ cancelLink infinite recursion</b> — unconditional mutual calls, stack overflow on Escape.</td><td>Fixed ✓</td></tr>
+    <tr><td>4</td><td><b>ALM_DELTAS_KEY / almLogDelta never existed</b> — the Delta Log threw on open and its save button called a function that was never written.</td><td>Fixed ✓</td></tr>
+    <tr><td>5</td><td>ALM Cognitive Functions / Models tabs re-rendered into an uncleaned container — nested copies on every click.</td><td>Fixed ✓</td></tr>
+    <tr><td>6</td><td>Hidden BrowserWindows report <span class="hl-c">document.hidden === true</span> to their own page forever if never shown — sites can legitimately defer streaming/render work while backgrounded, so the AI reply (or Test button) never completed until the window was shown. backgroundThrottling:false alone (the original fix attempt) only stopped timer throttling and did not address this.</td><td>Fixed ✓ (§20)</td></tr>
+    <tr><td>7</td><td>Voice Lattice had <b>zero</b> SpeechRecognition references despite the name.</td><td>Fixed ✓</td></tr>
+    <tr><td>8</td><td><b>nexus-canvas.js and nexus-engine.js are still monoliths</b> — not yet split into engine/ui/events like the extracted modules.</td><td>Open</td></tr>
+    <tr><td>9</td><td>Growth Slope (NEXUS-SPEC §3.2) — unblocked now that delta data flows, but still needs a decision on what "effort" means.</td><td>Open</td></tr>
+    <tr><td>10</td><td>Externalization UI is still the old form-driven tab. It feeds the lattice, but the surface itself has not grown.</td><td>Open</td></tr>
+    <tr><td>11</td><td>Four duplicate IDs (zd, undo-btn, spawn-menu-btn, redo-btn) inside the dead #topbar block (display:none !important).</td><td>Cosmetic</td></tr>
+    <tr><td>12</td><td>mastermind-theme.css is dead weight; the font-variable refactor that would let text scale independently of layout has not happened.</td><td>Open</td></tr>
+    <tr><td>13</td><td>Perplexity/Gemini DOM selectors unverified against the live sites — surfaced in the UI, not buried.</td><td>Known</td></tr>
+    <tr><td>14</td><td>No WebGL/mic/real-browser in the build environment — visual rendering, audio and Electron window lifecycle are verified on the target machine only.</td><td>By design</td></tr>
   </table>
 </div>
 
+<div id="addendum-2026-07" class="doc-section">
+  <div class="section-head">
+    <div class="section-title" style="color:var(--c)">Addendum — ClearGlass hardening, versioning, secure wipe</div>
+    <div class="section-id">§20</div>
+  </div>
+
+  <h3>WHY THE TEST BUTTON HUNG UNTIL YOU OPENED THE WINDOW</h3>
+  <p>A <span class="hl-c">BrowserWindow</span> built with <span class="hl-c">show:false</span> and never actually shown reports <span class="hl-c">document.hidden === true</span> / <span class="hl-c">visibilityState === 'hidden'</span> to its own page — <b>permanently</b>, not just until the next paint. This is the Page Visibility API, a completely separate mechanism from Chromium's timer throttling. <span class="hl-o">backgroundThrottling:false</span> (§19, the original fix attempt) only stops timers from being throttled while occluded; it does nothing for Page Visibility. ChatGPT and Claude's own client code can legitimately defer streaming or DOM-commit work while their page believes it's backgrounded — independent of any Electron-level setting. Opening the window from the toast flipped Page Visibility to <span class="hl-g">'visible'</span> and the deferred work proceeded. That was the entire symptom.</p>
+
+  <h3>THE FIX — PARKED, NOT HIDDEN</h3>
+  <p>Agent windows now stay OS-realized at all times. Instead of <span class="hl-c">show:false</span> + <span class="hl-c">.hide()</span>, a window not meant to be seen is <b>parked</b>: moved off-display (<span class="hl-v">x:-32000, y:-32000</span>), <span class="hl-v">skipTaskbar:true</span>, shown via <span class="hl-v">showInactive()</span> so it's Chromium-visible without ever appearing to a person or stealing OS focus. <b>Revealed</b> means on-screen, in the taskbar, focused — only true while someone is signing in or looking at Show/Open. Every former <span class="hl-c">.hide()</span> call site (window close, sign-in-detected, the <span class="hl-c">cg:hide</span> IPC handler) now parks instead, because hiding flips Page Visibility back to hidden and would silently reintroduce the exact bug.</p>
+  <div class="code">
+<span class="fn">_cgPark</span>(w)    <span class="cm">// off-display + skipTaskbar + showInactive() — OS-visible, person-invisible</span>
+<span class="fn">_cgReveal</span>(w)  <span class="cm">// on-screen + taskbar + show() + focus() — for sign-in / Show</span>
+  </div>
+  <p>Configuration for the window/timing constants and all four agent definitions moved to <span class="hl-c">foundation/ai/clearglass-config.js</span> — one file, named IDs (<span class="hl-v">PARKED</span> / <span class="hl-v">REVEALED</span> / <span class="hl-v">CLOSED</span>), a comment block for adding a fifth agent. Verified byte-identical to what was previously scattered inline before the move, not reconstructed from memory.</p>
+
+  <h3>OTHER GAPS CLOSED IN THE SAME AUDIT</h3>
+  <table>
+    <tr><th>Gap</th><th>Fix</th></tr>
+    <tr><td>Sign-in watcher gave up silently after ~10 minutes — zero signal to anyone</td><td>Now logs and sends <span class="hl-c">cg:signin-timeout</span>; renderer shows a toast</td></tr>
+    <tr><td>Bridge userscript install was real but 100% dependent on finding a Settings button</td><td>Runs automatically, silently, best-effort at startup — discovery logic (<span class="hl-c">cgUserscriptTargets</span>) already existed, it had no trigger that wasn't a click</td></tr>
+    <tr><td>Second-instance launch focused a hidden (not minimized) window — a no-op, so relaunching while running in the background showed nothing</td><td><span class="hl-c">show()</span> before <span class="hl-c">focus()</span>, routed through one <span class="hl-c">showMainWindow()</span> helper</td></tr>
+    <tr><td>Closing the main window used to <span class="hl-c">app.quit()</span>, killing every hidden agent window with it</td><td>Hides to a tray icon instead; only the tray's Quit (or Cmd+Q) actually exits</td></tr>
+    <tr><td>Five different version numbers across the project (3.2.0 / 3.1 / 3.0 / 3.0.5), plus a hardcoded installer filename check that silently stopped matching real output</td><td>Single source of truth: <span class="hl-c">package.json</span>. Titlebar/homepage/About/vault-byline fill in from <span class="hl-c">app.getVersion()</span> at boot via <span class="hl-c">mmApplyVersion()</span>. BUILD.bat reads the version with <span class="hl-c">node -pe</span> instead of hardcoding it a second time.</td></tr>
+    <tr><td>This documentation page existed in the repo but was never in the packaged <span class="hl-c">files</span> list and nothing in the app ever linked to it</td><td>Added to <span class="hl-c">package.json</span>'s files; About → <span class="hl-c">View Documentation</span> opens it via a new <span class="hl-c">app:open-docs</span> handler</td></tr>
+    <tr><td>clear-glass-lite guardian-lite port/token fields shown unconditionally to every Electron user, even though the baked-in path (§19) needs none of it — pure clutter, plus a manual copy-paste token step</td><td>Hidden behind an "advanced" toggle when <span class="hl-c">window.NXAPI</span> is present; always shown (it's genuinely required there) in browser mode. New <span class="hl-c">cg:detectGuardian</span> reads clear-glass-lite's own config file directly (best-effort — separate app, guessed filenames/keys, fails honestly with what it tried) instead of requiring hand-copied tokens</td></tr>
+    <tr><td>A parallel fork (diverged from the same commit as everything above) independently fixed some of the same bugs with different approaches, and built a genuinely new feature this line didn't have</td><td>Reconciled: kept the more thorough fix wherever both sides fixed the same bug (e.g. Page Visibility windowing over a per-ask opacity toggle, which becomes dead code under it); ported everything genuinely new and non-redundant — the toast overflow-wrap fix, the Sign-out-button row-wrap fix, fuzzy clear-glass-lite directory scanning, the paste-event text-injection fallback, and Horizon's <span class="hl-c">AI End-States</span> generation + backward condition-mapping (§3.1b) in full</td></tr>
+    <tr><td><b>Every single AI call in the app — not just Test — was reloading the agent's entire page from scratch before every request.</b> <span class="hl-c">cg:ask</span>'s reload default was <span class="hl-c">opts.fresh !== false</span> (reload unless told not to); the app's one AI-call path (<span class="hl-c">aiCall → clearglassCall</span>) never passed <span class="hl-c">fresh</span> at all, so it was always true. Full navigation overhead, discarded conversation context, and first-load-only UI (cookie banners etc) re-triggering on every single Node expand, Canvas analysis, Horizon AI call, everything</td><td>Flipped the default: <span class="hl-c">opts.fresh === true</span> (reuse the current page unless a caller explicitly opts in to a reload). Test now explicitly requests <span class="hl-c">fresh:true</span> — a deliberate choice, not an accidental side effect everything else was also getting</td></tr>
+    <tr><td>Options panel too large on screen — no density control, and the panel's own toggle-sync function looked uncalled from a partial search (it wasn't — it's invoked from <span class="hl-c">nexus-canvas.js</span>'s <span class="hl-c">openOptions()</span>, a file outside where the search first looked)</td><td>New <span class="hl-c">opts_density</span> setting (distinct from the pre-existing, still-separately-unwired <span class="hl-c">compact</span> key, which is about canvas node cards, not this panel) — tightens padding/gaps throughout Options with every font-size left exactly as declared, toggle in Appearance → "Compact settings panel"</td></tr>
+    <tr><td>Test (and every other AI call) could still hang even after the reload-default and Page Visibility fixes: completion detection required actually observing a "generating" indicator appear and disappear via the stop-button selector — if that selector doesn't match the live site's real current DOM (very plausible; sites change markup), completion could never be detected even once the reply had genuinely landed</td><td>Reply completion is now detected primarily via text stability (several consecutive polls with unchanged reply content — the same principle the browser-mode userscript's <span class="hl-c">awaitReply</span> already used, ported into the Electron-side <span class="hl-c">_askScript</span> too), with the stop-button signal kept as a fast-path accelerator rather than a hard requirement</td></tr>
+    <tr><td>No visibility into what's actually happening during a long AI call — a static spinner is indistinguishable from stuck</td><td>New read-only <span class="hl-c">cg:peek</span> IPC handler (no typing, no clicking, no side effects) polled every few seconds while a call is in flight; the status chip now shows a live, truncated preview of the reply as it accumulates instead of just an elapsed-seconds counter. Wired into <span class="hl-c">clearglassCall</span> itself, so every AI feature gets this, not just Test. The terminal toast on success also now shows the actual reply text, not just a generic checkmark</td></tr>
+  </table>
+
+  <h3>VOICE LATTICE / INTELLIGENCE TYPES — AUDIT, NOT A REBUILD</h3>
+  <p>Asked to make the Associative Voice Lattice "enterprise grade" and fully automatic. Investigated first rather than assuming it needed building from scratch — it didn't. Real Web Speech API integration (continuous listening, auto-restart past Chromium's ~60s reset, permission handling) already routes every spoken utterance through the same <span class="hl-c">vlAddNode</span> path typed capture uses. Automatic tag extraction, Jaccard-similarity word associations, redundancy/invariant detection, and a Markov predictive engine were all already real and already wired — not stubs, not manual entry. A separate coherence engine already computed <b>13 intelligence types automatically from real lattice activity</b> (recency-weighted keyword mapping, no self-rating required) and synced them into ALM.</p>
+  <p>The actual gap, found by cross-referencing every UI element against its wiring rather than trusting a visual read: the Intel panel still showed <b>manual drag-sliders as the only visible interaction</b>, and the automatic engine's own <span class="hl-c">intel.auto.updated</span> event had <b>zero listeners</b> — the numbers were being computed correctly in the background, but the UI never reactively showed it, and only ran incrementally (every 10th new node), so a returning person with real history saw stale or zero values until enough new activity accumulated.</p>
+  <table>
+    <tr><th>Gap</th><th>Fix</th></tr>
+    <tr><td>Automatic ratings computed but the panel showing them was still a manual slider with no indication it was ever anything else</td><td>Sliders now show an AUTO/MANUAL badge per intelligence type. AUTO is the default and reflects real computed values; dragging marks that one type MANUAL (with a one-click reset-to-auto) rather than silently fighting the automatic engine every 10 nodes</td></tr>
+    <tr><td><span class="hl-c">intel.auto.updated</span> emitted, nothing listened — the Intel panel only showed fresh numbers if it happened to already be open the instant a sync fired</td><td>Wired a real listener that re-renders the Intel panel and the cross-domain synthesis matrix live whenever new automatic ratings land</td></tr>
+    <tr><td>Sync only ran incrementally (every 10th NEW lattice node) — a returning person with substantial existing history saw stale/zero ratings until 10 more nodes accumulated</td><td>One sync now also runs at boot, using whatever lattice history already exists</td></tr>
+    <tr><td>Automatic sync unconditionally overwrote <span class="hl-c">DOMAIN_STATE.intelligenceRatings</span> on every run — a deliberate manual correction would get silently discarded on the next 10-node sync</td><td>New <span class="hl-c">intelligenceOverrides</span> tracking: automatic sync skips any type a person deliberately hand-set, so manual and automatic can coexist without one silently erasing the other</td></tr>
+  </table>
+  <p>Verified via a real cross-reference audit (every <span class="hl-c">onclick</span>/<span class="hl-c">onchange</span>/etc. handler in the app checked against actual function declarations, plus a targeted pass on every <span class="hl-c">MMTags</span>/<span class="hl-c">MMTagsUI</span>/<span class="hl-c">MMVault</span>/<span class="hl-c">MMDomains</span> method call site against its object's real definition) that the canvas linking system (<span class="hl-c">beginLink → completeLink → addConn</span>) and the tagging system (including the legacy <span class="hl-c">node.tags</span> array's auto-migration into the newer <span class="hl-c">MMTags</span> registry) are both genuinely fully wired — no fix needed there, reported as verified rather than "fixed" since nothing was broken.</p>
+
+  <h3>MEMORY ARCHITECTURE — COMPARTMENTS (NEW MODULE)</h3>
+  <p>New <span class="hl-c">modules/memory/</span> — a generic compartment system (mode / system / domain / project / person / custom, or anything else worth naming), each holding pointers into stores that already exist (lattice nodes, canvas nodes, ALM entries, voice utterances) rather than duplicating content. Deliberately asymmetric by design: <b>depth/spatial position is automatic</b> (recency-weighted, real shared-content overlap drives the force layout — the same principle the intelligence-type sync above uses), but <b>a compartment's existence, name, and contents are always a direct action</b> — creation, assignment, and removal are never inferred or silent, only suggested. The one place in this session's automation push where "automatic by default" was deliberately NOT the answer, because the container someone chooses to think inside is a different kind of thing than self-knowledge computed from their activity.</p>
+  <p>Visualized as a pseudo-3D force-directed canvas (real <span class="hl-c">&lt;canvas&gt;</span> 2D, depth simulated via scale/opacity/mouse-parallax) — the same proven technique Brain Map's own <span class="hl-c">#brain-cvs</span> already uses, not a new WebGL dependency. Layout position comes from <span class="hl-c">memRelatedness</span> (real Jaccard overlap between compartments' actual shared members), not an arbitrary grid.</p>
+  <p><b>Not done yet</b> from the same design conversation: Pattern Vault and Framework Vault (browsable fronts for what <span class="hl-c">pattern-engine</span> already detects, and a real structured evolution of ALM's currently-shallow Frameworks tab, respectively); Synthesis Lab (unifying canvas's synthesis-node type and the richer meta-domain synthesis-pairs computation that used to live in Brain Map's cross-domain panel, now dormant — see §META-COGNITION below); a vocabulary "grammar" (words characteristically used vs. conspicuously avoided, building on <span class="hl-c">VLE_STATE.wordBank</span>); and Notion import (no example file was provided yet to build against).</p>
+
+  <h3>META-COGNITION — ALM CONSOLIDATION, AND A THIRD DIVERGENT COPY FOUND ALONG THE WAY</h3>
+  <p>Asked directly: "what about meta-cognition." Went to do the Intelligence-Types-into-ALM relocation flagged as pending above, and found the previous session's fix had been applied to <b>dead code</b>. <span class="hl-c">brainTab(t)</span>'s call to the old <span class="hl-c">renderIntelligenceStats()</span> sat under a comment that already said <i>"Legacy fallbacks (overridden by bmv2 tab system below)"</i> — the actually-live render path was a completely separate, differently-named function (<span class="hl-c">_bmRenderIntelStats</span> / <span class="hl-c">bmv2SetIntel</span>) with zero AUTO/MANUAL badge, zero override tracking, nothing. The AUTO/MANUAL fix from last session was real and correct in its own function — it just wasn't the function anyone was actually looking at.</p>
+  <p>A third, independent divergence turned up checking this: the automatic coherence engine's own keyword map (<span class="hl-c">COH_INTEL_MAP</span>) only covered 9 of the 13 intelligence types, and used the key <span class="hl-c">'kinesthetic'</span> where the other two implementations used <span class="hl-c">'bodily-kinesthetic'</span> — a plain string mismatch, so that automatic score was being computed correctly and then silently written to a <span class="hl-c">DOMAIN_STATE.intelligenceRatings</span> key nothing ever displayed.</p>
+  <table>
+    <tr><th>Divergence</th><th>Fix</th></tr>
+    <tr><td>Three independent implementations of the same rating panel (dead legacy code, live-but-unfixed Brain Map code, and the automatic engine with incompatible keys) able to silently disagree with each other</td><td>One canonical implementation, moved into ALM's new Intelligence tab. The dead and superseded copies are deleted, not left alongside as unreachable code — Brain Map's old containers now render a one-line "moved to ALM" link instead of a duplicate control surface</td></tr>
+    <tr><td>Automatic engine only scored 9 of 13 types, and <span class="hl-c">'kinesthetic'</span> vs <span class="hl-c">'bodily-kinesthetic'</span> was a genuine key mismatch across the three implementations</td><td>All 13 types keyed identically everywhere now; added keyword sets for creative/systems/emotional/embodied, which previously had no automatic scoring path at all</td></tr>
+  </table>
+  <p>ALM's own README had already named this gap: "ALM's Cognitive Functions tab already <i>is</i> a meta-cognition tool... needs a real answer to 'what specifically, beyond Cognitive Functions' before this gets built." Intelligence ratings — ALM's own README's original description of what ALM should cover, before the data actually lived there — are that answer for this pass. Cross-domain synthesis moved alongside it, since it's computed directly from those ratings.</p>
+  <p><b>Known incomplete:</b> the richer synthesis-pairs computation that used to live in Brain Map's cross-domain panel (meta-domain pairs sharing intelligence types, not just top-rated-domain matches) was not ported into ALM's simpler version — it's still defined in <span class="hl-c">nexus-engine.js</span> but has no UI calling it anymore. That richer computation is a natural seed for the still-pending Synthesis Lab rather than something to duplicate into ALM's tab in the meantime.</p>
+
+  <h3>SECURE VAULT WIPE</h3>
+  <p>Options → Data &amp; Storage → Danger Zone now has two tiers. <b>Wipe Vault</b> (existing) is a plain delete — fast, but the file's bytes typically remain on disk, readable, until something else overwrites those exact blocks, sometimes never. <b>Secure Wipe</b> (new) overwrites the vault file — and every <span class="hl-c">.backup.*.json</span> snapshot next to it, since leaving those would defeat the point — with two random passes and a final zero pass, <span class="hl-c">fsync</span>'d after each so a pass actually reaches storage rather than sitting in a write-back cache, then renames to a random name before unlinking (the original filename is metadata too). Both require typing a confirmation phrase; Secure Wipe's is a different, stronger word than the regular wipe's.</p>
+  <p style="margin-top:12px"><b>Honest limit, stated here and in the confirmation dialog, not hidden:</b> on an SSD, overwrite-in-place is <i>not</i> a physical guarantee. Wear-leveling and TRIM mean the controller can remap "the same" logical file to different physical cells between writes, so the overwrite may never touch the flash cells that held the old data. This is a well-documented limitation of software-level secure-delete on SSDs generally, not specific to this feature. The vault's real protection is that it's AES-256-GCM encrypted in the first place — as long as the password is never recoverable, ciphertext technically still readable somewhere on disk doesn't hand anyone the plaintext. Secure Wipe is defense in depth on top of that encryption, and on a spinning HDD it genuinely does destroy the old data outright — but it is not a substitute for the encryption being sound, and the UI does not claim otherwise.</p>
+</div>
+
 <div style="text-align:center;padding:40px 0;font-family:var(--f-mono);font-size:8px;color:var(--dim);letter-spacing:2px;border-top:1px solid var(--wire)">
-  MASTERMIND LIVING DOCUMENTATION · v3.0.4 · SISO + JAA ARCHITECTURE<br>
+  MASTERMIND LIVING DOCUMENTATION · SISO + JAA · LATTICE · AGENTS<br>
   <span style="color:var(--c)">MM_BUS.sampleLog()</span> · <span style="color:var(--v)">MM_RUNNER.sample()</span> · <span style="color:var(--g)">MM_BUS.on('mm.*', console.log)</span>
 </div>
 

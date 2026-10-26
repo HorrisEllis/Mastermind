@@ -1,0 +1,15 @@
+{
+  "name": "@spatial/idl",
+  "version": "0.2.0",
+  "description": "Relational dynamics IDL — IntimacyVector, OscillationModel, DriftModel, ResonanceEngine. The formal language of the space between people.",
+  "type": "module",
+  "exports": {
+    ".":          "./src/index.ts",
+    "./v0.1":     "./src/idl-v0.1.ts",
+    "./v0.2":     "./src/idl-v0.2.ts",
+    "./resonance":"./src/resonance-engine-v0.1.ts"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "notes": "TypeScript source. Compile with tsc or use ts-node. The IDL defines the formal axes for the Spatial resonance platform."
+}

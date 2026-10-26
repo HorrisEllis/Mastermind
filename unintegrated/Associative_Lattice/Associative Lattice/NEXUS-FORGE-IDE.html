@@ -1,0 +1,2481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS/FORGE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   NEXUS/FORGE  —  Enterprise AI Coding Suite
+   Architecture: SISO (Stream In, Stream Out)
+   DOM is the state. Events flow through Gates.
+   Optimized: 4K tokens · 16GB RAM · R7 3700x
+═══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg0:#07070a;--bg1:#0b0b0f;--bg2:#0f0f14;--bg3:#141418;--bg4:#1a1a20;
+  --bdr:#ffffff0d;--bdr2:#ffffff16;--bdr3:#ffffff22;
+  --txt:#e2e2ea;--muted:#6b6b78;--ghost:#383840;
+  --amber:#d4782a;--amber2:#f0a050;
+  --green:#2a8a4a;--green2:#3aaa5a;
+  --red:#9a2828;--red2:#c04040;
+  --blue:#2a5a9a;--blue2:#4a7aba;
+  --purple:#5a3a9a;--purple2:#7a5aba;
+  --cyan:#1a8a9a;--cyan2:#2aaaba;
+  --f-serif:'Instrument Serif',Georgia,serif;
+  --f-mono:'Geist Mono','Courier New',monospace;
+  --f-ui:'Geist',system-ui,sans-serif;
+}
+
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg0);color:var(--txt);font-family:var(--f-ui);font-size:13px}
+
+/* ── APP SHELL ── */
+#app{
+  display:grid;
+  grid-template-rows:40px 1fr 28px;
+  grid-template-columns:220px 1fr;
+  height:100vh;width:100vw;overflow:hidden;
+}
+
+/* ── TITLEBAR ── */
+#titlebar{
+  grid-column:1/-1;
+  display:flex;align-items:center;
+  background:var(--bg0);border-bottom:1px solid var(--bdr);
+  -webkit-app-region:drag;user-select:none;
+  padding:0 8px;gap:0;position:relative;z-index:200;
+}
+.tb-drag{-webkit-app-region:drag;flex:1;display:flex;align-items:center;gap:12px;padding:0 8px}
+.tb-nodrag{-webkit-app-region:no-drag}
+.tb-brand{font-family:var(--f-serif);font-style:italic;font-size:16px;color:var(--amber);letter-spacing:.5px}
+.tb-slash{color:var(--ghost);margin:0 2px}
+.tb-sub{font-size:11px;color:var(--muted);font-family:var(--f-mono);letter-spacing:.04em}
+
+.tb-tabs{display:flex;height:100%;-webkit-app-region:no-drag;gap:0}
+.tb-tab{
+  display:flex;align-items:center;gap:6px;
+  padding:0 14px;height:100%;cursor:pointer;
+  font-size:11px;font-family:var(--f-mono);letter-spacing:.04em;
+  color:var(--muted);border-right:1px solid var(--bdr);
+  border-bottom:2px solid transparent;transition:all .12s;
+  white-space:nowrap;
+}
+.tb-tab:hover{color:var(--txt);background:var(--bg1)}
+.tb-tab.active{color:var(--amber);border-bottom-color:var(--amber);background:rgba(212,120,42,.05)}
+.tb-tab .tab-close{opacity:0;font-size:10px;margin-left:4px;color:var(--ghost);transition:opacity .1s}
+.tb-tab:hover .tab-close{opacity:1}
+.tb-tab.unsaved::after{content:'●';font-size:7px;color:var(--amber);margin-left:4px;vertical-align:middle}
+
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding-right:12px;-webkit-app-region:no-drag}
+#model-pill{
+  font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;
+  padding:2px 10px;border:1px solid;border-radius:2px;cursor:pointer;
+}
+#model-pill.ollama{border-color:rgba(42,138,74,.5);color:var(--green2);background:rgba(42,138,74,.08)}
+#model-pill.guardian{border-color:rgba(90,58,154,.5);color:var(--purple2);background:rgba(90,58,154,.08)}
+#model-pill.offline{border-color:rgba(154,40,40,.4);color:var(--red2);background:rgba(154,40,40,.08)}
+#ollama-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+#ollama-dot.live{background:var(--green2);box-shadow:0 0 6px var(--green)}
+#ollama-dot.dead{background:var(--red2)}
+#ollama-dot.checking{background:var(--ghost)}
+
+/* ── LEFT SIDEBAR ── */
+#sidebar{
+  grid-row:2;background:var(--bg1);
+  border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+.sidebar-mode-bar{
+  display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0;
+}
+.smb-btn{
+  flex:1;padding:7px 0;text-align:center;font-size:16px;cursor:pointer;
+  color:var(--ghost);border-right:1px solid var(--bdr);transition:all .12s;
+  border-bottom:2px solid transparent;
+}
+.smb-btn:last-child{border-right:none}
+.smb-btn:hover{color:var(--txt);background:var(--bg2)}
+.smb-btn.active{color:var(--amber);border-bottom-color:var(--amber);background:rgba(212,120,42,.04)}
+
+/* SIDEBAR PANELS */
+.sidebar-panel{flex:1;overflow:hidden;display:none;flex-direction:column}
+.sidebar-panel.active{display:flex}
+
+/* File browser */
+.fb-header{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 10px;border-bottom:1px solid var(--bdr);flex-shrink:0;
+}
+.fb-header-title{font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex:1}
+.fb-actions{display:flex;gap:2px}
+.icon-btn{
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border:none;background:transparent;color:var(--ghost);
+  font-size:12px;border-radius:3px;transition:all .1s;
+}
+.icon-btn:hover{background:var(--bg3);color:var(--txt)}
+
+.fb-search{padding:6px 8px;border-bottom:1px solid var(--bdr);flex-shrink:0}
+.fb-search input{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr2);
+  color:var(--txt);font-family:var(--f-mono);font-size:11px;
+  padding:4px 8px;border-radius:3px;outline:none;
+}
+.fb-search input:focus{border-color:var(--amber)}
+
+#file-tree{flex:1;overflow-y:auto;padding:4px 0}
+.ft-item{
+  display:flex;align-items:center;gap:5px;
+  padding:3px 8px;cursor:pointer;transition:background .08s;
+  font-family:var(--f-mono);font-size:11px;color:var(--muted);
+  border-left:2px solid transparent;white-space:nowrap;
+  position:relative;
+}
+.ft-item:hover{background:var(--bg2);color:var(--txt)}
+.ft-item.active{background:rgba(212,120,42,.08);color:var(--amber);border-left-color:var(--amber)}
+.ft-item.dir{color:var(--cyan2)}
+.ft-item.git-modified{color:var(--amber2)}
+.ft-item.git-new{color:var(--green2)}
+.ft-item .ft-icon{font-size:11px;flex-shrink:0;width:14px;text-align:center}
+.ft-item .ft-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.ft-item .ft-badge{font-size:9px;padding:1px 5px;border-radius:2px;flex-shrink:0}
+.ft-item .ft-badge.m{background:rgba(212,120,42,.15);color:var(--amber2)}
+.ft-item .ft-badge.u{background:rgba(42,138,74,.12);color:var(--green2)}
+
+/* Roadmap panel */
+#roadmap-panel{padding:10px}
+.rm-section-head{
+  font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px;margin-top:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.rm-section-head::after{content:'';flex:1;height:1px;background:var(--bdr)}
+
+.rm-milestone{
+  background:var(--bg2);border:1px solid var(--bdr);
+  border-radius:4px;margin-bottom:8px;overflow:hidden;
+}
+.rm-ms-head{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--bdr);
+}
+.rm-ms-title{font-size:12px;font-weight:500;flex:1}
+.rm-ms-pct{font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.rm-progress{height:2px;background:var(--bdr)}
+.rm-progress-fill{height:100%;background:var(--amber);transition:width .3s}
+.rm-task{
+  display:flex;align-items:center;gap:8px;
+  padding:5px 10px;font-size:11px;
+  border-bottom:1px solid var(--bdr);cursor:pointer;
+}
+.rm-task:last-child{border-bottom:none}
+.rm-task:hover{background:var(--bg3)}
+.rm-task-check{width:12px;height:12px;border:1px solid var(--bdr3);border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px}
+.rm-task-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.rm-task-text{flex:1;color:var(--muted)}
+.rm-task.done .rm-task-text{text-decoration:line-through;color:var(--ghost)}
+.rm-task-tag{font-family:var(--f-mono);font-size:9px;padding:1px 6px;border-radius:2px;border:1px solid}
+
+.rm-add-btn{
+  width:100%;padding:7px;background:transparent;border:1px dashed var(--bdr2);
+  border-radius:4px;color:var(--ghost);font-family:var(--f-mono);font-size:10px;
+  cursor:pointer;transition:all .12s;margin-top:6px;
+}
+.rm-add-btn:hover{border-color:var(--amber);color:var(--amber)}
+
+/* AI Panel */
+.ai-panel{display:flex;flex-direction:column;flex:1;overflow:hidden}
+.ai-model-select{
+  padding:8px;border-bottom:1px solid var(--bdr);flex-shrink:0;
+}
+.ai-model-select select{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr2);
+  color:var(--txt);font-family:var(--f-mono);font-size:10px;
+  padding:4px 8px;border-radius:3px;outline:none;appearance:none;cursor:pointer;
+}
+.ai-model-select select:focus{border-color:var(--amber)}
+.ai-context{
+  flex:1;overflow-y:auto;padding:8px;
+  font-family:var(--f-mono);font-size:10px;line-height:1.8;
+}
+.ai-msg{margin-bottom:8px;padding:8px;border-radius:4px;border:1px solid}
+.ai-msg.user{background:rgba(212,120,42,.05);border-color:rgba(212,120,42,.15);color:var(--txt)}
+.ai-msg.ai{background:var(--bg2);border-color:var(--bdr);color:var(--muted)}
+.ai-msg.sys{background:rgba(42,90,154,.06);border-color:rgba(42,90,154,.2);color:var(--muted);font-size:9px}
+.ai-msg-role{font-size:9px;color:var(--ghost);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em}
+.ai-input-row{
+  padding:8px;border-top:1px solid var(--bdr);flex-shrink:0;display:flex;gap:6px;flex-direction:column;
+}
+.ai-textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr2);
+  color:var(--txt);font-family:var(--f-mono);font-size:11px;
+  padding:8px;border-radius:4px;outline:none;resize:none;line-height:1.6;
+  min-height:60px;max-height:120px;
+}
+.ai-textarea:focus{border-color:var(--amber)}
+.ai-send-row{display:flex;gap:6px;align-items:center}
+.ai-mode-toggle{display:flex;gap:0;border:1px solid var(--bdr2);border-radius:3px;overflow:hidden;flex:1}
+.ai-mode-btn{
+  flex:1;padding:4px 6px;font-family:var(--f-mono);font-size:9px;
+  background:transparent;border:none;color:var(--ghost);cursor:pointer;
+  text-align:center;transition:all .1s;letter-spacing:.05em;text-transform:uppercase;
+}
+.ai-mode-btn.active{background:rgba(212,120,42,.12);color:var(--amber)}
+.ai-mode-btn:hover:not(.active){color:var(--muted)}
+
+/* ── MAIN AREA ── */
+#main{
+  grid-row:2;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+
+/* Editor area: dual pane */
+#editor-area{
+  flex:1;overflow:hidden;display:flex;flex-direction:column;
+}
+
+.editor-split{
+  flex:1;display:flex;overflow:hidden;
+  gap:0;
+}
+
+.editor-pane{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  border-right:1px solid var(--bdr);min-width:0;
+}
+.editor-pane:last-child{border-right:none}
+.editor-pane.preview-pane{background:var(--bg1)}
+
+.pane-header{
+  display:flex;align-items:center;gap:6px;
+  padding:0 10px;height:30px;flex-shrink:0;
+  background:var(--bg1);border-bottom:1px solid var(--bdr);
+  font-family:var(--f-mono);font-size:10px;
+}
+.pane-title{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pane-lang{
+  font-size:9px;padding:1px 7px;border-radius:2px;
+  border:1px solid var(--bdr2);color:var(--ghost);
+}
+.pane-actions{display:flex;gap:2px}
+
+.monaco-container{flex:1;overflow:hidden;position:relative}
+.monaco-loading{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;color:var(--ghost);font-family:var(--f-mono);font-size:11px;
+}
+
+/* Preview iframe */
+#preview-frame{width:100%;height:100%;border:none;background:#fff}
+.preview-toolbar{
+  display:flex;align-items:center;gap:6px;
+  padding:0 10px;height:30px;flex-shrink:0;
+  background:var(--bg1);border-bottom:1px solid var(--bdr);
+}
+.preview-url{
+  flex:1;background:var(--bg2);border:1px solid var(--bdr2);
+  color:var(--muted);font-family:var(--f-mono);font-size:10px;
+  padding:3px 8px;border-radius:3px;outline:none;
+}
+
+/* Pane divider (draggable) */
+.pane-divider{
+  width:4px;background:var(--bdr);cursor:col-resize;flex-shrink:0;
+  transition:background .1s;position:relative;
+}
+.pane-divider:hover,.pane-divider.dragging{background:var(--amber)}
+
+/* Horizontal divider (editor vs terminal) */
+.h-divider{
+  height:4px;background:var(--bdr);cursor:row-resize;flex-shrink:0;
+  transition:background .1s;
+}
+.h-divider:hover,.h-divider.dragging{background:var(--amber)}
+
+/* Terminal panel */
+#terminal-area{
+  height:200px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;
+  border-top:1px solid var(--bdr);
+}
+.terminal-tabs{
+  display:flex;align-items:center;height:28px;border-bottom:1px solid var(--bdr);
+  background:var(--bg1);flex-shrink:0;overflow-x:auto;
+}
+.terminal-tab{
+  display:flex;align-items:center;gap:6px;
+  padding:0 12px;height:100%;font-family:var(--f-mono);font-size:10px;
+  color:var(--ghost);cursor:pointer;border-right:1px solid var(--bdr);
+  white-space:nowrap;transition:all .1s;
+}
+.terminal-tab.active{color:var(--amber);background:rgba(212,120,42,.06)}
+.terminal-tab:hover:not(.active){color:var(--muted);background:var(--bg2)}
+.term-dot{width:5px;height:5px;border-radius:50%}
+
+.terminal-body{
+  flex:1;overflow-y:auto;padding:10px 14px;
+  font-family:var(--f-mono);font-size:11px;line-height:1.75;
+  background:var(--bg0);position:relative;
+}
+.tl{display:block}
+.tl.prompt{color:var(--green2)}
+.tl.output{color:var(--muted)}
+.tl.err{color:var(--red2)}
+.tl.info{color:var(--cyan2)}
+.tl.warn{color:var(--amber2)}
+.tl.siso{color:var(--purple2)}
+.tl.ok{color:var(--green2)}
+.tl .ts{color:var(--ghost);margin-right:8px;font-size:9px}
+.terminal-input-row{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 14px;border-top:1px solid var(--bdr);background:var(--bg0);flex-shrink:0;
+}
+.term-prompt-sym{color:var(--green2);font-family:var(--f-mono);font-size:11px;flex-shrink:0}
+.term-input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--txt);font-family:var(--f-mono);font-size:11px;
+}
+
+/* ── STATUSBAR ── */
+#statusbar{
+  grid-column:1/-1;
+  display:flex;align-items:center;gap:0;
+  background:var(--bg0);border-top:1px solid var(--bdr);
+  font-family:var(--f-mono);font-size:10px;
+  overflow:hidden;
+}
+.sb-item{
+  display:flex;align-items:center;gap:5px;
+  padding:0 10px;height:100%;color:var(--ghost);
+  border-right:1px solid var(--bdr);white-space:nowrap;
+}
+.sb-item.clickable{cursor:pointer;transition:background .1s}
+.sb-item.clickable:hover{background:var(--bg1);color:var(--muted)}
+.sb-item.amber{color:var(--amber)}
+.sb-item.green{color:var(--green2)}
+.sb-item.red{color:var(--red2)}
+.sb-sep{flex:1}
+#sb-ai-status{
+  padding:0 12px;display:flex;align-items:center;gap:6px;
+  font-size:10px;color:var(--muted);
+}
+#sb-generate-progress{
+  height:2px;background:var(--amber);width:0;transition:width .3s;
+  position:absolute;bottom:0;left:0;right:0;
+}
+
+/* ── AI OVERLAY (generation in editor) ── */
+#ai-overlay{
+  position:fixed;bottom:240px;right:24px;
+  background:var(--bg1);border:1px solid var(--bdr2);
+  border-radius:6px;width:380px;max-height:300px;
+  overflow:hidden;z-index:500;display:none;
+  flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+#ai-overlay.visible{display:flex}
+.overlay-header{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-bottom:1px solid var(--bdr);flex-shrink:0;
+  font-family:var(--f-mono);font-size:10px;color:var(--muted);
+}
+.overlay-stream{
+  flex:1;overflow-y:auto;padding:10px 12px;
+  font-family:var(--f-mono);font-size:10px;line-height:1.7;
+  color:var(--cyan2);white-space:pre-wrap;
+}
+.overlay-actions{
+  display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--bdr);flex-shrink:0;
+}
+
+/* ── COMMAND PALETTE ── */
+#cmd-palette{
+  position:fixed;top:20%;left:50%;transform:translateX(-50%);
+  width:560px;background:var(--bg1);border:1px solid var(--bdr3);
+  border-radius:6px;z-index:1000;display:none;
+  box-shadow:0 16px 64px rgba(0,0,0,.7);overflow:hidden;
+}
+#cmd-palette.visible{display:block}
+#cmd-input{
+  width:100%;padding:14px 16px;background:transparent;border:none;
+  border-bottom:1px solid var(--bdr);color:var(--txt);
+  font-family:var(--f-mono);font-size:14px;outline:none;
+}
+#cmd-results{max-height:300px;overflow-y:auto}
+.cmd-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 16px;cursor:pointer;transition:background .08s;
+  font-family:var(--f-mono);font-size:11px;
+}
+.cmd-item:hover,.cmd-item.selected{background:rgba(212,120,42,.08);color:var(--amber)}
+.cmd-icon{width:16px;text-align:center;color:var(--ghost)}
+.cmd-label{flex:1;color:var(--txt)}
+.cmd-item.selected .cmd-label{color:var(--amber)}
+.cmd-kbd{font-size:9px;color:var(--ghost);background:var(--bg3);padding:2px 6px;border-radius:2px;border:1px solid var(--bdr2)}
+.cmd-group{
+  padding:5px 16px 2px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ghost);background:var(--bg2);border-bottom:1px solid var(--bdr);
+}
+
+/* ── MODEL SWITCHER POPUP ── */
+#model-popup{
+  position:fixed;top:44px;right:12px;
+  background:var(--bg1);border:1px solid var(--bdr2);border-radius:6px;
+  z-index:500;min-width:280px;display:none;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden;
+}
+#model-popup.visible{display:block}
+.mp-section{padding:8px 0;border-bottom:1px solid var(--bdr)}
+.mp-section:last-child{border-bottom:none}
+.mp-label{padding:4px 12px;font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost)}
+.mp-item{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 12px;cursor:pointer;font-family:var(--f-mono);font-size:11px;
+  color:var(--muted);transition:background .08s;
+}
+.mp-item:hover{background:var(--bg2);color:var(--txt)}
+.mp-item.active{color:var(--amber);background:rgba(212,120,42,.06)}
+.mp-item .mp-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.mp-item .mp-desc{font-size:9px;color:var(--ghost);margin-left:auto}
+.mp-guardian{border-top:1px solid var(--bdr);margin-top:0}
+.mp-guardian .mp-item{color:var(--purple2)}
+.mp-guardian .mp-item:hover{color:var(--txt)}
+.guardian-badge{font-size:9px;padding:1px 6px;background:rgba(90,58,154,.15);border:1px solid rgba(90,58,154,.3);border-radius:2px;color:var(--purple2)}
+
+/* ── NEXUS FORGE WIZARD OVERLAY ── */
+#forge-wizard{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+#forge-wizard.hidden{display:none}
+.fw-box{
+  background:var(--bg1);border:1px solid var(--bdr2);border-radius:8px;
+  width:700px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;
+}
+.fw-header{
+  padding:24px 28px 16px;border-bottom:1px solid var(--bdr);
+}
+.fw-eyebrow{font-family:var(--f-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);margin-bottom:8px}
+.fw-title{font-family:var(--f-serif);font-style:italic;font-size:28px;color:var(--txt)}
+.fw-body{flex:1;overflow-y:auto;padding:20px 28px}
+.fw-footer{padding:16px 28px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end}
+
+/* Form elements shared */
+label.fl{
+  display:block;font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:6px;margin-top:16px;
+}
+label.fl:first-child{margin-top:0}
+input.fi,textarea.fi,select.fi{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr2);
+  color:var(--txt);font-family:var(--f-mono);font-size:11px;
+  padding:8px 10px;border-radius:3px;outline:none;transition:border-color .12s;
+}
+input.fi:focus,textarea.fi:focus,select.fi:focus{border-color:var(--amber)}
+textarea.fi{resize:vertical;min-height:80px;line-height:1.6}
+select.fi{appearance:none;cursor:pointer}
+.fi-row{display:flex;gap:8px}
+.fi-row input.fi,.fi-row select.fi{flex:1}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 16px;border:1px solid;border-radius:3px;
+  font-family:var(--f-mono);font-size:11px;cursor:pointer;
+  background:transparent;transition:all .12s;letter-spacing:.04em;
+  white-space:nowrap;
+}
+.btn-primary{border-color:var(--amber);color:var(--amber)}
+.btn-primary:hover{background:var(--amber);color:var(--bg0)}
+.btn-ghost{border-color:var(--bdr2);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--bdr3);color:var(--txt)}
+.btn-sm{padding:4px 10px;font-size:10px}
+.btn-danger{border-color:rgba(154,40,40,.5);color:var(--red2)}
+.btn-danger:hover{background:var(--red);color:var(--txt)}
+.btn-ok{border-color:rgba(42,138,74,.5);color:var(--green2)}
+.btn-ok:hover{background:var(--green);color:var(--txt)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* Tags */
+.tag-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;background:var(--bg3);border:1px solid var(--bdr2);
+  border-radius:2px;font-family:var(--f-mono);font-size:10px;color:var(--muted);
+}
+.tag-x{cursor:pointer;color:var(--ghost);transition:color .1s}
+.tag-x:hover{color:var(--red2)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--bdr3)}
+
+/* Animations */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.slide-in{animation:slideIn .2s ease}
+
+/* Progress bar */
+.prog{height:1px;background:var(--bdr);position:relative;flex-shrink:0}
+.prog-fill{height:100%;background:var(--amber);transition:width .4s}
+
+/* Overlay scrollbars for generated code */
+.gen-block{
+  background:var(--bg0);border:1px solid var(--bdr);border-radius:3px;
+  padding:10px;font-family:var(--f-mono);font-size:10px;line-height:1.7;
+  color:var(--cyan2);white-space:pre-wrap;max-height:160px;overflow-y:auto;
+  margin:6px 0;
+}
+
+/* Diff view */
+.diff-add{background:rgba(42,138,74,.12);color:var(--green2)}
+.diff-rm{background:rgba(154,40,40,.12);color:var(--red2)}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- ═══ TITLEBAR ═══ -->
+<div id="titlebar">
+  <div class="tb-drag">
+    <span class="tb-brand">Nexus</span><span class="tb-slash">/</span><span class="tb-brand" style="font-style:normal;font-family:var(--f-ui);font-size:13px;font-weight:600;color:var(--txt)">Forge</span>
+    <span class="tb-sub">enterprise IDE</span>
+  </div>
+  <div class="tb-tabs tb-nodrag" id="editor-tabs">
+    <div class="tb-tab active" data-file="welcome">
+      <span>⬡</span> Welcome
+      <span class="tab-close" onclick="closeTab('welcome')">×</span>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div id="ollama-dot" class="ollama-dot checking"></div>
+    <div id="model-pill" class="model-pill checking" onclick="toggleModelPopup()">checking…</div>
+  </div>
+</div>
+
+<!-- ═══ SIDEBAR ═══ -->
+<div id="sidebar">
+  <div class="sidebar-mode-bar">
+    <div class="smb-btn active" data-panel="files" onclick="switchSidePanel('files')" title="File Browser">📁</div>
+    <div class="smb-btn" data-panel="roadmap" onclick="switchSidePanel('roadmap')" title="Roadmap">🗺</div>
+    <div class="smb-btn" data-panel="ai" onclick="switchSidePanel('ai')" title="AI Assistant">◈</div>
+    <div class="smb-btn" data-panel="git" onclick="switchSidePanel('git')" title="Git">⎇</div>
+    <div class="smb-btn" data-panel="search" onclick="switchSidePanel('search')" title="Search">⌕</div>
+  </div>
+
+  <!-- FILE BROWSER -->
+  <div class="sidebar-panel active" id="panel-files">
+    <div class="fb-header">
+      <span class="fb-header-title" id="fb-root-name">no project</span>
+      <div class="fb-actions">
+        <button class="icon-btn" onclick="openFolder()" title="Open folder">📂</button>
+        <button class="icon-btn" onclick="newFile()" title="New file">+</button>
+        <button class="icon-btn" onclick="newFolder()" title="New folder">⊞</button>
+        <button class="icon-btn" onclick="collapseAll()" title="Collapse">⊟</button>
+      </div>
+    </div>
+    <div class="fb-search">
+      <input type="text" id="fb-search-input" placeholder="Search files…" oninput="filterFiles(this.value)">
+    </div>
+    <div id="file-tree">
+      <div style="padding:20px 12px;color:var(--ghost);font-family:var(--f-mono);font-size:10px;line-height:1.9">
+        // No project open<br>
+        // Click 📂 to open folder<br>
+        // or Ctrl+K Ctrl+O
+      </div>
+    </div>
+  </div>
+
+  <!-- ROADMAP -->
+  <div class="sidebar-panel" id="panel-roadmap" style="overflow-y:auto">
+    <div style="padding:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Project Roadmap</span>
+        <button class="btn btn-sm btn-ghost" onclick="addMilestone()">+ Milestone</button>
+      </div>
+      <div id="roadmap-content">
+        <!-- populated by RoadmapGate -->
+      </div>
+      <button class="rm-add-btn" onclick="addMilestone()">+ Add Milestone</button>
+    </div>
+  </div>
+
+  <!-- AI ASSISTANT -->
+  <div class="sidebar-panel" id="panel-ai">
+    <div class="ai-panel">
+      <div class="ai-model-select">
+        <select class="fi" id="ai-model-sel" onchange="switchModel(this.value)">
+          <optgroup label="Ollama — Local">
+            <option value="deepseek-coder-v2">deepseek-coder-v2 (recommended)</option>
+            <option value="qwen2.5-coder:7b">qwen2.5-coder:7b</option>
+            <option value="qwen2.5-coder:14b">qwen2.5-coder:14b</option>
+            <option value="codellama:13b">codellama:13b</option>
+            <option value="mistral:7b">mistral:7b</option>
+            <option value="llama3.1:8b">llama3.1:8b</option>
+          </optgroup>
+          <optgroup label="Guardian API — Fallback">
+            <option value="guardian:claude-sonnet">Guardian → Claude Sonnet 4</option>
+            <option value="guardian:claude-opus">Guardian → Claude Opus 4</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="ai-context" id="ai-messages">
+        <div class="ai-msg sys">
+          <div class="ai-msg-role">System</div>
+          NEXUS/FORGE AI — Pure SISO gate architecture. 4K token budget enforced. Context compressed before each request. Guardian API fallback active.
+        </div>
+      </div>
+      <div class="ai-input-row">
+        <textarea class="ai-textarea" id="ai-input" placeholder="Ask anything about your code… (Ctrl+Enter to send)" onkeydown="aiKeydown(event)" rows="3"></textarea>
+        <div class="ai-send-row">
+          <div class="ai-mode-toggle">
+            <button class="ai-mode-btn active" data-mode="chat" onclick="setAiMode('chat')">Chat</button>
+            <button class="ai-mode-btn" data-mode="complete" onclick="setAiMode('complete')">Complete</button>
+            <button class="ai-mode-btn" data-mode="refactor" onclick="setAiMode('refactor')">Refactor</button>
+            <button class="ai-mode-btn" data-mode="explain" onclick="setAiMode('explain')">Explain</button>
+            <button class="ai-mode-btn" data-mode="test" onclick="setAiMode('test')">Tests</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="sendAiRequest()" id="ai-send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GIT -->
+  <div class="sidebar-panel" id="panel-git" style="overflow-y:auto;padding:10px">
+    <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Source Control</div>
+    <div id="git-status-list" style="font-family:var(--f-mono);font-size:10px;color:var(--ghost)">// Open a git repository to see status</div>
+    <div style="margin-top:12px;display:flex;gap:6px">
+      <button class="btn btn-sm btn-ghost" onclick="gitStageAll()">Stage All</button>
+      <button class="btn btn-sm btn-primary" onclick="gitCommit()">Commit</button>
+    </div>
+    <input class="fi" id="commit-msg" placeholder="Commit message…" style="margin-top:8px;font-size:10px">
+    <div style="margin-top:12px">
+      <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Branch</div>
+      <div id="git-branch" style="font-family:var(--f-mono);font-size:11px;color:var(--cyan2)">—</div>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="sidebar-panel" id="panel-search" style="padding:10px;overflow-y:auto">
+    <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Global Search</div>
+    <input class="fi" id="global-search-input" placeholder="Search in files…" oninput="globalSearch(this.value)">
+    <div style="margin-top:6px;display:flex;gap:5px">
+      <label style="font-family:var(--f-mono);font-size:10px;color:var(--ghost);display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="search-regex"> Regex
+      </label>
+      <label style="font-family:var(--f-mono);font-size:10px;color:var(--ghost);display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="search-case"> Case
+      </label>
+    </div>
+    <div id="search-results" style="margin-top:10px;font-family:var(--f-mono);font-size:10px;color:var(--ghost)"></div>
+  </div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<div id="main">
+
+  <!-- EDITOR AREA -->
+  <div id="editor-area">
+    <div class="editor-split" id="editor-split">
+
+      <!-- LEFT PANE (primary editor) -->
+      <div class="editor-pane" id="left-pane">
+        <div class="pane-header">
+          <span class="pane-title" id="left-pane-title">Welcome</span>
+          <span class="pane-lang" id="left-pane-lang">—</span>
+          <div class="pane-actions">
+            <button class="icon-btn" onclick="formatDoc('left')" title="Format">⎇</button>
+            <button class="icon-btn" onclick="splitRight()" title="Split right">⊞</button>
+          </div>
+        </div>
+        <div class="monaco-container" id="left-monaco">
+          <!-- WELCOME SCREEN (shown before Monaco loads) -->
+          <div id="welcome-screen" style="position:absolute;inset:0;overflow-y:auto;padding:40px 48px;background:var(--bg0)">
+            <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);margin-bottom:16px;display:flex;align-items:center;gap:12px">
+              <span style="display:block;width:24px;height:1px;background:var(--amber)"></span>
+              Pure functional AI enterprise IDE
+            </div>
+            <h1 style="font-family:var(--f-serif);font-style:italic;font-size:48px;line-height:1.0;letter-spacing:-.5px;margin-bottom:8px">
+              Welcome,<br><em style="color:var(--amber)">Builder of emerging<br>meaning and visionary.</em>
+            </h1>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7;max-width:480px;margin-bottom:32px;font-weight:300">
+              NEXUS/FORGE is a SISO-native IDE. Every action is a Gate. The DOM is the state.
+              Ollama + DeepSeek runs locally. Guardian API provides cloud fallback.
+              4K token budget enforced on all AI requests.
+            </p>
+            <div style="font-family:var(--f-mono);font-size:11px;color:var(--amber);background:rgba(212,120,42,.07);border:1px solid rgba(212,120,42,.18);padding:10px 14px;border-radius:2px;display:inline-block;margin-bottom:28px">
+              Event → Gate → Stream → DOM&nbsp;&nbsp;·&nbsp;&nbsp;E→G→S→DOM
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:40px">
+              <button class="btn btn-primary" onclick="openFolder()">📂 Open Project</button>
+              <button class="btn btn-ghost" onclick="newProject()">◈ New Project (Wizard)</button>
+              <button class="btn btn-ghost" onclick="openCmd()">⌘ Command Palette</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bdr);max-width:600px">
+              <div style="background:var(--bg1);padding:16px">
+                <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Start</div>
+                <div id="recent-files-list" style="font-size:12px;color:var(--ghost);font-family:var(--f-mono);line-height:2">
+                  // No recent files
+                </div>
+              </div>
+              <div style="background:var(--bg1);padding:16px">
+                <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Keybindings</div>
+                <div style="font-family:var(--f-mono);font-size:10px;color:var(--ghost);line-height:2">
+                  Ctrl+P — Command Palette<br>
+                  Ctrl+G — Generate code<br>
+                  Ctrl+Shift+G — Generate Gate<br>
+                  Ctrl+` — Terminal<br>
+                  Ctrl+\\ — Split editor<br>
+                  Ctrl+Shift+F — Global search<br>
+                  Alt+Shift+F — Format<br>
+                  F2 — Rename<br>
+                  Ctrl+K Ctrl+O — Open folder
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANE DIVIDER -->
+      <div class="pane-divider" id="pane-divider" onmousedown="startPaneDrag(event)"></div>
+
+      <!-- RIGHT PANE (preview / second editor) -->
+      <div class="editor-pane preview-pane" id="right-pane" style="display:none">
+        <div class="pane-header" id="right-pane-header">
+          <span class="pane-title" id="right-pane-title">Preview</span>
+          <div class="pane-actions">
+            <button class="icon-btn" onclick="setRightPane('preview')" title="Preview" id="rp-preview-btn">👁</button>
+            <button class="icon-btn" onclick="setRightPane('editor')" title="Editor" id="rp-editor-btn">✎</button>
+            <button class="icon-btn" onclick="setRightPane('diff')" title="Diff" id="rp-diff-btn">⊞</button>
+            <button class="icon-btn" onclick="closeRightPane()" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="preview-toolbar" id="preview-toolbar" style="display:none">
+          <button class="icon-btn" onclick="previewBack()">←</button>
+          <button class="icon-btn" onclick="previewRefresh()">↺</button>
+          <input class="preview-url" id="preview-url" value="about:blank" onkeydown="if(event.key==='Enter')previewNav(this.value)">
+          <button class="icon-btn" onclick="previewOpenExternal()">↗</button>
+        </div>
+        <iframe id="preview-frame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- HORIZONTAL DIVIDER -->
+  <div class="h-divider" id="h-divider" onmousedown="startHDrag(event)"></div>
+
+  <!-- TERMINAL AREA -->
+  <div id="terminal-area">
+    <div class="terminal-tabs" id="terminal-tabs">
+      <div class="terminal-tab active" data-term="bash">
+        <span class="term-dot" style="background:var(--green2)"></span>bash
+      </div>
+      <div class="terminal-tab" data-term="build">
+        <span class="term-dot" style="background:var(--amber2)"></span>build
+      </div>
+      <div class="terminal-tab" data-term="siso">
+        <span class="term-dot" style="background:var(--purple2)"></span>SISO pipeline
+      </div>
+      <div style="flex:1"></div>
+      <button class="icon-btn" style="margin:2px 4px" onclick="addTerminal()">+</button>
+      <button class="icon-btn" style="margin:2px 4px" onclick="toggleTerminal()" title="Toggle terminal">⌄</button>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <span class="tl info"><span class="ts">init</span>NEXUS/FORGE terminal ready</span><br>
+      <span class="tl siso"><span class="ts">siso</span>Event bus initialized — gates registered</span><br>
+      <span class="tl info"><span class="ts">sys</span>R7 3700x detected — 8 cores, optimal thread pool: 7</span><br>
+      <span class="tl info"><span class="ts">sys</span>RAM budget: 16GB — Ollama allocation: 10GB</span><br>
+    </div>
+    <div class="terminal-input-row">
+      <span class="term-prompt-sym">❯</span>
+      <input class="term-input" id="term-input" placeholder="shell command…" onkeydown="termKeydown(event)" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+</div><!-- /main -->
+
+<!-- ═══ STATUS BAR ═══ -->
+<div id="statusbar">
+  <div class="sb-item amber clickable" id="sb-branch" onclick="switchSidePanel('git')">⎇ main</div>
+  <div class="sb-item clickable" id="sb-errors" onclick="openProblems()">⚠ 0 &nbsp; ✕ 0</div>
+  <div class="sb-item" id="sb-lang">—</div>
+  <div class="sb-item" id="sb-cursor">Ln 1, Col 1</div>
+  <div class="sb-item" id="sb-encoding">UTF-8</div>
+  <div class="sb-sep"></div>
+  <div id="sb-ai-status">
+    <span id="sb-ai-text">AI ready</span>
+  </div>
+  <div class="sb-item clickable green" id="sb-ollama-status" onclick="toggleModelPopup()">● deepseek-coder-v2</div>
+  <div class="sb-item clickable" onclick="openSettings()">⚙ Settings</div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ═══ AI GENERATION OVERLAY ═══ -->
+<div id="ai-overlay">
+  <div class="overlay-header">
+    <span id="overlay-live-dot" style="width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1s infinite;flex-shrink:0"></span>
+    <span id="overlay-title">Generating…</span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-sm btn-ghost" onclick="abortGeneration()">■ Abort</button>
+    </div>
+  </div>
+  <div class="overlay-stream" id="overlay-stream"></div>
+  <div class="overlay-actions" id="overlay-actions" style="display:none">
+    <button class="btn btn-sm btn-ok" onclick="acceptGeneration()">✓ Accept</button>
+    <button class="btn btn-sm btn-ghost" onclick="rejectGeneration()">✕ Reject</button>
+    <button class="btn btn-sm btn-ghost" onclick="refineGeneration()">↺ Refine</button>
+    <button class="btn btn-sm btn-ghost" onclick="insertGeneration()">↓ Insert at cursor</button>
+  </div>
+</div>
+
+<!-- ═══ COMMAND PALETTE ═══ -->
+<div id="cmd-palette">
+  <input type="text" id="cmd-input" placeholder="Type a command or search files…" oninput="cmdFilter(this.value)" onkeydown="cmdKeydown(event)">
+  <div id="cmd-results"></div>
+</div>
+
+<!-- ═══ MODEL SWITCHER POPUP ═══ -->
+<div id="model-popup">
+  <div class="mp-section">
+    <div class="mp-label">Ollama — Local (Primary)</div>
+    <div class="mp-item active" data-model="deepseek-coder-v2" onclick="selectModel('deepseek-coder-v2')">
+      <span class="mp-dot" style="background:var(--green2)"></span>
+      deepseek-coder-v2
+      <span class="mp-desc">16B · best coding</span>
+    </div>
+    <div class="mp-item" data-model="qwen2.5-coder:7b" onclick="selectModel('qwen2.5-coder:7b')">
+      <span class="mp-dot" style="background:var(--green)"></span>
+      qwen2.5-coder:7b
+      <span class="mp-desc">7B · fast</span>
+    </div>
+    <div class="mp-item" data-model="qwen2.5-coder:14b" onclick="selectModel('qwen2.5-coder:14b')">
+      <span class="mp-dot" style="background:var(--green)"></span>
+      qwen2.5-coder:14b
+      <span class="mp-desc">14B · balanced</span>
+    </div>
+    <div class="mp-item" data-model="codellama:13b" onclick="selectModel('codellama:13b')">
+      <span class="mp-dot" style="background:var(--blue2)"></span>
+      codellama:13b
+      <span class="mp-desc">13B · multilang</span>
+    </div>
+    <div class="mp-item" data-model="mistral:7b" onclick="selectModel('mistral:7b')">
+      <span class="mp-dot" style="background:var(--blue)"></span>
+      mistral:7b
+      <span class="mp-desc">7B · instruct</span>
+    </div>
+  </div>
+  <div class="mp-section mp-guardian">
+    <div class="mp-label">Guardian API — Fallback <span class="guardian-badge">web ext</span></div>
+    <div class="mp-item" data-model="guardian:sonnet" onclick="selectModel('guardian:sonnet')">
+      <span class="mp-dot" style="background:var(--purple2)"></span>
+      Claude Sonnet 4
+      <span class="mp-desc">cloud · fast</span>
+    </div>
+    <div class="mp-item" data-model="guardian:opus" onclick="selectModel('guardian:opus')">
+      <span class="mp-dot" style="background:var(--purple)"></span>
+      Claude Opus 4
+      <span class="mp-desc">cloud · powerful</span>
+    </div>
+    <div style="padding:8px 12px;font-family:var(--f-mono);font-size:9px;color:var(--ghost)">
+      Auto-failover: Ollama timeout → Guardian
+    </div>
+  </div>
+  <div class="mp-section">
+    <div class="mp-label">Settings</div>
+    <div class="mp-item" onclick="openModelSettings()">⚙ Configure models & endpoints</div>
+  </div>
+</div>
+
+<!-- ═══ FORGE WIZARD ═══ -->
+<div id="forge-wizard" class="hidden">
+  <div class="fw-box slide-in">
+    <div class="fw-header">
+      <div class="fw-eyebrow">// NEXUS/FORGE Project Wizard</div>
+      <div class="fw-title">Create a New Project</div>
+    </div>
+    <div class="fw-body">
+      <label class="fl">Project Name</label>
+      <input class="fi" id="fw-name" type="text" placeholder="my-awesome-system">
+      <div class="fi-row" style="margin-top:14px">
+        <div style="flex:1">
+          <label class="fl" style="margin-top:0">Language</label>
+          <select class="fi" id="fw-lang">
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="python">Python</option>
+            <option value="rust">Rust</option>
+            <option value="go">Go</option>
+            <option value="php">PHP</option>
+            <option value="java">Java</option>
+            <option value="csharp">C#</option>
+            <option value="cpp">C++</option>
+            <option value="ruby">Ruby</option>
+            <option value="swift">Swift</option>
+            <option value="kotlin">Kotlin</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label class="fl" style="margin-top:0">Architecture</label>
+          <select class="fi" id="fw-arch">
+            <option value="siso-classic">SISO Classic (backend/API)</option>
+            <option value="siso-ui">SISO/UI (browser app)</option>
+            <option value="siso-hybrid">SISO Hybrid (full-stack)</option>
+            <option value="standard">Standard (no SISO)</option>
+          </select>
+        </div>
+      </div>
+      <label class="fl">Description</label>
+      <textarea class="fi" id="fw-desc" placeholder="Describe what this system does. This becomes the shared AI context for all Gate generation requests…"></textarea>
+      <label class="fl">Stack / Dependencies</label>
+      <div style="display:flex;gap:6px">
+        <input class="fi" id="fw-stack-in" type="text" placeholder="e.g. React, FastAPI, Redis" style="flex:1" onkeydown="if(event.key==='Enter')addFwTag('stack','fw-stack-in')">
+        <button class="btn btn-ghost btn-sm" onclick="addFwTag('stack','fw-stack-in')">Add</button>
+      </div>
+      <div class="tag-row" id="fw-stack-tags"></div>
+      <label class="fl">Gate Modules</label>
+      <div style="font-size:11px;color:var(--ghost);margin-bottom:8px;font-family:var(--f-mono)">Each module becomes a Gate Group. DeepSeek generates them independently, staying under 4K tokens.</div>
+      <div id="fw-modules-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px">
+        <input class="fi" id="fw-mod-name" type="text" placeholder="Module name (e.g. AuthGateGroup)" style="flex:1">
+        <input class="fi" id="fw-mod-desc" type="text" placeholder="Purpose" style="flex:2">
+        <button class="btn btn-ghost btn-sm" onclick="addFwModule()">+</button>
+      </div>
+      <label class="fl">AI Model</label>
+      <select class="fi" id="fw-model">
+        <option value="deepseek-coder-v2">deepseek-coder-v2 (recommended)</option>
+        <option value="qwen2.5-coder:14b">qwen2.5-coder:14b</option>
+        <option value="guardian:sonnet">Guardian → Claude Sonnet 4</option>
+      </select>
+    </div>
+    <div class="fw-footer">
+      <button class="btn btn-ghost" onclick="closeWizard()">Cancel</button>
+      <button class="btn btn-primary" onclick="createProject()">◈ Create & Open</button>
+    </div>
+  </div>
+</div>
+
+<!-- Monaco Editor CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   NEXUS/FORGE — SISO Runtime
+   
+   All UI mutations flow through the SISOStream.
+   The DOM is the state. No external state objects.
+   Every Gate does one thing.
+   Events are immutable once created.
+═══════════════════════════════════════════════════════ */
+
+// ── SISO CORE ─────────────────────────────────────────
+class NexusEvent {
+  constructor(type, data={}) {
+    this.type=type; this.data=data;
+    this.id=`${type}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    this.ts=Date.now(); this._processed=new Set();
+  }
+  wasProcessedBy(g){return this._processed.has(g)}
+  markProcessedBy(g){this._processed.add(g);return this}
+}
+
+class NexusGate {
+  matches(e){return false}
+  transform(e,s){}
+}
+
+class NexusStream {
+  constructor(){this.gates=[];this.q=[];this._running=false}
+  register(g){this.gates.push(g);return this}
+  emit(e){
+    this.q.push(e);
+    if(!this._running) this._drain();
+    return this;
+  }
+  _drain(){
+    this._running=true;
+    while(this.q.length){
+      const e=this.q.shift();
+      for(const g of this.gates){
+        if(g.matches(e)){
+          try{g.transform(e,this)}catch(err){console.error(`Gate ${g.constructor.name} error:`,err)}
+          break;
+        }
+      }
+    }
+    this._running=false;
+  }
+}
+
+const S = new NexusStream(); // Global UI stream — DOM is state
+
+// ── SISO GATE DEFINITIONS ─────────────────────────────
+
+// NavGate: switches sidebar panels
+class NavSidePanelGate extends NexusGate {
+  matches(e){return e.type==='SIDE_PANEL'&&!e.wasProcessedBy('NavSidePanelGate')}
+  transform(e,s){
+    e.markProcessedBy('NavSidePanelGate');
+    document.querySelectorAll('.sidebar-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.smb-btn').forEach(b=>b.classList.remove('active'));
+    const panel=document.getElementById(`panel-${e.data.id}`);
+    if(panel){panel.classList.add('active')}
+    const btn=document.querySelector(`.smb-btn[data-panel="${e.data.id}"]`);
+    if(btn){btn.classList.add('active')}
+    document.body.dataset.sidePanel=e.data.id;
+  }
+}
+
+// OllamaStatusGate: updates Ollama status indicators
+class OllamaStatusGate extends NexusGate {
+  matches(e){return e.type==='OLLAMA_STATUS'&&!e.wasProcessedBy('OllamaStatusGate')}
+  transform(e,s){
+    e.markProcessedBy('OllamaStatusGate');
+    const dot=document.getElementById('ollama-dot');
+    const pill=document.getElementById('model-pill');
+    const sb=document.getElementById('sb-ollama-status');
+    const {ok,model}=e.data;
+    dot.className=`ollama-dot ${ok?'live':'dead'}`;
+    pill.className=`model-pill ${ok?'ollama':'offline'}`;
+    pill.textContent=ok?model:'offline';
+    if(sb){sb.textContent=ok?`● ${model}`:'● offline';sb.className=`sb-item clickable ${ok?'green':'red'}`}
+    document.body.dataset.ollamaOk=ok?'true':'false';
+    document.body.dataset.currentModel=model||'';
+  }
+}
+
+// TerminalLogGate: appends to terminal
+class TerminalLogGate extends NexusGate {
+  matches(e){return e.type==='TERM_LOG'&&!e.wasProcessedBy('TerminalLogGate')}
+  transform(e,s){
+    e.markProcessedBy('TerminalLogGate');
+    const body=document.getElementById('terminal-body');
+    const ts=new Date().toLocaleTimeString('en',{hour12:false});
+    const sp=document.createElement('span');
+    sp.className=`tl ${e.data.cls||'output'}`;
+    sp.innerHTML=`<span class="ts">${ts}</span>${esc(e.data.msg)}`;
+    body.appendChild(sp);
+    body.appendChild(document.createElement('br'));
+    body.scrollTop=body.scrollHeight;
+  }
+}
+
+// AiMessageGate: adds message to AI panel
+class AiMessageGate extends NexusGate {
+  matches(e){return e.type==='AI_MSG'&&!e.wasProcessedBy('AiMessageGate')}
+  transform(e,s){
+    e.markProcessedBy('AiMessageGate');
+    const container=document.getElementById('ai-messages');
+    const div=document.createElement('div');
+    div.className=`ai-msg ${e.data.role} slide-in`;
+    div.innerHTML=`<div class="ai-msg-role">${e.data.role==='ai'?'Assistant':e.data.role==='user'?'You':'System'}</div>${esc(e.data.content)}`;
+    container.appendChild(div);
+    container.scrollTop=container.scrollHeight;
+  }
+}
+
+// AiStreamGate: updates streaming overlay
+class AiStreamGate extends NexusGate {
+  matches(e){return e.type==='AI_STREAM'&&!e.wasProcessedBy('AiStreamGate')}
+  transform(e,s){
+    e.markProcessedBy('AiStreamGate');
+    const overlay=document.getElementById('ai-overlay');
+    const stream=document.getElementById('overlay-stream');
+    const actions=document.getElementById('overlay-actions');
+    const title=document.getElementById('overlay-title');
+    if(e.data.reset){stream.textContent='';overlay.classList.add('visible');actions.style.display='none';title.textContent=e.data.title||'Generating…'}
+    if(e.data.chunk){stream.textContent+=e.data.chunk;stream.scrollTop=stream.scrollHeight}
+    if(e.data.done){
+      document.getElementById('overlay-live-dot').style.animation='none';
+      actions.style.display='flex';
+      title.textContent='Generation complete';
+      document.getElementById('current-generation',stream.textContent);
+    }
+    if(e.data.abort){overlay.classList.remove('visible')}
+  }
+}
+
+// StatusBarGate: updates status bar items
+class StatusBarGate extends NexusGate {
+  matches(e){return e.type==='STATUS'&&!e.wasProcessedBy('StatusBarGate')}
+  transform(e,s){
+    e.markProcessedBy('StatusBarGate');
+    if(e.data.lang!==undefined){
+      document.getElementById('sb-lang').textContent=e.data.lang||'—';
+      document.getElementById('left-pane-lang').textContent=e.data.lang||'—';
+    }
+    if(e.data.cursor){document.getElementById('sb-cursor').textContent=e.data.cursor}
+    if(e.data.branch){document.getElementById('sb-branch').textContent=`⎇ ${e.data.branch}`}
+    if(e.data.aiText){
+      document.getElementById('sb-ai-text').textContent=e.data.aiText;
+    }
+    if(e.data.errors!==undefined){
+      document.getElementById('sb-errors').textContent=`⚠ ${e.data.warnings||0}  ✕ ${e.data.errors}`;
+    }
+  }
+}
+
+// TabGate: manages editor tabs
+class TabGate extends NexusGate {
+  matches(e){return e.type==='TAB'&&!e.wasProcessedBy('TabGate')}
+  transform(e,s){
+    e.markProcessedBy('TabGate');
+    const tabs=document.getElementById('editor-tabs');
+    const {action,file,label}=e.data;
+    if(action==='open'){
+      const exists=tabs.querySelector(`[data-file="${CSS.escape(file)}"]`);
+      if(exists){exists.classList.add('active');tabs.querySelectorAll('.tb-tab').forEach(t=>{if(t!==exists)t.classList.remove('active')});return}
+      const tab=document.createElement('div');
+      tab.className='tb-tab active slide-in';
+      tab.dataset.file=file;
+      tab.innerHTML=`<span>${getFileIcon(file)}</span> ${esc(label||file.split('/').pop())}<span class="tab-close" onclick="closeTab('${esc(file)}')">×</span>`;
+      tab.onclick=()=>openFileInEditor(file);
+      tabs.querySelectorAll('.tb-tab').forEach(t=>t.classList.remove('active'));
+      tabs.insertBefore(tab,tabs.lastElementChild);
+      document.getElementById('left-pane-title').textContent=label||file.split('/').pop();
+    }
+    if(action==='close'){
+      const tab=tabs.querySelector(`[data-file="${CSS.escape(file)}"]`);
+      if(tab)tab.remove();
+    }
+    if(action==='unsaved'){
+      const tab=tabs.querySelector(`[data-file="${CSS.escape(file)}"]`);
+      if(tab)tab.classList.add('unsaved');
+    }
+    if(action==='saved'){
+      const tab=tabs.querySelector(`[data-file="${CSS.escape(file)}"]`);
+      if(tab)tab.classList.remove('unsaved');
+    }
+  }
+}
+
+// FileTreeGate: renders file tree
+class FileTreeGate extends NexusGate {
+  matches(e){return e.type==='FILE_TREE'&&!e.wasProcessedBy('FileTreeGate')}
+  transform(e,s){
+    e.markProcessedBy('FileTreeGate');
+    const tree=document.getElementById('file-tree');
+    document.getElementById('fb-root-name').textContent=e.data.root||'project';
+    tree.innerHTML='';
+    renderNodes(e.data.nodes||[],tree,0);
+  }
+}
+
+// CmdPaletteGate: opens/closes command palette
+class CmdPaletteGate extends NexusGate {
+  matches(e){return e.type==='CMD_PALETTE'&&!e.wasProcessedBy('CmdPaletteGate')}
+  transform(e,s){
+    e.markProcessedBy('CmdPaletteGate');
+    const pal=document.getElementById('cmd-palette');
+    if(e.data.open){
+      pal.classList.add('visible');
+      document.getElementById('cmd-input').value='';
+      document.getElementById('cmd-input').focus();
+      renderCmdItems('');
+    } else {
+      pal.classList.remove('visible');
+    }
+  }
+}
+
+// RoadmapGate: renders roadmap
+class RoadmapGate extends NexusGate {
+  matches(e){return e.type==='ROADMAP_RENDER'&&!e.wasProcessedBy('RoadmapGate')}
+  transform(e,s){
+    e.markProcessedBy('RoadmapGate');
+    renderRoadmap(e.data.milestones||[]);
+  }
+}
+
+// ModelSwitchGate: switches active model
+class ModelSwitchGate extends NexusGate {
+  matches(e){return e.type==='MODEL_SWITCH'&&!e.wasProcessedBy('ModelSwitchGate')}
+  transform(e,s){
+    e.markProcessedBy('ModelSwitchGate');
+    const m=e.data.model;
+    document.body.dataset.currentModel=m;
+    document.querySelectorAll('.mp-item').forEach(i=>{
+      i.classList.toggle('active',i.dataset.model===m);
+    });
+    const isGuardian=m.startsWith('guardian:');
+    const pill=document.getElementById('model-pill');
+    pill.className=`model-pill ${isGuardian?'guardian':'ollama'}`;
+    pill.textContent=isGuardian?`⟁ ${m.replace('guardian:','')}`:`● ${m}`;
+    document.getElementById('sb-ollama-status').textContent=`● ${m}`;
+    S.emit(new NexusEvent('TERM_LOG',{msg:`Model switched → ${m}`,cls:'siso'}));
+  }
+}
+
+// Register all gates
+S.register(new NavSidePanelGate())
+ .register(new OllamaStatusGate())
+ .register(new TerminalLogGate())
+ .register(new AiMessageGate())
+ .register(new AiStreamGate())
+ .register(new StatusBarGate())
+ .register(new TabGate())
+ .register(new FileTreeGate())
+ .register(new CmdPaletteGate())
+ .register(new RoadmapGate())
+ .register(new ModelSwitchGate());
+
+// ── OLLAMA API ─────────────────────────────────────────
+const OLLAMA_BASE='http://localhost:11434';
+const GUARDIAN_PORT=7771; // Guardian web extension bridge
+let abortCtl=null;
+let generationBuffer='';
+
+async function checkOllama(){
+  try{
+    const r=await fetch(`${OLLAMA_BASE}/api/tags`,{signal:AbortSignal.timeout(2500)});
+    if(r.ok){
+      const data=await r.json();
+      const models=(data.models||[]).map(m=>m.name);
+      const preferred=['deepseek-coder-v2','qwen2.5-coder','codellama','mistral','llama'];
+      const active=models.find(m=>preferred.some(p=>m.includes(p)))||models[0]||'deepseek-coder-v2';
+      S.emit(new NexusEvent('OLLAMA_STATUS',{ok:true,model:active,models}));
+    }else throw new Error();
+  }catch{
+    S.emit(new NexusEvent('OLLAMA_STATUS',{ok:false,model:'',models:[]}));
+  }
+}
+
+async function ollamaStream(prompt,model,onChunk,signal,options={}){
+  const res=await fetch(`${OLLAMA_BASE}/api/generate`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:model||document.body.dataset.currentModel||'deepseek-coder-v2',
+      prompt,stream:true,
+      options:{
+        temperature:options.temperature||0.15,
+        top_p:options.top_p||0.92,
+        num_ctx:options.num_ctx||4096,   // 4K token budget
+        num_thread:7,                      // R7 3700x: 8 cores, leave 1
+        ...options
+      }
+    }),signal
+  });
+  if(!res.ok)throw new Error(`Ollama ${res.status}: ${await res.text()}`);
+  const reader=res.body.getReader();
+  const dec=new TextDecoder();
+  let full='';
+  while(true){
+    const{done,value}=await reader.read();
+    if(done)break;
+    for(const line of dec.decode(value).split('\n').filter(Boolean)){
+      try{
+        const j=JSON.parse(line);
+        if(j.response){full+=j.response;onChunk(j.response)}
+        if(j.done)return full;
+      }catch{}
+    }
+  }
+  return full;
+}
+
+// Guardian API bridge (web extension)
+async function guardianRequest(prompt,model){
+  try{
+    const r=await fetch(`http://localhost:${GUARDIAN_PORT}/api/complete`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt,model:model.replace('guardian:',''),stream:false}),
+      signal:AbortSignal.timeout(30000)
+    });
+    if(!r.ok)throw new Error(`Guardian ${r.status}`);
+    const d=await r.json();
+    return d.content||d.text||'';
+  }catch(e){
+    S.emit(new NexusEvent('TERM_LOG',{msg:`Guardian API error: ${e.message}`,cls:'err'}));
+    return null;
+  }
+}
+
+// Smart model router with Guardian fallback
+async function smartGenerate(prompt,onChunk,signal,options={}){
+  const model=document.body.dataset.currentModel||'deepseek-coder-v2';
+  const isGuardian=model.startsWith('guardian:');
+
+  if(isGuardian){
+    S.emit(new NexusEvent('TERM_LOG',{msg:`→ Guardian API: ${model}`,cls:'siso'}));
+    const result=await guardianRequest(prompt,model);
+    if(result){onChunk(result);return result}
+    return '';
+  }
+
+  // Try Ollama first
+  try{
+    return await ollamaStream(prompt,model,onChunk,signal,options);
+  }catch(e){
+    if(e.name==='AbortError')return '';
+    S.emit(new NexusEvent('TERM_LOG',{msg:`Ollama failed: ${e.message} — trying Guardian fallback`,cls:'warn'}));
+
+    // Auto-fallback to Guardian
+    const result=await guardianRequest(prompt,'claude-sonnet');
+    if(result){
+      S.emit(new NexusEvent('TERM_LOG',{msg:'Guardian fallback succeeded',cls:'ok'}));
+      onChunk(result);
+      return result;
+    }
+    throw e;
+  }
+}
+
+// ── TOKEN BUDGET ENFORCER ──────────────────────────────
+// Ensures no request exceeds 4K tokens
+// Compresses context intelligently for R7 3700x RAM budget
+
+const TOKEN_BUDGET=3800; // Leave headroom for model overhead
+
+function estimateTokens(text){return Math.ceil(text.length/3.8)}
+
+function compressContext(systemPrompt,userMessage,codeContext='',chatHistory=[]){
+  let totalTokens=estimateTokens(systemPrompt)+estimateTokens(userMessage);
+
+  // Compress chat history to fit budget
+  const maxHistoryTokens=Math.floor(TOKEN_BUDGET*0.3);
+  let historyText='';
+  for(let i=chatHistory.length-1;i>=0;i--){
+    const entry=`${chatHistory[i].role}: ${chatHistory[i].content.slice(0,200)}\n`;
+    if(estimateTokens(historyText+entry)>maxHistoryTokens)break;
+    historyText=entry+historyText;
+  }
+
+  // Trim code context to fit budget
+  const remaining=TOKEN_BUDGET-totalTokens-estimateTokens(historyText);
+  let code=codeContext;
+  if(estimateTokens(code)>remaining){
+    const chars=Math.floor(remaining*3.8);
+    code=code.slice(0,chars)+'...[truncated for 4K budget]';
+    S.emit(new NexusEvent('TERM_LOG',{msg:`Context compressed: ${estimateTokens(codeContext)}→${estimateTokens(code)} tokens`,cls:'siso'}));
+  }
+
+  return {systemPrompt,userMessage,code,history:historyText,totalEst:totalTokens+estimateTokens(code)+estimateTokens(historyText)};
+}
+
+// ── PROMPT BUILDERS (language-aware) ──────────────────
+const LANG_HINTS={
+  javascript:'Use modern JS (ES2023+). Prefer const/let, arrow functions, async/await.',
+  typescript:'Use strict TypeScript. Include proper type annotations and interfaces.',
+  python:'Use Python 3.10+. Follow PEP8. Use type hints. Prefer dataclasses.',
+  rust:'Use safe Rust. Include proper error handling with Result<>. Ownership must be correct.',
+  go:'Use idiomatic Go. Error handling with err checks. Follow Go conventions.',
+  php:'PHP 8.2+. Use typed properties, enums, match expressions, fibers.',
+  java:'Java 21+. Use records, sealed classes, pattern matching.',
+  csharp:'C# 12. Use records, nullable reference types, LINQ where appropriate.',
+  cpp:'Modern C++20. RAII, smart pointers, concepts.',
+  ruby:'Ruby 3.2+. Idiomatic Ruby. RSpec for tests.',
+};
+
+function buildPrompt(mode,userMessage,code='',lang='',history='',projectCtx=''){
+  const langHint=LANG_HINTS[lang]||'Write clean, idiomatic code.';
+  const sisoCtx=document.body.dataset.projectArch?.includes('siso')?
+    `\nARCHITECTURE: SISO (Stream In, Stream Out). Events are immutable. Gates are pure functions. Each Gate does ONE thing. Gates that re-emit must use the wasProcessedBy/markProcessedBy infinite-loop guard.`:'';
+
+  const modes={
+    chat:`You are NEXUS/FORGE AI, an expert ${lang} developer. ${langHint}${sisoCtx}\nProject context: ${projectCtx||'general coding assistant'}\n\nChat history:\n${history}\n\nUser: ${userMessage}${code?`\n\nCode context:\n\`\`\`${lang}\n${code}\n\`\`\``:''}`,
+    complete:`You are an expert ${lang} code completion engine. ${langHint}${sisoCtx}\nComplete the following code. Output ONLY the completion, no explanation.\n\nCode:\n\`\`\`${lang}\n${code}\n\`\`\``,
+    refactor:`You are a ${lang} refactoring expert. ${langHint}${sisoCtx}\nRefactor the following code for: ${userMessage||'clarity, performance, and best practices'}.\nOutput the refactored code followed by a brief explanation of changes.\n\nOriginal:\n\`\`\`${lang}\n${code}\n\`\`\``,
+    explain:`You are a ${lang} expert. Explain the following code concisely but completely. Focus on: what it does, how it works, and any important patterns or gotchas.\n\nCode:\n\`\`\`${lang}\n${code}\n\`\`\``,
+    test:`You are a ${lang} testing expert. Generate comprehensive tests for the following code. Include: unit tests, edge cases, error cases, and happy paths.\n\n${langHint}\n\nCode to test:\n\`\`\`${lang}\n${code}\n\`\`\``,
+    gate:`You are a SISO Gate generation expert. ${langHint}\nGenerate a complete, correct SISO Gate Group for: ${userMessage}\nSystem context: ${projectCtx}\nRules:\n1. Each Gate has exactly matches() and transform()\n2. Pure functions — no side effects except emitting events\n3. Single responsibility per Gate\n4. Infinite loop guard on re-emitting gates\n5. Include event type definitions and stream registration`,
+  };
+  return modes[mode]||modes.chat;
+}
+
+// ── AI PANEL STATE ─────────────────────────────────────
+let chatHistory=[];
+let currentAiMode='chat';
+let isGenerating=false;
+
+function setAiMode(mode){
+  currentAiMode=mode;
+  document.querySelectorAll('.ai-mode-btn').forEach(b=>{
+    b.classList.toggle('active',b.dataset.mode===mode);
+  });
+}
+
+function aiKeydown(e){
+  if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();sendAiRequest()}
+}
+
+async function sendAiRequest(){
+  if(isGenerating)return;
+  const input=document.getElementById('ai-input');
+  const msg=input.value.trim();
+  if(!msg)return;
+  input.value='';
+  isGenerating=true;
+
+  S.emit(new NexusEvent('AI_MSG',{role:'user',content:msg}));
+  S.emit(new NexusEvent('STATUS',{aiText:'Generating…'}));
+
+  const lang=document.body.dataset.currentLang||'';
+  const code=getCurrentEditorCode();
+  const projectCtx=document.body.dataset.projectDesc||'';
+
+  const compressed=compressContext(
+    `Expert ${lang} developer using NEXUS/FORGE IDE.`,
+    msg, code, chatHistory
+  );
+
+  S.emit(new NexusEvent('TERM_LOG',{msg:`AI request: ~${compressed.totalEst} tokens`,cls:'siso'}));
+
+  const prompt=buildPrompt(currentAiMode,msg,compressed.code,lang,compressed.history,projectCtx);
+
+  let fullResponse='';
+  abortCtl=new AbortController();
+
+  S.emit(new NexusEvent('AI_STREAM',{reset:true,title:`${currentAiMode.charAt(0).toUpperCase()+currentAiMode.slice(1)}…`}));
+
+  try{
+    fullResponse=await smartGenerate(prompt,(chunk)=>{
+      S.emit(new NexusEvent('AI_STREAM',{chunk}));
+    },abortCtl.signal);
+
+    if(fullResponse){
+      S.emit(new NexusEvent('AI_MSG',{role:'ai',content:fullResponse}));
+      chatHistory.push({role:'user',content:msg},{role:'assistant',content:fullResponse.slice(0,300)});
+      if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
+      S.emit(new NexusEvent('AI_STREAM',{done:true}));
+      generationBuffer=fullResponse;
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){
+      S.emit(new NexusEvent('AI_MSG',{role:'ai',content:`Error: ${e.message}`}));
+      S.emit(new NexusEvent('AI_STREAM',{abort:true}));
+    }
+  }
+
+  isGenerating=false;
+  S.emit(new NexusEvent('STATUS',{aiText:'AI ready'}));
+}
+
+function abortGeneration(){
+  if(abortCtl)abortCtl.abort();
+  isGenerating=false;
+  S.emit(new NexusEvent('AI_STREAM',{abort:true}));
+  S.emit(new NexusEvent('STATUS',{aiText:'Aborted'}));
+}
+
+function acceptGeneration(){
+  if(!generationBuffer)return;
+  if(monacoEditors.left){
+    monacoEditors.left.setValue(generationBuffer);
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Generation accepted — inserted into editor',cls:'ok'}));
+  }
+  document.getElementById('ai-overlay').classList.remove('visible');
+}
+
+function insertGeneration(){
+  if(!generationBuffer)return;
+  if(monacoEditors.left){
+    const editor=monacoEditors.left;
+    const pos=editor.getPosition();
+    const code=generationBuffer.match(/```[\w]*\n?([\s\S]*?)```/)?.[1]||generationBuffer;
+    editor.executeEdits('ai-insert',[{range:{startLineNumber:pos.lineNumber,startColumn:pos.column,endLineNumber:pos.lineNumber,endColumn:pos.column},text:code}]);
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Code inserted at cursor',cls:'ok'}));
+  }
+  document.getElementById('ai-overlay').classList.remove('visible');
+}
+
+function rejectGeneration(){document.getElementById('ai-overlay').classList.remove('visible')}
+function refineGeneration(){
+  document.getElementById('ai-overlay').classList.remove('visible');
+  document.getElementById('ai-input').value='Refine: ';
+  document.getElementById('ai-input').focus();
+}
+
+// ── MONACO EDITOR SETUP ───────────────────────────────
+let monacoEditors={left:null,right:null};
+let monacoLoaded=false;
+
+function initMonaco(){
+  require.config({paths:{'vs':'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'}});
+  require(['vs/editor/editor.main'],()=>{
+    monacoLoaded=true;
+
+    // Configure Monaco dark theme
+    monaco.editor.defineTheme('nexus-forge',{
+      base:'vs-dark',
+      inherit:true,
+      rules:[
+        {token:'comment',foreground:'383840',fontStyle:'italic'},
+        {token:'keyword',foreground:'d4782a'},
+        {token:'string',foreground:'3aaa5a'},
+        {token:'number',foreground:'2aaaba'},
+        {token:'type',foreground:'7a5aba'},
+        {token:'function',foreground:'f0a050'},
+        {token:'variable',foreground:'e2e2ea'},
+        {token:'operator',foreground:'6b6b78'},
+      ],
+      colors:{
+        'editor.background':'#07070a',
+        'editor.foreground':'#e2e2ea',
+        'editor.lineHighlightBackground':'#0f0f14',
+        'editor.selectionBackground':'#d4782a30',
+        'editor.inactiveSelectionBackground':'#d4782a15',
+        'editorLineNumber.foreground':'#2a2a30',
+        'editorLineNumber.activeForeground':'#6b6b78',
+        'editorCursor.foreground':'#d4782a',
+        'editorIndentGuide.background':'#14141a',
+        'editorIndentGuide.activeBackground':'#2a2a30',
+        'editorWidget.background':'#0b0b0f',
+        'editorSuggestWidget.background':'#0b0b0f',
+        'editorSuggestWidget.border':'#1a1a20',
+        'editorSuggestWidget.selectedBackground':'#1a1a28',
+        'input.background':'#0f0f14',
+        'input.border':'#1a1a20',
+        'scrollbarSlider.background':'#1a1a2020',
+        'scrollbarSlider.hoverBackground':'#2a2a3040',
+      }
+    });
+
+    // Create left editor
+    monacoEditors.left=monaco.editor.create(document.getElementById('left-monaco'),{
+      value:'',
+      language:'plaintext',
+      theme:'nexus-forge',
+      fontSize:13,
+      fontFamily:"'Geist Mono', 'JetBrains Mono', 'Courier New', monospace",
+      fontLigatures:true,
+      lineHeight:22,
+      letterSpacing:0,
+      minimap:{enabled:true,side:'right',scale:1},
+      scrollBeyondLastLine:false,
+      wordWrap:'off',
+      renderLineHighlight:'line',
+      cursorBlinking:'smooth',
+      cursorSmoothCaretAnimation:'on',
+      smoothScrolling:true,
+      automaticLayout:true,
+      tabSize:2,
+      insertSpaces:true,
+      formatOnPaste:true,
+      formatOnType:false,
+      suggestOnTriggerCharacters:true,
+      quickSuggestions:{other:true,comments:false,strings:false},
+      parameterHints:{enabled:true},
+      hover:{enabled:true},
+      contextmenu:true,
+      folding:true,
+      bracketPairColorization:{enabled:true},
+      guides:{bracketPairs:true,indentation:true},
+      padding:{top:10,bottom:10},
+      renderWhitespace:'boundary',
+      occurrencesHighlight:true,
+      selectionHighlight:true,
+      codeLens:true,
+      glyphMargin:true,
+      overviewRulerLanes:3,
+    });
+
+    // Welcome message in left editor
+    if(document.getElementById('welcome-screen')){
+      monacoEditors.left.setValue('// NEXUS/FORGE — Open a file to start editing\n// Press Ctrl+P for command palette\n// Press Ctrl+G to generate code with AI\n');
+    }
+
+    // Cursor position tracking
+    monacoEditors.left.onDidChangeCursorPosition(e=>{
+      S.emit(new NexusEvent('STATUS',{cursor:`Ln ${e.position.lineNumber}, Col ${e.position.column}`}));
+    });
+
+    // Content change = unsaved indicator
+    monacoEditors.left.onDidChangeModelContent(()=>{
+      const f=document.body.dataset.currentFile;
+      if(f)S.emit(new NexusEvent('TAB',{action:'unsaved',file:f}));
+      // AI inline suggestion trigger
+      scheduleInlineSuggest();
+    });
+
+    // Keyboard shortcuts
+    monacoEditors.left.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyG,()=>triggerAiGenerate());
+    monacoEditors.left.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyMod.Shift|monaco.KeyCode.KeyG,()=>triggerGateGenerate());
+    monacoEditors.left.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyP,()=>openCmd());
+    monacoEditors.left.addCommand(monaco.KeyMod.Alt|monaco.KeyMod.Shift|monaco.KeyCode.KeyF,()=>formatDoc('left'));
+    monacoEditors.left.addCommand(monaco.KeyCode.F2,()=>renameSymbol());
+    monacoEditors.left.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS,()=>saveCurrentFile());
+
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Monaco editor initialized',cls:'ok'}));
+    loadUserSettings();
+  });
+}
+
+// Inline suggestion (debounced)
+let suggestTimer=null;
+function scheduleInlineSuggest(){
+  clearTimeout(suggestTimer);
+  // Only if AI panel is visible and not currently generating
+  if(!isGenerating&&document.body.dataset.sidePanel==='ai'){
+    suggestTimer=setTimeout(()=>{
+      // passive — don't auto-fire, just mark cursor for next explicit request
+    },2000);
+  }
+}
+
+// ── CURRENT CODE HELPERS ──────────────────────────────
+function getCurrentEditorCode(){
+  if(!monacoEditors.left)return '';
+  const editor=monacoEditors.left;
+  const selection=editor.getSelection();
+  if(!selection.isEmpty()){
+    return editor.getModel()?.getValueInRange(selection)||'';
+  }
+  // Return visible range for context efficiency
+  const visibleRange=editor.getVisibleRanges()[0];
+  if(visibleRange){
+    return editor.getModel()?.getValueInRange(visibleRange)||'';
+  }
+  return editor.getValue().slice(0,TOKEN_BUDGET*3); // safety cap
+}
+
+function getLangForFile(filename){
+  const ext=(filename||'').split('.').pop().toLowerCase();
+  const map={
+    js:'javascript',ts:'typescript',jsx:'javascript',tsx:'typescript',
+    py:'python',rs:'rust',go:'go',php:'php',java:'java',cs:'csharp',
+    cpp:'cpp',c:'c',rb:'ruby',swift:'swift',kt:'kotlin',
+    html:'html',css:'css',scss:'scss',json:'json',yaml:'yaml',yml:'yaml',
+    md:'markdown',sh:'shell',bash:'shell',toml:'ini',
+    sql:'sql',graphql:'graphql',lua:'lua',zig:'zig',
+  };
+  return map[ext]||'plaintext';
+}
+
+function getFileIcon(filename){
+  const ext=(filename||'').split('.').pop().toLowerCase();
+  const icons={js:'🟨',ts:'🔷',jsx:'⚛',tsx:'⚛',py:'🐍',rs:'🦀',go:'🐹',
+    php:'🐘',java:'☕',cs:'♯',cpp:'⚙',c:'⚙',rb:'💎',swift:'🍎',
+    html:'🌐',css:'🎨',scss:'🎨',json:'{}',md:'📝',sh:'⬛',
+    sql:'🗄',yaml:'📋',yml:'📋',png:'🖼',jpg:'🖼',svg:'🖼',
+    toml:'🔧',lock:'🔒',gitignore:'⎇',env:'🔑',
+  };
+  return icons[ext]||'📄';
+}
+
+// ── FILE OPERATIONS ───────────────────────────────────
+let currentProject={root:'',files:{}};
+let currentFile='';
+
+function openFolder(){
+  // In Electron: window.electronAPI?.openFolder()
+  // For browser demo: simulate
+  const name=prompt('Project path (demo mode — type folder name):','my-project');
+  if(!name)return;
+  currentProject.root=name;
+  document.body.dataset.projectRoot=name;
+
+  // Demo file tree
+  const nodes=[
+    {name:'src',type:'dir',children:[
+      {name:'main.js',type:'file',path:`${name}/src/main.js`,gitStatus:'modified'},
+      {name:'gates.js',type:'file',path:`${name}/src/gates.js`},
+      {name:'stream.js',type:'file',path:`${name}/src/stream.js`,gitStatus:'new'},
+    ]},
+    {name:'tests',type:'dir',children:[
+      {name:'gates.test.js',type:'file',path:`${name}/tests/gates.test.js`},
+    ]},
+    {name:'package.json',type:'file',path:`${name}/package.json`},
+    {name:'README.md',type:'file',path:`${name}/README.md`},
+    {name:'.gitignore',type:'file',path:`${name}/.gitignore`},
+  ];
+  S.emit(new NexusEvent('FILE_TREE',{root:name,nodes}));
+  S.emit(new NexusEvent('STATUS',{branch:'main'}));
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Project opened: ${name}`,cls:'ok'}));
+
+  // Load demo roadmap
+  S.emit(new NexusEvent('ROADMAP_RENDER',{milestones:getDemoRoadmap()}));
+}
+
+function renderNodes(nodes,container,depth){
+  for(const node of nodes){
+    const item=document.createElement('div');
+    item.className=`ft-item ${node.type==='dir'?'dir':''} ${node.gitStatus==='modified'?'git-modified':node.gitStatus==='new'?'git-new':''}`;
+    item.style.paddingLeft=`${8+depth*14}px`;
+    let badge='';
+    if(node.gitStatus==='modified')badge=`<span class="ft-badge m">M</span>`;
+    if(node.gitStatus==='new')badge=`<span class="ft-badge u">U</span>`;
+    item.innerHTML=`<span class="ft-icon">${node.type==='dir'?'▸':getFileIcon(node.name)}</span><span class="ft-name">${esc(node.name)}</span>${badge}`;
+    if(node.type==='dir'){
+      item.classList.add('dir');
+      let expanded=true;
+      const childContainer=document.createElement('div');
+      childContainer.dataset.parent=node.name;
+      item.onclick=()=>{
+        expanded=!expanded;
+        childContainer.style.display=expanded?'block':'none';
+        item.querySelector('.ft-icon').textContent=expanded?'▾':'▸';
+      };
+      container.appendChild(item);
+      if(node.children){renderNodes(node.children,childContainer,depth+1)}
+      container.appendChild(childContainer);
+    }else{
+      item.onclick=()=>openFileInEditor(node.path||node.name,node.name);
+      container.appendChild(item);
+    }
+  }
+}
+
+function openFileInEditor(path,name){
+  if(!monacoLoaded){
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Monaco still loading…',cls:'warn'}));
+    return;
+  }
+  currentFile=path;
+  document.body.dataset.currentFile=path;
+  const lang=getLangForFile(name||path);
+  document.body.dataset.currentLang=lang;
+
+  // Hide welcome screen
+  const ws=document.getElementById('welcome-screen');
+  if(ws)ws.style.display='none';
+
+  // Set language
+  const model=monacoEditors.left?.getModel();
+  if(model)monaco.editor.setModelLanguage(model,lang);
+
+  // Demo: load template code
+  const demoCode=getDemoCode(lang,name||path);
+  monacoEditors.left?.setValue(demoCode);
+
+  S.emit(new NexusEvent('TAB',{action:'open',file:path,label:name||path.split('/').pop()}));
+  S.emit(new NexusEvent('STATUS',{lang:lang.charAt(0).toUpperCase()+lang.slice(1)}));
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Opened: ${name||path}`,cls:'info'}));
+
+  // Update active in tree
+  document.querySelectorAll('.ft-item').forEach(i=>i.classList.remove('active'));
+  // (would match by path in real impl)
+}
+
+function getDemoCode(lang,name){
+  if(name?.includes('gates')){
+    return `// SISO Gate Group: ${name}
+// Generated by NEXUS/FORGE — Pure functional architecture
+
+class ParseEvent extends NexusEvent {
+  constructor(data) {
+    super('PARSE', data);
+  }
+}
+
+class ParseGate extends NexusGate {
+  matches(e) {
+    return e.type === 'RAW_INPUT'
+      && !e.wasProcessedBy('ParseGate');
+  }
+
+  transform(e, stream) {
+    e.markProcessedBy('ParseGate');
+    // One transformation only: parse raw input
+    const parsed = JSON.parse(e.data.raw);
+    stream.emit(new ParseEvent({ parsed, source: e.data.source }));
+  }
+}
+
+class ValidateGate extends NexusGate {
+  matches(e) {
+    return e.type === 'PARSE'
+      && !e.wasProcessedBy('ValidateGate');
+  }
+
+  transform(e, stream) {
+    e.markProcessedBy('ValidateGate');
+    const { parsed } = e.data;
+    const isValid = parsed && typeof parsed === 'object';
+    stream.emit(new NexusEvent(isValid ? 'VALID' : 'INVALID', {
+      data: parsed, errors: isValid ? [] : ['Invalid structure']
+    }));
+  }
+}
+
+// Register gates
+const stream = new NexusStream();
+stream
+  .register(new ParseGate())
+  .register(new ValidateGate());
+
+export { ParseGate, ValidateGate, stream };`;
+  }
+  const templates={
+    javascript:`// NEXUS/FORGE — JavaScript
+// Event → Gate → Stream → DOM
+
+const app = {
+  init() {
+    console.log('NEXUS/FORGE initialized');
+  }
+};
+
+app.init();`,
+    typescript:`// NEXUS/FORGE — TypeScript
+interface Config {
+  name: string;
+  version: string;
+}
+
+const config: Config = {
+  name: 'nexus-forge',
+  version: '1.0.0'
+};
+
+export default config;`,
+    python:`# NEXUS/FORGE — Python
+from dataclasses import dataclass
+from typing import Any
+
+@dataclass
+class Event:
+    type: str
+    data: dict[str, Any]
+
+def main() -> None:
+    print("NEXUS/FORGE ready")
+
+if __name__ == "__main__":
+    main()`,
+    rust:`// NEXUS/FORGE — Rust
+use std::collections::HashMap;
+
+#[derive(Debug)]
+struct Event {
+    event_type: String,
+    data: HashMap<String, String>,
+}
+
+fn main() {
+    println!("NEXUS/FORGE ready");
+}`,
+  };
+  return templates[lang]||`// ${name||'file'}\n// NEXUS/FORGE\n`;
+}
+
+// ── FILE OPERATIONS ───────────────────────────────────
+function newFile(){
+  const name=prompt('New file name:','untitled.js');
+  if(!name)return;
+  S.emit(new NexusEvent('TAB',{action:'open',file:name,label:name}));
+  monacoEditors.left?.setValue('');
+  document.getElementById('welcome-screen').style.display='none';
+}
+
+function newFolder(){prompt('New folder name:','new-folder')}
+
+function collapseAll(){
+  document.querySelectorAll('#file-tree [data-parent]').forEach(c=>c.style.display='none');
+  document.querySelectorAll('.ft-item.dir .ft-icon').forEach(i=>i.textContent='▸');
+}
+
+function filterFiles(query){
+  document.querySelectorAll('.ft-item').forEach(item=>{
+    const name=item.querySelector('.ft-name')?.textContent||'';
+    item.style.display=name.toLowerCase().includes(query.toLowerCase())||item.classList.contains('dir')?'':'none';
+  });
+}
+
+function saveCurrentFile(){
+  const f=document.body.dataset.currentFile;
+  if(!f)return;
+  S.emit(new NexusEvent('TAB',{action:'saved',file:f}));
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Saved: ${f}`,cls:'ok'}));
+  // In Electron: window.electronAPI?.saveFile(f, monacoEditors.left?.getValue())
+}
+
+function closeTab(file){
+  S.emit(new NexusEvent('TAB',{action:'close',file}));
+}
+
+// ── EDITOR PANE MANAGEMENT ────────────────────────────
+let rightPaneMode='closed'; // closed | preview | editor | diff
+
+function splitRight(){
+  const right=document.getElementById('right-pane');
+  right.style.display='flex';
+  document.getElementById('pane-divider').style.display='block';
+  rightPaneMode='editor';
+  if(!monacoEditors.right&&monacoLoaded){
+    monacoEditors.right=monaco.editor.create(
+      right.querySelector('.monaco-container')||createRightMonacoContainer(),
+      {
+        value:'// Right pane',
+        language:document.body.dataset.currentLang||'plaintext',
+        theme:'nexus-forge',
+        fontSize:13,
+        fontFamily:"'Geist Mono','Courier New',monospace",
+        automaticLayout:true,
+        minimap:{enabled:false},
+      }
+    );
+  }
+}
+
+function setRightPane(mode){
+  rightPaneMode=mode;
+  const preview=document.getElementById('preview-frame');
+  const toolbar=document.getElementById('preview-toolbar');
+  if(mode==='preview'){
+    toolbar.style.display='flex';
+    preview.style.display='block';
+    const code=monacoEditors.left?.getValue()||'';
+    if(code.trim().startsWith('<')||document.body.dataset.currentLang==='html'){
+      previewHtml(code);
+    }
+  }else if(mode==='editor'){
+    toolbar.style.display='none';
+    preview.style.display='none';
+    splitRight();
+  }
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Right pane: ${mode}`,cls:'info'}));
+}
+
+function previewHtml(html){
+  const frame=document.getElementById('preview-frame');
+  const blob=new Blob([html],{type:'text/html'});
+  frame.src=URL.createObjectURL(blob);
+}
+
+function closeRightPane(){
+  document.getElementById('right-pane').style.display='none';
+  document.getElementById('pane-divider').style.display='none';
+  rightPaneMode='closed';
+}
+
+function previewRefresh(){
+  const code=monacoEditors.left?.getValue()||'';
+  previewHtml(code);
+}
+
+function previewNav(url){document.getElementById('preview-frame').src=url}
+function previewBack(){document.getElementById('preview-frame').contentWindow?.history.back()}
+function previewOpenExternal(){window.open(document.getElementById('preview-url').value)}
+
+// ── PANE RESIZE ───────────────────────────────────────
+let paneDrag=null;
+function startPaneDrag(e){
+  paneDrag={startX:e.clientX,startW:document.getElementById('left-pane').offsetWidth};
+  document.getElementById('pane-divider').classList.add('dragging');
+  document.addEventListener('mousemove',onPaneDrag);
+  document.addEventListener('mouseup',endPaneDrag);
+}
+function onPaneDrag(e){
+  if(!paneDrag)return;
+  const split=document.getElementById('editor-split');
+  const dx=e.clientX-paneDrag.startX;
+  const totalW=split.offsetWidth;
+  const newW=Math.max(200,Math.min(totalW-200,paneDrag.startW+dx));
+  document.getElementById('left-pane').style.flex=`0 0 ${newW}px`;
+}
+function endPaneDrag(){
+  paneDrag=null;
+  document.getElementById('pane-divider').classList.remove('dragging');
+  document.removeEventListener('mousemove',onPaneDrag);
+  document.removeEventListener('mouseup',endPaneDrag);
+  monacoEditors.left?.layout();
+  monacoEditors.right?.layout();
+}
+
+let hDrag=null;
+function startHDrag(e){
+  hDrag={startY:e.clientY,startH:document.getElementById('terminal-area').offsetHeight};
+  document.getElementById('h-divider').classList.add('dragging');
+  document.addEventListener('mousemove',onHDrag);
+  document.addEventListener('mouseup',endHDrag);
+}
+function onHDrag(e){
+  if(!hDrag)return;
+  const dy=hDrag.startY-e.clientY;
+  const newH=Math.max(80,Math.min(500,hDrag.startH+dy));
+  document.getElementById('terminal-area').style.height=`${newH}px`;
+}
+function endHDrag(){
+  hDrag=null;
+  document.getElementById('h-divider').classList.remove('dragging');
+  document.removeEventListener('mousemove',onHDrag);
+  document.removeEventListener('mouseup',endHDrag);
+  monacoEditors.left?.layout();
+}
+
+// ── TERMINAL ──────────────────────────────────────────
+let termHistory=[];
+let termHistoryIdx=-1;
+
+function termKeydown(e){
+  const input=document.getElementById('term-input');
+  if(e.key==='Enter'){
+    const cmd=input.value.trim();
+    if(!cmd)return;
+    termHistory.unshift(cmd);
+    termHistoryIdx=-1;
+    input.value='';
+    execTermCmd(cmd);
+  }
+  if(e.key==='ArrowUp'){
+    termHistoryIdx=Math.min(termHistoryIdx+1,termHistory.length-1);
+    if(termHistoryIdx>=0)input.value=termHistory[termHistoryIdx];
+  }
+  if(e.key==='ArrowDown'){
+    termHistoryIdx=Math.max(termHistoryIdx-1,-1);
+    input.value=termHistoryIdx>=0?termHistory[termHistoryIdx]:'';
+  }
+}
+
+function execTermCmd(cmd){
+  S.emit(new NexusEvent('TERM_LOG',{msg:`❯ ${cmd}`,cls:'prompt'}));
+  // In Electron: window.electronAPI?.exec(cmd, (out)=>...)
+  // Browser demo: handle known commands
+  const parts=cmd.split(' ');
+  const c=parts[0].toLowerCase();
+  if(c==='clear'){document.getElementById('terminal-body').innerHTML='';return}
+  if(c==='help'){
+    ['Available commands:','  clear — clear terminal','  ls — list files','  siso — show SISO gate registry','  ollama — check Ollama status','  generate <desc> — generate code'].forEach(l=>S.emit(new NexusEvent('TERM_LOG',{msg:l,cls:'output'})));
+    return;
+  }
+  if(c==='siso'){
+    S.emit(new NexusEvent('TERM_LOG',{msg:'SISO Gate Registry:',cls:'siso'}));
+    ['NavSidePanelGate','OllamaStatusGate','TerminalLogGate','AiMessageGate','AiStreamGate','StatusBarGate','TabGate','FileTreeGate','CmdPaletteGate','RoadmapGate','ModelSwitchGate'].forEach(g=>{
+      S.emit(new NexusEvent('TERM_LOG',{msg:`  ✓ ${g}`,cls:'siso'}));
+    });
+    return;
+  }
+  if(c==='generate'){
+    triggerAiGenerate(parts.slice(1).join(' '));
+    return;
+  }
+  if(c==='ls'){
+    S.emit(new NexusEvent('TERM_LOG',{msg:`src/  tests/  package.json  README.md`,cls:'output'}));
+    return;
+  }
+  if(c==='ollama'){
+    checkOllama().then(()=>S.emit(new NexusEvent('TERM_LOG',{msg:'Ollama check complete',cls:'ok'})));
+    return;
+  }
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Command not found: ${cmd} (Electron IPC in full build)`,cls:'warn'}));
+}
+
+function toggleTerminal(){
+  const ta=document.getElementById('terminal-area');
+  ta.style.display=ta.style.display==='none'?'flex':'none';
+  monacoEditors.left?.layout();
+}
+
+function addTerminal(){
+  const tabs=document.getElementById('terminal-tabs');
+  const names=['node','test','git','docker'];
+  const name=names[Math.floor(Math.random()*names.length)];
+  const tab=document.createElement('div');
+  tab.className='terminal-tab';
+  tab.dataset.term=name;
+  tab.innerHTML=`<span class="term-dot" style="background:var(--cyan2)"></span>${name}`;
+  tabs.insertBefore(tab,tabs.querySelector('[onclick]').parentElement?.nextSibling||tabs.lastElementChild);
+  S.emit(new NexusEvent('TERM_LOG',{msg:`New terminal: ${name}`,cls:'info'}));
+}
+
+// ── AI GENERATION TRIGGERS ────────────────────────────
+async function triggerAiGenerate(prompt){
+  const userPrompt=prompt||window.prompt('Describe what to generate:','Generate a SISO gate for…');
+  if(!userPrompt)return;
+  document.getElementById('ai-input').value=userPrompt;
+  switchSidePanel('ai');
+  await sendAiRequest();
+}
+
+async function triggerGateGenerate(){
+  const desc=window.prompt('Gate Group name and purpose:','AuthGateGroup — handles JWT validation and session management');
+  if(!desc)return;
+  const lang=document.body.dataset.currentLang||'javascript';
+  const projectCtx=document.body.dataset.projectDesc||'';
+  const prompt=buildPrompt('gate',desc,'',lang,'',projectCtx);
+
+  S.emit(new NexusEvent('AI_STREAM',{reset:true,title:'Generating SISO Gate Group…'}));
+  abortCtl=new AbortController();
+  generationBuffer='';
+
+  try{
+    await smartGenerate(prompt,(chunk)=>{
+      generationBuffer+=chunk;
+      S.emit(new NexusEvent('AI_STREAM',{chunk}));
+    },abortCtl.signal,{temperature:0.1});
+    S.emit(new NexusEvent('AI_STREAM',{done:true}));
+  }catch(e){
+    if(e.name!=='AbortError')S.emit(new NexusEvent('TERM_LOG',{msg:`Gate generation error: ${e.message}`,cls:'err'}));
+    S.emit(new NexusEvent('AI_STREAM',{abort:true}));
+  }
+}
+
+function formatDoc(pane){
+  const editor=monacoEditors[pane];
+  if(editor){
+    editor.getAction('editor.action.formatDocument')?.run();
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Document formatted',cls:'ok'}));
+  }
+}
+
+function renameSymbol(){
+  monacoEditors.left?.getAction('editor.action.rename')?.run();
+}
+
+// ── COMMAND PALETTE ───────────────────────────────────
+const COMMANDS=[
+  {group:'File',icon:'📄',label:'New File',kbd:'Ctrl+N',action:()=>newFile()},
+  {group:'File',icon:'📂',label:'Open Folder',kbd:'Ctrl+K Ctrl+O',action:()=>openFolder()},
+  {group:'File',icon:'💾',label:'Save',kbd:'Ctrl+S',action:()=>saveCurrentFile()},
+  {group:'Editor',icon:'⊞',label:'Split Editor Right',kbd:'Ctrl+\\',action:()=>splitRight()},
+  {group:'Editor',icon:'⎇',label:'Format Document',kbd:'Alt+Shift+F',action:()=>formatDoc('left')},
+  {group:'AI',icon:'◈',label:'Generate Code',kbd:'Ctrl+G',action:()=>triggerAiGenerate()},
+  {group:'AI',icon:'⟁',label:'Generate SISO Gate',kbd:'Ctrl+Shift+G',action:()=>triggerGateGenerate()},
+  {group:'AI',icon:'✎',label:'Explain Selection',action:()=>{setAiMode('explain');sendAiRequest()}},
+  {group:'AI',icon:'↺',label:'Refactor Selection',action:()=>{setAiMode('refactor');sendAiRequest()}},
+  {group:'AI',icon:'🧪',label:'Generate Tests',action:()=>{setAiMode('test');sendAiRequest()}},
+  {group:'View',icon:'🗺',label:'Toggle Roadmap',action:()=>switchSidePanel('roadmap')},
+  {group:'View',icon:'⎇',label:'Toggle Source Control',action:()=>switchSidePanel('git')},
+  {group:'View',icon:'⌕',label:'Global Search',action:()=>switchSidePanel('search')},
+  {group:'View',icon:'⬛',label:'Toggle Terminal',kbd:'Ctrl+`',action:()=>toggleTerminal()},
+  {group:'View',icon:'👁',label:'Preview in Right Pane',action:()=>setRightPane('preview')},
+  {group:'Project',icon:'◈',label:'New Project (Wizard)',action:()=>openWizard()},
+  {group:'Model',icon:'●',label:'Switch Model',action:()=>toggleModelPopup()},
+  {group:'Settings',icon:'⚙',label:'Open Settings',action:()=>openSettings()},
+];
+
+let cmdSelected=0;
+
+function openCmd(){S.emit(new NexusEvent('CMD_PALETTE',{open:true}))}
+function closeCmd(){S.emit(new NexusEvent('CMD_PALETTE',{open:false}))}
+
+function renderCmdItems(query){
+  const results=document.getElementById('cmd-results');
+  const filtered=query
+    ?COMMANDS.filter(c=>c.label.toLowerCase().includes(query.toLowerCase())||c.group.toLowerCase().includes(query.toLowerCase()))
+    :COMMANDS;
+
+  if(!filtered.length){results.innerHTML='<div style="padding:12px 16px;color:var(--ghost);font-family:var(--f-mono);font-size:11px">No commands found</div>';return}
+
+  let html='';
+  let lastGroup='';
+  filtered.forEach((cmd,i)=>{
+    if(cmd.group!==lastGroup){html+=`<div class="cmd-group">${esc(cmd.group)}</div>`;lastGroup=cmd.group}
+    html+=`<div class="cmd-item${i===cmdSelected?' selected':''}" onclick="execCmd(${COMMANDS.indexOf(cmd)})">
+      <span class="cmd-icon">${cmd.icon}</span>
+      <span class="cmd-label">${esc(cmd.label)}</span>
+      ${cmd.kbd?`<span class="cmd-kbd">${esc(cmd.kbd)}</span>`:''}
+    </div>`;
+  });
+  results.innerHTML=html;
+}
+
+function cmdFilter(q){cmdSelected=0;renderCmdItems(q)}
+
+function cmdKeydown(e){
+  const items=document.querySelectorAll('#cmd-results .cmd-item');
+  if(e.key==='ArrowDown'){cmdSelected=Math.min(cmdSelected+1,items.length-1)}
+  else if(e.key==='ArrowUp'){cmdSelected=Math.max(cmdSelected-1,0)}
+  else if(e.key==='Enter'){
+    const q=document.getElementById('cmd-input').value;
+    const filtered=q?COMMANDS.filter(c=>c.label.toLowerCase().includes(q.toLowerCase())):COMMANDS;
+    if(filtered[cmdSelected]){execCmd(COMMANDS.indexOf(filtered[cmdSelected]))}
+  }
+  else if(e.key==='Escape'){closeCmd();return}
+  items.forEach((item,i)=>item.classList.toggle('selected',i===cmdSelected));
+}
+
+function execCmd(idx){
+  closeCmd();
+  COMMANDS[idx]?.action();
+}
+
+// ── MODEL SWITCHER ────────────────────────────────────
+function toggleModelPopup(){
+  const p=document.getElementById('model-popup');
+  p.classList.toggle('visible');
+}
+
+function selectModel(model){
+  S.emit(new NexusEvent('MODEL_SWITCH',{model}));
+  document.getElementById('ai-model-sel').value=model;
+  document.getElementById('model-popup').classList.remove('visible');
+}
+
+function switchModel(value){S.emit(new NexusEvent('MODEL_SWITCH',{model:value}))}
+
+// ── ROADMAP ───────────────────────────────────────────
+function getDemoRoadmap(){
+  return [
+    {id:'m1',title:'Core Architecture',pct:75,tasks:[
+      {id:'t1',text:'SISO Event Bus',done:true,tag:'done'},
+      {id:'t2',text:'Gate registry',done:true,tag:'done'},
+      {id:'t3',text:'Stream orchestrator',done:true,tag:'done'},
+      {id:'t4',text:'DOM state sync',done:false,tag:'in-progress'},
+    ]},
+    {id:'m2',title:'AI Pipeline',pct:40,tasks:[
+      {id:'t5',text:'Ollama integration',done:true,tag:'done'},
+      {id:'t6',text:'4K token enforcer',done:true,tag:'done'},
+      {id:'t7',text:'Guardian fallback',done:false,tag:'in-progress'},
+      {id:'t8',text:'Context compression',done:false,tag:'todo'},
+    ]},
+    {id:'m3',title:'IDE Features',pct:20,tasks:[
+      {id:'t9',text:'Monaco dual-pane',done:true,tag:'done'},
+      {id:'t10',text:'File browser',done:false,tag:'in-progress'},
+      {id:'t11',text:'Git integration',done:false,tag:'todo'},
+      {id:'t12',text:'Test runner',done:false,tag:'todo'},
+    ]},
+  ];
+}
+
+function renderRoadmap(milestones){
+  const container=document.getElementById('roadmap-content');
+  container.innerHTML=milestones.map(m=>{
+    const taskHtml=m.tasks.map(t=>{
+      const tagColor={done:'rgba(42,138,74,.15)',todo:'rgba(107,107,120,.15)','in-progress':'rgba(212,120,42,.15)'}[t.tag]||'rgba(107,107,120,.15)';
+      const tagText={'in-progress':'WIP',done:'✓',todo:'—'}[t.tag]||t.tag;
+      return `<div class="rm-task${t.done?' done':''}" onclick="toggleTask('${m.id}','${t.id}')">
+        <div class="rm-task-check${t.done?' done':''}">${t.done?'✓':''}</div>
+        <span class="rm-task-text">${esc(t.text)}</span>
+        <span class="rm-task-tag" style="background:${tagColor};border-color:transparent;color:var(--muted)">${tagText}</span>
+      </div>`;
+    }).join('');
+    return `<div class="rm-milestone">
+      <div class="rm-ms-head">
+        <span class="rm-ms-title">${esc(m.title)}</span>
+        <span class="rm-ms-pct">${m.pct}%</span>
+      </div>
+      <div class="rm-progress"><div class="rm-progress-fill" style="width:${m.pct}%"></div></div>
+      ${taskHtml}
+    </div>`;
+  }).join('');
+}
+
+function toggleTask(mid,tid){
+  // Toggle in DOM directly (SISO/UI — DOM is state)
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Task toggled: ${tid}`,cls:'siso'}));
+}
+
+function addMilestone(){
+  const name=prompt('Milestone name:','New Feature');
+  if(!name)return;
+  const container=document.getElementById('roadmap-content');
+  const div=document.createElement('div');
+  div.className='rm-milestone slide-in';
+  div.innerHTML=`<div class="rm-ms-head"><span class="rm-ms-title">${esc(name)}</span><span class="rm-ms-pct">0%</span></div>
+    <div class="rm-progress"><div class="rm-progress-fill" style="width:0%"></div></div>
+    <button class="rm-add-btn" style="margin:6px" onclick="addTask(this)">+ Add task</button>`;
+  container.appendChild(div);
+}
+
+function addTask(btn){
+  const text=prompt('Task:','Implement feature');
+  if(!text)return;
+  const ms=btn.closest('.rm-milestone');
+  const task=document.createElement('div');
+  task.className='rm-task';
+  task.innerHTML=`<div class="rm-task-check"></div><span class="rm-task-text">${esc(text)}</span><span class="rm-task-tag" style="background:rgba(107,107,120,.1);border-color:transparent">—</span>`;
+  ms.insertBefore(task,btn);
+}
+
+// ── GIT PANEL ─────────────────────────────────────────
+function gitStageAll(){S.emit(new NexusEvent('TERM_LOG',{msg:'git add .',cls:'prompt'}))}
+function gitCommit(){
+  const msg=document.getElementById('commit-msg').value.trim();
+  if(!msg){alert('Enter a commit message');return}
+  S.emit(new NexusEvent('TERM_LOG',{msg:`git commit -m "${msg}"`,cls:'prompt'}));
+  S.emit(new NexusEvent('TERM_LOG',{msg:'[main abc1234] '+msg,cls:'ok'}));
+  document.getElementById('commit-msg').value='';
+}
+
+// ── SEARCH ────────────────────────────────────────────
+function globalSearch(query){
+  const results=document.getElementById('search-results');
+  if(!query){results.innerHTML='';return}
+  // Demo results
+  results.innerHTML=`<div style="color:var(--muted);margin-bottom:8px">${query} — 3 results</div>
+    ${['src/main.js:12:  const stream = new NexusStream();','src/gates.js:8:  matches(e) {','src/gates.js:45:  // stream emitter'].map(r=>`<div style="margin-bottom:4px;cursor:pointer;padding:3px 0;border-bottom:1px solid var(--bdr)" onclick="S.emit(new NexusEvent('TERM_LOG',{msg:'Opening ${r.split(':')[0]}',cls:'info'}))">${esc(r)}</div>`).join('')}`;
+}
+
+// ── WIZARD ────────────────────────────────────────────
+let fwTags={stack:[]};
+let fwModules=[];
+
+function openWizard(){document.getElementById('forge-wizard').classList.remove('hidden')}
+function closeWizard(){document.getElementById('forge-wizard').classList.add('hidden')}
+function newProject(){openWizard()}
+
+function addFwTag(field,inputId){
+  const input=document.getElementById(inputId);
+  const val=input.value.trim();
+  if(!val||fwTags[field].includes(val))return;
+  fwTags[field].push(val);
+  input.value='';
+  renderFwTags(field);
+}
+
+function renderFwTags(field){
+  document.getElementById(`fw-${field}-tags`).innerHTML=fwTags[field].map((t,i)=>
+    `<span class="tag">${esc(t)}<span class="tag-x" onclick="removeFwTag('${field}',${i})">×</span></span>`
+  ).join('');
+}
+
+function removeFwTag(field,i){fwTags[field].splice(i,1);renderFwTags(field)}
+
+function addFwModule(){
+  const name=document.getElementById('fw-mod-name').value.trim();
+  const desc=document.getElementById('fw-mod-desc').value.trim();
+  if(!name)return;
+  fwModules.push({id:`m${Date.now()}`,name,desc});
+  document.getElementById('fw-mod-name').value='';
+  document.getElementById('fw-mod-desc').value='';
+  document.getElementById('fw-modules-list').innerHTML=fwModules.map((m,i)=>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--bdr);border-radius:3px;margin-bottom:3px;font-family:var(--f-mono);font-size:10px">
+      <span style="color:var(--amber)">G${String(i+1).padStart(2,'0')}</span>
+      <span style="flex:1;color:var(--txt)">${esc(m.name)}</span>
+      <span style="color:var(--ghost)">${esc(m.desc)}</span>
+      <button class="btn btn-sm" style="padding:1px 6px;font-size:9px;border-color:var(--bdr2);color:var(--ghost)" onclick="fwModules.splice(${i},1);addFwModule();">×</button>
+    </div>`
+  ).join('');
+}
+
+function createProject(){
+  const name=document.getElementById('fw-name').value.trim();
+  if(!name){alert('Enter a project name');return}
+  const lang=document.getElementById('fw-lang').value;
+  const arch=document.getElementById('fw-arch').value;
+  const desc=document.getElementById('fw-desc').value;
+  const model=document.getElementById('fw-model').value;
+
+  document.body.dataset.projectName=name;
+  document.body.dataset.projectLang=lang;
+  document.body.dataset.currentLang=lang;
+  document.body.dataset.projectArch=arch;
+  document.body.dataset.projectDesc=desc;
+
+  closeWizard();
+  S.emit(new NexusEvent('MODEL_SWITCH',{model}));
+  S.emit(new NexusEvent('TERM_LOG',{msg:`Project created: ${name} (${lang} · ${arch})`,cls:'ok'}));
+
+  // Build demo file tree for new project
+  S.emit(new NexusEvent('FILE_TREE',{
+    root:name,
+    nodes:[
+      {name:'src',type:'dir',children:
+        fwModules.map(m=>({name:`${m.name.toLowerCase().replace(/\s+/g,'-')}.${lang==='python'?'py':lang==='rust'?'rs':lang==='go'?'go':'js'}`,type:'file',path:`${name}/src/${m.name}.${lang==='python'?'py':'js'}`}))
+        .concat([{name:`main.${lang==='python'?'py':lang==='rust'?'rs':lang==='go'?'go':'js'}`,type:'file',path:`${name}/src/main.${lang==='python'?'py':'js'}`}])
+      },
+      {name:'tests',type:'dir',children:[{name:`main.test.${lang==='python'?'py':'js'}`,type:'file',path:`${name}/tests/main.test.js`}]},
+      {name:'README.md',type:'file',path:`${name}/README.md`},
+    ]
+  }));
+
+  // Load roadmap from modules
+  if(fwModules.length>0){
+    S.emit(new NexusEvent('ROADMAP_RENDER',{
+      milestones:[
+        {id:'m-gen',title:'AI Generation',pct:0,tasks:fwModules.map((m,i)=>({id:`t${i}`,text:m.name,done:false,tag:'todo'}))},
+        {id:'m-test',title:'Testing & Verification',pct:0,tasks:[{id:'ttest',text:'Gate verification',done:false,tag:'todo'},{id:'tint',text:'Integration tests',done:false,tag:'todo'}]},
+      ]
+    }));
+  }
+
+  S.emit(new NexusEvent('STATUS',{lang}));
+  S.emit(new NexusEvent('STATUS',{branch:'main'}));
+  switchSidePanel('files');
+}
+
+// ── SETTINGS ──────────────────────────────────────────
+function openSettings(){
+  S.emit(new NexusEvent('TERM_LOG',{msg:'Settings panel (extended in full Electron build)',cls:'info'}));
+  // Would open a settings panel/modal with:
+  // - Ollama endpoint config
+  // - Guardian API port config
+  // - Theme customization
+  // - Keybinding overrides
+  // - Token budget override
+  // - RAM/thread allocation
+  alert('Settings:\n• Ollama endpoint: http://localhost:11434\n• Guardian API port: 7771\n• Token budget: 4096\n• Thread count: 7 (R7 3700x)\n• RAM allocation: 10GB for Ollama\n\n(Full settings UI in Electron build)');
+}
+
+function openModelSettings(){
+  document.getElementById('model-popup').classList.remove('visible');
+  openSettings();
+}
+
+function openProblems(){
+  switchSidePanel('search');
+}
+
+function loadUserSettings(){
+  // Restore last session from localStorage
+  try{
+    const saved=JSON.parse(localStorage.getItem('nexus-forge-session')||'{}');
+    if(saved.model)S.emit(new NexusEvent('MODEL_SWITCH',{model:saved.model}));
+    if(saved.roadmap)S.emit(new NexusEvent('ROADMAP_RENDER',{milestones:saved.roadmap}));
+  }catch{}
+}
+
+// ── SIDEBAR SWITCHER ──────────────────────────────────
+function switchSidePanel(id){
+  S.emit(new NexusEvent('SIDE_PANEL',{id}));
+}
+
+// ── GLOBAL KEYBOARD SHORTCUTS ─────────────────────────
+document.addEventListener('keydown',e=>{
+  // Command palette
+  if((e.ctrlKey||e.metaKey)&&e.key==='p'&&!e.shiftKey){e.preventDefault();openCmd()}
+  // Close overlays with Escape
+  if(e.key==='Escape'){
+    closeCmd();
+    document.getElementById('model-popup').classList.remove('visible');
+    document.getElementById('ai-overlay').classList.remove('visible');
+  }
+  // Toggle terminal
+  if((e.ctrlKey||e.metaKey)&&e.key==='`'){e.preventDefault();toggleTerminal()}
+  // Global search
+  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key==='F'){e.preventDefault();switchSidePanel('search');document.getElementById('global-search-input').focus()}
+  // Ctrl+\ split
+  if((e.ctrlKey||e.metaKey)&&e.key==='\\'){e.preventDefault();splitRight()}
+  // Save
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'&&!e.shiftKey){e.preventDefault();saveCurrentFile()}
+});
+
+// Close model popup on outside click
+document.addEventListener('click',e=>{
+  const popup=document.getElementById('model-popup');
+  if(popup.classList.contains('visible')&&!popup.contains(e.target)&&!document.getElementById('model-pill').contains(e.target)){
+    popup.classList.remove('visible');
+  }
+});
+
+// ── UTILITIES ─────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+// ── INIT ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  // Check Ollama
+  checkOllama();
+  setInterval(checkOllama,30000);
+
+  // Load Monaco
+  initMonaco();
+
+  // Demo roadmap
+  S.emit(new NexusEvent('ROADMAP_RENDER',{milestones:[
+    {id:'m-start',title:'Getting Started',pct:25,tasks:[
+      {id:'t1',text:'Open project folder',done:false,tag:'todo'},
+      {id:'t2',text:'Configure Ollama model',done:false,tag:'todo'},
+      {id:'t3',text:'Set up Guardian fallback',done:false,tag:'todo'},
+    ]}
+  ]}));
+
+  // Terminal init
+  setTimeout(()=>{
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Type "help" for available commands',cls:'info'}));
+    S.emit(new NexusEvent('TERM_LOG',{msg:'Ctrl+G — AI generate · Ctrl+Shift+G — Generate SISO Gate',cls:'siso'}));
+  },500);
+
+  console.log('%cNEXUS/FORGE%c ready — E→G→S→DOM','color:#d4782a;font-size:20px;font-weight:bold','color:#6b6b78;font-size:12px');
+});
+</script>
+</body>
+</html>

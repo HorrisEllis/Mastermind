@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Master Compendium — Framework Encyclopedia</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #131316;
+  --surface2: #1a1a1f;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6e0;
+  --muted: #7a7870;
+  --accent: #c9a96e;
+  --accent2: #8b7355;
+  --blue: #4a90d9;
+  --teal: #3db89a;
+  --coral: #d4714a;
+  --purple: #9b7fd4;
+  --pink: #c46b8a;
+  --green: #5a9e6f;
+  --amber: #d4a43a;
+  --gray: #6b6b6b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+/* HEADER */
+.masthead {
+  border-bottom: 1px solid var(--border2);
+  padding: 60px 0 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.masthead::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 60% at 50% 0%, rgba(201,169,110,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.masthead-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.masthead h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.masthead h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+.masthead-sub {
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 560px;
+  margin: 0 auto 32px;
+}
+.masthead-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+}
+.stat { text-align: center; }
+.stat-n { font-size: 24px; color: var(--accent); display: block; margin-bottom: 2px; }
+.stat-l { color: var(--muted); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* LAYOUT */
+.layout { display: flex; max-width: 1400px; margin: 0 auto; min-height: calc(100vh - 240px); }
+
+/* SIDEBAR */
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.sidebar-search {
+  margin: 0 16px 20px;
+  position: relative;
+}
+.sidebar-search input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 12px 8px 32px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  outline: none;
+}
+.sidebar-search input:focus { border-color: var(--accent2); }
+.sidebar-search input::placeholder { color: var(--muted); }
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 14px;
+}
+.domain-group { margin-bottom: 8px; }
+.domain-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 4px 20px;
+  margin-top: 8px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 2px solid transparent;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(201,169,110,0.05); }
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.nav-vol {
+  margin-left: auto;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* MAIN CONTENT */
+.main { flex: 1; padding: 0 60px; max-width: 900px; }
+
+/* ENTRY */
+.entry {
+  padding: 60px 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+.entry.hidden { display: none; }
+.entry-header { margin-bottom: 32px; }
+.entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.entry-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+.entry-vol {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.entry-n {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: auto;
+}
+.entry h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.entry-lead {
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.65;
+  font-style: italic;
+  border-left: 2px solid var(--accent2);
+  padding-left: 20px;
+  margin-bottom: 32px;
+}
+
+/* SECTIONS */
+.section { margin-bottom: 32px; }
+.section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.section p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #c8c6c0;
+  margin-bottom: 12px;
+}
+.section p:last-child { margin-bottom: 0; }
+
+/* METHOD LIST */
+.method-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+.method-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.method-item strong {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 2px;
+  color: var(--accent);
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+}
+
+/* CALLOUT CARDS */
+.callout-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin: 20px 0;
+}
+.callout {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.callout-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.callout-val {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.callout.leverage { border-left: 2px solid var(--accent); }
+.callout.when { border-left: 2px solid var(--teal); }
+.callout.watch { border-left: 2px solid var(--coral); }
+
+/* QUOTE BLOCK */
+.pull-quote {
+  margin: 28px 0;
+  padding: 20px 28px;
+  background: rgba(201,169,110,0.05);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* FAILURE LIST */
+.failure-list { list-style: none; margin-top: 8px; }
+.failure-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: #c8c6c0;
+  display: flex;
+  gap: 10px;
+}
+.failure-list li:last-child { border-bottom: none; }
+.failure-list li::before {
+  content: '→';
+  color: var(--coral);
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+
+/* COLOR TAGS */
+.tag-blue { background: rgba(74,144,217,0.1); color: #6aaee8; border-color: rgba(74,144,217,0.25); }
+.tag-teal { background: rgba(61,184,154,0.1); color: #5fcfb5; border-color: rgba(61,184,154,0.25); }
+.tag-amber { background: rgba(212,164,58,0.1); color: #e6b84a; border-color: rgba(212,164,58,0.25); }
+.tag-purple { background: rgba(155,127,212,0.1); color: #b49de8; border-color: rgba(155,127,212,0.25); }
+.tag-coral { background: rgba(212,113,74,0.1); color: #e8926a; border-color: rgba(212,113,74,0.25); }
+.tag-pink { background: rgba(196,107,138,0.1); color: #d98aaa; border-color: rgba(196,107,138,0.25); }
+.tag-green { background: rgba(90,158,111,0.1); color: #7dc496; border-color: rgba(90,158,111,0.25); }
+.tag-gray { background: rgba(107,107,107,0.15); color: #aaa; border-color: rgba(107,107,107,0.3); }
+
+.dot-blue { background: var(--blue); }
+.dot-teal { background: var(--teal); }
+.dot-amber { background: var(--amber); }
+.dot-purple { background: var(--purple); }
+.dot-coral { background: var(--coral); }
+.dot-pink { background: var(--pink); }
+.dot-green { background: var(--green); }
+.dot-gray { background: var(--gray); }
+
+/* NO RESULTS */
+.no-results {
+  padding: 80px 0;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+}
+
+/* BACK TO TOP */
+.back-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 18px;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.back-top:hover { color: var(--accent); border-color: var(--accent2); }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { padding: 0 24px; }
+  .method-grid { grid-template-columns: 1fr; }
+  .callout-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-label">Volumes I — IV · Complete Reference</div>
+  <h1>The Master Compendium<br><em>Framework Encyclopedia</em></h1>
+  <p class="masthead-sub">Every framework, method, and strategy — fully detailed. Cause, mechanism, application, failure modes, and highest-leverage insight for each.</p>
+  <div class="masthead-stats">
+    <div class="stat"><span class="stat-n">24</span><span class="stat-l">Frameworks</span></div>
+    <div class="stat"><span class="stat-n">10</span><span class="stat-l">Domains</span></div>
+    <div class="stat"><span class="stat-n">4</span><span class="stat-l">Volumes</span></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-search">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="Search frameworks..." oninput="filterEntries()">
+    </div>
+
+    <div class="domain-group">
+      <div class="domain-label">Investment</div>
+      <a class="nav-item" href="#e1"><span class="nav-dot dot-blue"></span>Value investing<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e2"><span class="nav-dot dot-blue"></span>Growth investing<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e3"><span class="nav-dot dot-blue"></span>Options & derivatives<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e4"><span class="nav-dot dot-blue"></span>Portfolio construction<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Negotiation</div>
+      <a class="nav-item" href="#e5"><span class="nav-dot dot-teal"></span>Principled negotiation<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e6"><span class="nav-dot dot-teal"></span>FBI hostage method<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Problem Solving</div>
+      <a class="nav-item" href="#e7"><span class="nav-dot dot-amber"></span>Root cause analysis<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e8"><span class="nav-dot dot-amber"></span>Systems thinking<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Innovation</div>
+      <a class="nav-item" href="#e9"><span class="nav-dot dot-purple"></span>Design thinking<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e10"><span class="nav-dot dot-purple"></span>Disruptive innovation<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Risk</div>
+      <a class="nav-item" href="#e11"><span class="nav-dot dot-coral"></span>Risk identification<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Entrepreneurship</div>
+      <a class="nav-item" href="#e12"><span class="nav-dot dot-green"></span>Validation methods<span class="nav-vol">I</span></a>
+      <a class="nav-item" href="#e13"><span class="nav-dot dot-green"></span>Go-to-market strategy<span class="nav-vol">I</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Relationships</div>
+      <a class="nav-item" href="#e14"><span class="nav-dot dot-pink"></span>Gottman method<span class="nav-vol">I+III</span></a>
+      <a class="nav-item" href="#e15"><span class="nav-dot dot-pink"></span>Attachment theory<span class="nav-vol">III</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Cognition</div>
+      <a class="nav-item" href="#e16"><span class="nav-dot dot-gray"></span>Thinking types<span class="nav-vol">IV</span></a>
+      <a class="nav-item" href="#e17"><span class="nav-dot dot-gray"></span>Cognitive bias audit<span class="nav-vol">III</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Inner Work</div>
+      <a class="nav-item" href="#e18"><span class="nav-dot dot-coral"></span>Shadow work<span class="nav-vol">IV</span></a>
+      <a class="nav-item" href="#e19"><span class="nav-dot dot-coral"></span>Inner child work<span class="nav-vol">IV</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Systems</div>
+      <a class="nav-item" href="#e20"><span class="nav-dot dot-amber"></span>Failure mode library<span class="nav-vol">II</span></a>
+    </div>
+    <div class="domain-group">
+      <div class="domain-label">Meta / Shadow</div>
+      <a class="nav-item" href="#e21"><span class="nav-dot dot-gray"></span>Shadow-space reasoning<span class="nav-vol">II</span></a>
+      <a class="nav-item" href="#e22"><span class="nav-dot dot-gray"></span>Universal invariants<span class="nav-vol">II</span></a>
+      <a class="nav-item" href="#e23"><span class="nav-dot dot-teal"></span>The third option<span class="nav-vol">II+III</span></a>
+      <a class="nav-item" href="#e24"><span class="nav-dot dot-purple"></span>The meta-framework<span class="nav-vol">II</span></a>
+    </div>
+  </nav>
+
+  <main class="main" id="main-content">
+
+    <!-- ENTRY 1 -->
+    <article class="entry" id="e1" data-search="value investing graham dodd buffett munger moat margin safety net-net equities">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-blue">Equities</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#01</span>
+        </div>
+        <h2>Value Investing</h2>
+        <p class="entry-lead">The discipline of buying assets for less than they are worth, and having the patience to wait for the market to recognize what you already know.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage">
+          <div class="callout-label">Highest Leverage</div>
+          <div class="callout-val">Compound early in quality compounders with durable moats and let time do the work.</div>
+        </div>
+        <div class="callout when">
+          <div class="callout-label">Use When</div>
+          <div class="callout-val">Market offers a margin of safety. Long time horizon available. Emotional discipline is intact.</div>
+        </div>
+        <div class="callout watch">
+          <div class="callout-label">Watch Out For</div>
+          <div class="callout-val">Value traps — stocks that are cheap because they deserve to be. Patience can become paralysis.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Value investing rests on a single foundational insight: in the short run, markets are a voting machine driven by sentiment, narrative, and momentum. In the long run, they are a weighing machine — what a business actually produces in cash flows ultimately determines what it is worth. The gap between the short-run price and the long-run value is where value investors live.</p>
+        <p>Benjamin Graham, the father of the discipline, codified this into the concept of intrinsic value and margin of safety. Intrinsic value is the present value of all future cash flows the business will generate. Margin of safety is buying at a significant discount to that value — typically 30-50% — so that even if your estimates are wrong, you still do reasonably well. The margin of safety is the investor's shock absorber.</p>
+        <p>Warren Buffett evolved Graham's approach by asking not just "is it cheap?" but "is it a great business at a fair price?" A mediocre business bought cheaply tends to revert to mediocrity. A great business with a durable competitive advantage — bought at fair value — can compound for decades. The evolution from Graham to Buffett is the evolution from asset-based thinking to business-quality thinking.</p>
+      </div>
+
+      <div class="pull-quote">"Price is what you pay. Value is what you get." — Warren Buffett</div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Graham-Dodd Deep Value</strong>Buy below intrinsic value with a 30-50% margin of safety. Focus on asset value as floor.</div>
+          <div class="method-item"><strong>Buffett-Munger Quality</strong>Moat + management + price. Pay fair value for exceptional businesses.</div>
+          <div class="method-item"><strong>Net-Net Investing</strong>Market cap below net current asset value (NCAV). Extremely cheap by balance sheet.</div>
+          <div class="method-item"><strong>Magic Formula (Greenblatt)</strong>Combine high ROIC + high earnings yield. Systematic quality-value screen.</div>
+          <div class="method-item"><strong>Sum-of-the-Parts (SOTP)</strong>Value each division independently — often reveals hidden value the market misses.</div>
+          <div class="method-item"><strong>Piotroski F-Score</strong>9-factor financial health screen. Separates improving businesses from deteriorating ones.</div>
+          <div class="method-item"><strong>Acquirer's Multiple</strong>Enterprise value / operating earnings. Closest proxy to what a buyer pays for a business.</div>
+          <div class="method-item"><strong>Catalyst-Driven Value</strong>Identify the specific event — spinoff, management change, asset sale — that unlocks value.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Confusing cheapness with value — a business can be statistically cheap and still a terrible investment</li>
+          <li>Ignoring qualitative deterioration — margins of safety erode when businesses deteriorate</li>
+          <li>Anchoring to purchase price rather than current intrinsic value</li>
+          <li>Overconcentration — the conviction that creates large positions also creates catastrophic losses when wrong</li>
+          <li>Impatience — catalysts can take years; most investors won't wait</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space: What This Framework Misses</div>
+        <p>Value investing assumes mean reversion — that cheap things get less cheap. But in winner-take-most markets driven by network effects and switching costs, the cheap thing may stay cheap indefinitely. A newspaper trading at 3x earnings in 2005 was not cheap — it was a value trap. The framework was built for an era of mean-reverting industrial businesses and needs updating for platform economics.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 2 -->
+    <article class="entry" id="e2" data-search="growth investing GARP SaaS metrics hyper-growth platform ecosystem equities">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-blue">Equities</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#02</span>
+        </div>
+        <h2>Growth Investing</h2>
+        <p class="entry-lead">Owning the businesses whose growth trajectories make today's valuation irrelevant in five years — if you've correctly identified the trajectory.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Find the S-curve inflection point before consensus. Early entry on a compounding business creates asymmetric returns.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">TAM is genuinely large. Product-market fit is proven. Growth is accelerating, not decelerating.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Multiple compression — a stock priced at 30x revenue falling to 10x revenue destroys 67% of your capital even if the business grows.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Growth investing bets that future cash flows will be dramatically larger than current cash flows — so large that paying a high multiple today looks cheap in retrospect. The key insight is that a great business growing at 40% per year doubles in under two years. A stock that looks expensive at 50x earnings becomes cheap at 12x earnings in four years if the business triples. The multiple you pay at entry matters enormously — but so does duration of growth.</p>
+        <p>Peter Lynch's GARP — Growth At a Reasonable Price — bridges growth and value by using the PEG ratio: P/E divided by earnings growth rate. A PEG under 1 suggests the market is underpricing the growth. Lynch found these in ordinary businesses growing steadily: the ten-bagger in the grocery store's product line, not the hyped tech narrative.</p>
+        <p>SaaS-era growth investing introduced a more precise toolkit: Net Revenue Retention above 120% means the existing customer base is expanding without new customers — growth is embedded. LTV/CAC above 3 means each customer acquired returns three times their acquisition cost. Payback periods under 18 months preserve capital for further growth.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>GARP (Lynch)</strong>Growth at a reasonable price. PEG ratio under 1 identifies growth underpriced by the market.</div>
+          <div class="method-item"><strong>Rule of 40</strong>Revenue growth % + EBITDA margin % ≥ 40. Balances growth and profitability for SaaS.</div>
+          <div class="method-item"><strong>NRR > 120%</strong>Net revenue retention above 120% means the installed base is self-expanding — the best growth engine.</div>
+          <div class="method-item"><strong>LTV/CAC > 3</strong>Customer lifetime value at least 3x acquisition cost. Less than 3x means growth is unprofitable.</div>
+          <div class="method-item"><strong>S-Curve Positioning</strong>Early adopter window before mainstream inflection. Before the consensus sees the growth.</div>
+          <div class="method-item"><strong>Platform Ecosystem Bets</strong>Network effect compounding — each new user makes the platform more valuable for all existing users.</div>
+          <div class="method-item"><strong>Disruption Vector</strong>Invest behind the disruptor — own the companies destroying incumbents, not the incumbents.</div>
+          <div class="method-item"><strong>TAM Expansion Thesis</strong>Market itself is growing, not just the company's share. Total addressable market is undercounted.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Paying for growth that doesn't materialize — the S-curve inflection never arrives</li>
+          <li>Ignoring unit economics — growing a business that loses money on each customer</li>
+          <li>Confusing narrative with evidence — exciting story without supporting financial metrics</li>
+          <li>Missing competitive response — the moat assumed is shallower than believed</li>
+          <li>Valuation indifference — "I'll hold forever" as rationalization for any price paid</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Growth investors systematically underweight the risk of regulatory intervention in winner-take-most businesses. Antitrust, data privacy, platform liability — these are the external constraints that can stop a compounding machine cold. The framework models endogenous business dynamics well but models political and regulatory risk poorly.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 3 -->
+    <article class="entry" id="e3" data-search="options derivatives covered call iron condor straddle theta VIX">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-blue">Derivatives</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#03</span>
+        </div>
+        <h2>Options & Derivatives</h2>
+        <p class="entry-lead">Financial instruments whose value derives from an underlying asset — tools for structuring precise risk profiles, generating income, and expressing views on volatility itself rather than just direction.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Structure asymmetric bets — defined maximum loss with theoretically unlimited upside, or consistent income with defined risk.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">You have a clear view on volatility, direction, or time decay. You want to hedge existing positions or generate income on holdings.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Complexity hiding risk. Liquidity in legs. Pin risk. Assignment risk on short positions. Volatility crush destroying long positions.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Options give the buyer the right, but not the obligation, to buy (call) or sell (put) an asset at a specified price (strike) before a specified date (expiry). The seller receives a premium in exchange for taking on the obligation. This asymmetry — buyer has rights, seller has obligations — creates the entire landscape of options strategies.</p>
+        <p>Four variables drive all options pricing: price of the underlying (delta), time to expiration (theta — time decay works against option buyers and for sellers), implied volatility (vega — higher IV means higher option premiums; IV crush after earnings destroys long option value), and interest rates (rho, usually minor). Understanding these sensitivities is the prerequisite for any strategy.</p>
+        <p>The Wheel strategy — selling cash-secured puts until assigned shares, then selling covered calls until called away, then repeating — is the clearest illustration of using options to systematically acquire assets at a discount or generate income on holdings. It works best on high-quality, liquid underlyings you'd be happy to own.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Covered Call</strong>Income generation on long equity. Sell upside above strike for premium. Caps gains.</div>
+          <div class="method-item"><strong>Cash-Secured Put</strong>Get paid to acquire stock at a lower price. Obligation to buy at strike if assigned.</div>
+          <div class="method-item"><strong>Iron Condor</strong>Sell an OTM call spread + OTM put spread. Profit if underlying stays range-bound. Collect theta.</div>
+          <div class="method-item"><strong>Long Straddle/Strangle</strong>Buy call + put. Profit from large moves in either direction. Long volatility position.</div>
+          <div class="method-item"><strong>LEAP Substitution</strong>Deep ITM long-dated calls instead of stock. Lower capital outlay, similar exposure.</div>
+          <div class="method-item"><strong>VIX Futures</strong>Trade implied volatility directly. Contango roll creates structural drag for long positions.</div>
+          <div class="method-item"><strong>Dispersion Trading</strong>Index volatility vs constituent volatility arbitrage. Complex but often mispriced.</div>
+          <div class="method-item"><strong>Protective Put</strong>Insurance on long equity. Buy the right to sell at strike. Costs premium, limits downside.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Selling naked options without understanding maximum loss — theoretically unlimited on naked calls</li>
+          <li>Ignoring implied volatility — buying options when IV is high, selling when IV is low</li>
+          <li>Early assignment on short options disrupting the strategy</li>
+          <li>Overleveraging — options' capital efficiency can encourage position sizes that are too large</li>
+          <li>Complexity as camouflage — not being able to explain the maximum loss scenario clearly</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Options strategies are often back-tested in normal market regimes and fail catastrophically in tail events — when liquidity disappears, bid-ask spreads blow out, and the theoretical hedge provides no actual protection. The framework assumes continuous, liquid markets that do not always exist when they are most needed.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 4 -->
+    <article class="entry" id="e4" data-search="portfolio construction MPT Kelly criterion all-weather risk parity tail hedge">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-blue">Allocation</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#04</span>
+        </div>
+        <h2>Portfolio Construction</h2>
+        <p class="entry-lead">The architecture of a portfolio — how assets are combined, sized, and rebalanced — is often more important to long-term outcomes than any individual security selection decision.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Protect the compounding engine above all else. A 50% loss requires a 100% gain to recover. Asymmetry of drawdown is the enemy of compounding.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Always — portfolio structure is the frame that every other decision sits within. It cannot be deferred.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Correlation collapse in crises. Assets that appear uncorrelated become correlated when liquidity dries up. Diversification is not a guarantee during systemic events.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Modern Portfolio Theory (Markowitz) demonstrated mathematically that a portfolio's risk is not simply the average of its components' risks — it depends critically on the correlations between them. By combining assets with low or negative correlations, an investor can achieve a given expected return with less total portfolio risk, or a given risk level with higher expected return. This is the "free lunch" of diversification.</p>
+        <p>The Kelly Criterion provides the mathematically optimal position sizing for maximizing geometric growth (long-term wealth) rather than arithmetic return. Full Kelly is often too aggressive in practice — half-Kelly is more commonly used. It answers: given a specific edge and odds, what fraction of capital should be risked on this bet? Overbetting Kelly accelerates ruin; underbetting leaves compounding on the table.</p>
+        <p>Ray Dalio's All-Weather Portfolio targets consistent performance across all economic regimes by balancing four environments: rising growth, falling growth, rising inflation, falling inflation. The insight is that most portfolios are heavily implicitly long economic growth — they are not truly diversified across regimes, just across securities within one regime.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Modern Portfolio Theory</strong>Mean-variance optimization. Maximize return for given risk or minimize risk for given return.</div>
+          <div class="method-item"><strong>Kelly Criterion</strong>Optimal position sizing: f = (bp-q)/b. Maximizes geometric growth over time.</div>
+          <div class="method-item"><strong>All-Weather (Dalio)</strong>Equal risk across four economic regimes. No predictions required — resilience built in.</div>
+          <div class="method-item"><strong>Permanent Portfolio (Browne)</strong>25% stocks / 25% bonds / 25% gold / 25% cash. Extreme simplicity + resilience.</div>
+          <div class="method-item"><strong>Barbell (Taleb)</strong>90% ultra-safe + 10% extreme risk. Eliminates medium risk. Benefits from black swans.</div>
+          <div class="method-item"><strong>Risk Parity</strong>Equal risk contribution from each asset. Typically overweights bonds (levered) vs equities.</div>
+          <div class="method-item"><strong>Tail Risk Hedging</strong>OTM puts, VIX calls, gold. Small positions that pay 10-100x in tail scenarios.</div>
+          <div class="method-item"><strong>Core-Satellite</strong>Passive index core (80%+) + active satellite positions where you have genuine edge.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Over-optimization to historical data — correlation and volatility are not stable through time</li>
+          <li>Neglecting liquidity — an optimal portfolio on paper that cannot be exited is not optimal in a crisis</li>
+          <li>False precision — inputting precise numbers into MPT when inputs are highly uncertain produces unreliable outputs</li>
+          <li>Behavioral failure — a theoretically optimal portfolio abandoned during a drawdown destroys all the benefit</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Portfolio construction frameworks are built on historical return distributions and correlations. But the most damaging market events are precisely the ones that fall outside historical distributions — the fat tails that every model underweights. The framework's biggest blind spot is the event it is most needed for.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 5 -->
+    <article class="entry" id="e5" data-search="principled negotiation Fisher Ury BATNA ZOPA interests positions integrative">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-teal">Foundation</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#05</span>
+        </div>
+        <h2>Principled Negotiation</h2>
+        <p class="entry-lead">The discipline of separating people from problems, focusing on interests rather than positions, and generating options for mutual gain — from Fisher and Ury's foundational work at the Harvard Negotiation Project.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Find the other party's real interest beneath their stated position. The stated position is almost never what they actually need.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Multi-issue negotiation with potential for mutual gain. Ongoing relationship must be preserved. Both parties are rational actors.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Principled approach can be exploited by skilled hard bargainers. Requires the other party to engage in good faith at some level.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Most negotiation failures come from positional bargaining — each party states a position, both dig in, and the negotiation becomes a contest of wills. The problem is that positions obscure interests. A landlord says the rent is $3,000 (position). A tenant says they'll pay $2,400 (position). The positional battle begins. But the landlord's interest might be a reliable long-term tenant; the tenant's interest might be a multi-year lease guarantee. Options that satisfy both interests — lower monthly rent in exchange for a two-year commitment — only become visible when you look below positions to interests.</p>
+        <p>BATNA — Best Alternative To a Negotiated Agreement — is the foundation of negotiating power. Your BATNA is what you do if this negotiation fails. The party with the stronger BATNA has more power, because they can walk away more easily. Before any negotiation, know your BATNA precisely. During negotiation, work to understand theirs. Improve your BATNA before the negotiation begins whenever possible.</p>
+        <p>ZOPA — Zone of Possible Agreement — is the range where a deal can actually happen: above the minimum acceptable to the seller and below the maximum acceptable to the buyer. Many failed negotiations could have succeeded because a ZOPA existed, but neither party discovered it. The art is in revealing enough information to find the ZOPA without revealing your reservation price.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>BATNA Analysis</strong>Define your walkaway before entering. Know theirs. The stronger BATNA holds more power.</div>
+          <div class="method-item"><strong>Interest Excavation</strong>Ask "why?" three times. Positions are stated needs; interests are real needs underneath.</div>
+          <div class="method-item"><strong>ZOPA Mapping</strong>Find the zone where both parties' minimum acceptable terms overlap.</div>
+          <div class="method-item"><strong>Objective Criteria</strong>Anchor to external standards — market rate, expert opinion — rather than arbitrary positions.</div>
+          <div class="method-item"><strong>Option Generation</strong>Separate inventing options from deciding on them. Brainstorm without commitment first.</div>
+          <div class="method-item"><strong>Separate People from Problem</strong>Hard on the issue, soft on the relationship. Protect both simultaneously.</div>
+          <div class="method-item"><strong>Anchoring</strong>First offer sets the frame. Make it aggressive but credible. Justify it with objective criteria.</div>
+          <div class="method-item"><strong>Reactive Devaluation Counter</strong>Have third parties present your proposals — proposals from opponents are systematically discounted.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Disclosing your reservation price — the other party will negotiate to exactly that number</li>
+          <li>Making the first concession too quickly — signals there is room to move; the other party will push for more</li>
+          <li>Confusing being nice with being principled — firmness on interests is compatible with respect for the person</li>
+          <li>Neglecting relationship — optimizing the deal at the expense of the ongoing relationship is often a net loss</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Principled negotiation assumes rational actors motivated by interests. In practice, many negotiations involve ego, status, ideology, or face-saving that is not captured by interest analysis. The framework performs poorly when the other party is not interested in mutual gain — when they want to win by your losing, not by both winning.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 6 -->
+    <article class="entry" id="e6" data-search="FBI hostage negotiation Chris Voss tactical empathy mirroring labeling calibrated questions Ackerman">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-teal">Tactical</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#06</span>
+        </div>
+        <h2>FBI Hostage Method</h2>
+        <p class="entry-lead">Chris Voss's system distilled from FBI hostage negotiation: use tactical empathy to disarm, calibrated questions to gather intelligence, and psychological tools to move the other party toward yes without triggering resistance.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Getting to "that's right" — the moment they feel deeply understood — not "you're right." That's right signals genuine agreement; you're right is appeasement.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">High-stakes, emotional, or adversarial negotiations. When the other party is dug in. When rational argument is not moving them.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Feels manipulative if deployed mechanically. Requires genuine listening and calibration. These are techniques that require internalization, not scripts.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>The insight at the center of Voss's method is that negotiation is not a rational exercise — it is an emotional one that rational analysis is layered on top of. The way to move someone is not to overwhelm them with logic, but to make them feel so deeply heard and understood that their defensive posture softens. Tactical empathy — demonstrating that you understand how the other person sees and feels the situation — is the primary tool. Importantly, empathy is not agreement. You can understand someone's position and reasoning completely without conceding anything.</p>
+        <p>Mirroring — repeating the last one to three words someone says with a slightly upward inflection — is one of the most powerful and underused techniques. It signals attentiveness, invites elaboration, and gives you information while costing you nothing. People elaborate when mirrored; elaboration reveals their real concerns.</p>
+        <p>The Ackerman model provides a systematic approach to offers: start at 65% of your target, move to 85%, then 95%, then 100% in a pattern that mimics an approach to a limit. Each increment is smaller than the last, signaling you are genuinely reaching your limit. Importantly, the final number should be precise and oddly specific — $37,893 rather than $38,000 — because precise numbers appear calculated and credible rather than arbitrary.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Mirroring</strong>Repeat last 1-3 words. Signals attentiveness, invites elaboration, reveals concerns.</div>
+          <div class="method-item"><strong>Labeling</strong>"It sounds like…" / "It seems like…" — name the emotion to reduce its power.</div>
+          <div class="method-item"><strong>Accusation Audit</strong>Name every negative thing the other party might think about you before they say it. Disarms preemptively.</div>
+          <div class="method-item"><strong>Calibrated Questions</strong>How/what open questions. "How am I supposed to do that?" — deflects demands, invites problem-solving.</div>
+          <div class="method-item"><strong>Ackerman Model</strong>65%→85%→95%→100% of target with decreasing increments. Ends on precise odd number.</div>
+          <div class="method-item"><strong>Late Night DJ Voice</strong>Slow, calm, deep. Creates authority and calm. Used for difficult statements.</div>
+          <div class="method-item"><strong>Black Swan Discovery</strong>Find the unknown piece of information that completely changes the negotiation. Often hidden in casual conversation.</div>
+          <div class="method-item"><strong>Strategic Silence</strong>After making a point or offer, stop. Silence creates pressure the other party feels compelled to fill.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Using techniques as scripts — the other party detects inauthenticity immediately</li>
+          <li>Mirroring without listening — technique without genuine curiosity produces hollow results</li>
+          <li>"You're right" as a win — it signals appeasement, not agreement; nothing will change</li>
+          <li>Neglecting preparation — black swans can only be recognized if you know what you expected</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>The FBI method was developed in extreme adversarial contexts — hostage situations — where the negotiator's goal is purely to resolve a crisis, not to build an ongoing relationship. Applied in commercial contexts where a long-term relationship matters, some tactical elements can leave the other party feeling manipulated in retrospect, which is corrosive. Use with calibration.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 7 -->
+    <article class="entry" id="e7" data-search="root cause analysis 5 whys fishbone Ishikawa FMEA fault tree Pareto">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-amber">Diagnosis</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#07</span>
+        </div>
+        <h2>Root Cause Analysis</h2>
+        <p class="entry-lead">The discipline of digging past symptoms to find the actual cause of a failure — because treating the symptom guarantees the problem returns.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Fix the root cause. Symptomatic fixes consume resources indefinitely. Root cause elimination costs once and stops the bleeding permanently.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Any recurring problem. Any high-stakes failure. Any situation where the same issue has appeared more than twice.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">The 5 Whys produces different roots depending on who asks. The "cause" found reflects the asker's assumptions and frame.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Every observable failure has a chain of causation behind it. The visible failure is typically the last link — the symptom. The root cause is the first link in the chain: the condition, decision, or design flaw that, if changed, would prevent the failure from occurring in the first place. Root cause analysis is the structured practice of walking backward up the causal chain until you reach a cause you can actually change.</p>
+        <p>The 5 Whys, developed at Toyota, is the simplest implementation: ask "why did this happen?" then "why did that happen?" and repeat five times. Each iteration should drive deeper. The discipline is to resist stopping at proximate causes ("the machine broke") and keep going until you reach root causes ("our maintenance schedule creates predictable failure points that are never addressed because operators aren't incentivized to report early warning signs").</p>
+        <p>The Fishbone diagram (Ishikawa) structures causation into six categories — Man, Machine, Method, Material, Measurement, Environment — to prevent the narrowness that single-path analysis creates. Complex failures often have causes in multiple categories simultaneously. Seeing all categories at once prevents premature focus on the most obvious category.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>5 Whys</strong>Ask why five times. Resist proximate causes. Stop when you reach something you can actually change.</div>
+          <div class="method-item"><strong>Fishbone / Ishikawa</strong>6M categories: Man, Machine, Method, Material, Measurement, Environment. Prevents single-cause tunnel vision.</div>
+          <div class="method-item"><strong>FMEA</strong>Failure Mode and Effects Analysis. Catalog potential failures proactively before they occur.</div>
+          <div class="method-item"><strong>Fault Tree Analysis</strong>Top-down: start with the failure, branch into all possible causes. Map AND/OR logic gates.</div>
+          <div class="method-item"><strong>Pareto Analysis</strong>80/20 root cause prioritization. Find the 20% of causes responsible for 80% of failures.</div>
+          <div class="method-item"><strong>Causal Loop Diagrams</strong>Map feedback structures. Identify reinforcing loops that perpetuate problems.</div>
+          <div class="method-item"><strong>Change Analysis</strong>What changed before the failure? Changes are the most common proximate trigger of failures.</div>
+          <div class="method-item"><strong>Barrier Analysis</strong>What safeguards should have prevented this? Which failed? Why did they fail?</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Stopping at the proximate cause — the machine broke is never the root cause</li>
+          <li>Single root cause assumption — complex systems typically have multiple interacting causes</li>
+          <li>Blame as root cause — "human error" is a symptom, not a cause. Ask why the human erred</li>
+          <li>Analysis without action — root cause identified, change not implemented, problem recurs</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Root cause analysis assumes linear causality — A causes B causes C. Complex adaptive systems often have emergent failures that are genuinely multicausal and nonlinear. Normal Accident Theory (Perrow) argues that in tightly coupled complex systems, accidents are inevitable properties of the system's architecture, not traceable to any single root cause. For highly complex systems, the framework may be the wrong tool.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 8 -->
+    <article class="entry" id="e8" data-search="systems thinking feedback loops leverage points Meadows TOC Cynefin stocks flows">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-amber">Systems</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#08</span>
+        </div>
+        <h2>Systems Thinking</h2>
+        <p class="entry-lead">The practice of seeing the world as a web of interrelated feedback loops rather than a collection of independent cause-and-effect chains — and finding the leverage points where small changes create large systemic shifts.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Donella Meadows' leverage point hierarchy: the most powerful interventions change the goals and paradigms of the system, not just its parameters.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Problems that recur despite repeated fixes. Interventions that create unexpected side effects. Complex adaptive systems where linear thinking fails.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Analysis paralysis. Systems thinking can generate endless complexity that delays action. The goal is insight, not comprehensiveness.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>All systems are built from three components: stocks (accumulations — inventory, population, trust, debt), flows (rates of change — production, births, relationship repair, borrowing), and feedback loops (the signals that regulate the flows based on the state of the stocks). Understanding a system means mapping these three components and understanding the feedback structure that governs behavior.</p>
+        <p>Reinforcing feedback loops amplify change — more investment creates more return creates more investment. These are the engine of exponential growth and the engine of collapse. Balancing feedback loops dampen change — higher temperature activates cooling systems, which reduces temperature. These are the stabilizers. Most systems contain both, and the interaction between them produces the complex behaviors we observe: growth followed by overshoot and collapse, oscillations, delays that turn intended corrections into overcorrections.</p>
+        <p>Donella Meadows identified twelve leverage points ordered by their power to change system behavior. The lowest leverage interventions (changing numbers and parameters) have the least impact. The highest leverage interventions (changing the goals of the system, the paradigm from which the system arises, and the power to challenge paradigms) have the most impact. This is counterintuitive — most problem-solving focuses on parameters, the lowest leverage level.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Stock-Flow Mapping</strong>Identify all stocks, all flows in and out, all feedback loops. Creates the system map.</div>
+          <div class="method-item"><strong>Leverage Points (Meadows)</strong>12-level hierarchy. Paradigm change > goal change > feedback structure > rules > parameters.</div>
+          <div class="method-item"><strong>Theory of Constraints</strong>Every system has exactly one binding constraint. Find it. Exploit it. Subordinate everything else to it.</div>
+          <div class="method-item"><strong>Cynefin Framework</strong>Obvious / complicated / complex / chaotic domains. Different domains require different responses.</div>
+          <div class="method-item"><strong>Causal Loop Diagrams</strong>Map reinforcing (+) and balancing (-) feedback loops. Reveals why interventions backfire.</div>
+          <div class="method-item"><strong>System Archetypes</strong>Limits to Growth, Shifting the Burden, Tragedy of Commons. Recurring structural patterns.</div>
+          <div class="method-item"><strong>Delay Analysis</strong>Delays in feedback loops are the primary cause of oscillation and overshoot in systems.</div>
+          <div class="method-item"><strong>Viable System Model</strong>Organizational systems must have five specific recursive functions to be viable and adaptive.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Shifting the burden — applying symptomatic fixes that reduce pressure to find fundamental solutions, making the system more dependent on the fix</li>
+          <li>Limits to growth — pushing harder on growth strategies when the actual constraint is an unaddressed limit</li>
+          <li>Mistaking the map for the territory — the causal loop diagram is a model, not reality</li>
+          <li>Ignoring delays — interventions look like failures before they work; premature reversal creates oscillation</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Systems thinking tends toward comprehensiveness and can become a sophisticated way to avoid action. The framework doesn't tell you what to do — it tells you how to see. The translation from insight to intervention requires judgment and courage that systems thinking itself does not provide.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 9 -->
+    <article class="entry" id="e9" data-search="design thinking empathize define ideate prototype JTBD jobs to be done Stanford dschool">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-purple">Human-Centered</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#09</span>
+        </div>
+        <h2>Design Thinking</h2>
+        <p class="entry-lead">A human-centered problem-solving methodology that begins with deep empathy for the person experiencing the problem — because most solutions fail not from poor execution but from solving the wrong problem.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Find the job the customer is actually hiring your product to do. The job, not the product category, is the unit of competition.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">User need is unclear or assumed. Solutions keep missing the mark. You're building something that doesn't yet exist and must discover the shape of the problem.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Empathy without insight — talking to users without synthesizing what you hear into a sharp problem definition. Process theater — going through the motions without genuine discovery.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>The Stanford d.school model — Empathize, Define, Ideate, Prototype, Test — is not a linear sequence but a recursive loop. The point is to defer solution generation until the problem is genuinely understood, then generate many options, then test the cheapest possible version of the most promising options before committing resources. Most organizations invert this process: they generate solutions first and validate second, which is why they build things nobody wants.</p>
+        <p>Jobs-to-be-Done (JTBD) theory, developed by Clayton Christensen and refined by Bob Moesta, reframes the design question entirely. The question is not "what product do users want?" but "what job are users hiring this product to do?" People don't buy a quarter-inch drill bit — they hire it to produce a quarter-inch hole, which they need to hang a shelf, which creates a sense of accomplishment and an organized home. Understanding the chain of jobs reveals where the real value is and where alternative solutions compete.</p>
+        <p>The Double Diamond model from the UK Design Council makes the diverge-converge structure explicit: first diverge to understand the problem (discover + define), then diverge again to generate solutions (develop + deliver). The discipline is fully completing the first diamond — genuinely exploring the problem space — before beginning the second. Teams consistently rush to the second diamond before the first is done.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Empathy Interviews</strong>Deep qualitative research. Observe behavior, not just stated preferences. Watch what people do, not what they say.</div>
+          <div class="method-item"><strong>How Might We (HMW)</strong>Reframe problems as design opportunities. "How might we make X easier?" opens the solution space.</div>
+          <div class="method-item"><strong>Jobs-to-be-Done</strong>What functional, social, and emotional job is the user hiring this product to do? Work backwards from the job.</div>
+          <div class="method-item"><strong>Point of View Statement</strong>[User] needs [need] because [insight]. The sharpest possible problem definition before ideation.</div>
+          <div class="method-item"><strong>Crazy 8s</strong>8 rough sketches in 8 minutes. Forces divergence and defeats the tyranny of the first idea.</div>
+          <div class="method-item"><strong>Prototype to Think</strong>Build to learn, not to present. The prototype is a question made physical, not a solution made tangible.</div>
+          <div class="method-item"><strong>Experience Prototyping</strong>Simulate the entire experience, not just the product. Includes context, people, environment.</div>
+          <div class="method-item"><strong>Service Blueprint</strong>Map frontstage user experience alongside backstage organizational processes. Reveals misalignments.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Listening to what users say they want rather than observing what they actually do — stated preferences and revealed preferences frequently diverge</li>
+          <li>Prototype attachment — falling in love with the prototype rather than testing it ruthlessly</li>
+          <li>Skipping the define stage — going from empathy directly to ideation without crystallizing a sharp problem definition</li>
+          <li>One-shot testing — a single round of user testing cannot validate a solution; the process requires multiple cycles</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Design thinking centers the voice of the current user — but many of the most important innovations solve problems users cannot articulate because they don't yet know the solution is possible. No amount of empathy research would have surfaced the need for a smartphone in 1995. The framework is excellent for improving existing experiences; it is less suited to genuinely disruptive innovation where the job itself is being created rather than discovered.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 10 -->
+    <article class="entry" id="e10" data-search="disruptive innovation Christensen innovator dilemma platform disruption modular sustaining">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-purple">Strategy</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#10</span>
+        </div>
+        <h2>Disruptive Innovation</h2>
+        <p class="entry-lead">Clayton Christensen's theory explaining why well-managed, rational, successful companies get blindsided by inferior products that eventually destroy them — and what the structural forces are that make this outcome nearly inevitable.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Attack from below — serve non-consumers or over-served customers that incumbents rationally ignore. Enter the market they can't profitably defend.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Incumbents are over-serving mainstream customers with complexity and cost. A simpler, cheaper option exists that non-consumers or low-end customers would use.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">The framework is frequently misapplied — not all new entrants are disruptive in Christensen's technical sense. Misapplication leads to wrong strategic conclusions.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>The Innovator's Dilemma is that the very practices that make companies successful — listening to existing customers, investing in the highest-margin products, focusing resources on the highest performance tier — make them systematically blind to the disruption that will eventually destroy them. Incumbents don't fail because they're poorly managed; they fail because they're well managed within a framework that doesn't account for disruptive entrants.</p>
+        <p>Disruption begins at the low end or non-consumption. A new entrant offers a product that is worse by traditional metrics but good enough for a tier of customers the incumbent doesn't serve or underserves. The incumbent ignores it — their best customers don't want it, their analysts can't model the market, and their cost structure can't profitably serve the low end anyway. The disruptor improves over time. By the time their product is "good enough" for the mainstream market, the incumbent's cost structure and culture cannot pivot to compete. They are disrupted.</p>
+        <p>Sustaining innovation — improvements along existing performance trajectories for existing customers — is what incumbents excel at and what most R&D investment produces. Disruptive innovation — creating new performance trajectories, often for new customers or non-customers — is what destroys incumbents. The strategic imperative for incumbents is to create separate organizational units, with separate cost structures and incentive systems, to pursue disruption before someone else does.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Non-consumption Targeting</strong>Find the people who don't use the incumbent's product. Build something simple enough for them.</div>
+          <div class="method-item"><strong>Good Money / Bad Money</strong>Early-stage: seek markets where small wins are wins. Late-stage incumbents can't afford small markets.</div>
+          <div class="method-item"><strong>Modular vs Integrated</strong>Integrated architectures win early (performance matters). Modular architectures win later (commoditized performance).</div>
+          <div class="method-item"><strong>Separate Organization</strong>The disruptive unit cannot share cost structure, culture, or customer relationships with the core.</div>
+          <div class="method-item"><strong>Jobs Theory Application</strong>The job being done is more stable than the product. Understand the job to predict vulnerability to disruption.</div>
+          <div class="method-item"><strong>Trajectory Analysis</strong>Track the pace of performance improvement vs user needs. When trajectories cross, disruption begins.</div>
+          <div class="method-item"><strong>Value Chain Migration</strong>Track where value migrates as components commoditize. Own the non-commoditized layer.</div>
+          <div class="method-item"><strong>Platform Disruption</strong>Platforms disrupt products by enabling ecosystems. The platform owner captures value from all participants.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Misidentifying sustaining innovation as disruption — leads to incorrect strategic response</li>
+          <li>Overcorrecting — spinning off disruptive units that lack connection to core capabilities</li>
+          <li>Assuming all disruptors follow the same trajectory — some new entrants are genuinely just better products</li>
+          <li>Using disruption theory to justify any new entrant — the theory is precise; its application is often sloppy</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Christensen's framework describes one specific mechanism of disruption. It doesn't account well for regulatory-driven disruption, platform disruption from above (premium entrants who disrupt by being dramatically better, not just cheaper), or AI-driven disruption that collapses cost structures instantaneously rather than through gradual improvement. The taxonomy of disruption types is broader than the theory covers.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 11 -->
+    <article class="entry" id="e11" data-search="risk identification risk register bow-tie FMEA SWIFT Delphi ISO 31000">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-coral">Frameworks</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#11</span>
+        </div>
+        <h2>Risk Identification</h2>
+        <p class="entry-lead">The systematic practice of naming and cataloging what could go wrong before it does — because risks identified in advance cost a fraction of risks encountered as surprises.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Proactive identification costs a fraction of reactive crisis management. The discipline is doing it before you feel you need to — precisely when it feels unnecessary.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before major projects, investments, strategic pivots, or any decision with irreversible consequences.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">The false sense of security created by a complete risk register. Known risks are cataloged. Unknown unknowns are not. The risk register does not protect against what it doesn't contain.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Risk identification is the first step in any risk management process — you cannot manage what you haven't named. The challenge is that human beings are systematically poor at identifying risks that differ from their prior experience, risks that are rare or unfamiliar, and risks that require acknowledging uncomfortable possibilities about plans they are committed to.</p>
+        <p>Structured methods exist precisely to overcome these psychological limitations. The Delphi Technique gathers risk assessments independently from multiple experts before discussion — preventing the anchoring and groupthink that produce convergent but incomplete risk lists. SWIFT (Structured What-If Technique) uses facilitated what-if questions to explore deviations from normal operation systematically. Bow-tie analysis maps the full landscape from causes through the central hazard event to its consequences, creating a visual representation of both prevention (left side) and mitigation (right side).</p>
+        <p>Risk taxonomy libraries — ISO 31000, PMI, COSO — provide checklists of risk categories that organizations regularly encounter. These prevent the most common failure mode: identifying all the risks in your domain of expertise and none of the risks outside it. A technology team identifies technology risks; a taxonomy forces them to also consider regulatory, reputational, financial, and people risks.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Risk Register</strong>Catalog every identified risk with probability, impact, velocity, and owner. Living document.</div>
+          <div class="method-item"><strong>Bow-Tie Analysis</strong>Causes → Hazard Event → Consequences. Maps prevention on left, mitigation on right.</div>
+          <div class="method-item"><strong>SWIFT</strong>Structured What-If Technique. Facilitated what-if questions to explore deviations systematically.</div>
+          <div class="method-item"><strong>Delphi Technique</strong>Independent expert assessment before group discussion. Prevents anchoring and groupthink.</div>
+          <div class="method-item"><strong>Risk Taxonomy (ISO 31000)</strong>Checklist of risk categories. Forces identification outside your domain of expertise.</div>
+          <div class="method-item"><strong>Assumption Analysis</strong>Every plan rests on assumptions. Each assumption is a risk when it fails. List them all.</div>
+          <div class="method-item"><strong>Risk Velocity</strong>How fast does this risk materialize? Slow risks allow response time; fast risks require automatic defenses.</div>
+          <div class="method-item"><strong>Historical Analogy</strong>What happened to others in similar situations? Base rate data often reveals risks experts overlook.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Risk list becomes a bureaucratic document rather than a living decision tool</li>
+          <li>Optimism bias in probability estimates — assigned probabilities are systematically too low</li>
+          <li>Nominal identification without ownership — every risk needs a named owner responsible for monitoring it</li>
+          <li>Completeness illusion — a long risk register creates confidence that all risks are known</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Every risk identification method is backward-looking to some degree — it finds risks that look like risks we've seen before. The most catastrophic risks tend to be structurally novel: combinations of conditions that have never occurred in that configuration, in that system, at that moment. The unknown unknown problem is irreducible with any structured identification method.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 12 -->
+    <article class="entry" id="e12" data-search="validation customer discovery Mom Test fake door MVP Wizard of Oz smoke test concierge">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-green">Discovery</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#12</span>
+        </div>
+        <h2>Validation Methods</h2>
+        <p class="entry-lead">The structured practices for learning whether something is true before committing resources to it — the discipline that separates entrepreneurs who build what people want from those who build what they wish people wanted.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Validate ruthlessly before building anything. The cost of invalidating an assumption before building is trivial. After building, it is often fatal.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before building any feature, product, or business. Before raising capital. Always. There is no stage at which validation becomes unnecessary.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Validation theater — running tests designed to confirm rather than challenge. Asking questions that make it easy for respondents to be polite rather than honest.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Rob Fitzpatrick's Mom Test is named for the observation that even your mother, who wants you to succeed, will tell you your idea is great if you ask her about it directly. The solution is to never ask about your idea — instead, ask about their life, their problems, their past behavior. "Would you use an app that did X?" is a terrible question. "Tell me about the last time you tried to do X" is a great one. Past behavior is the most reliable predictor of future behavior; stated preferences are unreliable data.</p>
+        <p>The fake door test sells something before it exists. Create a landing page, run ads to it, and measure what percentage of visitors click the purchase or sign-up button. A real purchase attempt — even one you have to cancel and refund — is far stronger evidence of demand than any survey response. Eric Ries introduced the concept of the Minimum Viable Product precisely to accelerate this kind of learning: not a minimal product, but a minimal experiment that generates maximum learning about the riskiest assumptions.</p>
+        <p>The Wizard of Oz MVP hides the absence of automation behind human action. Zappos famously photographed shoes from local stores and only bought them if someone ordered — proving demand without inventory. This pattern — fake the technology, do it manually behind the scenes — is one of the most powerful validation methods available because it provides a complete customer experience at minimal cost.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Mom Test (Fitzpatrick)</strong>Ask about behavior, not opinions. "How often do you…?" not "Would you use…?" Past behavior is data; stated intent is not.</div>
+          <div class="method-item"><strong>Fake Door Test</strong>Measure demand before building. Create the offer, measure conversion, cancel and refund.</div>
+          <div class="method-item"><strong>Concierge MVP</strong>Manually deliver the promised service to early customers. Learn what they actually need before automating.</div>
+          <div class="method-item"><strong>Wizard of Oz MVP</strong>Fake the automation; do it manually behind the scenes. Full experience at near-zero build cost.</div>
+          <div class="method-item"><strong>Pre-Sales</strong>Sell before building. Actual money exchanged is the only unambiguous signal of demand.</div>
+          <div class="method-item"><strong>Customer Advisory Board</strong>Ongoing relationship with 8-12 target customers who help shape the product in real time.</div>
+          <div class="method-item"><strong>Smoke Test Advertising</strong>Run paid traffic to a landing page for a product that doesn't exist. Measure click-through and conversion intent.</div>
+          <div class="method-item"><strong>Problem Interview</strong>Structured conversation exploring whether the problem is real and painful before any solution discussion.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Selecting interview subjects who are already supportive — survivorship bias in your validation sample</li>
+          <li>Asking leading questions that prime the response you want to hear</li>
+          <li>Validating the wrong assumption — often the riskiest assumption isn't the most obvious one</li>
+          <li>Validating once and moving on — assumptions that were true at scale 1 may be false at scale 100</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Validation methods are powerful for discovering whether a problem exists and whether your solution solves it. They are poor at discovering demand for solutions to problems people don't yet know they have — the truly discontinuous innovations. Henry Ford's customers would have said they wanted faster horses. Validation is most useful for reducing execution risk on known problem spaces.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 13 -->
+    <article class="entry" id="e13" data-search="go-to-market strategy PLG product-led growth sales community content viral freemium GTM">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-green">Growth</span>
+          <span class="entry-vol">Volume I</span>
+          <span class="entry-n">#13</span>
+        </div>
+        <h2>Go-to-Market Strategy</h2>
+        <p class="entry-lead">The plan for how a product reaches its customers — the distribution model, which often matters as much as the product itself, and which once chosen, constrains nearly every other business decision.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">The distribution model is the business model in many cases. A superior product with inferior distribution loses to an inferior product with superior distribution.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Product-market fit has been achieved. You're ready to scale what works. Or when the current GTM motion isn't generating growth at acceptable unit economics.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Premature scaling before product-market fit. Choosing the wrong GTM motion for your buyer type — PLG doesn't work for complex enterprise decisions requiring committee consensus.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Go-to-market strategy answers the question: how does the product find its users, and how do those users become customers? The choice of GTM motion is not just a marketing decision — it shapes the entire business. PLG companies need self-service onboarding, a freemium tier, and viral mechanisms built into the product. Sales-led companies need a different product architecture, different pricing, and a completely different organizational structure.</p>
+        <p>Product-led growth (PLG) makes the product itself the primary driver of acquisition, retention, and expansion. Slack, Dropbox, and Figma all grew primarily because using the product creates a referral — you invite colleagues, you share files, you can't collaborate without bringing others in. PLG dramatically reduces customer acquisition costs and accelerates the sales cycle because the product sells itself. The challenge is that not all products lend themselves to viral mechanics or self-service evaluation.</p>
+        <p>Freemium conversion is one of the most misunderstood dynamics in GTM. The free tier must be valuable enough to generate genuine usage and word-of-mouth — a useless free tier generates no adoption. But it must be limited enough that a meaningful percentage of users hit the limit and need to upgrade. Too generous a free tier means users never convert; too limited means users never adopt. The optimization is finding the limitation that correlates with the value the paying customer is trying to capture.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Product-Led Growth (PLG)</strong>Product is the primary acquisition channel. Usage creates referral. Self-service onboarding required.</div>
+          <div class="method-item"><strong>Sales-Led Growth</strong>Human relationships drive acquisition. Required for complex, high-ACV, committee-based decisions.</div>
+          <div class="method-item"><strong>Community-Led Growth</strong>Build belonging first; product serves the community. Highest retention, slowest initial growth.</div>
+          <div class="method-item"><strong>Content-Led / SEO Flywheel</strong>Create content that ranks for problems your product solves. Intent-matched discovery at scale.</div>
+          <div class="method-item"><strong>Bottom-Up SaaS</strong>Land individual users, expand to teams, expand to enterprise. Converts seat-by-seat into enterprise contracts.</div>
+          <div class="method-item"><strong>Viral / Referral</strong>Design referral mechanics into the product. Network effects reduce CAC with scale.</div>
+          <div class="method-item"><strong>Freemium Conversion</strong>Free tier drives adoption; paywall at value inflection. Optimize the free/paid boundary for conversion rate.</div>
+          <div class="method-item"><strong>Pricing Psychology</strong>Anchoring (high price sets reference), decoy (middle option makes premium look reasonable), good-better-best tiers.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>PLG for an enterprise product — complex buying committees cannot self-serve; no amount of product polish replaces a human sales process</li>
+          <li>Sales-led for a low-ACV product — the economics don't work; sales cost exceeds customer value</li>
+          <li>Community-led without patience — communities require 18-36 months to generate commercial returns</li>
+          <li>Channel conflict — direct and partner channels competing for the same customer destroys both</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>GTM strategies are typically designed for a specific competitive environment. When the environment shifts — a major competitor adopts PLG, a regulation changes distribution economics, a platform shifts terms — the GTM model that worked can become a liability almost overnight. GTM strategies need to be periodically stress-tested against changed assumptions, not just optimized on current trajectory.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 14 -->
+    <article class="entry" id="e14" data-search="Gottman method Four Horsemen Sound Relationship House bids connection love maps repair">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-pink">Clinical</span>
+          <span class="entry-vol">Volume I + III</span>
+          <span class="entry-n">#14</span>
+        </div>
+        <h2>Gottman Method</h2>
+        <p class="entry-lead">John Gottman's empirically validated framework for relationship health — built on 40 years of research that can predict divorce with over 90% accuracy from observing couples interact for a matter of minutes.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Repair attempts after conflict are more important than avoiding conflict. The couples who stay together aren't the ones who fight less — they're the ones who reconnect faster.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Any long-term relationship at any stage. Prevention is dramatically cheaper than crisis intervention. The framework works best as maintenance, not just repair.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Insight without behavioral change. Understanding the Four Horsemen and continuing to use them. The knowledge does nothing without implementation.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Gottman's research identified that relationship trajectory can be predicted by the ratio of positive to negative interactions during conflict: a 5:1 ratio (five positive interactions for every negative one) is the threshold for stable, happy relationships. Below this ratio, relationships deteriorate. The Four Horsemen — Criticism, Contempt, Defensiveness, and Stonewalling — are the specific negative communication patterns most predictive of relationship failure, with contempt being the most deadly single predictor.</p>
+        <p>The Sound Relationship House model identifies seven components that build relationship health, from the foundational (love maps — deep knowledge of your partner's inner world, including their fears, dreams, and aspirations) to the superstructural (shared meaning — building a culture within the relationship through rituals, roles, symbols, and goals). The lower levels must be established before the upper levels are stable.</p>
+        <p>Bids for connection are the micro-moments of relationship — one partner makes a small bid (mentions something interesting, makes a joke, seeks reassurance) and the other turns toward, turns away, or turns against. Gottman found that couples who ultimately divorced had turned toward each other's bids only 33% of the time during lab observations. Couples who stayed together had turned toward bids 87% of the time. The relationship is made or broken in these tiny moments, not in the big conversations.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Four Horsemen Antidotes</strong>Criticism → Gentle startup. Contempt → Culture of appreciation. Defensiveness → Responsibility. Stonewalling → Self-soothing.</div>
+          <div class="method-item"><strong>Love Maps</strong>Deep knowledge of partner's inner world: fears, dreams, current stressors, important people. Updated continuously.</div>
+          <div class="method-item"><strong>Bids for Connection</strong>Turn toward small bids. The relationship lives or dies in thousands of tiny moments, not big gestures.</div>
+          <div class="method-item"><strong>Repair Attempts</strong>Any action that de-escalates conflict and reconnects. Must be recognized by the receiving partner to work.</div>
+          <div class="method-item"><strong>Aftermath Processing</strong>Structured conversation after a fight. Not re-litigating the argument — understanding each person's reality during it.</div>
+          <div class="method-item"><strong>Dreams Within Conflict</strong>Perpetual problems contain symbolic meaning. Uncover the deeper values and dreams beneath the repeated argument.</div>
+          <div class="method-item"><strong>Physiological Self-Soothing</strong>Flooding shuts down rational processing. 20-minute break when heart rate exceeds 100bpm. Return to discuss.</div>
+          <div class="method-item"><strong>Shared Meaning System</strong>Build rituals of connection, shared roles, symbols, and goals that create a culture between two people.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Using Gottman knowledge as ammunition in arguments — "there you go with criticism again" is itself contemptuous</li>
+          <li>Repair attempts that are not recognized or received — a repair attempt that lands as another attack escalates conflict</li>
+          <li>Addressing the argument without addressing the underlying attachment need</li>
+          <li>One partner implementing the method; the other not — creates resentment rather than connection</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Gottman's research was conducted primarily on heterosexual, Western, middle-class couples. The framework's cultural specificity has been debated. Additionally, the method addresses dysfunctional relationship dynamics but was not designed for situations involving coercive control, abuse, or active safety threats — contexts where relationship preservation is not the appropriate goal.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 15 -->
+    <article class="entry" id="e15" data-search="attachment theory secure anxious avoidant disorganized pursuer distancer earned security bonding">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-pink">Deep Psychology</span>
+          <span class="entry-vol">Volume III</span>
+          <span class="entry-n">#15</span>
+        </div>
+        <h2>Attachment Theory</h2>
+        <p class="entry-lead">John Bowlby and Mary Ainsworth's framework explaining how early caregiver relationships create internal working models that shape every significant relationship in adult life — and how those models can be updated.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Knowing your attachment style lets you interrupt your own patterns before they play out. The behavior that protects you from attachment fear is usually the behavior that destroys the relationship.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Recurring relational patterns that don't make sense in the current relationship context. Disproportionate emotional reactions. The same dynamic appearing across multiple relationships.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Using the style as identity rather than as information. Attachment style is not a fixed personality type — it is a learned strategy that can change through safe relationships and therapy.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>The attachment system is an evolved survival mechanism: in infancy, closeness to a caregiver is literally life or death, and the infant develops a strategy for maximizing caregiver availability based on that caregiver's behavior. If the caregiver is consistently responsive, the infant develops a secure base — confident that when distressed, help will come. If the caregiver is inconsistently responsive, the infant learns to amplify distress signals to maximize caregiver engagement (anxious attachment). If the caregiver is consistently emotionally unavailable, the infant learns to suppress attachment needs and become self-reliant (avoidant attachment).</p>
+        <p>These strategies, functional in childhood, are carried into adult relationships as automatic responses to perceived threats to attachment security. The anxious-attached adult, sensing distance or uncertainty, increases bid frequency and emotional intensity — the very behaviors that trigger the avoidant partner's withdrawal. The avoidant partner's withdrawal confirms the anxious partner's fear. The cycle becomes self-perpetuating and increasingly entrenched: the pursuer-distancer dance.</p>
+        <p>Earned security is the critical insight for change: attachment style is not destiny. Adults who grew up with insecure attachment can develop what researchers call "earned secure attachment" through corrective experiences — safe, consistent, responsive relationships (with therapists, partners, mentors, or friends) that provide the evidence their attachment system needs to update its working model. The nervous system can be re-taught what safety feels like.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Style Identification</strong>Secure / Anxious / Avoidant / Disorganized. Each style predicts specific triggers, behaviors, and relationship patterns.</div>
+          <div class="method-item"><strong>Trigger Mapping</strong>Identify specific situations that activate the attachment system. Triggers are predictable once the style is known.</div>
+          <div class="method-item"><strong>Protest Behavior Recognition</strong>Recognize anxious protest behaviors (excessive contact, jealousy, withdrawal threats) as attachment signals, not attacks.</div>
+          <div class="method-item"><strong>Somatic Regulation</strong>The attachment system lives in the body. Nervous system regulation precedes cognitive processing.</div>
+          <div class="method-item"><strong>Earned Security Path</strong>Consistent safe relationships update the attachment system. Therapy + secure partnership + corrective experiences.</div>
+          <div class="method-item"><strong>Window of Tolerance</strong>Identify and stay within the arousal range where learning and connection are possible. Exit = flooding.</div>
+          <div class="method-item"><strong>Internal Working Model Update</strong>Explicitly challenge the childhood-era beliefs: "being close doesn't mean being abandoned." Evidence accumulation over time.</div>
+          <div class="method-item"><strong>Parts Work (IFS)</strong>Identify the internal parts driving attachment behavior: the exile (the wound), the manager (suppression), the firefighter (reactive protection).</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Diagnosing partners rather than understanding yourself — leads to justification rather than growth</li>
+          <li>Intellectualizing attachment without somatic work — the nervous system doesn't change from conceptual understanding alone</li>
+          <li>Expecting a partner to be your therapist — the healing of attachment wounds requires professional support, not just a loving partner</li>
+          <li>Style determinism — treating an anxious or avoidant style as unchangeable destiny</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Attachment theory was developed studying infant-caregiver relationships and extrapolated to adult romantic relationships. The extrapolation is empirically supported but not identical — adult relationships involve dynamics (sexuality, power, choice, history) not present in the infant-caregiver bond. Additionally, the framework centers the individual's internal psychology; it has less to say about systemic, cultural, and economic factors that shape relational capacity.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 16 -->
+    <article class="entry" id="e16" data-search="thinking types convergent divergent first principles systems analogical probabilistic metacognition">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-gray">Metacognition</span>
+          <span class="entry-vol">Volume IV</span>
+          <span class="entry-n">#16</span>
+        </div>
+        <h2>Thinking Types</h2>
+        <p class="entry-lead">A taxonomy of distinct cognitive modes — each suited to different problem types — and the meta-skill of choosing which mode to deploy rather than defaulting to habit.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Match the thinking mode to the problem type. Most failures of intelligence are not failures of raw capacity — they're failures of applying the wrong cognitive tool to the problem at hand.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before tackling a novel or high-stakes problem. When a problem that should be solved persists despite repeated effort. When smart people keep arriving at wrong answers.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Over-reliance on one mode — typically analytical (vertical) thinking — which systematically blocks creative solutions to problems that require lateral or divergent approaches.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Different cognitive modes activate different neural networks and produce different types of outputs. Convergent thinking — narrowing toward a single correct answer — is what most education trains. It is essential for execution, analysis, and judgment within established frameworks. Divergent thinking — generating many possible answers without premature evaluation — is what creates the options that convergent thinking then selects among. Most creative failure is actually a failure to diverge sufficiently before converging.</p>
+        <p>First-principles thinking, most associated with Elon Musk's public use of the term, is the practice of decomposing any question to its foundational truths — what can be shown to be true from evidence and first principles — and rebuilding understanding from that foundation rather than from analogy or convention. It is slow and demanding, but it is the only reliable method for accessing genuinely novel solutions rather than variations on existing solutions.</p>
+        <p>Probabilistic thinking treats all claims as probability distributions rather than binary true/false assertions. The question is not "will this work?" but "what is the probability distribution of outcomes if we do this?" Superforecasters — the most accurate predictors studied by Philip Tetlock — share this cognitive habit above all others. They think in precise probabilities, update frequently, and resist the binary framing that most people default to.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Convergent Thinking</strong>Narrow toward the single best answer. Essential for execution and judgment. Default for most people.</div>
+          <div class="method-item"><strong>Divergent Thinking</strong>Generate many answers without evaluation. Brainstorming, lateral thinking, SCAMPER. Must precede convergence.</div>
+          <div class="method-item"><strong>First-Principles</strong>Decompose to foundational truths. Rebuild from scratch. Slow but accesses genuine novelty.</div>
+          <div class="method-item"><strong>Analogical Thinking</strong>Map structure from one domain to another. The solution to your problem may exist in biology, music, or architecture.</div>
+          <div class="method-item"><strong>Dialectical Thinking</strong>Hold two contradictory truths simultaneously and synthesize them. Hegelian thesis-antithesis-synthesis.</div>
+          <div class="method-item"><strong>Probabilistic Thinking</strong>All claims as probability distributions. "70% likely" not "probably." Update continuously with evidence.</div>
+          <div class="method-item"><strong>Abductive Thinking</strong>Best explanation for observed evidence. Sherlock Holmes mode. What must be true for this to be true?</div>
+          <div class="method-item"><strong>Systems Thinking</strong>See patterns, feedback loops, and unintended consequences. See the whole, not just the parts.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Emotional reasoning — "I feel this is true therefore it is true" — the most common and damaging thinking error</li>
+          <li>Category errors — applying convergent thinking to divergent problems and vice versa</li>
+          <li>False precision — probabilistic thinking becomes counterproductive when precision is false confidence</li>
+          <li>Analysis paralysis — first-principles thinking can delay action indefinitely in fast-moving situations</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Cognitive modes are not evenly accessible under stress. When threat is perceived, the nervous system narrows attention and defaults to familiar patterns — the opposite of what divergent, analogical, or probabilistic thinking requires. High-stakes thinking often happens in exactly the conditions that most compromise access to the most valuable thinking modes. Regulation precedes cognition.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 17 -->
+    <article class="entry" id="e17" data-search="cognitive bias audit anchoring confirmation availability planning fallacy sunk cost overconfidence">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-gray">Decision Quality</span>
+          <span class="entry-vol">Volume III</span>
+          <span class="entry-n">#17</span>
+        </div>
+        <h2>Cognitive Bias Audit</h2>
+        <p class="entry-lead">The systematic practice of checking major decisions against the catalog of known human cognitive errors — because awareness of biases alone does not eliminate them; active interruption does.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Each bias interrupted once prevents multiples of the damage it would have caused. The asymmetric value of bias interruption makes the practice worth far more than its cost.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before any major irreversible decision. After any significant failure. During the design of any important process, since process design encodes the biases of its designers.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">The meta-cognitive bias: believing awareness of biases makes you immune to them. It does not. Active structural interventions are required, not just knowledge.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Kahneman's System 1 / System 2 framework provides the underlying architecture. System 1 is fast, automatic, associative, emotional, and effortless — and it is the system responsible for most cognitive biases. System 2 is slow, deliberate, analytical, and effortful. The problem is that System 2 is lazy and easily hijacked — it rationalizes System 1's conclusions rather than independently evaluating them. This is why knowing about biases doesn't eliminate them: the same System 1 processes that generate the bias also generate the feeling of certainty that the bias is not operating.</p>
+        <p>Anchoring is among the most pervasive and damaging. The first number encountered in any decision context disproportionately influences all subsequent estimates, even when the initial number is random. Experiments have shown that spinning a wheel of fortune (literally random) before estimating a quantity shifts people's estimates toward the wheel's number. In negotiation, the first offer anchors the entire discussion. The counter is to generate your own estimate independently before encountering any external anchor.</p>
+        <p>The planning fallacy — the systematic underestimation of time, cost, and risk — is so universal that it has a reliable correction: reference class forecasting. Instead of reasoning forward from the specific project ("this will take 6 months because..."), look at how long similar projects actually took historically and use that distribution to calibrate your estimate. The outside view is almost always more accurate than the inside view.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Anchoring Interrupt</strong>Generate your own estimate before hearing any external number. Commit it in writing before the anchor is presented.</div>
+          <div class="method-item"><strong>Confirmation Bias Counter</strong>Actively seek disconfirming evidence. Ask: "What would have to be true for me to be wrong about this?"</div>
+          <div class="method-item"><strong>Planning Fallacy Fix</strong>Reference class forecasting: how long did similar projects actually take? Add 25-50% to all estimates as default.</div>
+          <div class="method-item"><strong>Sunk Cost Interrupt</strong>"If I had invested nothing, would I start this today?" If no: the sunk cost is driving the decision.</div>
+          <div class="method-item"><strong>Availability Heuristic Fix</strong>Seek base rate data. Recent vivid examples are not representative — they are available, not frequent.</div>
+          <div class="method-item"><strong>Overconfidence Calibration</strong>Track predictions and outcomes. Compare stated confidence levels to actual accuracy. Recalibrate.</div>
+          <div class="method-item"><strong>Present Bias Counter</strong>Commitment devices: pre-commit behavior before temptation arrives. Make the future cost concrete now.</div>
+          <div class="method-item"><strong>In-Group Bias Audit</strong>Evaluate proposals blind where possible. Assess the quality of the idea before knowing its author.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Bias spotting in others without auditing oneself — the bias blind spot is itself a bias</li>
+          <li>Individual awareness without structural solutions — process redesign, not just personal vigilance</li>
+          <li>Using bias names as conversation-enders — "that's just confirmation bias" dismisses a position without engaging it</li>
+          <li>Overcorrection — overcorrecting for one bias introduces the opposite bias; calibration, not elimination</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Much of the cognitive bias research that underlies this framework emerged from lab studies that may not replicate cleanly in real-world, high-stakes contexts. Gigerenzer's critique of the heuristics-and-biases program argues that many "biases" are actually adaptive heuristics that work extremely well in the environments they evolved for. The audit may flag as errors some reasoning patterns that are actually well-calibrated to specific domains.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 18 -->
+    <article class="entry" id="e18" data-search="shadow work Jung projection integration golden shadow disowned persona">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-coral">Jungian</span>
+          <span class="entry-vol">Volume IV</span>
+          <span class="entry-n">#18</span>
+        </div>
+        <h2>Shadow Work</h2>
+        <p class="entry-lead">Carl Jung's framework for the disowned self — everything you've been told is unacceptable, have rejected in yourself, or could not integrate — and the practice of reclaiming it consciously before it drives you unconsciously.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">What you most resist in others is most active in you. Strong reactions to other people's traits are the most reliable doorway into your own shadow material.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Recurring strong reactions to others. Creative blocks. Relationships that trigger disproportionate responses. A sense of living a partial or inauthentic life.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Deep shadow work can destabilize without professional support. Intellectual engagement with shadow concepts is not integration — the body and emotions must be included.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Jung defined the shadow as the sum total of everything in the psyche that the conscious personality has rejected, denied, or never developed. This includes qualities explicitly told to us are bad (anger, sexuality, ambition, neediness) and qualities that simply didn't fit the role we needed to play (vulnerability in a household that required toughness, assertiveness in a household that required compliance). The shadow is not inherently negative — it contains enormous energy and often includes positive qualities (the "golden shadow") that we project onto admired others rather than claiming in ourselves.</p>
+        <p>Projection is the primary mechanism through which shadow material makes itself known. When we strongly react to a quality in someone else — triggered by their arrogance, their neediness, their dishonesty, their confidence — the reaction is disproportionate when the quality resonates with something disowned in us. The person triggers our shadow, not because they are necessarily wrong or bad, but because they are doing something we've forbidden ourselves. The trigger is the teacher.</p>
+        <p>Integration is not about acting out the shadow — it is about acknowledging it consciously. "I am also capable of cruelty" does not mean expressing cruelty; it means no longer needing to project it onto others, needing to deny it in oneself, or being unconsciously driven by it. The paradox is that conscious acknowledgment reduces unconscious expression — what is seen cannot drive from the shadows.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Projection Detection</strong>Strong negative reaction to trait in others = likely disowned in you. Investigate: "Do I have any of this?"</div>
+          <div class="method-item"><strong>Golden Shadow Work</strong>Strong positive projection onto others (admiration, idealization) = positive quality you haven't claimed in yourself.</div>
+          <div class="method-item"><strong>Triggered Reaction Inventory</strong>Log intense emotional reactions. Pattern across them — the common theme is your shadow material.</div>
+          <div class="method-item"><strong>Dream Work</strong>Shadow appears as characters in dreams. Threatening or despised dream figures often represent disowned aspects.</div>
+          <div class="method-item"><strong>Integration Practice</strong>"I am also capable of [thing I condemn]." Named, not enacted. Reduces unconscious expression of what is consciously acknowledged.</div>
+          <div class="method-item"><strong>Body Symptom Tracking</strong>Physical symptoms often express what the psyche cannot say. Chronic tension, illness patterns as messages.</div>
+          <div class="method-item"><strong>Creative Expression</strong>Art, writing, movement, and music as vehicles for shadow material that cannot enter consciousness directly.</div>
+          <div class="method-item"><strong>Persona vs Shadow Mapping</strong>Map what you show the world (persona) vs what you hide (shadow). The gap between them is where work lives.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Intellectualizing without feeling — shadow integration requires emotional and somatic engagement, not just conceptual understanding</li>
+          <li>Using shadow theory to justify harmful behavior — "it's my shadow" is not permission to act it out</li>
+          <li>Confusing projection identification with diagnosis — the projection tells you about yourself, not necessarily about the other person</li>
+          <li>Doing deep shadow work without therapeutic support when trauma is present</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Jungian shadow work emerged from a specific cultural context (early 20th century European psychoanalysis) and carries assumptions about the psyche that are not universally held. The framework is not empirically validated in the way that CBT or DBT are. Its value is practical and experiential rather than evidence-based in the clinical sense — which does not make it less useful, but should inform how it's weighted against other approaches.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 19 -->
+    <article class="entry" id="e19" data-search="inner child work reparenting core wounds EMDR somatic release grief childhood trauma">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-coral">Parts Work</span>
+          <span class="entry-vol">Volume IV</span>
+          <span class="entry-n">#19</span>
+        </div>
+        <h2>Inner Child Work</h2>
+        <p class="entry-lead">The therapeutic framework for accessing and healing the early-formed emotional parts of the self that were wounded in childhood — and that continue to drive adult behavior from outside conscious awareness.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Emotional reactions disproportionate to current circumstances are information — they signal an activated early wound. The signal is the doorway to the root.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Recurring emotional patterns that don't make sense in current context. Reactions you can observe but cannot control. Adult functioning consistently disrupted by seemingly small triggers.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Deep trauma work requires professional therapeutic support. Self-directed inner child work can be destabilizing with complex trauma. The framework is a starting point, not a complete treatment.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Children experiencing overwhelming situations — abuse, neglect, loss, shame, chronic misattunement — often cannot fully process those experiences because their nervous systems and cognitive capacities are not yet developed enough to metabolize them. The experience becomes stored in the body and the implicit memory system: not as a narrative ("this is what happened") but as a felt-sense pattern ("when X happens, the world is dangerous and I am not safe"). These stored patterns continue to activate in adulthood whenever current circumstances echo the original conditions — even slightly.</p>
+        <p>Reparenting is the central therapeutic concept: giving to yourself now what was not received then. This might mean providing consistency and reliability (if the original wound was unpredictability), warmth and validation (if the wound was emotional neglect), or protection and boundaries (if the wound was violation). The inner child work does not erase the past; it provides the nervous system with corrective experiences that update its threat assessment and expand its window of safety.</p>
+        <p>EMDR (Eye Movement Desensitization and Reprocessing) uses bilateral stimulation (alternating left-right visual, auditory, or tactile input) while accessing traumatic memories. The mechanism is not fully understood, but robust research evidence shows it effectively reduces the emotional charge attached to traumatic memories — allowing them to be processed and integrated rather than remaining frozen and periodically re-activated.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Wound Identification</strong>Core wounds: abandonment, rejection, shame, betrayal, injustice, humiliation, enmeshment. Identify the foundational pattern.</div>
+          <div class="method-item"><strong>Age Regression Awareness</strong>When did this feeling start? What age does this bring up? Identifies the wound's origin point.</div>
+          <div class="method-item"><strong>Reparenting Practice</strong>What did the child need that it didn't receive? Provide it — to yourself, through yourself, now.</div>
+          <div class="method-item"><strong>Dialogue Technique</strong>Journal as adult writing to child self, then shift and respond as the child. Bridges conscious and unconscious.</div>
+          <div class="method-item"><strong>EMDR</strong>Bilateral stimulation while accessing traumatic memory. Reduces emotional charge. Requires trained therapist.</div>
+          <div class="method-item"><strong>Somatic Release</strong>The body holds trauma. Movement, breathwork, touch, and vocalization are primary release mechanisms.</div>
+          <div class="method-item"><strong>Safe Figure Visualization</strong>Create an internal protective figure — wise, powerful, unconditionally loving. Resource for difficult inner work.</div>
+          <div class="method-item"><strong>Grief Completion</strong>The wound must be mourned before it can be integrated. What was not received must be grieved before it can be released.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Failure Modes</div>
+        <ul class="failure-list">
+          <li>Re-traumatization — accessing early wounds without sufficient resourcing and support in place first</li>
+          <li>Intellectualizing the wound — understanding it conceptually without feeling it somatically</li>
+          <li>External reparenting dependency — expecting partners or therapists to do the reparenting work rather than developing internal capacity</li>
+          <li>Bypassing — spiritual or cognitive bypass that claims to have healed what has only been suppressed more elegantly</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Inner child work can become an explanation for everything and a reason to change nothing — "I act this way because of my childhood" used as justification rather than as insight. The framework must connect to behavioral change and present-day accountability to be curative rather than merely explanatory. The wound explains the pattern; it does not excuse it indefinitely.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 20 -->
+    <article class="entry" id="e20" data-search="failure mode library organizational cognitive technical financial relationship systems">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-amber">Diagnosis</span>
+          <span class="entry-vol">Volume II</span>
+          <span class="entry-n">#20</span>
+        </div>
+        <h2>Failure Mode Library</h2>
+        <p class="entry-lead">A comprehensive catalog of the ways systems, organizations, technologies, finances, and relationships fail — organized to make patterns recognizable before they become crises.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Study failures more carefully than successes. Survivorship bias saturates everything we learn from success; only deliberate failure study corrects it.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before scaling anything. During system design. In post-mortems. When a pattern has appeared more than twice — it is almost certainly in this library.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Recognizing failure modes does not prevent them. Recognition must be coupled with structural changes to the system that produced the failure mode.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Organizational Failure Modes</div>
+        <ul class="failure-list">
+          <li><strong>Founder syndrome:</strong> inability to delegate; identity fused with decision-making; organization can't function at scale</li>
+          <li><strong>Peter Principle:</strong> promoted to level of incompetence; best individual contributors become worst managers</li>
+          <li><strong>Groupthink:</strong> cohesion suppresses dissent; catastrophic consensus from smart, aligned people</li>
+          <li><strong>Boiling frog:</strong> slow degradation undetected until critical; no single data point crosses alarm threshold</li>
+          <li><strong>Bureaucratic ossification:</strong> process proliferates until it blocks output; can't remove what nobody remembers creating</li>
+          <li><strong>Key person dependency:</strong> single human as critical path; departure is organizational crisis</li>
+          <li><strong>Incentive misalignment:</strong> behavior follows incentives, not stated goals; what is measured is what is produced</li>
+          <li><strong>Culture drift:</strong> stated values diverge from lived values; new hires encode the real culture</li>
+          <li><strong>Scale failure:</strong> operating model that worked at N breaks at 10N and again at 100N</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Cognitive Failure Modes</div>
+        <ul class="failure-list">
+          <li><strong>Confirmation bias:</strong> seek information confirming prior beliefs; disconfirming evidence filtered out</li>
+          <li><strong>Planning fallacy:</strong> systematically underestimate time, cost, risk — universally, regardless of expertise</li>
+          <li><strong>Sunk cost fallacy:</strong> continue because of past investment rather than future expected value</li>
+          <li><strong>Overconfidence:</strong> miscalibrated probability estimates; more confident than accuracy warrants</li>
+          <li><strong>Dunning-Kruger:</strong> incompetence prevents recognition of incompetence; confidence highest at lowest competence</li>
+          <li><strong>Narrative fallacy:</strong> impose story on random events; see causation where there is correlation</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Technical Failure Modes</div>
+        <ul class="failure-list">
+          <li><strong>Single point of failure (SPOF):</strong> one component failure kills the entire system</li>
+          <li><strong>Cascading failure:</strong> one failure triggers chain reaction across tightly coupled components</li>
+          <li><strong>Normal accidents (Perrow):</strong> complex tightly coupled systems will fail unexpectedly — it is a property of the architecture</li>
+          <li><strong>Technical debt accumulation:</strong> shortcuts compound into unmaintainable systems; velocity slows non-linearly</li>
+          <li><strong>Bit rot:</strong> software degrades over time as dependencies change and assumptions expire</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Financial Failure Modes</div>
+        <ul class="failure-list">
+          <li><strong>Liquidity crisis:</strong> solvent but unable to meet short-term obligations; solvency and liquidity are not the same</li>
+          <li><strong>Leverage amplification:</strong> debt magnifies losses as well as gains; solvent at normal conditions, insolvent at stress</li>
+          <li><strong>Correlation collapse:</strong> assets assumed uncorrelated become correlated in crises; diversification fails when most needed</li>
+          <li><strong>Duration mismatch:</strong> borrow short, invest long; classic bank run setup</li>
+          <li><strong>Concentration risk:</strong> too much exposure to one name, sector, or geography</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>A failure mode library is inherently backward-looking — it catalogs failures that have been observed. The most catastrophic failures tend to be structurally novel: combinations of conditions that haven't occurred in that configuration before. The library prevents known failures. It cannot prevent unknown ones.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 21 -->
+    <article class="entry" id="e21" data-search="shadow-space reasoning unknown unknowns silent evidence survivorship bias dog didn't bark negative space">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-gray">Meta-Thinking</span>
+          <span class="entry-vol">Volume II</span>
+          <span class="entry-n">#21</span>
+        </div>
+        <h2>Shadow-Space Reasoning</h2>
+        <p class="entry-lead">The practice of systematically mapping what is invisible, excluded, unmeasured, and assumed away in any analysis — because the real leverage is almost always in what the dominant framework excludes.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">The shadow space — what the framework cannot see — contains the highest-value information. By definition, it is where everyone else has stopped looking.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">After any major analysis. Before any major commitment. When something feels off but you can't name what. When everyone agrees and the agreement feels too comfortable.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Shadow-space reasoning as sophisticated procrastination. It should supplement analysis and action, not replace them. The goal is better decisions, not perpetual investigation.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Every analytical framework has a field of view. It illuminates what it was designed to see and casts everything else into shadow. The shadow is not random — it is the systematic exclusion of whatever doesn't fit the framework's assumptions. This is where the most dangerous blind spots and the most valuable opportunities both live.</p>
+        <p>Survivorship bias is the most pervasive form of shadow-space blindness. We study the companies that succeeded, the people who survived, the investments that paid off — and we systematically learn nothing from the much larger population that failed and disappeared. The business books on your shelf were written by survivors; the authors who would have contradicted their advice are not writing books. Every lesson learned from success data is contaminated by the invisible failures.</p>
+        <p>The dog that didn't bark — Sherlock Holmes's inference from Silver Blaze — is the canonical illustration of shadow-space reasoning. The absence of an expected signal is itself a signal. If your best customer didn't complain, it might mean they're satisfied — or it might mean they've already decided to leave and no longer feel the conversation is worth their time. The non-event has meaning. Most analysis focuses on events; shadow-space reasoning treats non-events with equal attention.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Unknown Unknowns Mapping</strong>Johari Window outer quadrant. What don't you know you don't know? Requires deliberate exposure to outside perspectives.</div>
+          <div class="method-item"><strong>Silent Evidence Audit</strong>Who isn't in this dataset? What stories aren't being told? Where is survivorship bias operating?</div>
+          <div class="method-item"><strong>Dog That Didn't Bark</strong>What was expected that didn't happen? The absence of signal is itself a signal worth investigating.</div>
+          <div class="method-item"><strong>Shadow Incentive Analysis</strong>What is the actual incentive structure, not the stated one? Who benefits from the current framing?</div>
+          <div class="method-item"><strong>Negative Space Mapping</strong>What is the boundary of this analysis? What lies just outside it? Is that boundary justified?</div>
+          <div class="method-item"><strong>Structural Silence Detection</strong>What cannot be said here? What question cannot be asked? That prohibition contains information.</div>
+          <div class="method-item"><strong>Model Boundary Artifacts</strong>Where the model's outputs are most suspect is at its edges. Examine conclusions near the framework's limits.</div>
+          <div class="method-item"><strong>Pre-suppositional Analysis</strong>What does this argument have to assume to be true? Are those assumptions valid?</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Shadow-Space Question Library</div>
+        <p>On data: What was not collected? Whose experience is not captured? What would the data look like if the opposite were true? What has been measured consistently but is actually the wrong thing?</p>
+        <p>On assumptions: What assumptions are so obvious no one questioned them? Who profits if the current framing is accepted? What question can't be asked in this organization or relationship?</p>
+        <p>On incentives: What is the stated incentive vs the actual measured incentive? Who benefits from inaction? Who is paying the externalized cost?</p>
+        <p>On solutions: What is the cost of the solution that isn't being counted? What problem does this solution create downstream? Who is excluded from benefiting?</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space of Shadow-Space Reasoning</div>
+        <p>The meta-irony: shadow-space reasoning is itself a framework with shadow spaces. It can create a sophisticated sense of critical intelligence that substitutes for action. It can find "problems" with any conclusion and become a tool of motivated reasoning — finding shadows only in analyses one is already disposed to reject. Apply shadow-space reasoning to your shadow-space reasoning.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 22 -->
+    <article class="entry" id="e22" data-search="universal invariants compounding 80/20 constraint principle incentive alignment network effects power law">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-gray">Principles</span>
+          <span class="entry-vol">Volume II</span>
+          <span class="entry-n">#22</span>
+        </div>
+        <h2>Universal Invariants</h2>
+        <p class="entry-lead">The principles that are true in every domain, every era, at every scale — the bedrock beneath all tactics, the foundation that must be understood before anything tactical is attempted.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Build strategy on what is permanently true before what is temporarily true. Invariants are load-bearing; trends are the walls. Build on the foundation, not the walls.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Always — these principles operate in every decision whether you are aware of them or not. Awareness lets you use them deliberately rather than being used by them.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Invariants are not laws of physics — they have scope conditions. Every principle bends at extremes. "Always" in human systems means "with very high reliability across a wide range of conditions."</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Invariants</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Compounding</strong>Small advantages × time = enormous gaps. Applies to finance, skill, trust, knowledge, relationships, reputation. The most powerful force in any domain.</div>
+          <div class="method-item"><strong>The 80/20 Principle (Pareto)</strong>20% of inputs → 80% of outputs. Everywhere, always. The distribution of cause and effect is never even.</div>
+          <div class="method-item"><strong>The Constraint Principle</strong>Every system has exactly one binding constraint at any moment. Improving anything other than the constraint is waste.</div>
+          <div class="method-item"><strong>Incentive Alignment</strong>Behavior follows incentives, not intentions. Always. This is the root of most organizational dysfunction and most successful institutional design.</div>
+          <div class="method-item"><strong>Feedback Loop Dominance</strong>All system behavior is governed by its feedback structure. Change the feedback, change the behavior.</div>
+          <div class="method-item"><strong>Network Effects</strong>Connected nodes gain value superlinearly. Metcalfe's Law: network value ≈ n². Creates winner-take-most dynamics.</div>
+          <div class="method-item"><strong>Information Asymmetry</strong>The party with more information extracts more value. Always. This is the foundation of all markets and all relationships.</div>
+          <div class="method-item"><strong>Path Dependence</strong>History constrains future options. Initial conditions matter enormously. Early decisions close doors that are very costly to reopen.</div>
+          <div class="method-item"><strong>Regression to the Mean</strong>Extreme values revert. In markets, genes, organizations, teams. The exceptional is temporarily exceptional.</div>
+          <div class="method-item"><strong>Entropy</strong>Disorder increases without energy input. Organizations, relationships, code, and systems all tend toward degradation without active maintenance.</div>
+          <div class="method-item"><strong>Trust as Capital</strong>Trust reduces transaction costs in every relationship, every market. It is the most scalable asset that can be built and the hardest to rebuild once destroyed.</div>
+          <div class="method-item"><strong>The Power Law</strong>Most distributions in human systems follow power laws, not bell curves. A few things account for most of the outcome. This has radical implications for where to allocate attention.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">How to Use the Invariants</div>
+        <p>These principles are not checklists — they are lenses. Before applying any tactical framework, ask: which invariants are most active in this situation? Where is the constraint? Where is the compounding happening, and is it being protected? Whose incentives are misaligned, and how does that misalignment shape behavior?</p>
+        <p>The deepest application is cross-domain: compounding operates in knowledge as reliably as in finance. Incentive misalignment destroys relationships as reliably as it destroys organizations. Network effects create winner-take-most dynamics in professional networks as reliably as in technology platforms. The person who sees the invariant operating across domains simultaneously can make connections and predictions that domain specialists cannot.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>Universal invariants are useful precisely because they are general. But generality means they cannot tell you what to do in any specific situation — they can only tell you what forces are operating. The translation from "compounding is real" to "therefore I should do X" requires domain-specific judgment that the invariants don't provide. Knowing the invariants without developing domain-specific judgment produces confident but poorly calibrated reasoning.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 23 -->
+    <article class="entry" id="e23" data-search="third option false binary reframe upstream dissolve combine escape dilemma">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-teal">Reframe</span>
+          <span class="entry-vol">Volume II + III</span>
+          <span class="entry-n">#23</span>
+        </div>
+        <h2>The Third Option</h2>
+        <p class="entry-lead">The practice of escaping false binaries by questioning the frame that makes them appear binary — because every apparent choice between A and B contains at least one unexamined assumption that is worth challenging.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Every apparent binary is a framing. The frame is often the real constraint, not the options within it. Challenging the frame creates options that don't exist within it.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Cornered between two bad options. Stuck in a negotiation. When a choice feels forced and neither option feels right. When pressure is being applied to decide quickly.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">Sometimes one of the two options genuinely is correct and the third option search is avoidance. Test whether the frame is actually false or whether you simply dislike both options.</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Binary framing is a cognitive simplification that makes decisions tractable — but it systematically excludes the most creative and often the most valuable options. Every binary rests on assumptions: that this must be decided now, that these are the only two parties who could be involved, that the resource being traded is fixed, that the timeline is given. Each assumption, when questioned, can reveal a third option.</p>
+        <p>Viktor Frankl's formulation — "between stimulus and response there is a space; in that space is our power to choose our response" — is the deepest statement of the third option principle. The space between the pressured choice and the forced response is where agency lives. Finding the third option requires first finding the space, which requires slowing down the pressure that makes the binary seem urgent and unavoidable.</p>
+        <p>The upstream move is one of the most powerful third-option strategies: most binary choices are downstream of an earlier decision that was never consciously made. Going back to the upstream decision and making it differently changes what choices are available at the downstream fork. The couple arguing about where to live might benefit more from renegotiating their priorities (upstream) than from choosing between City A and City B (downstream).</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Key Methods</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Assumption Excavation</strong>What assumptions are baked into this binary? List them. Challenge each. Which ones are actually given vs merely assumed?</div>
+          <div class="method-item"><strong>Frame Interrogation</strong>Who set this frame? Who benefits from these being the only two options? What would someone with no stake suggest?</div>
+          <div class="method-item"><strong>Timeline Transcendence</strong>In 10 years, does this choice even matter? What is the smallest step that creates new options rather than foreclosing them?</div>
+          <div class="method-item"><strong>Resource Substitution</strong>What if the problem is solvable with a different resource — time not money, relationship not logic, creative not analytical?</div>
+          <div class="method-item"><strong>Option Combination</strong>Can you take the best of A and B? Is the conflict between them a false conflict or a design flaw?</div>
+          <div class="method-item"><strong>Upstream Move</strong>Most binary choices are downstream of an earlier decision. Go back and make that upstream decision differently.</div>
+          <div class="method-item"><strong>Problem Dissolution</strong>Some problems don't need solving — they need dissolving. What if you accepted this constraint and worked from there?</div>
+          <div class="method-item"><strong>Category Change</strong>What if you competed on different terms entirely — experience instead of price, trust instead of features?</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Domain Applications</div>
+        <p>In negotiation: when at impasse, introduce a new issue that creates value for both parties. Change the composition of parties at the table. Change the venue or timeline. The deadlock is in the current frame — the third option lives outside it.</p>
+        <p>In investing: when markets are expensive and cash yields nothing — private credit, royalties, direct lending are third options. When a deal is stuck — earnouts, seller financing, equity rollovers create optionality that neither pure debt nor pure equity provides.</p>
+        <p>In relationships: when communication breaks down, written exchange before verbal. When both parties are right, find the underlying need behind each position. The conflict is usually between positions, not between the needs beneath them — and needs are more compatible than positions.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space</div>
+        <p>The third option search can become a sophisticated form of avoidance — using the search for a better option as a reason to never commit to any option. The discipline is a time-bound search: invest X hours or days finding a third option; if none is found, choose between the given options with full commitment. Perpetual option-seeking is itself a choice — usually a poor one.</p>
+      </div>
+    </article>
+
+    <!-- ENTRY 24 -->
+    <article class="entry" id="e24" data-search="meta-framework seven steps name fit apply shadow combine test compound universal protocol">
+      <div class="entry-header">
+        <div class="entry-meta">
+          <span class="entry-tag tag-purple">Operating System</span>
+          <span class="entry-vol">Volume II</span>
+          <span class="entry-n">#24</span>
+        </div>
+        <h2>The Meta-Framework</h2>
+        <p class="entry-lead">The seven-step universal protocol for applying any framework — the framework for using frameworks — which prevents the most common failure: applying the right framework to the wrong problem, or a good framework without accounting for what it misses.</p>
+      </div>
+
+      <div class="callout-row">
+        <div class="callout leverage"><div class="callout-label">Highest Leverage</div><div class="callout-val">Framework mismatch is as damaging as having no framework. The meta-framework prevents applying sophisticated tools to the wrong problem — which produces confident, sophisticated, wrong answers.</div></div>
+        <div class="callout when"><div class="callout-label">Use When</div><div class="callout-val">Before deploying any significant strategy or framework. After any significant failure — to understand which step in the meta-framework was skipped or performed poorly.</div></div>
+        <div class="callout watch"><div class="callout-label">Watch Out For</div><div class="callout-val">The meta-framework is itself a framework with blind spots. Apply shadow-space reasoning to the meta-framework itself. What does this seven-step protocol miss?</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Seven Steps</div>
+        <div class="method-grid">
+          <div class="method-item"><strong>Step 1 — Name</strong>Identify the problem domain and type. What kind of problem is this? Investment? Communication? Systems? Innovation? Misidentification here invalidates everything downstream.</div>
+          <div class="method-item"><strong>Step 2 — Fit</strong>Select the framework best suited to this problem type. Which frameworks were designed for problems structurally like this one? Check the fit before applying.</div>
+          <div class="method-item"><strong>Step 3 — Apply</strong>Run the framework rigorously and completely. Don't apply half of it. Don't skip the uncomfortable steps. The framework's value comes from full application.</div>
+          <div class="method-item"><strong>Step 4 — Shadow</strong>Ask what the framework misses. Every framework has blind spots by design. What is invisible from within this framework's perspective?</div>
+          <div class="method-item"><strong>Step 5 — Combine</strong>Add complementary frameworks that cover what the primary framework missed. No single framework captures the full picture of complex problems.</div>
+          <div class="method-item"><strong>Step 6 — Test</strong>Generate a falsifiable prediction and test it. What would have to be observable if the framework's analysis is correct? Check that against reality.</div>
+          <div class="method-item"><strong>Step 7 — Compound</strong>Apply learnings to the next iteration. Update the mental model. The seven steps are not linear — they are recursive. The output of Step 7 becomes the input of Step 1 in the next cycle.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">The Core Mechanism</div>
+        <p>Most framework failures happen at one of three steps: Name (applying the right framework to the wrong problem), Shadow (never asking what the framework misses — treating its output as complete), or Test (never generating a falsifiable prediction that could reveal the framework was wrong). The meta-framework makes these steps explicit and mandatory rather than leaving them to the practitioner's good judgment.</p>
+        <p>The Test step is the most consistently skipped. Frameworks produce compelling narratives that feel like conclusions. But a narrative that cannot be falsified — that is consistent with any observable outcome — is not a prediction; it is a story. The discipline of generating specific, falsifiable predictions from framework outputs is what separates rigorous from rhetorical use of any analytical tool.</p>
+        <p>Compounding applies to the meta-framework itself: each application, each iteration, each cycle of the seven steps improves the quality of the next application. The practitioner who has run the meta-framework on a hundred different problems develops judgment that cannot be acquired from studying the steps alone. The framework is a starting point; compound experience is the destination.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Cross-Domain Applications</div>
+        <p>Applied to investment: Name the market regime, Fit the appropriate strategy (value, momentum, macro), Apply it rigorously, Shadow what the strategy misses (what does this framework blind you to?), Combine with tail risk considerations, Test with a specific falsifiable thesis, Compound from each position's outcome.</p>
+        <p>Applied to relationships: Name the type of conflict (solvable vs perpetual problem), Fit the Gottman approach, Apply aftermath processing and dreams-within-conflict exploration, Shadow what's not being addressed (attachment need beneath the argument), Combine with attachment theory lens, Test by observing whether the specific repair agreement holds, Compound by building the ritual that prevents recurrence.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Shadow-Space of the Meta-Framework</div>
+        <p>The meta-framework assumes that problems can be named, that frameworks can be selected and applied systematically, and that testing is possible. In genuinely complex adaptive systems — where problems are emergent, contexts are non-repeating, and feedback is delayed and noisy — this assumption breaks down. For Cynefin's "chaotic" domain, the meta-framework may be the wrong tool entirely: act first, sense second, respond — don't plan.</p>
+      </div>
+    </article>
+
+    <div id="no-results" class="no-results" style="display:none">No frameworks match your search.</div>
+
+  </main>
+</div>
+
+<a href="#" class="back-top" title="Back to top">↑</a>
+
+<script>
+// Active nav link on scroll
+const entries = document.querySelectorAll('.entry');
+const navItems = document.querySelectorAll('.nav-item');
+
+const observer = new IntersectionObserver((obs) => {
+  obs.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navItems.forEach(n => {
+        n.classList.toggle('active', n.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+
+entries.forEach(e => observer.observe(e));
+
+function filterEntries() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let visible = 0;
+  entries.forEach(e => {
+    const searchText = (e.getAttribute('data-search') || '') + ' ' + e.textContent.toLowerCase();
+    const match = !q || searchText.includes(q);
+    e.classList.toggle('hidden', !match);
+    if (match) visible++;
+  });
+  document.getElementById('no-results').style.display = visible === 0 ? 'block' : 'none';
+}
+</script>
+</body>
+</html>

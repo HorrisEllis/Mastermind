@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASTERMIND v1.0.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@300;400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+
+/* ── Reset + tokens ───────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#020705;--surface:#0b180d;--wire:#163320;--wire2:#1f4a2c;
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;
+  --white:#e8f8ec;
+  --signal:#39ff6a;--glow:rgba(57,255,106,.10);--glow2:rgba(57,255,106,.05);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;--pink:#ff6eb4;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+  --fs-xs:5px;--fs-sm:6px;--fs-base:8px;--fs-md:10px;--fs-lg:14px;--fs-xl:22px;
+}
+html,body{background:var(--ink);color:var(--bright);font-family:var(--mono);height:100%;overflow:hidden}
+button{font-family:var(--mono);cursor:pointer;background:transparent;border:1px solid var(--wire2);color:var(--mid);font-size:var(--fs-xs);letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;transition:all .15s}
+button:hover{color:var(--white);border-color:var(--muted)}
+button.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+button.danger{color:var(--rose);border-color:var(--rose);background:rgba(255,68,85,.06)}
+input,textarea{background:rgba(2,7,5,.7);border:1px solid var(--wire2);color:var(--bright);font-family:var(--mono);font-size:var(--fs-sm);padding:3px 6px;outline:none}
+input:focus,textarea:focus{border-color:var(--signal)}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--wire)}
+
+/* ── Root layout ──────────────────────────────────────────────── */
+.app{display:grid;grid-template-rows:36px 26px 1fr 24px;height:100vh}
+
+/* ── Topbar ───────────────────────────────────────────────────── */
+.topbar{background:rgba(2,7,5,.98);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 12px;gap:8px}
+.logo{width:12px;height:12px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:5px;color:var(--signal);animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 14px var(--signal)}}
+.wordmark{font-family:var(--cond);font-size:12px;font-weight:900;letter-spacing:5px;color:var(--white)}
+.tb-sep{width:1px;height:10px;background:var(--wire);margin:0 2px}
+.tb-tag{font-size:var(--fs-xs);letter-spacing:1.5px;color:var(--dim)}
+.tb-val{font-size:var(--fs-xs);letter-spacing:1px;margin-left:3px}
+.tb-right{margin-left:auto;display:flex;gap:5px;align-items:center}
+
+/* ── Nav bar ──────────────────────────────────────────────────── */
+.navbar{background:rgba(2,7,5,.9);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 8px;gap:1px}
+.nav-tab{font-size:var(--fs-xs);letter-spacing:2px;text-transform:uppercase;padding:0 10px;height:100%;display:flex;align-items:center;cursor:pointer;color:var(--dim);border-bottom:1px solid transparent;transition:all .15s;border:none;background:transparent}
+.nav-tab:hover{color:var(--muted)}
+.nav-tab.on{color:var(--signal);border-bottom:1px solid var(--signal)}
+
+/* ── Main content ─────────────────────────────────────────────── */
+.main{display:grid;grid-template-columns:200px 1fr 220px;overflow:hidden}
+
+/* ── Left panel ───────────────────────────────────────────────── */
+.left-panel{border-right:1px solid var(--wire);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{font-size:var(--fs-xs);letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;padding:7px 9px 6px;border-bottom:1px solid var(--wire)}
+.panel-body{flex:1;overflow-y:auto;padding:6px 8px}
+
+/* Zone cards */
+.zcard{border:1px solid var(--wire);padding:6px 8px;margin-bottom:4px;cursor:pointer;transition:all .18s;position:relative}
+.zcard:hover,.zcard.on{border-color:var(--signal);background:var(--glow2)}
+.zcard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.zcard-name{font-family:var(--cond);font-size:10px;font-weight:700;letter-spacing:2px;color:var(--white)}
+.zcard-conf{font-size:var(--fs-xs);color:var(--signal)}
+.zcard-bar{height:2px;background:var(--wire);margin-bottom:3px}
+.zcard-fill{height:100%;transition:width .4s;background:var(--signal)}
+.zcard-desc{font-size:var(--fs-xs);color:var(--dim);line-height:1.6}
+
+/* Session controls */
+.session-ctrl{border-top:1px solid var(--wire);padding:8px}
+.session-id{font-size:var(--fs-xs);color:var(--cyan);letter-spacing:1px;margin-bottom:5px;word-break:break-all}
+.sess-btns{display:flex;gap:4px;flex-wrap:wrap}
+
+/* ── Center: VATS viewport ────────────────────────────────────── */
+.center{position:relative;overflow:hidden;background:#000;display:flex;flex-direction:column}
+.video-wrap{flex:1;position:relative;overflow:hidden}
+#vatsVid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#skinCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .3s;mix-blend-mode:screen}
+#vatsCanvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+
+/* No-cam overlay */
+#camPrompt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5}
+.cam-title{font-family:var(--cond);font-size:16px;font-weight:900;letter-spacing:5px;color:var(--wire2);margin-bottom:12px}
+.cam-btns{display:flex;gap:8px;flex-direction:column;align-items:center}
+.cam-btn{font-size:var(--fs-sm);letter-spacing:2px;padding:7px 18px;border:1px solid var(--signal);color:var(--signal);background:var(--glow);cursor:pointer}
+.cam-btn-file{font-size:var(--fs-sm);letter-spacing:2px;padding:5px 14px;border:1px solid var(--wire2);color:var(--mid);cursor:pointer}
+.cam-sub{font-size:var(--fs-xs);letter-spacing:1.5px;color:var(--dim);margin-top:10px}
+
+/* VATS active badge */
+#vatsBadge{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:20;display:none;white-space:nowrap;font-size:var(--fs-xs);letter-spacing:2px;color:var(--rose);border:1px solid var(--rose);padding:3px 10px;background:rgba(255,68,85,.10);animation:pulse-r 1.5s ease-in-out infinite}
+@keyframes pulse-r{0%,100%{box-shadow:0 0 4px var(--rose)}50%{box-shadow:0 0 14px var(--rose)}}
+
+/* CLR panel */
+#clrPanel{position:absolute;top:8px;left:8px;z-index:15;background:rgba(2,7,5,.93);border:1px solid var(--signal);padding:9px 11px;min-width:195px;backdrop-filter:blur(4px);transition:opacity .25s}
+.clr-title{font-size:var(--fs-xs);letter-spacing:3px;color:var(--signal);text-transform:uppercase;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--wire)}
+.clr-row{margin-bottom:3px}
+.clr-row-head{display:flex;justify-content:space-between;align-items:center}
+.clr-lbl{font-size:var(--fs-xs);letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.clr-val{font-size:var(--fs-xs);font-weight:700}
+.clr-bar-wrap{height:1px;background:var(--wire);margin-top:1px}
+.clr-bar-fill{height:100%;transition:width .4s}
+.clr-footer{margin-top:5px;padding-top:4px;border-top:1px solid var(--wire)}
+.clr-footer-row{display:flex;justify-content:space-between;margin-bottom:2px}
+
+/* Zoom overlay */
+#zoomOverlay{position:absolute;inset:0;z-index:30;background:rgba(2,7,5,.94);display:none;flex-direction:column;align-items:center;justify-content:center}
+#zoomLabel{font-family:var(--cond);font-size:22px;font-weight:900;letter-spacing:6px;color:var(--signal);margin-bottom:10px}
+#zoomCanvas{border:1px solid var(--signal);max-width:88%;max-height:68%}
+.zoom-clr{font-size:var(--fs-sm);color:var(--bright);line-height:1.9;text-align:left;margin-right:16px}
+.zoom-footer{margin-top:10px;display:flex;gap:12px;align-items:flex-start}
+
+/* Control bar */
+.ctrl-bar{background:rgba(2,7,5,.93);border-top:1px solid var(--wire);display:flex;align-items:center;gap:6px;padding:4px 8px;flex-shrink:0}
+
+/* Synthesis meter */
+.synth-wrap{display:flex;align-items:center;gap:5px;flex:1}
+.synth-label{font-size:var(--fs-xs);letter-spacing:1px;color:var(--dim);white-space:nowrap}
+.synth-track{flex:1;height:3px;background:var(--wire)}
+.synth-fill{height:100%;background:var(--signal);width:0%;transition:width .5s}
+
+/* Toast */
+#toast{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(2,7,5,.95);border:1px solid var(--amber);padding:4px 14px;font-size:var(--fs-sm);letter-spacing:2px;color:var(--amber);text-transform:uppercase;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+
+/* ── Right panel ──────────────────────────────────────────────── */
+.right-panel{border-left:1px solid var(--wire);display:flex;flex-direction:column;overflow:hidden}
+
+/* PAT feed */
+.pat-head{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-bottom:1px solid var(--wire)}
+.pat-feed{flex:1;overflow-y:auto;padding:5px 7px;display:flex;flex-direction:column;gap:3px;max-height:400px}
+.pat-entry{border:1px solid var(--wire);padding:5px 7px;font-size:var(--fs-xs);animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-3px)}to{opacity:1;transform:none}}
+.pat-entry.novel{border-color:var(--amber)}
+.pat-entry.strong{border-color:var(--signal);background:var(--glow2)}
+.pat-entry-tag{letter-spacing:1.5px;color:var(--dim);margin-bottom:2px;text-transform:uppercase}
+.pat-entry-body{color:var(--bright);line-height:1.5;font-size:var(--fs-sm)}
+.pat-entry-meta{display:flex;justify-content:space-between;margin-top:2px}
+
+/* Sigma panel */
+.sigma-panel{border-top:1px solid var(--wire);padding:8px 9px}
+.sigma-title{font-size:var(--fs-xs);letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;margin-bottom:5px}
+.sigma-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)}
+.sigma-lbl{font-size:var(--fs-xs);color:var(--dim)}
+.sigma-val{font-size:var(--fs-xs);font-weight:700}
+.sigma-state{margin-top:6px;text-align:center;font-family:var(--cond);font-size:17px;font-weight:900;letter-spacing:4px;padding:5px;border:1px solid var(--wire)}
+
+/* Audio viz */
+.audio-panel{border-top:1px solid var(--wire);padding:7px 9px}
+.audio-title{font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+#audioViz{width:100%;height:32px;background:rgba(2,7,5,.6);border:1px solid var(--wire);display:block}
+
+/* ── Bottom status ────────────────────────────────────────────── */
+.statusbar{background:rgba(2,7,5,.97);border-top:1px solid var(--wire);display:flex;align-items:center;padding:0 12px;gap:12px}
+.sb-tag{font-size:4.5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.sb-val{font-size:4.5px;letter-spacing:1px;margin-left:3px}
+.sb-right{margin-left:auto;font-size:4.5px;letter-spacing:1px;color:var(--dim)}
+
+/* ── Pane system ──────────────────────────────────────────────── */
+.pane{display:none}
+.pane.on{display:flex;flex-direction:column;height:100%;overflow:auto}
+.pane-head{font-size:var(--fs-xs);letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--wire)}
+.pane-body{padding:14px;flex:1;overflow:auto}
+
+/* Lattice CLI */
+.cli-output{font-size:var(--fs-sm);line-height:1.9;color:var(--bright);min-height:200px;max-height:340px;overflow-y:auto;padding:6px;background:rgba(2,7,5,.7);border:1px solid var(--wire);margin-bottom:6px}
+.cli-line.cmd .cp{color:var(--amber)}
+.cli-line.cmd .cc{color:var(--white)}
+.cli-line.match{color:var(--cyan)}
+.cli-line.node{color:var(--violet)}
+.cli-line.hi{color:var(--signal)}
+.cli-line.err{color:var(--rose)}
+.cli-input-row{display:flex;gap:5px}
+.cli-prompt{font-size:var(--fs-sm);color:var(--amber);letter-spacing:1px;display:flex;align-items:center}
+#cliInput{flex:1;font-size:var(--fs-sm)}
+
+/* Ledger panels */
+.ledger-entry{border:1px solid var(--wire);padding:6px 8px;margin-bottom:4px;font-size:var(--fs-xs);line-height:1.7}
+.ledger-entry.upgrade{border-left:2px solid var(--signal)}
+.ledger-entry.idea{border-left:2px solid var(--violet)}
+.ledger-entry.idea.PROMOTED{border-left-color:var(--signal)}
+.ledger-entry.idea.REJECTED{border-left-color:var(--rose)}
+.ledger-entry.idea.ABANDONED{border-left-color:var(--dim)}
+
+/* Sessions browser */
+.sess-entry{border:1px solid var(--wire);padding:6px 8px;margin-bottom:4px;cursor:pointer;transition:border-color .15s}
+.sess-entry:hover{border-color:var(--signal)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- ── TOPBAR ─────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="logo">M</div>
+  <span class="wordmark">MASTERMIND</span>
+  <div class="tb-sep"></div>
+  <span class="tb-tag">VERSION</span><span class="tb-val" style="color:var(--amber)">1.0.0</span>
+  <div class="tb-sep"></div>
+  <span class="tb-tag">SERVER</span><span class="tb-val" id="tb-server" style="color:var(--rose)">CONNECTING</span>
+  <div class="tb-sep"></div>
+  <span class="tb-tag">SESSION</span><span class="tb-val" id="tb-session" style="color:var(--cyan)">—</span>
+  <div class="tb-sep"></div>
+  <span class="tb-tag">PATTERNS</span><span class="tb-val" id="tb-patterns" style="color:var(--signal)">0</span>
+  <div class="tb-sep"></div>
+  <span class="tb-tag">SIGMA</span><span class="tb-val" id="tb-sigma" style="color:var(--signal)">—</span>
+  <div class="tb-right">
+    <span class="tb-tag">WS</span><span class="tb-val" id="tb-ws" style="color:var(--rose)">●</span>
+  </div>
+</div>
+
+<!-- ── NAVBAR ─────────────────────────────────────────────────── -->
+<div class="navbar">
+  <button class="nav-tab on" id="nt-vats" onclick="goPane('vats')">VATS</button>
+  <button class="nav-tab" id="nt-pat" onclick="goPane('pat')">· PAT</button>
+  <button class="nav-tab" id="nt-lattice" onclick="goPane('lattice')">LATTICE</button>
+  <button class="nav-tab" id="nt-ledger" onclick="goPane('ledger')">LEDGER</button>
+  <button class="nav-tab" id="nt-sigma" onclick="goPane('sigma')">SIGMA</button>
+  <button class="nav-tab" id="nt-diag" onclick="goPane('diag')">DIAG</button>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- LEFT: Zone cards + session controls -->
+  <div class="left-panel">
+    <div class="panel-head">SIGNAL ZONES</div>
+    <div class="panel-body" id="zoneCards">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="session-ctrl">
+      <div class="panel-head" style="padding:5px 0 5px;margin-bottom:5px">SESSION</div>
+      <div class="session-id" id="sessionId">No active session</div>
+      <div class="sess-btns">
+        <button onclick="openSession()">OPEN SESSION</button>
+        <button onclick="closeSession()" class="danger">CLOSE</button>
+      </div>
+      <div style="margin-top:6px">
+        <div style="font-size:var(--fs-xs);color:var(--dim);margin-bottom:3px">ANNOTATOR ID</div>
+        <input id="annotatorInput" style="width:100%;margin-bottom:4px" placeholder="annotator-id" value="ANALYST-01">
+        <div style="font-size:var(--fs-xs);color:var(--dim);margin-bottom:3px">SUBJECT ID</div>
+        <input id="subjectInput" style="width:100%" placeholder="subject-id" value="SUBJECT-001">
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER + RIGHT pane container -->
+  <div style="display:contents">
+
+    <!-- ─── VATS PANE ─────────────────────────────────────────── -->
+    <div class="pane on" id="pane-vats" style="display:grid;grid-template-columns:1fr 220px">
+
+      <!-- Video + overlay -->
+      <div class="center">
+        <div class="video-wrap" id="videoWrap">
+          <video id="vatsVid" autoplay playsinline muted></video>
+          <canvas id="skinCanvas"></canvas>
+          <canvas id="vatsCanvas"></canvas>
+
+          <!-- No-cam prompt -->
+          <div id="camPrompt">
+            <div class="cam-title">AWAITING FEED</div>
+            <div class="cam-btns">
+              <button class="cam-btn" onclick="startCam()">▶ START WEBCAM</button>
+              <label class="cam-btn-file">LOAD VIDEO FILE
+                <input type="file" accept="video/*" id="fileInput" onchange="loadFile(this)" style="display:none">
+              </label>
+            </div>
+            <div class="cam-sub">MEDIAPIPE WILL LOAD AFTER CAMERA STARTS · PRESS <span style="color:var(--amber)">V</span> FOR VATS</div>
+          </div>
+
+          <!-- VATS active badge -->
+          <div id="vatsBadge">⬤ VATS ACTIVE — LOCKED</div>
+
+          <!-- CLR panel -->
+          <div id="clrPanel">
+            <div class="clr-title">CLR · COMPOSITE LIVE READOUT</div>
+            <div id="clrBody"></div>
+            <div class="clr-footer">
+              <div class="clr-footer-row"><span class="clr-lbl">ΣENTROPY</span><span id="clrEntropy" style="font-size:var(--fs-xs);font-weight:700;color:var(--rose)">—</span></div>
+              <div class="clr-footer-row"><span class="clr-lbl">STATE</span><span id="clrState" style="font-size:var(--fs-xs);font-weight:700;color:var(--signal)">—</span></div>
+              <div class="clr-footer-row"><span class="clr-lbl">PATTERN</span><span id="clrPattern" style="font-size:4.5px;font-weight:700;color:var(--amber)">SCANNING</span></div>
+            </div>
+          </div>
+
+          <!-- Zoom overlay -->
+          <div id="zoomOverlay">
+            <div id="zoomLabel">FACE</div>
+            <div class="zoom-footer">
+              <div class="zoom-clr" id="zoomCLR"></div>
+              <canvas id="zoomCanvas"></canvas>
+            </div>
+            <button onclick="closeZoom()" style="margin-top:10px">ESC · CLOSE</button>
+          </div>
+
+          <div id="toast"></div>
+        </div>
+
+        <!-- Control bar -->
+        <div class="ctrl-bar">
+          <button id="btnV" onclick="cmd('toggle_vats')" style="border-color:var(--rose);color:var(--rose)">V · VATS</button>
+          <button id="btnM" onclick="cmd('toggle_mesh')" class="on">M · MESH</button>
+          <button id="btnS" onclick="cmd('toggle_skin')">S · SKIN</button>
+          <button id="btnC" onclick="cmd('toggle_clr')" class="on">C · CLR</button>
+          <button onclick="startAudio()">🎤 MIC</button>
+          <div class="synth-wrap">
+            <span class="synth-label">SYNTHESIS</span>
+            <div class="synth-track"><div class="synth-fill" id="synthFill"></div></div>
+            <span id="synthPct" style="font-size:var(--fs-xs);color:var(--dim);white-space:nowrap">0%</span>
+          </div>
+          <span id="vatsStatus" style="font-size:var(--fs-xs);letter-spacing:1.5px;color:var(--dim)">STANDBY</span>
+        </div>
+      </div>
+
+      <!-- Right sub-panel: PAT feed + sigma + audio -->
+      <div class="right-panel">
+        <div class="pat-head">
+          <span style="font-size:var(--fs-xs);letter-spacing:2.5px;color:var(--dim);text-transform:uppercase">.PAT FEED</span>
+          <span id="patCount" style="font-size:var(--fs-xs);color:var(--cyan)">0 patterns</span>
+        </div>
+        <div class="pat-feed" id="patFeed"></div>
+
+        <div class="sigma-panel">
+          <div class="sigma-title">SIGMA · LIVE</div>
+          <div class="sigma-row"><span class="sigma-lbl">ENTROPY</span><span class="sigma-val" id="sigEntropy" style="color:var(--rose)">—</span></div>
+          <div class="sigma-row"><span class="sigma-lbl">SLOPE</span><span class="sigma-val" id="sigSlope" style="color:var(--violet)">—</span></div>
+          <div class="sigma-row"><span class="sigma-lbl">CONFIDENCE</span><span class="sigma-val" id="sigConf" style="color:var(--amber)">—</span></div>
+          <div class="sigma-row"><span class="sigma-lbl">NOVEL PATS</span><span class="sigma-val" id="sigNovel" style="color:var(--cyan)">0</span></div>
+          <div class="sigma-state" id="sigState" style="color:var(--signal);border-color:var(--wire)">STABLE</div>
+        </div>
+
+        <div class="audio-panel">
+          <div class="audio-title">AUDIO · <span id="audioStatus" style="color:var(--dim)">OFF</span></div>
+          <canvas id="audioViz"></canvas>
+        </div>
+      </div>
+    </div><!-- /pane-vats -->
+
+    <!-- ─── PAT SESSIONS PANE ──────────────────────────────────── -->
+    <div class="pane" id="pane-pat" style="grid-column:span 2">
+      <div class="pane-head">.PAT FILES · SESSION BROWSER</div>
+      <div class="pane-body">
+        <div style="display:grid;grid-template-columns:240px 1fr;gap:12px;height:100%">
+          <div>
+            <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">SESSIONS</div>
+            <div id="sessionList" style="overflow-y:auto;max-height:calc(100vh - 180px)"></div>
+            <button onclick="loadSessions()" style="width:100%;margin-top:6px">REFRESH</button>
+          </div>
+          <div>
+            <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">ENTRIES <span id="patViewId" style="color:var(--cyan)"></span></div>
+            <div id="patEntryView" style="overflow-y:auto;max-height:calc(100vh - 180px)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── LATTICE PANE ───────────────────────────────────────── -->
+    <div class="pane" id="pane-lattice" style="grid-column:span 2">
+      <div class="pane-head">ASSOCIATIVE LATTICE KERNEL · ALK v1.0.0</div>
+      <div class="pane-body" style="display:grid;grid-template-columns:1fr 260px;gap:12px">
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">CLI — /find · /connect · /inspect · /cluster · /graph</div>
+          <div class="cli-output" id="cliOutput"></div>
+          <div class="cli-input-row">
+            <span class="cli-prompt">ALK›</span>
+            <input id="cliInput" placeholder="/find regulatory" onkeydown="cliEnter(event)">
+            <button onclick="cliRun()">RUN</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">LATTICE STATE</div>
+          <div id="latticeState" style="font-size:var(--fs-xs);line-height:1.9;color:var(--bright)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── LEDGER PANE ────────────────────────────────────────── -->
+    <div class="pane" id="pane-ledger" style="grid-column:span 2">
+      <div class="pane-head">DUAL LEDGER · §7.1 · UPGRADE LEDGER (TRUTH) + IDEA LEDGER (COGNITION)</div>
+      <div class="pane-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--signal);text-transform:uppercase;margin-bottom:6px">UPGRADE LEDGER — AUTHORITATIVE</div>
+          <div id="upgradeLedgerView" style="overflow-y:auto;max-height:calc(100vh - 200px)"></div>
+        </div>
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--violet);text-transform:uppercase;margin-bottom:6px">IDEA LEDGER — COGNITION · READ-ONLY TO RUNTIME</div>
+          <div style="margin-bottom:6px;display:flex;gap:5px">
+            <input id="ideaTitle" placeholder="Idea title" style="flex:1">
+            <button onclick="recordIdea()">RECORD</button>
+          </div>
+          <textarea id="ideaHypothesis" placeholder="Hypothesis..." style="width:100%;height:50px;margin-bottom:4px;resize:none"></textarea>
+          <div id="ideaLedgerView" style="overflow-y:auto;max-height:calc(100vh - 280px)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SIGMA PANE ─────────────────────────────────────────── -->
+    <div class="pane" id="pane-sigma" style="grid-column:span 2">
+      <div class="pane-head">SIGMA ENGINE · ENTROPY ANALYSIS · §7.7 BOTTLENECK DETECTION</div>
+      <div class="pane-body" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">LIVE SIGMA STREAM</div>
+          <canvas id="sigmaChart" style="width:100%;height:160px;background:rgba(2,7,5,.6);border:1px solid var(--wire);display:block"></canvas>
+          <div id="sigmaDetail" style="margin-top:10px;font-size:var(--fs-xs);line-height:2;color:var(--bright)"></div>
+        </div>
+        <div>
+          <div style="font-size:var(--fs-xs);letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">IDEA LEDGER METRICS · §7.7</div>
+          <div id="ideaMetrics" style="font-size:var(--fs-xs);line-height:2;color:var(--bright)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DIAGNOSTICS PANE ───────────────────────────────────── -->
+    <div class="pane" id="pane-diag" style="grid-column:span 2">
+      <div class="pane-head">DIAGNOSTICS · §2.3 ALL STATE OBSERVABLE · §4.1 TESTABILITY SURFACE</div>
+      <div class="pane-body">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button onclick="loadDiag()">REFRESH</button>
+          <button onclick="setLogLevel('OFF')">LOG OFF</button>
+          <button onclick="setLogLevel('EVENTS')">LOG EVENTS</button>
+          <button onclick="setLogLevel('DEEP')">LOG DEEP</button>
+          <button onclick="setLogLevel('DATA')">LOG DATA</button>
+        </div>
+        <pre id="diagOutput" style="font-size:5px;color:var(--bright);overflow:auto;max-height:calc(100vh - 200px);background:rgba(2,7,5,.6);border:1px solid var(--wire);padding:8px;line-height:1.6"></pre>
+      </div>
+    </div>
+
+  </div><!-- /contents -->
+</div><!-- /main -->
+
+<!-- ── STATUS BAR ─────────────────────────────────────────────── -->
+<div class="statusbar">
+  <span class="sb-tag">BUS</span><span class="sb-val" id="sb-bus" style="color:var(--signal)">—</span>
+  <span class="sb-tag" style="margin-left:8px">MODULES</span><span class="sb-val" id="sb-modules" style="color:var(--cyan)">—</span>
+  <span class="sb-tag" style="margin-left:8px">ERRORS</span><span class="sb-val" id="sb-errors" style="color:var(--dim)">0</span>
+  <span class="sb-tag" style="margin-left:8px">PAT ENTRIES</span><span class="sb-val" id="sb-pat" style="color:var(--violet)">—</span>
+  <span class="sb-right">MASTERMIND v1.0.0 · §AXIOMS ACTIVE · PORT 3747</span>
+</div>
+
+</div><!-- /app -->
+
+<script type="module">
+// ══════════════════════════════════════════════════════════════════════════
+// MASTERMIND FRONTEND v1.0.0
+// Connects to server via WebSocket on ws://localhost:3747
+// All module state flows from server via bus events.
+// No mocks. §1.3
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── State ──────────────────────────────────────────────────────────────────
+const ST = {
+  ws: null,
+  wsReady: false,
+  vatsOn: false,
+  meshOn: true,
+  skinOn: false,
+  clrOn: true,
+  signals: {},
+  sigma: { entropy: 0, slope: 0, confidence: 0, stateLabel: 'STABLE', stateColor: '#39ff6a' },
+  patCount: 0,
+  novelCount: 0,
+  sessionId: null,
+  selectedZone: 'face',
+  zoomZone: null,
+  // MediaPipe results (live)
+  mpFace: null,
+  mpPose: null,
+  mpHands: null,
+  // Audio
+  audioAnalyser: null,
+  audioData: null,
+  // Canvas
+  vatsC: null, vatsCtx: null,
+  skinC: null, skinCtx: null,
+  audioVizC: null, audioVizCtx: null,
+  sigmaPoints: [],
+  // Animation
+  rafId: null,
+  camActive: false,
+};
+
+const ZONES = {
+  face:    { label:'FACE',    color:'#00ffee' },
+  gaze:    { label:'GAZE',    color:'#39ff6a' },
+  lhand:   { label:'L.HAND',  color:'#ffcc00' },
+  rhand:   { label:'R.HAND',  color:'#ffcc00' },
+  posture: { label:'POSTURE', color:'#cc88ff' },
+  skin:    { label:'SKIN',    color:'#ff6eb4' },
+  voice:   { label:'VOICE',   color:'#ff6eb4' },
+  word:    { label:'WORD',    color:'#cc88ff' },
+};
+
+// ── WebSocket connection ───────────────────────────────────────────────────
+function connectWS() {
+  const ws = new WebSocket('ws://localhost:3747');
+  ST.ws = ws;
+
+  ws.onopen = () => {
+    ST.wsReady = true;
+    q('#tb-server').textContent = 'CONNECTED';
+    q('#tb-server').style.color = 'var(--signal)';
+    q('#tb-ws').textContent = '●';
+    q('#tb-ws').style.color = 'var(--signal)';
+    toast('SERVER CONNECTED');
+    // Request initial state
+    fetch('/state').then(r => r.json()).then(applyState);
+    loadSessions();
+    loadLedgers();
+    loadLatticeState();
+  };
+
+  ws.onclose = () => {
+    ST.wsReady = false;
+    q('#tb-server').textContent = 'DISCONNECTED';
+    q('#tb-server').style.color = 'var(--rose)';
+    q('#tb-ws').style.color = 'var(--rose)';
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => {};
+
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      handleBusEvent(msg.type, msg.data);
+    } catch (_) {}
+  };
+}
+
+function wsSend(eventType, payload) {
+  if (ST.ws?.readyState === WebSocket.OPEN) {
+    ST.ws.send(JSON.stringify({ eventType, payload }));
+  }
+}
+
+// ── Bus event handler ─────────────────────────────────────────────────────
+function handleBusEvent(type, data) {
+  if (!type || !data) return;
+  switch (type) {
+    case 'signal.update':       onSignalUpdate(data); break;
+    case 'sigma.update':        onSigmaUpdate(data); break;
+    case 'pattern.confirmed':   onPatternConfirmed(data); break;
+    case 'pattern.novel':       onPatternNovel(data); break;
+    case 'pat.session.opened':  onSessionOpened(data); break;
+    case 'pat.session.closed':  onSessionClosed(data); break;
+    case 'vats.state':          applyVATSState(data); break;
+    case 'alk.node.created':    loadLatticeState(); break;
+    case 'watchdog.health':     applyWatchdogHealth(data); break;
+    case 'error':               onError(data); break;
+  }
+}
+
+// ── Signal handling ───────────────────────────────────────────────────────
+function onSignalUpdate(data) {
+  ST.signals[data.zone] = data.value;
+  updateZoneCard(data.zone, data.value);
+  updateCLR();
+}
+
+function onSigmaUpdate(data) {
+  ST.sigma = data;
+  q('#sigEntropy').textContent = data.entropy.toFixed(3);
+  q('#sigSlope').textContent = data.slope.toFixed(3);
+  q('#sigConf').textContent = data.confidence.toFixed(2);
+  q('#tb-sigma').textContent = data.entropy.toFixed(2);
+  const ss = q('#sigState');
+  ss.textContent = data.stateLabel;
+  ss.style.color = data.stateColor;
+  ss.style.borderColor = data.stateColor;
+  q('#clrEntropy').textContent = data.entropy.toFixed(3);
+  q('#clrState').textContent = data.stateLabel;
+  q('#clrState').style.color = data.stateColor;
+  // Sigma chart
+  ST.sigmaPoints.push(data.entropy);
+  if (ST.sigmaPoints.length > 120) ST.sigmaPoints.shift();
+  drawSigmaChart();
+  // Sigma pane detail
+  q('#sigmaDetail').innerHTML = `
+    <div>ENTROPY <span style="color:var(--rose)">${data.entropy.toFixed(4)}</span></div>
+    <div>SLOPE <span style="color:var(--violet)">${data.slope.toFixed(4)}</span></div>
+    <div>CONFIDENCE <span style="color:var(--amber)">${data.confidence.toFixed(4)}</span></div>
+    <div>STATE <span style="color:${data.stateColor}">${data.stateLabel}</span></div>
+    <div>MEAN SIGNAL <span style="color:var(--bright)">${(data.mean||0).toFixed(4)}</span></div>
+  `;
+}
+
+function onPatternConfirmed(data) {
+  ST.patCount++;
+  q('#patCount').textContent = ST.patCount + ' patterns';
+  q('#tb-patterns').textContent = ST.patCount;
+  q('#clrPattern').textContent = data.patternId;
+  q('#clrPattern').style.color = '#39ff6a';
+  // Synthesis bar
+  const v = Math.round(data.confidence * 100);
+  q('#synthFill').style.width = v + '%';
+  q('#synthPct').textContent = v + '%';
+  addPatEntry(data, false);
+}
+
+function onPatternNovel(data) {
+  ST.novelCount++;
+  q('#sigNovel').textContent = ST.novelCount;
+  addPatEntry({ ...data, label: data.hypothesis.slice(0, 60), patternId: 'AUTO' }, true);
+  // Refresh idea ledger
+  loadLedgers();
+}
+
+function addPatEntry(data, novel) {
+  const feed = q('#patFeed');
+  const div = document.createElement('div');
+  div.className = 'pat-entry' + (novel ? ' novel' : '') + (data.confidence > 0.8 ? ' strong' : '');
+  div.innerHTML = `
+    <div class="pat-entry-tag">${(data.modules||[]).join('·')} · t=${new Date().toLocaleTimeString()}</div>
+    <div class="pat-entry-body">${data.label||data.hypothesis||data.patternId}
+      <span style="color:${novel?'var(--amber)':'#39ff6a'}">[${(data.zones||[]).join('+')}]</span>
+      ${novel?'<span style="color:var(--amber);font-size:4px;margin-left:4px">AUTO-IDEA</span>':''}
+    </div>
+    <div class="pat-entry-meta">
+      <span style="color:var(--dim);font-size:4.5px">Σ ${(data.sigma||ST.sigma.entropy).toFixed(2)}</span>
+      <span style="font-size:4.5px;color:${novel?'var(--amber)':'#39ff6a'}">conf ${(data.confidence||0).toFixed(2)}</span>
+    </div>
+  `;
+  feed.insertBefore(div, feed.firstChild);
+  while (feed.children.length > 25) feed.removeChild(feed.lastChild);
+  q('#sb-pat').textContent = ST.patCount + ' entries';
+}
+
+function onSessionOpened(data) {
+  ST.sessionId = data.sessionId;
+  q('#sessionId').textContent = data.sessionId;
+  q('#sessionId').style.color = 'var(--signal)';
+  q('#tb-session').textContent = data.sessionId.slice(-12);
+  toast('SESSION OPEN: ' + data.sessionId.slice(-12));
+}
+
+function onSessionClosed(data) {
+  q('#sessionId').textContent = 'Session closed: ' + data.sessionId.slice(-12);
+  q('#sessionId').style.color = 'var(--dim)';
+  ST.sessionId = null;
+  q('#tb-session').textContent = '—';
+  loadSessions();
+}
+
+function applyVATSState(state) {
+  ST.vatsOn = state.active;
+  ST.meshOn = state.meshOn;
+  ST.skinOn = state.skinOn;
+  ST.clrOn = state.clrOn;
+  // Update buttons
+  q('#btnV').classList.toggle('danger', !state.active);
+  q('#vatsBadge').style.display = state.active ? 'block' : 'none';
+  q('#vatsStatus').textContent = state.active ? 'VATS ACTIVE' : 'STANDBY';
+  q('#btnM').classList.toggle('on', state.meshOn);
+  q('#btnS').classList.toggle('on', state.skinOn);
+  q('#btnC').classList.toggle('on', state.clrOn);
+  q('#clrPanel').style.opacity = state.clrOn ? '1' : '0';
+  q('#skinCanvas').style.opacity = state.skinOn ? '0.7' : '0';
+}
+
+function applyWatchdogHealth(data) {
+  const errTotal = Object.values(data.modules || {}).reduce((a, m) => a + (m.errorCount || 0), 0);
+  q('#sb-errors').textContent = errTotal;
+  q('#sb-errors').style.color = errTotal > 0 ? 'var(--rose)' : 'var(--dim)';
+  q('#sb-bus').textContent = Object.keys(data.eventCounts || {}).length + ' event types';
+  q('#sb-modules').textContent = (data.busState?.moduleCount || 0) + ' modules';
+}
+
+function applyState(state) {
+  q('#sb-modules').textContent = (state.moduleCount || 0) + ' modules';
+}
+
+function onError(data) {
+  console.error('[MM-ERROR]', data);
+  const errCount = parseInt(q('#sb-errors').textContent || '0') + 1;
+  q('#sb-errors').textContent = errCount;
+  q('#sb-errors').style.color = 'var(--rose)';
+}
+
+// ── VATS Canvas ───────────────────────────────────────────────────────────
+
+function initCanvas() {
+  ST.vatsC = q('#vatsCanvas');
+  ST.skinC = q('#skinCanvas');
+  ST.audioVizC = q('#audioViz');
+  ST.vatsCtx = ST.vatsC.getContext('2d');
+  ST.skinCtx = ST.skinC.getContext('2d');
+  ST.audioVizCtx = ST.audioVizC.getContext('2d');
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  ST.vatsC.addEventListener('click', onCanvasClick);
+
+  buildCLRPanel();
+  buildZoneCards();
+  ST.rafId = requestAnimationFrame(renderLoop);
+}
+
+function resizeCanvas() {
+  const wrap = q('#videoWrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  [ST.vatsC, ST.skinC].forEach(c => {
+    c.width = w; c.height = h;
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+  });
+}
+
+// Demo keypoints (replaced by MediaPipe when active)
+const KP = {
+  nose:{x:.50,y:.20}, lEye:{x:.46,y:.18}, rEye:{x:.54,y:.18},
+  lShoulder:{x:.36,y:.34}, rShoulder:{x:.64,y:.34},
+  lElbow:{x:.28,y:.48}, rElbow:{x:.72,y:.48},
+  lWrist:{x:.23,y:.60}, rWrist:{x:.77,y:.60},
+  lHip:{x:.40,y:.60}, rHip:{x:.60,y:.60},
+};
+
+function renderLoop() {
+  ST.rafId = requestAnimationFrame(renderLoop);
+  const w = ST.vatsC.width, h = ST.vatsC.height;
+  if (!w || !h) return;
+  ST.vatsCtx.clearRect(0, 0, w, h);
+
+  const t = Date.now() / 1000;
+  animateKP(t);
+  drawZoneRings(w, h, t);
+  if (ST.meshOn || ST.vatsOn) drawMesh(w, h, t);
+  if (ST.vatsOn) drawVATSHighlight(w, h, t);
+  drawAudioViz();
+}
+
+function animateKP(t) {
+  const s = Math.sin(t * 0.9) * 0.006;
+  const sw = Math.sin(t * 0.4) * 0.004;
+  KP.nose.x = 0.50 + sw;
+  KP.lEye.x = 0.46 + sw; KP.rEye.x = 0.54 + sw;
+  KP.lShoulder.y = 0.34 + s; KP.rShoulder.y = 0.34 + s;
+  const lh = Math.sin(t * 1.3 + 1) * 0.014;
+  const rh = Math.sin(t * 1.1 + 2) * 0.012;
+  KP.lWrist.y = 0.60 + lh; KP.rWrist.y = 0.60 + rh;
+}
+
+function getZoneBounds(w, h) {
+  // If MediaPipe active, use real landmarks; else use KP defaults
+  const mp = ST.mpFace;
+  const nosePt = mp ? { x: mp[1].x * w, y: mp[1].y * h } : { x: KP.nose.x * w, y: KP.nose.y * h };
+  const faceW = mp ? Math.abs(mp[234].x - mp[454].x) * w : w * 0.18;
+  const faceH = faceW * 1.35;
+
+  return {
+    face:    { cx: nosePt.x, cy: nosePt.y, rx: faceW * 0.58, ry: faceH * 0.58 },
+    gaze:    { cx: nosePt.x, cy: nosePt.y - faceH * 0.18, rx: faceW * 0.42, ry: faceH * 0.22 },
+    lhand:   { cx: KP.lWrist.x * w, cy: KP.lWrist.y * h, rx: w * 0.07, ry: h * 0.05 },
+    rhand:   { cx: KP.rWrist.x * w, cy: KP.rWrist.y * h, rx: w * 0.07, ry: h * 0.05 },
+    posture: { cx: w * 0.50, cy: (KP.lShoulder.y + 0.14) * h, rx: w * 0.15, ry: h * 0.14 },
+    skin:    { cx: nosePt.x, cy: nosePt.y, rx: faceW * 0.40, ry: faceH * 0.40 },
+    voice:   { cx: w * 0.50, cy: h * 0.88, rx: w * 0.08, ry: h * 0.03 },
+    word:    { cx: w * 0.50, cy: h * 0.93, rx: w * 0.10, ry: h * 0.025 },
+  };
+}
+
+function drawZoneRings(w, h, t) {
+  const bounds = getZoneBounds(w, h);
+  for (const [zone, z] of Object.entries(bounds)) {
+    const sig = ST.signals[zone] || 0;
+    const col = ZONES[zone]?.color || '#39ff6a';
+    const active = zone === ST.selectedZone;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.5 + Object.keys(ZONES).indexOf(zone) * 0.8);
+    const alpha = ST.vatsOn ? 0.15 + sig * 0.55 + (active ? 0.2 : 0) : 0.07 + sig * 0.25 + (active ? 0.12 : 0);
+
+    ST.vatsCtx.save();
+    ST.vatsCtx.strokeStyle = col;
+    ST.vatsCtx.globalAlpha = alpha * (0.6 + 0.4 * pulse);
+    ST.vatsCtx.lineWidth = active ? 1.5 : 0.8;
+    ST.vatsCtx.setLineDash([5, 3]);
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.ellipse(z.cx, z.cy, z.rx * (1 + pulse * 0.04), z.ry * (1 + pulse * 0.04), 0, 0, Math.PI * 2);
+    ST.vatsCtx.stroke();
+    ST.vatsCtx.setLineDash([]);
+
+    if (ST.vatsOn) {
+      ST.vatsCtx.fillStyle = col;
+      ST.vatsCtx.globalAlpha = 0.02 + sig * 0.07;
+      ST.vatsCtx.beginPath();
+      ST.vatsCtx.ellipse(z.cx, z.cy, z.rx, z.ry, 0, 0, Math.PI * 2);
+      ST.vatsCtx.fill();
+    }
+
+    // Label
+    ST.vatsCtx.globalAlpha = 0.45 + sig * 0.4;
+    ST.vatsCtx.font = '500 7px Azeret Mono';
+    ST.vatsCtx.fillStyle = col;
+    ST.vatsCtx.fillText(zone.toUpperCase() + ' ' + (sig * 100).toFixed(0) + '%', z.cx - z.rx + 2, z.cy - z.ry - 3);
+
+    // Reticle on active/high signal
+    if (active || (ST.vatsOn && sig > 0.5)) {
+      ST.vatsCtx.globalAlpha = 0.4 + sig * 0.5;
+      ST.vatsCtx.strokeStyle = col;
+      ST.vatsCtx.lineWidth = 0.7;
+      const cs = 8;
+      ST.vatsCtx.beginPath(); ST.vatsCtx.moveTo(z.cx - cs, z.cy); ST.vatsCtx.lineTo(z.cx + cs, z.cy); ST.vatsCtx.stroke();
+      ST.vatsCtx.beginPath(); ST.vatsCtx.moveTo(z.cx, z.cy - cs); ST.vatsCtx.lineTo(z.cx, z.cy + cs); ST.vatsCtx.stroke();
+    }
+    ST.vatsCtx.restore();
+  }
+  ST._zoneBounds = bounds; // cache for click detection
+}
+
+function drawMesh(w, h, t) {
+  const col = ST.vatsOn ? 'rgba(255,68,85,' : 'rgba(0,255,238,';
+
+  // Face mesh (real if available, demo if not)
+  if (ST.mpFace) {
+    ST.vatsCtx.fillStyle = ST.vatsOn ? 'rgba(255,68,85,0.45)' : 'rgba(0,255,238,0.28)';
+    ST.mpFace.forEach((p, i) => {
+      if (i % 3 === 0) {
+        ST.vatsCtx.beginPath();
+        ST.vatsCtx.arc(p.x * w, p.y * h, 0.9, 0, Math.PI * 2);
+        ST.vatsCtx.fill();
+      }
+    });
+  } else {
+    drawDemoFaceMesh(w, h, t, col);
+  }
+
+  // Pose bones (real if available, demo if not)
+  if (ST.mpPose) {
+    drawPoseBones(ST.mpPose, w, h, col);
+  } else {
+    drawDemoBones(w, h, t, col);
+  }
+}
+
+function drawDemoFaceMesh(w, h, t, col) {
+  const cx = KP.nose.x * w, cy = KP.nose.y * h;
+  const rx = w * 0.085, ry = h * 0.125;
+  ST.vatsCtx.strokeStyle = col + '0.3)';
+  ST.vatsCtx.lineWidth = 0.5;
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    const a2 = ((i + 1) / 18) * Math.PI * 2;
+    const r1 = 1 + Math.sin(t + i) * 0.02;
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo(cx + Math.cos(a) * rx * r1, cy + Math.sin(a) * ry * r1);
+    ST.vatsCtx.lineTo(cx + Math.cos(a2) * rx, cy + Math.sin(a2) * ry);
+    ST.vatsCtx.stroke();
+    // inner ring
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo(cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.55);
+    ST.vatsCtx.lineTo(cx + Math.cos(a2) * rx * 0.55, cy + Math.sin(a2) * ry * 0.55);
+    ST.vatsCtx.stroke();
+    // spokes
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo(cx, cy);
+    ST.vatsCtx.lineTo(cx + Math.cos(a) * rx * (0.5 + Math.random() * 0.5), cy + Math.sin(a) * ry * (0.5 + Math.random() * 0.5));
+    ST.vatsCtx.stroke();
+  }
+}
+
+function drawDemoBones(w, h, t, col) {
+  const sw = Math.sin(t * 0.4) * 0.004, br = Math.sin(t * 0.9) * 0.005;
+  const bones = [
+    [KP.lShoulder, KP.rShoulder],[KP.lShoulder, KP.lElbow],[KP.lElbow, KP.lWrist],
+    [KP.rShoulder, KP.rElbow],[KP.rElbow, KP.rWrist],
+    [KP.lShoulder, KP.lHip],[KP.rShoulder, KP.rHip],[KP.lHip, KP.rHip],
+  ];
+  ST.vatsCtx.strokeStyle = col + '0.45)';
+  ST.vatsCtx.lineWidth = 1.4;
+  bones.forEach(([a, b]) => {
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo((a.x + sw) * w, (a.y + br) * h);
+    ST.vatsCtx.lineTo((b.x + sw) * w, (b.y + br * 0.5) * h);
+    ST.vatsCtx.stroke();
+  });
+  // Joint dots
+  Object.values(KP).forEach(kp => {
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.arc((kp.x + sw) * w, (kp.y + br) * h, 3, 0, Math.PI * 2);
+    ST.vatsCtx.fillStyle = col + '0.6)';
+    ST.vatsCtx.fill();
+  });
+}
+
+function drawPoseBones(lm, w, h, col) {
+  const CONNS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+  ST.vatsCtx.lineWidth = 1.4;
+  CONNS.forEach(([a, b]) => {
+    if (!lm[a] || !lm[b]) return;
+    const vis = Math.min(lm[a].visibility || 0.5, lm[b].visibility || 0.5);
+    ST.vatsCtx.strokeStyle = col + (0.15 + vis * 0.6) + ')';
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo(lm[a].x * w, lm[a].y * h);
+    ST.vatsCtx.lineTo(lm[b].x * w, lm[b].y * h);
+    ST.vatsCtx.stroke();
+  });
+}
+
+function drawVATSHighlight(w, h, t) {
+  // Red vignette
+  const grad = ST.vatsCtx.createRadialGradient(w/2, h/2, h*0.2, w/2, h/2, h*0.75);
+  grad.addColorStop(0, 'rgba(255,68,85,0)');
+  grad.addColorStop(0.7, 'rgba(255,68,85,0)');
+  grad.addColorStop(1, `rgba(255,68,85,${0.10 + Math.sin(t * 2) * 0.04})`);
+  ST.vatsCtx.fillStyle = grad;
+  ST.vatsCtx.fillRect(0, 0, w, h);
+  // Scan sweep
+  const scanY = ((t * 0.10) % 1.0) * h;
+  const sg = ST.vatsCtx.createLinearGradient(0, scanY - 12, 0, scanY + 12);
+  sg.addColorStop(0, 'rgba(255,68,85,0)');
+  sg.addColorStop(0.5, `rgba(255,68,85,${0.07 + Math.sin(t * 3) * 0.03})`);
+  sg.addColorStop(1, 'rgba(255,68,85,0)');
+  ST.vatsCtx.fillStyle = sg;
+  ST.vatsCtx.fillRect(0, scanY - 12, w, 24);
+  // Brackets
+  const bs = 16;
+  ST.vatsCtx.strokeStyle = `rgba(255,68,85,${0.7 + Math.sin(t * 3) * 0.2})`;
+  ST.vatsCtx.lineWidth = 1.4;
+  [[0,0,1,1],[w,0,-1,1],[0,h,1,-1],[w,h,-1,-1]].forEach(([x, y, dx, dy]) => {
+    ST.vatsCtx.beginPath();
+    ST.vatsCtx.moveTo(x + dx * bs, y); ST.vatsCtx.lineTo(x, y); ST.vatsCtx.lineTo(x, y + dy * bs);
+    ST.vatsCtx.stroke();
+  });
+}
+
+function drawAudioViz() {
+  const c = ST.audioVizC;
+  if (!c) return;
+  const w = c.offsetWidth || 190, h = 32;
+  c.width = w; c.height = h;
+  const ctx = ST.audioVizCtx;
+  ctx.fillStyle = 'rgba(2,7,5,0.6)';
+  ctx.fillRect(0, 0, w, h);
+  if (ST.audioAnalyser && ST.audioData) {
+    ST.audioAnalyser.getByteFrequencyData(ST.audioData);
+    for (let x = 0; x < w; x++) {
+      const v = (ST.audioData[Math.floor(x * ST.audioData.length / w)] || 0) / 255;
+      ctx.fillStyle = `rgba(57,255,106,${0.3 + v * 0.7})`;
+      ctx.fillRect(x, h - v * h, 1, v * h);
+    }
+  } else {
+    // Demo waveform
+    const t = Date.now() / 1000;
+    ctx.strokeStyle = 'rgba(57,255,106,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x < w; x++) {
+      const v = 0.5 + 0.38 * Math.sin(x * 0.12 + t * 3) * Math.sin(x * 0.05 + t * 1.5);
+      x === 0 ? ctx.moveTo(x, h/2 - v * h/2) : ctx.lineTo(x, h/2 - v * h/2);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawSigmaChart() {
+  const c = q('#sigmaChart');
+  if (!c) return;
+  const w = c.offsetWidth || 400, h = 160;
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(2,7,5,0.6)';
+  ctx.fillRect(0, 0, w, h);
+  if (ST.sigmaPoints.length < 2) return;
+  ctx.strokeStyle = 'rgba(57,255,106,0.7)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ST.sigmaPoints.forEach((v, i) => {
+    const x = (i / (ST.sigmaPoints.length - 1)) * w;
+    const y = h - v * h;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  // Threshold lines
+  [{ v: 0.65, c: 'rgba(204,136,255,0.4)', l: 'DYSREG' }, { v: 0.45, c: 'rgba(255,204,0,0.4)', l: 'ACTIVATING' }].forEach(({ v, c, l }) => {
+    ctx.strokeStyle = c; ctx.lineWidth = 0.6; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(0, h - v * h); ctx.lineTo(w, h - v * h); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = c; ctx.font = '400 6px Azeret Mono';
+    ctx.fillText(l, 3, h - v * h - 3);
+  });
+}
+
+// ── CLR panel ─────────────────────────────────────────────────────────────
+const CLR_ZONES = ['face','gaze','lhand','rhand','posture','skin','voice','word'];
+const SIGNAL_LABELS = {
+  face:    ['blink','gaze·drift','brow·set','micro·expr','jaw·clench'],
+  gaze:    ['soft·gaze','averted','dart','target·lock','downcast'],
+  lhand:   ['rest','fidget','self-touch','hair','arm·cross'],
+  rhand:   ['rest','signal','pointing','grip','reach'],
+  posture: ['grounded','neutral','lean·in','prot·cross','collapsed'],
+  skin:    ['nominal','warm','flush','pallor','sweat'],
+  voice:   ['calm','hedge','tremor','prosody·brk','flat'],
+  word:    ['nominal','filler','hedge','negation','topic·shift'],
+};
+
+function buildCLRPanel() {
+  const body = q('#clrBody');
+  if (!body) return;
+  body.innerHTML = CLR_ZONES.map(z => {
+    const col = ZONES[z]?.color || '#39ff6a';
+    return `<div class="clr-row">
+      <div class="clr-row-head">
+        <span class="clr-lbl">${z.toUpperCase()}</span>
+        <span id="clrv-${z}" class="clr-val" style="color:${col}">—</span>
+      </div>
+      <div class="clr-bar-wrap"><div id="clrb-${z}" class="clr-bar-fill" style="width:0%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function updateCLR() {
+  if (!ST.clrOn) return;
+  CLR_ZONES.forEach(z => {
+    const v = ST.signals[z] || 0;
+    const arr = SIGNAL_LABELS[z] || ['—'];
+    const lbl = arr[Math.min(arr.length - 1, Math.floor(v * (arr.length - 0.01)))];
+    const el = q(`#clrv-${z}`); if (el) el.textContent = lbl + ' ' + (v * 100).toFixed(0) + '%';
+    const bar = q(`#clrb-${z}`); if (bar) bar.style.width = (v * 100).toFixed(0) + '%';
+    // Update zone card
+    const zconf = q(`#zconf-${z}`); if (zconf) zconf.textContent = (v * 100).toFixed(0) + '%';
+    const zfill = q(`#zfill-${z}`); if (zfill) zfill.style.width = (v * 100).toFixed(0) + '%';
+  });
+}
+
+// ── Zone cards ─────────────────────────────────────────────────────────────
+const ZONE_DESC = {
+  face:'468-pt mesh. Primary affect.',gaze:'Iris tracking. Attentional signal.',
+  lhand:'Self-regulatory behavior.',rhand:'Directive gesture site.',
+  posture:'33-pt pose. Whole-body state.',skin:'Pixel-level arousal proxy.',
+  voice:'Pitch + energy + tremor.',word:'Hedge · filler · negation.',
+};
+
+function buildZoneCards() {
+  const container = q('#zoneCards');
+  container.innerHTML = Object.entries(ZONES).map(([zone, info]) => `
+    <div class="zcard ${zone === 'face' ? 'on' : ''}" id="zcard-${zone}" onclick="selectZone('${zone}')">
+      <div class="zcard-head">
+        <span class="zcard-name">${info.label}</span>
+        <span class="zcard-conf" id="zconf-${zone}">—</span>
+      </div>
+      <div class="zcard-bar"><div id="zfill-${zone}" class="zcard-fill" style="background:${info.color}"></div></div>
+      <div class="zcard-desc">${ZONE_DESC[zone] || ''}</div>
+    </div>
+  `).join('');
+}
+
+function updateZoneCard(zone, value) {
+  const fill = q(`#zfill-${zone}`);
+  if (fill) fill.style.width = (value * 100).toFixed(0) + '%';
+}
+
+function selectZone(zone) {
+  ST.selectedZone = zone;
+  document.querySelectorAll('.zcard').forEach(c => c.classList.remove('on'));
+  const card = q(`#zcard-${zone}`);
+  if (card) card.classList.add('on');
+  sendCommand('select_zone', { zone });
+  openZoom(zone);
+}
+
+// ── Zoom ───────────────────────────────────────────────────────────────────
+function openZoom(zone) {
+  const overlay = q('#zoomOverlay');
+  const lbl = q('#zoomLabel');
+  const zc = q('#zoomCanvas');
+  const clrDiv = q('#zoomCLR');
+
+  overlay.style.display = 'flex';
+  lbl.textContent = zone.toUpperCase();
+  lbl.style.color = ZONES[zone]?.color || 'var(--signal)';
+
+  const vid = q('#vatsVid');
+  const bounds = ST._zoneBounds?.[zone];
+  const w = ST.vatsC?.width || 600, h = ST.vatsC?.height || 400;
+
+  if (bounds && vid.readyState >= 2 && vid.videoWidth) {
+    const pad = 30;
+    const sx = Math.max(0, (bounds.cx - bounds.rx - pad) / w * vid.videoWidth);
+    const sy = Math.max(0, (bounds.cy - bounds.ry - pad) / h * vid.videoHeight);
+    const sw = ((bounds.rx * 2 + pad * 2) / w) * vid.videoWidth;
+    const sh = ((bounds.ry * 2 + pad * 2) / h) * vid.videoHeight;
+    zc.width = Math.round(sw * 2); zc.height = Math.round(sh * 2);
+    const zCtx = zc.getContext('2d');
+    zCtx.drawImage(vid, sx, sy, sw, sh, 0, 0, zc.width, zc.height);
+    if (ST.vatsOn) {
+      zCtx.fillStyle = 'rgba(255,68,85,0.07)';
+      zCtx.fillRect(0, 0, zc.width, zc.height);
+      zCtx.strokeStyle = 'rgba(255,68,85,0.5)';
+      zCtx.lineWidth = 1.5; zCtx.setLineDash([4, 3]);
+      zCtx.strokeRect(4, 4, zc.width - 8, zc.height - 8);
+      zCtx.setLineDash([]);
+    }
+  } else {
+    zc.width = 280; zc.height = 200;
+    const zCtx = zc.getContext('2d');
+    zCtx.fillStyle = '#000'; zCtx.fillRect(0, 0, 280, 200);
+    zCtx.font = '700 13px Barlow Condensed';
+    zCtx.fillStyle = ZONES[zone]?.color || '#39ff6a';
+    zCtx.textAlign = 'center';
+    zCtx.fillText(zone.toUpperCase(), 140, 100);
+    zCtx.font = '400 7px Azeret Mono';
+    zCtx.fillStyle = 'rgba(57,255,106,0.4)';
+    zCtx.fillText('AWAITING CAMERA FEED', 140, 120);
+  }
+
+  const sig = ST.signals[zone] || 0;
+  clrDiv.innerHTML = `
+    <div style="color:${ZONES[zone]?.color};font-size:7px;letter-spacing:2px;margin-bottom:4px">${zone.toUpperCase()} SIGNALS</div>
+    <div style="font-size:5px;color:var(--dim)">VALUE: ${(sig * 100).toFixed(1)}%</div>
+    <div style="font-size:5px;color:var(--dim)">Σ ${ST.sigma.entropy.toFixed(3)}</div>
+    <div style="font-size:5px;color:var(--dim)">STATE: ${ST.sigma.stateLabel}</div>
+  `;
+}
+
+window.closeZoom = () => { q('#zoomOverlay').style.display = 'none'; sendCommand('close_zoom', {}); };
+
+// ── Camera + MediaPipe ─────────────────────────────────────────────────────
+window.startCam = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+    const vid = q('#vatsVid');
+    vid.srcObject = stream;
+    vid.style.display = 'block';
+    q('#camPrompt').style.display = 'none';
+    ST.camActive = true;
+    toast('WEBCAM ACTIVE');
+    initMediaPipe();
+  } catch (e) {
+    toast('CAMERA DENIED — CHECK PERMISSIONS');
+    q('#camPrompt').style.display = 'flex';
+  }
+};
+
+window.loadFile = (input) => {
+  const file = input.files[0]; if (!file) return;
+  const vid = q('#vatsVid');
+  vid.srcObject = null;
+  vid.src = URL.createObjectURL(file);
+  vid.loop = true; vid.play();
+  vid.style.display = 'block';
+  q('#camPrompt').style.display = 'none';
+  ST.camActive = true;
+  toast('FILE: ' + file.name.slice(0, 24));
+  initMediaPipe();
+};
+
+function initMediaPipe() {
+  if (typeof FaceMesh !== 'undefined') { startMP(); return; }
+  const load = (src, cb) => { const s = document.createElement('script'); s.src = src; s.onload = cb; document.head.appendChild(s); };
+  load('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js', () =>
+    load('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js', () =>
+      load('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js', () =>
+        load('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js', startMP)
+      )
+    )
+  );
+}
+
+function startMP() {
+  const vid = q('#vatsVid');
+  const fm = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+  fm.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  fm.onResults(r => {
+    ST.mpFace = r.multiFaceLandmarks?.[0] || null;
+    if (ST.mpFace) {
+      // Compute and send real face signal
+      const jaw = Math.abs((ST.mpFace[13]?.y - ST.mpFace[14]?.y) || 0) * 20;
+      sendSignalToServer('face', Math.min(1, jaw));
+      // Gaze from iris
+      const li = ST.mpFace[468], ri = ST.mpFace[473];
+      if (li && ri) {
+        const gazeX = Math.abs(((li.x + ri.x) / 2) - 0.5) * 2;
+        sendSignalToServer('gaze', Math.min(1, gazeX));
+      }
+    }
+  });
+
+  const pose = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
+  pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  pose.onResults(r => {
+    ST.mpPose = r.poseLandmarks || null;
+    if (ST.mpPose) {
+      const lw = ST.mpPose[15], lh = ST.mpPose[23];
+      if (lw && lh) {
+        const dist = Math.sqrt((lw.x - lh.x) ** 2 + (lw.y - lh.y) ** 2);
+        sendSignalToServer('lhand', Math.min(1, Math.max(0, 1 - dist * 2)));
+      }
+      const ls = ST.mpPose[11], rs = ST.mpPose[12];
+      if (ls && rs) { sendSignalToServer('posture', Math.min(1, Math.abs(ls.y - rs.y) * 5)); }
+    }
+  });
+
+  const camera = new Camera(vid, {
+    onFrame: async () => { await fm.send({ image: vid }); await pose.send({ image: vid }); },
+    width: 1280, height: 720,
+  });
+  camera.start();
+  toast('MEDIAPIPE ONLINE');
+}
+
+function sendSignalToServer(zone, value) {
+  wsSend('signal.update', { zone, value });
+  // Also update local state immediately for responsiveness
+  ST.signals[zone] = value;
+}
+
+// ── Audio ──────────────────────────────────────────────────────────────────
+window.startAudio = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    ST.audioAnalyser = analyser;
+    ST.audioData = new Uint8Array(analyser.frequencyBinCount);
+    q('#audioStatus').textContent = 'LIVE';
+    q('#audioStatus').style.color = 'var(--signal)';
+    // Send audio energy to server every 100ms
+    setInterval(() => {
+      analyser.getByteFrequencyData(ST.audioData);
+      const energy = ST.audioData.reduce((a, v) => a + v, 0) / (ST.audioData.length * 255);
+      sendSignalToServer('voice', Math.min(1, energy * 3));
+    }, 100);
+    toast('MICROPHONE ACTIVE');
+  } catch { toast('MIC DENIED'); }
+};
+
+// ── Commands ───────────────────────────────────────────────────────────────
+window.cmd = function(action, extra = {}) {
+  sendCommand(action, extra);
+};
+
+function sendCommand(action, payload = {}) {
+  fetch('/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventType: 'vats.command', payload: { action, ...payload } }),
+  }).catch(() => toast('SERVER UNREACHABLE'));
+}
+
+// Session controls
+window.openSession = () => {
+  const annotatorId = q('#annotatorInput').value || 'ANALYST-01';
+  const subjectId = q('#subjectInput').value || 'SUBJECT-001';
+  fetch('/session/open', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ annotatorId, subjectId }),
+  }).then(r => r.json()).then(d => { if (d.sessionId) toast('SESSION: ' + d.sessionId.slice(-12)); });
+};
+
+window.closeSession = () => {
+  fetch('/session/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(() => toast('SESSION CLOSED'));
+};
+
+// ── PAT sessions browser ───────────────────────────────────────────────────
+window.loadSessions = () => {
+  fetch('/sessions').then(r => r.json()).then(d => {
+    const list = q('#sessionList');
+    if (!list) return;
+    list.innerHTML = (d.sessions || []).map(id => `
+      <div class="sess-entry" onclick="viewSession('${id}')">
+        <div style="font-size:var(--fs-sm);color:var(--bright)">${id}</div>
+      </div>
+    `).join('') || '<div style="font-size:var(--fs-xs);color:var(--dim)">No sessions yet</div>';
+  });
+};
+
+window.viewSession = (id) => {
+  q('#patViewId').textContent = id;
+  fetch('/sessions/' + id).then(r => r.json()).then(d => {
+    const view = q('#patEntryView');
+    view.innerHTML = (d.entries || []).map(e => `
+      <div class="ledger-entry ${e.type === 'session.open' || e.type === 'session.close' ? 'upgrade' : ''}">
+        <div style="color:var(--signal);margin-bottom:2px">${e.type}</div>
+        <pre style="font-size:4.5px;color:var(--bright);white-space:pre-wrap">${JSON.stringify(e, null, 2)}</pre>
+      </div>
+    `).join('');
+  });
+};
+
+// ── Ledger views ───────────────────────────────────────────────────────────
+function loadLedgers() {
+  fetch('/ledger/upgrade').then(r => r.json()).then(d => {
+    const v = q('#upgradeLedgerView');
+    if (!v) return;
+    v.innerHTML = (d.entries || []).slice(-20).reverse().map(e => `
+      <div class="ledger-entry upgrade">
+        <div style="color:var(--signal);font-size:var(--fs-xs)">${e.phase} — ${e.description}</div>
+        <div style="color:var(--dim);font-size:4.5px">proof: ${e.proof} · seq: ${e.seq}</div>
+        <div style="color:var(--dim);font-size:4px">hash: ${e.hash?.slice(0, 24)}...</div>
+      </div>
+    `).join('') || '<div style="font-size:var(--fs-xs);color:var(--dim)">No upgrade entries</div>';
+  });
+
+  fetch('/ledger/ideas').then(r => r.json()).then(d => {
+    const v = q('#ideaLedgerView');
+    if (!v) return;
+    v.innerHTML = (d.ideas || []).slice(-20).reverse().map(e => `
+      <div class="ledger-entry idea ${e.status}">
+        <div style="color:var(--violet);font-size:var(--fs-xs)">${e.title}</div>
+        <div style="color:var(--dim);font-size:4.5px">${e.hypothesis?.slice(0, 80)}...</div>
+        <div style="font-size:4px;margin-top:2px"><span style="color:var(--amber)">${e.status}</span> · ${e.source}</div>
+      </div>
+    `).join('') || '<div style="font-size:var(--fs-xs);color:var(--dim)">No ideas recorded</div>';
+
+    // Sigma metrics
+    const metrics = d.metrics || {};
+    const mv = q('#ideaMetrics');
+    if (mv) mv.innerHTML = Object.entries(metrics).map(([k, v]) =>
+      `<div style="display:flex;justify-content:space-between"><span style="color:var(--dim)">${k}</span><span style="color:var(--bright)">${v}</span></div>`
+    ).join('');
+  });
+}
+
+window.recordIdea = () => {
+  const title = q('#ideaTitle')?.value;
+  const hypothesis = q('#ideaHypothesis')?.value;
+  if (!title) { toast('TITLE REQUIRED'); return; }
+  fetch('/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventType: 'lattice.command', payload: { action: 'record_idea', title, hypothesis } }),
+  }).then(() => { loadLedgers(); if (q('#ideaTitle')) q('#ideaTitle').value = ''; if (q('#ideaHypothesis')) q('#ideaHypothesis').value = ''; });
+};
+
+// ── Lattice CLI ────────────────────────────────────────────────────────────
+window.cliEnter = (e) => { if (e.key === 'Enter') cliRun(); };
+window.cliRun = () => {
+  const input = q('#cliInput');
+  const cmd = input.value.trim(); if (!cmd) return;
+  input.value = '';
+  const out = q('#cliOutput');
+  addCLILine(out, 'cmd', `ALK› ${cmd}`);
+
+  const c = cmd.toLowerCase();
+  if (c.startsWith('/find ')) {
+    const q2 = cmd.slice(6);
+    fetch('/lattice/find?q=' + encodeURIComponent(q2)).then(r => r.json()).then(d => {
+      (d.results || []).forEach(r => addCLILine(out, 'match', `MATCH · ${r.uuid?.slice(0,12)}… · "${r.label}" · res: ${r.resonance?.toFixed(2)}`));
+      if (!d.results?.length) addCLILine(out, '', 'No matches found.');
+    });
+  } else if (c === '/cluster' || c === '/state') {
+    fetch('/lattice').then(r => r.json()).then(d => {
+      addCLILine(out, 'hi', `${d.nodeCount} nodes · ${d.edgeCount} edges · ${d.clusterCount} clusters`);
+      (d.topNodes || []).slice(0, 5).forEach(n => addCLILine(out, 'node', `  ${n.label} · res: ${n.resonance?.toFixed(2)} · edges: ${n.edgeCount}`));
+    });
+  } else if (c.startsWith('/connect ')) {
+    addCLILine(out, 'node', 'Edge creation via server not yet wired — /connect coming in Phase 4.');
+  } else {
+    addCLILine(out, 'err', `Unknown command: ${cmd}. Try: /find · /state · /cluster`);
+  }
+};
+
+function addCLILine(out, cls, text) {
+  const d = document.createElement('div');
+  d.className = 'cli-line ' + cls;
+  d.textContent = text;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+
+function loadLatticeState() {
+  fetch('/lattice').then(r => r.json()).then(d => {
+    const v = q('#latticeState');
+    if (!v) return;
+    v.innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:var(--dim)">NODES</span><span style="color:var(--cyan)">${d.nodeCount||0}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:var(--dim)">EDGES</span><span style="color:var(--cyan)">${d.edgeCount||0}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="color:var(--dim)">CLUSTERS</span><span style="color:var(--cyan)">${d.clusterCount||0}</span></div>
+    `;
+  });
+}
+
+// ── Diagnostics ────────────────────────────────────────────────────────────
+window.loadDiag = () => {
+  fetch('/diagnostics').then(r => r.json()).then(d => {
+    const pre = q('#diagOutput');
+    if (pre) pre.textContent = JSON.stringify(d, null, 2);
+  });
+};
+
+window.setLogLevel = (level) => {
+  fetch('/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventType: 'lattice.command', payload: { action: 'set_log_level', level } }),
+  });
+};
+
+// ── Nav ────────────────────────────────────────────────────────────────────
+const PANES = ['vats', 'pat', 'lattice', 'ledger', 'sigma', 'diag'];
+window.goPane = (id) => {
+  PANES.forEach(p => {
+    const pane = q('#pane-' + p);
+    const tab = q('#nt-' + p);
+    if (pane) pane.style.display = p === id ? (p === 'vats' ? 'grid' : 'flex') : 'none';
+    if (tab) tab.classList.toggle('on', p === id);
+  });
+  if (id === 'pat') loadSessions();
+  if (id === 'ledger') loadLedgers();
+  if (id === 'lattice') loadLatticeState();
+  if (id === 'diag') loadDiag();
+};
+
+// ── Hotkeys ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toUpperCase();
+  if (k === 'V') cmd('toggle_vats');
+  else if (k === 'M') cmd('toggle_mesh');
+  else if (k === 'S') cmd('toggle_skin');
+  else if (k === 'C') cmd('toggle_clr');
+  else if (k === 'ESCAPE') closeZoom();
+});
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = q('#toast'); if (!el) return;
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+}
+
+// ── Util ───────────────────────────────────────────────────────────────────
+function q(sel) { return document.querySelector(sel); }
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  initCanvas();
+  connectWS();
+  // Restore initial pane state
+  PANES.forEach(p => {
+    const pane = q('#pane-' + p);
+    if (pane) pane.style.display = 'none';
+  });
+  q('#pane-vats').style.display = 'grid';
+});
+</script>
+</body>
+</html>

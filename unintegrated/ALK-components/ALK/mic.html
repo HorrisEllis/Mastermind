@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ALK · Mic Bridge</title>
+<link rel="stylesheet" href="mic.css">
+</head>
+<body>
+
+<div id="header">
+  <div class="logo-mark">⬡</div>
+  <div>
+    <div class="title">ALK · Mic Bridge</div>
+    <div class="subtitle">v1.0.0 · zero-server audio relay</div>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- Status ring -->
+  <div id="status-ring">
+    <svg class="ring-svg" viewBox="0 0 160 160">
+      <circle class="ring-bg" cx="80" cy="80" r="70"/>
+      <circle class="ring-fill" id="ring-fill" cx="80" cy="80" r="70"/>
+    </svg>
+    <div id="ring-icon">🎙</div>
+    <div id="ring-label">IDLE</div>
+  </div>
+
+  <!-- Energy meter -->
+  <div id="energy-meter"><div id="energy-fill"></div></div>
+
+  <!-- Level bars -->
+  <div id="level-display">
+    <div class="level-bar" id="lb0"></div>
+    <div class="level-bar" id="lb1"></div>
+    <div class="level-bar" id="lb2"></div>
+    <div class="level-bar" id="lb3"></div>
+    <div class="level-bar" id="lb4"></div>
+    <div class="level-bar" id="lb5"></div>
+    <div class="level-bar" id="lb6"></div>
+    <div class="level-bar" id="lb7"></div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div id="toast-stack"></div>
+
+  <!-- Magnet paste (manual fallback) -->
+  <input id="magnet-input" class="" placeholder="paste alk:// magnet link here" oninput="onMagnetPaste(this.value)"/>
+
+  <!-- Main action button -->
+  <button class="btn primary" id="main-btn" onclick="mainAction()">
+    START CAPTURE
+  </button>
+
+  <button class="btn secondary" id="stop-btn" onclick="stopCapture()" style="display:none">
+    STOP
+  </button>
+
+  <!-- Info rows -->
+  <div style="width:100%">
+    <div class="info-row">
+      <span class="info-label">TRANSPORT</span>
+      <span class="info-val" id="info-transport">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">SESSION</span>
+      <span class="info-val" id="info-session">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">AUDIO</span>
+      <span class="info-val" id="info-audio">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">ENERGY σ</span>
+      <span class="info-val" id="info-sigma">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">PEER</span>
+      <span class="info-val" id="info-peer">awaiting connection</span>
+    </div>
+  </div>
+
+  <!-- QR / Magnet display (when not on same device) -->
+  <div id="magnet-section">
+    <div style="font-size:7px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;">Scan on host device</div>
+    <canvas id="qr-canvas" width="200" height="200"></canvas>
+    <div id="magnet-text">—</div>
+    <button id="copy-btn" onclick="copyMagnet()">COPY MAGNET LINK</button>
+  </div>
+
+</div>
+
+<script type="module" src="mic.js"></script>
+</body>
+</html>

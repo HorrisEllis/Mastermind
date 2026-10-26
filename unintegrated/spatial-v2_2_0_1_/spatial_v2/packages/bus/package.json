@@ -1,0 +1,14 @@
+{
+  "name": "@spatial/bus",
+  "version": "1.0.0",
+  "description": "SISO event bus — the nervous system of Spatial. Zero dependencies.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "main": "./src/index.js",
+  "engines": { "node": ">=18" },
+  "keywords": ["spatial", "event-bus", "siso", "behavioral-signal"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/spatial-os/spatial" }
+}

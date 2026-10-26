@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RHEON</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .home-grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      grid-template-rows: auto 1fr;
+      gap: var(--s5);
+      padding-top: var(--s6);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      grid-column: 1 / -1;
+      padding: var(--s7) 0 var(--s6);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--s6);
+    }
+
+    .hero-text {}
+
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: var(--s3);
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+      color: var(--text-primary);
+      margin-bottom: var(--s4);
+    }
+
+    .hero-title em {
+      font-style: normal;
+      color: var(--signal);
+    }
+
+    .hero-desc {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      max-width: 480px;
+      line-height: 1.7;
+    }
+
+    /* ── Tool buttons ── */
+    .tool-grid {
+      display: flex;
+      gap: var(--s3);
+      flex-shrink: 0;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .tool-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      border: 1px solid var(--border-mid);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all var(--t-mid) var(--ease);
+      width: 220px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tool-btn::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: transparent;
+      transition: background var(--t-fast);
+    }
+
+    .tool-btn:hover {
+      border-color: var(--border-hi);
+      background: var(--bg-raised);
+      color: var(--text-primary);
+    }
+
+    .tool-btn:hover::before { background: var(--signal); }
+
+    .tool-btn-icon {
+      font-size: 18px;
+      width: 28px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .tool-btn-body { flex: 1; }
+
+    .tool-btn-name {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: block;
+    }
+
+    .tool-btn-desc {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .tool-btn-arrow {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text-muted);
+      transition: color var(--t-fast), transform var(--t-fast);
+    }
+
+    .tool-btn:hover .tool-btn-arrow {
+      color: var(--signal);
+      transform: translateX(3px);
+    }
+
+    /* ── Projects ── */
+    .projects-col {}
+
+    .project-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+    }
+
+    .project-card {
+      display: block;
+      text-decoration: none;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: var(--s3) var(--s4);
+      transition: all var(--t-mid) var(--ease);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .project-card::after {
+      content: '→';
+      position: absolute;
+      right: var(--s4);
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity var(--t-fast), transform var(--t-fast);
+    }
+
+    .project-card:hover {
+      border-color: var(--border-mid);
+      background: var(--bg-raised);
+    }
+
+    .project-card:hover::after {
+      opacity: 1;
+      transform: translateY(-50%) translateX(3px);
+    }
+
+    .project-name {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--s1);
+    }
+
+    .project-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      flex-wrap: wrap;
+    }
+
+    .project-seam {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--signal-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .project-seam::before { content: '⌿'; }
+
+    .project-ts {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ── Ledger sidebar ── */
+    .ledger-col {}
+
+    .ledger-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .ledger-entry {
+      display: grid;
+      grid-template-columns: 60px 1fr auto;
+      gap: var(--s2);
+      align-items: baseline;
+      padding: var(--s1) var(--s3);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--t-fast);
+      animation: entry-in 200ms var(--ease) both;
+    }
+
+    .ledger-entry:hover { background: var(--bg-raised); }
+
+    @keyframes entry-in {
+      from { opacity: 0; transform: translateX(-4px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .ledger-entry .evt { color: var(--text-muted); }
+    .ledger-entry .type { color: var(--text-secondary); }
+    .ledger-entry .type.ok   { color: var(--ok); }
+    .ledger-entry .type.err  { color: var(--err); }
+    .ledger-entry .outcome { color: var(--text-muted); font-size: 9px; }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .stat {
+      flex: 1;
+      background: var(--bg-surface);
+      padding: var(--s3) var(--s4);
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-value.signal { color: var(--signal); }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <div class="page">
+    <div class="container">
+      <div class="home-grid">
+
+        <!-- Hero -->
+        <div class="hero">
+          <div class="hero-text">
+            <div class="hero-eyebrow">v0.1.0 · spec-first · seam-driven</div>
+            <h1 class="hero-title">The <em>spec</em><br>is the system.</h1>
+            <p class="hero-desc">
+              Spec library, project repository, idea ledger.<br>
+              Architecture and intent alongside code.<br>
+              GitHub — with higher leverage.
+            </p>
+          </div>
+
+          <div class="tool-grid">
+            <a href="/spec-builder" class="tool-btn">
+              <div class="tool-btn-icon">◈</div>
+              <div class="tool-btn-body">
+                <span class="tool-btn-name">Spec Builder</span>
+                <span class="tool-btn-desc">Step-wise SEAM-aware authoring</span>
+              </div>
+              <span class="tool-btn-arrow">→</span>
+            </a>
+            <a href="/spec-library" class="tool-btn">
+              <div class="tool-btn-icon">⊞</div>
+              <div class="tool-btn-body">
+                <span class="tool-btn-name">Spec Library</span>
+                <span class="tool-btn-desc">Query, publish, version specs</span>
+              </div>
+              <span class="tool-btn-arrow">→</span>
+            </a>
+            <a href="/repository" class="tool-btn">
+              <div class="tool-btn-icon">⌥</div>
+              <div class="tool-btn-body">
+                <span class="tool-btn-name">Repository</span>
+                <span class="tool-btn-desc">File browser · IDE · git</span>
+              </div>
+              <span class="tool-btn-arrow">→</span>
+            </a>
+            <a href="/idea-ledger" class="tool-btn">
+              <div class="tool-btn-icon">◎</div>
+              <div class="tool-btn-body">
+                <span class="tool-btn-name">Idea Ledger</span>
+                <span class="tool-btn-desc">Associative lattice across projects</span>
+              </div>
+              <span class="tool-btn-arrow">→</span>
+            </a>
+            <a href="/architect" class="tool-btn">
+              <div class="tool-btn-icon">⬡</div>
+              <div class="tool-btn-body">
+                <span class="tool-btn-name">Architect</span>
+                <span class="tool-btn-desc">Hook registry · blueprint · SNR</span>
+              </div>
+              <span class="tool-btn-arrow">→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="stats-bar" id="stats-bar">
+          <div class="stat">
+            <div class="stat-value signal" id="stat-projects">—</div>
+            <div class="stat-label">Projects</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-specs">—</div>
+            <div class="stat-label">Specs</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-ideas">—</div>
+            <div class="stat-label">Ideas</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-ws">—</div>
+            <div class="stat-label">WS Clients</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="stat-health">—</div>
+            <div class="stat-label">Health Score</div>
+          </div>
+        </div>
+
+        <!-- Projects column -->
+        <div class="projects-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Recent Projects</span>
+              <button class="btn btn-signal" id="new-project-btn">+ New</button>
+            </div>
+            <div id="projects-list">
+              <div class="empty">
+                <div class="empty-icon">⌥</div>
+                <div class="empty-text">Loading projects…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- New project modal (inline) -->
+          <div id="new-project-panel" class="card mt-4" style="display:none">
+            <div class="card-header">
+              <span class="card-title">New Project</span>
+              <button class="btn btn-ghost" id="cancel-project-btn">✕</button>
+            </div>
+            <div class="card-body">
+              <div class="field">
+                <label class="label">Project Name</label>
+                <input class="input" id="proj-name" placeholder="my-project" autocomplete="off">
+              </div>
+              <div class="field">
+                <label class="label">Remote (SSH, optional)</label>
+                <input class="input" id="proj-remote" placeholder="git@github.com:you/repo.git" autocomplete="off">
+              </div>
+              <button class="btn btn-signal" id="create-project-btn" style="width:100%">Create Project</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ledger sidebar -->
+        <div class="ledger-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Live Ledger</span>
+              <span class="mono-xs text-muted" id="ledger-count">—</span>
+            </div>
+            <div class="ledger-feed" id="ledger-feed">
+              <div class="empty" style="padding: var(--s5)">
+                <div class="empty-text">Loading…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="/shared.js"></script>
+  <script>
+    const { GET, POST, toast, formatTs, renderNav, initNav, onEvent } = window.rheon;
+
+    // Mount nav
+    document.getElementById('nav-mount').innerHTML = renderNav();
+    initNav();
+
+    // ── Load status ──────────────────────────────────────────────
+    async function loadStatus() {
+      try {
+        const s = await GET('/api/status');
+        document.getElementById('stat-projects').textContent = s.projectCount;
+        document.getElementById('stat-ws').textContent       = s.ws?.clients ?? '—';
+        const score = s.heartbeat?.selfScore;
+        document.getElementById('stat-health').textContent   = score != null ? (score * 100).toFixed(0) + '%' : '—';
+      } catch(e) {
+        console.error('status:', e.message);
+      }
+    }
+
+    // ── Load specs count ─────────────────────────────────────────
+    async function loadSpecCount() {
+      try {
+        const specs = await GET('/api/specs/specs');
+        document.getElementById('stat-specs').textContent = specs.length;
+      } catch { document.getElementById('stat-specs').textContent = '0'; }
+    }
+
+    // ── Load idea count ──────────────────────────────────────────
+    async function loadIdeaCount() {
+      try {
+        const ideas = await GET('/api/ideas?limit=1000');
+        document.getElementById('stat-ideas').textContent = ideas.length;
+      } catch { document.getElementById('stat-ideas').textContent = '0'; }
+    }
+
+    // ── Load projects ────────────────────────────────────────────
+    async function loadProjects() {
+      try {
+        const projects = await GET('/api/projects/recent?limit=12');
+        renderProjects(projects);
+      } catch(e) {
+        document.getElementById('projects-list').innerHTML =
+          `<div class="empty"><div class="empty-text text-err">${e.message}</div></div>`;
+      }
+    }
+
+    function renderProjects(projects) {
+      const el = document.getElementById('projects-list');
+      if (!projects.length) {
+        el.innerHTML = `<div class="empty">
+          <div class="empty-icon">⌥</div>
+          <div class="empty-text">No projects yet. Create one →</div>
+        </div>`;
+        return;
+      }
+      el.innerHTML = `<div class="project-list">
+        ${projects.map(p => `
+          <a href="/repository?project=${encodeURIComponent(p.name)}" class="project-card">
+            <div class="project-name">${esc(p.name)}</div>
+            <div class="project-meta">
+              ${p.lastSeam ? `<span class="project-seam">${esc(p.lastSeam.name)}</span>` : ''}
+              <span class="project-ts">${formatTs(p.lastEditedTs)}</span>
+              ${p.remote ? `<span class="tag">remote</span>` : ''}
+            </div>
+          </a>
+        `).join('')}
+      </div>`;
+    }
+
+    // ── Load ledger ──────────────────────────────────────────────
+    async function loadLedger() {
+      try {
+        const entries = await GET('/api/ledger?n=30');
+        renderLedger(entries.reverse());
+      } catch(e) {}
+    }
+
+    function renderLedger(entries) {
+      const feed = document.getElementById('ledger-feed');
+      if (!entries.length) {
+        feed.innerHTML = `<div class="empty" style="padding:var(--s4)"><div class="empty-text">No events yet</div></div>`;
+        return;
+      }
+      document.getElementById('ledger-count').textContent = entries.length + ' entries';
+      feed.innerHTML = entries.map(e => `
+        <div class="ledger-entry">
+          <span class="evt">#${e.eventTs}</span>
+          <span class="type ${e.outcome}">${esc(e.type)}</span>
+          <span class="outcome">${esc(e.source)}</span>
+        </div>
+      `).join('');
+    }
+
+    function prependLedgerEntry(entry) {
+      const feed = document.getElementById('ledger-feed');
+      const empty = feed.querySelector('.empty');
+      if (empty) empty.remove();
+
+      const el = document.createElement('div');
+      el.className = 'ledger-entry';
+      el.innerHTML = `
+        <span class="evt">#${entry.eventTs}</span>
+        <span class="type ${entry.outcome}">${esc(entry.type)}</span>
+        <span class="outcome">${esc(entry.source)}</span>
+      `;
+      feed.prepend(el);
+
+      // Cap at 50 entries
+      const all = feed.querySelectorAll('.ledger-entry');
+      if (all.length > 50) all[all.length - 1].remove();
+
+      const cnt = feed.querySelectorAll('.ledger-entry').length;
+      document.getElementById('ledger-count').textContent = cnt + ' entries';
+    }
+
+    // ── New project ──────────────────────────────────────────────
+    document.getElementById('new-project-btn').onclick = () => {
+      document.getElementById('new-project-panel').style.display = '';
+      document.getElementById('proj-name').focus();
+    };
+    document.getElementById('cancel-project-btn').onclick = () => {
+      document.getElementById('new-project-panel').style.display = 'none';
+    };
+    document.getElementById('create-project-btn').onclick = async () => {
+      const name   = document.getElementById('proj-name').value.trim();
+      const remote = document.getElementById('proj-remote').value.trim();
+      if (!name) { toast('Project name required', 'err'); return; }
+
+      const btn = document.getElementById('create-project-btn');
+      btn.textContent = 'Creating…';
+      btn.disabled = true;
+
+      try {
+        await POST('/api/projects', { name, remote: remote || null });
+        toast(`Project '${name}' created`, 'ok');
+        document.getElementById('new-project-panel').style.display = 'none';
+        document.getElementById('proj-name').value = '';
+        document.getElementById('proj-remote').value = '';
+        loadProjects();
+        loadStatus();
+      } catch(e) {
+        toast(e.message, 'err');
+      } finally {
+        btn.textContent = 'Create Project';
+        btn.disabled = false;
+      }
+    };
+
+    // Enter key in project name
+    document.getElementById('proj-name').onkeydown = (e) => {
+      if (e.key === 'Enter') document.getElementById('create-project-btn').click();
+    };
+
+    // ── Live events ──────────────────────────────────────────────
+    onEvent('project.created', (payload) => {
+      loadProjects();
+      loadStatus();
+    });
+    onEvent('idea.added', () => loadIdeaCount());
+    onEvent('ledger.event', (payload) => {
+      if (payload?.entry) prependLedgerEntry(payload.entry);
+    });
+
+    // ── Escape helper ────────────────────────────────────────────
+    function esc(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadStatus();
+    loadSpecCount();
+    loadIdeaCount();
+    loadProjects();
+    loadLedger();
+  </script>
+</body>
+</html>

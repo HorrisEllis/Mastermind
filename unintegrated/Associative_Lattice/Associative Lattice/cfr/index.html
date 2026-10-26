@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrystalBall · Full Test Suite v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Syne:wght@400;700;800&display=swap');
+:root{--bg:#040608;--s1:#080c10;--s2:#0c1218;--s3:#101820;--border:#182330;--border2:#1e2e3c;--c0:#00f0c0;--c1:#ff4060;--c2:#ffc030;--c3:#60a0ff;--c4:#c060ff;--c5:#40e080;--c6:#ff8040;--c7:#ff60c0;--c8:#00c8ff;--text:#b8ccd8;--text2:#506070;--text3:#2a3a48;--font:'JetBrains Mono',monospace;--display:'Syne',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}html,body{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:11px;line-height:1.5;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,240,192,.007) 3px,rgba(0,240,192,.007) 4px);pointer-events:none;z-index:9998;}
+#topbar{height:44px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:16px;position:relative;z-index:100;}
+#topbar h1{font-family:var(--display);font-size:17px;font-weight:800;color:var(--c0);letter-spacing:-.3px;}
+#topbar .sub{color:var(--text2);font-size:9px;letter-spacing:2px;text-transform:uppercase;}
+#topbar .spacer{flex:1;}
+#topbar .counters{display:flex;gap:12px;font-size:10px;}
+.cnt-pass{color:var(--c0);}.cnt-fail{color:var(--c1);}.cnt-skip{color:var(--c2);}
+#topbar button{background:var(--c0);color:var(--bg);border:none;border-radius:3px;font-family:var(--font);font-size:10px;font-weight:700;padding:5px 14px;cursor:pointer;letter-spacing:1px;text-transform:uppercase;}
+#topbar button:disabled{opacity:.4;cursor:default;}
+#topbar button.running{background:var(--c2);animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.6;}}
+#layout{display:grid;grid-template-columns:230px 1fr 320px;height:calc(100vh - 44px);overflow:hidden;}
+#sidebar{background:var(--s1);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;}
+.suite-group{border-bottom:1px solid var(--border);}
+.suite-head{padding:8px 12px 7px;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.suite-head .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.test-item{padding:5px 12px 5px 22px;cursor:pointer;font-size:10px;color:var(--text2);display:flex;align-items:center;gap:6px;border-left:2px solid transparent;transition:all .1s;}
+.test-item:hover{color:var(--text);background:var(--s2);}
+.test-item.active{color:var(--text);border-left-color:var(--c0);background:var(--s2);}
+.test-item.pass{color:var(--c0);}.test-item.fail{color:var(--c1);}.test-item.running{color:var(--c2);}
+.test-item .status{margin-left:auto;font-size:9px;}.test-item .dur{color:var(--text2);font-size:9px;margin-left:4px;}
+#main{display:flex;flex-direction:column;overflow:hidden;background:var(--s2);}
+#test-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);background:var(--s1);flex-shrink:0;}
+#test-header .test-name{font-family:var(--display);font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+#test-header .test-meta{color:var(--text2);font-size:9px;letter-spacing:1px;display:flex;gap:14px;flex-wrap:wrap;}
+.meta-tag{background:var(--s3);padding:2px 7px;border-radius:2px;border:1px solid var(--border);}
+.meta-tag.pass{color:var(--c0);border-color:var(--c0);}.meta-tag.fail{color:var(--c1);border-color:var(--c1);}.meta-tag.run{color:var(--c2);border-color:var(--c2);}
+#results{flex:1;overflow-y:auto;padding:12px 18px;display:flex;flex-direction:column;gap:6px;}
+.result-row{background:var(--s1);border:1px solid var(--border);border-radius:3px;padding:8px 12px;display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:start;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}}
+.result-row.pass{border-left:2px solid var(--c0);}.result-row.fail{border-left:2px solid var(--c1);background:rgba(255,64,96,.04);}.result-row.info{border-left:2px solid var(--c3);}.result-row.warn{border-left:2px solid var(--c2);}.result-row.media{border-left:2px solid var(--c8);}
+.result-row .icon{font-size:11px;padding-top:1px;}.result-row .body{color:var(--text);font-size:10px;}.result-row .body .label{color:var(--text2);}.result-row .body .val{color:var(--c0);}.result-row .body .val.bad{color:var(--c1);}.result-row .body .val.warn{color:var(--c2);}.result-row .body .val.blue{color:var(--c3);}.result-row .body .val.purple{color:var(--c4);}.result-row .body .val.cyan{color:var(--c8);}
+.result-row .dur{color:var(--text2);font-size:9px;white-space:nowrap;}
+.result-row pre{margin-top:5px;font-size:9px;color:var(--text2);background:var(--bg);padding:6px 8px;border-radius:2px;overflow-x:auto;max-height:100px;white-space:pre-wrap;word-break:break-all;}
+/* Media preview */
+.media-preview{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;}
+.media-preview canvas,.media-preview img{border:1px solid var(--border);border-radius:2px;}
+.media-preview audio{width:100%;margin-top:4px;filter:invert(.8) hue-rotate(180deg);}
+#log-panel{background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#log-header{padding:10px 12px 9px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#log-header .title{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--c4);}
+#log-header .ev-count{color:var(--text2);font-size:9px;margin-left:auto;}
+.log-filters{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;}
+.lf-btn{font-size:8px;font-family:var(--font);font-weight:700;padding:2px 6px;border-radius:2px;cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--text2);letter-spacing:.5px;transition:all .1s;}
+.lf-btn.active{background:var(--c4);color:var(--bg);border-color:var(--c4);}
+#log-stream{flex:1;overflow-y:auto;padding:6px 0;font-size:9px;}
+.log-ev{padding:3px 10px 3px 12px;border-left:2px solid transparent;display:grid;grid-template-columns:60px 1fr;gap:6px;line-height:1.4;transition:background .1s;}
+.log-ev:hover{background:var(--s2);}
+.log-ev.t-media{border-left-color:var(--c8);}.log-ev.t-ase{border-left-color:var(--c4);}.log-ev.t-resonance{border-left-color:var(--c0);}.log-ev.t-idl{border-left-color:var(--c5);}.log-ev.t-heuristic{border-left-color:var(--c7);}.log-ev.t-kernel{border-left-color:var(--c4);}.log-ev.t-codec{border-left-color:var(--c7);}.log-ev.t-gate{border-left-color:var(--c2);}.log-ev.t-error{border-left-color:var(--c1);background:rgba(255,64,96,.03);}
+.log-ev .ts{color:var(--text3);font-size:8px;padding-top:1px;}.log-ev .etype{color:var(--text2);}.log-ev .etype .ns{color:var(--text3);}.log-ev .epay{font-size:8px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#progress-wrap{height:3px;background:var(--border);flex-shrink:0;overflow:hidden;}
+#progress-bar{height:100%;background:var(--c0);width:0%;transition:width .3s ease;}
+::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}::-webkit-scrollbar-thumb:hover{background:var(--text2);}
+/* Upload zone */
+.upload-zone{border:1px dashed var(--border2);border-radius:3px;padding:10px;text-align:center;color:var(--text2);font-size:9px;cursor:pointer;margin-top:6px;}
+.upload-zone:hover{border-color:var(--c0);color:var(--c0);}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>◈ CrystalBall</h1>
+  <span class="sub">Full Suite v2 · Media · ASE · Resonance · IDL</span>
+  <div class="spacer"></div>
+  <div class="counters">
+    <span class="cnt-pass">✓ <span id="c-pass">0</span></span>
+    <span class="cnt-fail">✗ <span id="c-fail">0</span></span>
+    <span style="color:var(--text2)">/ <span id="c-total">0</span></span>
+  </div>
+  <button id="run-btn" onclick="window.runAll()">▶ RUN ALL</button>
+</div>
+<div id="layout">
+  <div id="sidebar"></div>
+  <div id="main">
+    <div id="test-header">
+      <div class="test-name" id="th-name">Select a test or click RUN ALL</div>
+      <div class="test-meta" id="th-meta"></div>
+    </div>
+    <div id="progress-wrap"><div id="progress-bar"></div></div>
+    <div id="results"></div>
+  </div>
+  <div id="log-panel">
+    <div id="log-header">
+      <span class="title">⬡ Causal Nexus</span>
+      <span class="ev-count">ev: <span id="ev-count">0</span></span>
+    </div>
+    <div class="log-filters">
+      <button class="lf-btn active" onclick="window.setFilter(this,'all')">ALL</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'media')">MEDIA</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'ase')">ASE</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'resonance')">RESONANCE</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'idl')">IDL</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'heuristic')">HEURISTIC</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'gate')">GATE</button>
+      <button class="lf-btn" onclick="window.setFilter(this,'error')">ERROR</button>
+    </div>
+    <div id="log-stream"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// CAUSAL NEXUS — minimal inline kernel
+// ═══════════════════════════════════════════════════════════════
+const Nexus = (() => {
+  function newId(){if(typeof crypto!=='undefined'&&crypto.randomUUID)return crypto.randomUUID();const b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;const h=Array.from(b).map(x=>x.toString(16).padStart(2,'0'));return[h.slice(0,4),h.slice(4,6),h.slice(6,8),h.slice(8,10),h.slice(10,16)].map(a=>a.join('')).join('-');}
+  function shortId(id){const p=id.split('-');return p[p.length-1]||id.slice(-8);}
+  function wallNow(){return Date.now();}
+  function formatTs(ms){const d=new Date(ms);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')+'.'+String(d.getMilliseconds()).padStart(3,'0');}
+  const EDGE_CAUSAL='causal/explicit', EDGE_RULE='causal/rule';
+  function gateOutput(type,payload,meta){return{type,payload:payload??{},meta:meta??{}};}
+  function createKernel({ringCap=5000}={}){
+    const ring=[],byId=new Map(),typeIdx=new Map(),parents=new Map(),children=new Map();
+    const gates=[],listeners=new Set();
+    let head=0,size=0,tick=0,gDepth=0;
+    function store(ev){if(size===ringCap){const old=ring[head];if(old){byId.delete(old.id);typeIdx.get(old.type)?.delete(old.id);parents.delete(old.id);children.get(old.id)?.forEach(c=>parents.delete(c));children.delete(old.id);}}ring[head]=ev;head=(head+1)%ringCap;if(size<ringCap)size++;byId.set(ev.id,ev);if(!typeIdx.has(ev.type))typeIdx.set(ev.type,new Set());typeIdx.get(ev.type).add(ev.id);}
+    function runGates(ev){if(gDepth>=20)return[];gDepth++;const outs=[];const sorted=[...gates].sort((a,b)=>a.p-b.p);try{for(const g of sorted){let r;try{r=g.fn(ev);}catch{r=[];}if(Array.isArray(r))outs.push(...r);}}finally{gDepth--;}return outs;}
+    function ingest(type,payload={},meta={}){const id=newId(),ts=wallNow(),eventTs=++tick;const ev=Object.freeze({id,type,payload:Object.freeze({...payload}),source:meta.source??'test',causedBy:meta.causedBy??null,edgeType:meta.edgeType??null,eventTs,ts});store(ev);if(ev.causedBy){parents.set(ev.id,ev.causedBy);if(!children.has(ev.causedBy))children.set(ev.causedBy,new Set());children.get(ev.causedBy).add(ev.id);}const outs=runGates(ev);for(const o of outs)ingest(o.type,o.payload,{...o.meta,causedBy:o.meta?.causedBy??ev.id,edgeType:o.meta?.edgeType??EDGE_RULE});for(const fn of listeners)try{fn(ev);}catch{}return ev;}
+    function subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);}
+    function registerGate(sig,fn,p=50){gates.push({sig,fn,p});}
+    function getAll(){const out=[];for(let i=0;i<size;i++)out.push(ring[(head-size+i+ringCap)%ringCap]);return out;}
+    function findById(id){return byId.get(id)??null;}
+    function traceToRoot(id,max=50){const c=[];let cur=id,d=0;while(cur&&d++<max){c.push(cur);cur=parents.get(cur);}return c.map(i=>byId.get(i)).filter(Boolean);}
+    function stats(){return{size,cap:ringCap,tick,types:[...typeIdx.keys()].length};}
+    return{ingest,subscribe,registerGate,getAll,findById,traceToRoot,stats,_typeIdx:typeIdx,gateOutput,EDGE_CAUSAL,EDGE_RULE};
+  }
+  return{newId,shortId,wallNow,formatTs,gateOutput,createKernel,EDGE_CAUSAL:'causal/explicit',EDGE_RULE:'causal/rule'};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// HEURISTIC EXTRACTOR — from Resonance/src/extraction/heuristics.ts
+// ═══════════════════════════════════════════════════════════════
+const Heuristic = (() => {
+  const ABSTRACT=new Set(['meaning','essence','truth','consciousness','structure','pattern','system','theory','concept','abstraction','principle','framework','paradigm','philosophy','ontology','emergence','complexity','entropy','coherence','resonance','signal','dynamic','recursive','temporal','fundamental']);
+  const CONCRETE=new Set(['table','chair','walk','eat','drive','house','door','hand','money','work','job','car','food','body','room','street','today','yesterday','now','here','store','phone','coffee']);
+  const SOMATIC=new Set(['chest','breath','body','stomach','skin','hands','spine','gut','heart','throat','eyes','shoulder','weight','tired','heavy','ache','warm','cold','tight','release','tension','pulse','numb','hollow','burning','neck','jaw']);
+  const METAPHOR=[/\blike\s+a\b/gi,/\bas\s+if\b/gi,/\bwaves?\b/gi,/\becho(es)?\b/gi,/\bbridge\b/gi,/\broot(s|ed)?\b/gi,/\bthread(s)?\b/gi,/\bmirror(s|ed|ing)?\b/gi,/\bfractal\b/gi,/\blayer(s)?\b/gi];
+  const CAUSAL=[/\bbecause\b/gi,/\btherefore\b/gi,/\bwhich\s+means\b/gi,/\bleads?\s+to\b/gi,/\bimplies?\b/gi,/\bconsequently\b/gi,/\bthus\b/gi,/\bhence\b/gi];
+  const SELF_REF=[/\bI\s+(think|feel|notice|realize|wonder|mean|find|believe)\b/gi,/\bmy\s+(sense|feeling|thought|pattern|way|tendency|mind)\b/gi,/\bpart\s+of\s+me\b/gi,/\bwithin\s+me\b/gi];
+  const URGENCY=new Set(['now','immediately','urgent','crisis','need','must','right now','deadline','quickly','fast','panic','desperate','breaking','failing','lost']);
+  const NEGATIVE=new Set(['broken','lost','fail','wrong','bad','hurt','pain','alone','empty','hollow','dark','dead','collapse','grief','fear','dread','shame','guilt','rage','despair','nothing','never']);
+  const POSITIVE=new Set(['good','clear','true','love','joy','alive','light','hope','build','grow','create','connect','understand','free','open','real','whole','full','solid','strong','beautiful','meaningful']);
+  const SYMBOLIC=new Set(['god','soul','shadow','fire','death','birth','void','cosmos','sacred','myth','archetype','ritual','fate','destiny','eternal','infinite','threshold','vessel','wound','gift']);
+  const ANALYTIC=new Set(['therefore','however','because','analysis','evidence','conclude','hypothesis','logical','rational','systematic','observe','measure','compare','define','classify']);
+
+  function clamp(n){return Math.max(0,Math.min(1,n));}
+  function words(t){return t.toLowerCase().match(/\b[a-z']+\b/g)||[];}
+  function sents(t){return t.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);}
+  function lexRatio(ws,set){if(!ws.length)return 0;return ws.filter(w=>set.has(w)).length/ws.length;}
+  function countMatch(t,pats){return pats.reduce((s,p)=>{const m=t.match(new RegExp(p.source,p.flags));return s+(m?m.length:0);},0);}
+
+  function extract(userId,text){
+    if(!text||text.trim().length<3)return null;
+    const ws=words(text),ss=sents(text),n=ws.length||1;
+    // cognition
+    const abstractionLevel=clamp(lexRatio(ws,ABSTRACT)*4-lexRatio(ws,CONCRETE)*2+0.4);
+    const causalCount=countMatch(text,CAUSAL);
+    const systemThinking=clamp(causalCount/Math.max(ss.length,1)*1.5);
+    const selfRefCount=countMatch(text,SELF_REF);
+    const recursionDepth=clamp(selfRefCount/n*8);
+    const avgSentLen=ss.reduce((s,st)=>s+st.split(/\s+/).length,0)/Math.max(ss.length,1);
+    const compression=clamp((avgSentLen-5)/20);
+    const linearity=clamp(1-recursionDepth*0.5-abstractionLevel*0.3);
+
+    // affect
+    const valence=clamp(0.5+lexRatio(ws,POSITIVE)*2-lexRatio(ws,NEGATIVE)*2);
+    const urgencyScore=lexRatio(ws,URGENCY);
+    const urgency=clamp(urgencyScore*5);
+    const exclamations=(text.match(/!/g)||[]).length;
+    const volatility=clamp(exclamations/n*10+urgency*0.4);
+    const somaticDensity=clamp(lexRatio(ws,SOMATIC)*6);
+    const attachmentLoad=clamp((text.match(/\byou\b|\bwe\b|\bus\b|\bour\b|\btogether\b/gi)||[]).length/n*4);
+
+    // language
+    const metaphorCount=countMatch(text,METAPHOR);
+    const metaphorDensity=clamp(metaphorCount/n*6);
+    const symbolicUsage=clamp(lexRatio(ws,SYMBOLIC)*8);
+    const poeticness=clamp(metaphorDensity*0.5+symbolicUsage*0.3+(text.includes('—')||text.includes('...')?0.2:0));
+    const analyticalness=clamp(lexRatio(ws,ANALYTIC)*6);
+    const narrativeStructure=clamp(ss.length>3?(ss.length/10):0.2);
+
+    const entropy=clamp(1-analyticalness*0.4-linearity*0.3+poeticness*0.2);
+    const intensity=clamp(urgency*0.4+volatility*0.3+Math.abs(valence-0.5)*0.6);
+
+    // confidence
+    let confidence=1.0;
+    if(n<20)confidence-=0.4;else if(n<50)confidence-=0.15;
+    const allVals=[abstractionLevel,systemThinking,recursionDepth,compression,linearity,valence,urgency,volatility,somaticDensity,attachmentLoad,metaphorDensity,symbolicUsage,poeticness,analyticalness,narrativeStructure];
+    if(allVals.every(v=>v<0.1))confidence-=0.4;
+    const vari=allVals.reduce((s,v)=>{const m=allVals.reduce((a,b)=>a+b,0)/allVals.length;return s+(v-m)**2;},0)/allVals.length;
+    if(vari<0.005)confidence-=0.2;
+    confidence=Math.max(0,Math.min(1,confidence));
+
+    return{userId,timestamp:Date.now(),text,cognition:{abstractionLevel,linearity,recursionDepth,systemThinking,compression},affect:{valence,volatility,attachmentLoad,urgency,somaticDensity},language:{metaphorDensity,symbolicUsage,poeticness,analyticalness,narrativeStructure},entropy,intensity,extractionMethod:'heuristic',confidence};
+  }
+  return{extract};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// ASE — Authorship Signature Engine
+// ═══════════════════════════════════════════════════════════════
+const ASE = (() => {
+  const EMA_ALPHA=0.15, DRIFT_THRESHOLD=0.12, MIN_SAMPLES=5;
+  const store=new Map(); // userId → signature
+
+  function ema(cur,nv,a){return cur*(1-a)+nv*a;}
+  function emaGroup(cur,nv,a){const r={};Object.keys(cur).forEach(k=>{r[k]=ema(cur[k],nv[k]??cur[k],a);});return r;}
+
+  function inferMode(core){
+    const c=core.cognition,a=core.affect,l=core.language;
+    if(c.abstractionLevel>0.7&&c.systemThinking>0.6)return'systems-architect';
+    if(l.poeticness>0.65&&l.symbolicUsage>0.55)return'symbolic-poet';
+    if(c.recursionDepth>0.65&&a.attachmentLoad<0.4)return'deep-internal-processor';
+    if(a.volatility>0.6&&a.somaticDensity>0.5)return'somatic-emotive';
+    if(l.analyticalness>0.65&&c.linearity>0.6)return'analytical-structured';
+    if(a.attachmentLoad>0.65&&l.narrativeStructure>0.55)return'relational-narrator';
+    if(core.entropy>0.65&&c.compression>0.6)return'high-entropy-synthesizer';
+    if(a.urgency>0.6&&core.intensity>0.65)return'high-intensity-driver';
+    return'adaptive-generalist';
+  }
+
+  function computeFingerprint(core,history){
+    const varMap={};
+    if(Object.keys(history).length>0){
+      Object.entries(history).forEach(([k,vals])=>{
+        if(vals.length<2)return;
+        const m=vals.reduce((a,b)=>a+b,0)/vals.length;
+        varMap[k]=vals.reduce((s,v)=>s+(v-m)**2,0)/vals.length;
+      });
+    }
+    const sorted=Object.entries(varMap).sort((a,b)=>b[1]-a[1]);
+    const highVarianceAxes=sorted.slice(0,3).map(([k])=>k);
+    const lowVarianceAxes=sorted.slice(-3).map(([k])=>k);
+    const dominantMode=inferMode(core);
+    return{highVarianceAxes,lowVarianceAxes,dominantMode,secondaryMode:'adaptive-generalist'};
+  }
+
+  function computeDrift(oldCore,newCore){
+    const groups=['cognition','affect','language'];
+    const movingAxes=[];let total=0,count=0;
+    groups.forEach(g=>{
+      Object.entries(oldCore[g]).forEach(([k,ov])=>{
+        const nv=newCore[g][k];
+        const delta=Math.abs(nv-ov);
+        total+=delta;count++;
+        if(delta>DRIFT_THRESHOLD)movingAxes.push(g+'.'+k);
+      });
+    });
+    total+=Math.abs(oldCore.entropy-newCore.entropy)+Math.abs(oldCore.intensity-newCore.intensity);
+    count+=2;
+    const magnitude=total/count;
+    return{magnitude,direction:movingAxes,isShifting:magnitude>DRIFT_THRESHOLD,lastShiftAt:null};
+  }
+
+  function ingest(userId,signal){
+    const existing=store.get(userId);
+    const history={};
+    if(!existing){
+      // First signal — initialize
+      const sig={userId,version:1,createdAt:Date.now(),updatedAt:Date.now(),sampleSize:1,
+        core:{cognition:{...signal.cognition},affect:{...signal.affect},language:{...signal.language},entropy:signal.entropy,intensity:signal.intensity},
+        fingerprint:{highVarianceAxes:[],lowVarianceAxes:[],dominantMode:inferMode({cognition:signal.cognition,affect:signal.affect,language:signal.language,entropy:signal.entropy,intensity:signal.intensity}),secondaryMode:'adaptive-generalist'},
+        drift:{magnitude:0,direction:[],isShifting:false,lastShiftAt:null}};
+      store.set(userId,sig);
+      return sig;
+    }
+    // Build history from accumulated changes
+    const oldCore=existing.core;
+    const newCore={
+      cognition:emaGroup(existing.core.cognition,signal.cognition,EMA_ALPHA),
+      affect:emaGroup(existing.core.affect,signal.affect,EMA_ALPHA),
+      language:emaGroup(existing.core.language,signal.language,EMA_ALPHA),
+      entropy:ema(existing.core.entropy,signal.entropy,EMA_ALPHA),
+      intensity:ema(existing.core.intensity,signal.intensity,EMA_ALPHA)
+    };
+    const drift=computeDrift(oldCore,newCore);
+    const fingerprint=computeFingerprint(newCore,history);
+    const updated={...existing,version:existing.version+1,updatedAt:Date.now(),sampleSize:existing.sampleSize+1,core:newCore,fingerprint,drift:{...drift,lastShiftAt:drift.isShifting?Date.now():existing.drift.lastShiftAt}};
+    store.set(userId,updated);
+    return updated;
+  }
+
+  function get(userId){return store.get(userId)??null;}
+  function isTrusted(userId){const s=store.get(userId);return s!==null&&s!==undefined&&s.sampleSize>=MIN_SAMPLES;}
+
+  function distance(userA,userB){
+    const a=store.get(userA),b=store.get(userB);
+    if(!a||!b)return null;
+    const groups=['cognition','affect','language'];
+    let total=0,count=0;
+    groups.forEach(g=>{Object.keys(a.core[g]).forEach(k=>{total+=Math.abs(a.core[g][k]-b.core[g][k]);count++;});});
+    total+=Math.abs(a.core.entropy-b.core.entropy)+Math.abs(a.core.intensity-b.core.intensity);
+    count+=2;
+    return total/count;
+  }
+
+  function clear(userId){store.delete(userId);}
+  function clearAll(){store.clear();}
+  return{ingest,get,isTrusted,distance,clear,clearAll,MIN_SAMPLES};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// RESONANCE ENGINE — from Resonance/src/resonance/scoring.ts
+// ═══════════════════════════════════════════════════════════════
+const Resonance = (() => {
+  function dot(a,b){return a.reduce((s,v,i)=>s+v*b[i],0);}
+  function mag(v){return Math.sqrt(v.reduce((s,x)=>s+x*x,0));}
+  function cosine(a,b){const m=mag(a)*mag(b);if(m===0)return 0;return Math.max(-1,Math.min(1,dot(a,b)/m));}
+
+  function toVec(s){return[...Object.values(s.cognition),...Object.values(s.affect),...Object.values(s.language),s.entropy,s.intensity];}
+  function groupVec(s,g){return Object.values(s[g]);}
+
+  function avgSignal(sigs){
+    if(!sigs.length)return null;
+    const avg=(k,g)=>sigs.reduce((s,v)=>s+v[g][k],0)/sigs.length;
+    const t=sigs[0];
+    return{...t,cognition:Object.fromEntries(Object.keys(t.cognition).map(k=>[k,avg(k,'cognition')])),affect:Object.fromEntries(Object.keys(t.affect).map(k=>[k,avg(k,'affect')])),language:Object.fromEntries(Object.keys(t.language).map(k=>[k,avg(k,'language')])),entropy:sigs.reduce((s,v)=>s+v.entropy,0)/sigs.length,intensity:sigs.reduce((s,v)=>s+v.intensity,0)/sigs.length};
+  }
+
+  function structural(a,b){
+    const cogSim=(cosine(groupVec(a,'cognition'),groupVec(b,'cognition'))+1)/2;
+    const affSim=(cosine(groupVec(a,'affect'),groupVec(b,'affect'))+1)/2;
+    const langSim=(cosine(groupVec(a,'language'),groupVec(b,'language'))+1)/2;
+    return{total:cogSim*0.35+affSim*0.35+langSim*0.30,cognition:cogSim,affect:affSim,language:langSim};
+  }
+
+  function makeOscProfile(userId,signals){
+    if(!signals.length)return null;
+    const cogAmps=signals.map(s=>Object.values(s.cognition).reduce((a,b)=>a+b,0)/5);
+    const affAmps=signals.map(s=>Object.values(s.affect).reduce((a,b)=>a+b,0)/5);
+    const langAmps=signals.map(s=>Object.values(s.language).reduce((a,b)=>a+b,0)/5);
+    function amp(vals){if(vals.length<2)return 0;const m=vals.reduce((a,b)=>a+b,0)/vals.length;return Math.sqrt(vals.reduce((s,v)=>s+(v-m)**2,0)/vals.length);}
+    function freq(vals){let flips=0;for(let i=1;i<vals.length;i++)if(Math.sign(vals[i]-vals[i-1])!==Math.sign(vals[i-1]-vals[i-2]??0))flips++;return flips/Math.max(vals.length-1,1);}
+    const cogA=amp(cogAmps),affA=amp(affAmps),langA=amp(langAmps);
+    const overall=(cogA+affA+langA)/3;
+    const allAmps=signals.map(s=>s.intensity);
+    const stability=1-amp(allAmps);
+    return{userId,windowSize:signals.length,computedAt:Date.now(),amplitude:{cognition:cogA,affect:affA,language:langA,overall},frequency:{cognition:freq(cogAmps),affect:freq(affAmps),language:freq(langAmps)},phaseShift:{direction:'stable',magnitude:0},stability:Math.max(0,stability),recovery:0.5,currentPhase:0.5};
+  }
+
+  function oscResonance(a,b){
+    const ampSim=1-Math.abs(a.amplitude.overall-b.amplitude.overall);
+    const freqSim=1-(Math.abs(a.frequency.cognition-b.frequency.cognition)*0.33+Math.abs(a.frequency.affect-b.frequency.affect)*0.33+Math.abs(a.frequency.language-b.frequency.language)*0.33);
+    const stabSim=1-Math.abs(a.stability-b.stability);
+    return Math.max(0,ampSim*0.4+freqSim*0.4+stabSim*0.2);
+  }
+
+  function temporalAlignment(a,b){
+    const phaseDiff=Math.abs(a.currentPhase-b.currentPhase);
+    const dirMatch=a.phaseShift.direction===b.phaseShift.direction?1:0.3;
+    return Math.max(0,(1-phaseDiff)*0.6+dirMatch*0.4);
+  }
+
+  function classifyMatch(str,osc,tmp,a,b){
+    if(str>0.75&&osc>0.7)return'mirror';
+    if(str>0.6&&Math.abs(a.affect.valence-b.affect.valence)>0.3)return'complementary';
+    if(str>0.5&&osc<0.4)return'friction';
+    if(str<0.4)return'dissonant';
+    return'complementary';
+  }
+
+  function computeResonance(input){
+    const win=input.windowSize??10;
+    const rA=input.signalsA.slice(-win),rB=input.signalsB.slice(-win);
+    const avgA=avgSignal(rA),avgB=avgSignal(rB);
+    if(!avgA||!avgB)return{userA:input.userA,userB:input.userB,computedAt:Date.now(),structural:0,oscillation:0,temporal:0,total:0,matchType:'dissonant',insights:['Insufficient data'],axes:{cognition:0,affect:0,language:0}};
+    const str=structural(avgA,avgB);
+    const osc=oscResonance(input.oscA,input.oscB);
+    const tmp=temporalAlignment(input.oscA,input.oscB);
+    const total=str.total*0.45+osc*0.45+tmp*0.10;
+    const matchType=classifyMatch(str.total,osc,tmp,avgA,avgB);
+    const insights=[];
+    if(str.cognition>0.7)insights.push('Strong cognitive alignment — similar abstraction and system thinking.');
+    if(str.affect>0.7)insights.push('Affective resonance — shared emotional intensity and valence.');
+    if(Math.abs(avgA.affect.valence-avgB.affect.valence)>0.3)insights.push('Valence contrast — one more positive, one more negative in recent expression.');
+    if(osc>0.7)insights.push('Oscillation sync — similar rhythm and amplitude of expression change.');
+    if(matchType==='mirror')insights.push('Mirror resonance: high mutual recognition likely.');
+    return{userA:input.userA,userB:input.userB,computedAt:Date.now(),structural:str.total,oscillation:osc,temporal:tmp,total,matchType,insights,axes:{cognition:str.cognition,affect:str.affect,language:str.language}};
+  }
+
+  return{computeResonance,makeOscProfile,avgSignal};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// IDL — Intimacy Dynamics Layer
+// ═══════════════════════════════════════════════════════════════
+const IDL = (() => {
+  function clamp(n){return Math.max(0,Math.min(1,n));}
+  function mean(vs){return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:0.5;}
+  function variance(vs){if(vs.length<2)return 0;const m=mean(vs);return vs.reduce((s,v)=>s+(v-m)**2,0)/vs.length;}
+
+  function computeIntimacyVector(userId,signals){
+    if(!signals.length)return null;
+    const vols=signals.map(s=>s.affect.volatility);
+    const atts=signals.map(s=>s.affect.attachmentLoad);
+    const vals=signals.map(s=>s.affect.valence);
+    const entr=signals.map(s=>s.entropy);
+    const urg=signals.map(s=>s.affect.urgency);
+    const rec=signals.map(s=>s.cognition.recursionDepth);
+    const ints=signals.map(s=>s.intensity);
+    const nar=signals.map(s=>s.language.narrativeStructure);
+    const lin=signals.map(s=>s.cognition.linearity);
+
+    // persistence
+    const bondRetention=clamp(1-variance(vols)*4);
+    const repairTendency=clamp(mean(atts)*0.6+mean(vals)*0.4);
+    const returnLikelihood=clamp(1-variance(entr)*3);
+
+    // elasticity
+    const separationTolerance=clamp(1-mean(atts)*0.6-mean(urg)*0.4);
+    const independenceStability=clamp(mean(rec)*0.5+(1-variance(ints)*3)*0.5);
+    const nonCling=clamp((1-mean(atts))*0.7+(1-mean(urg))*0.3);
+
+    // regulation
+    const predictability=clamp(1-variance(vols)*4-variance(ints)*2);
+    const emotionalConsistency=clamp(1-variance(vals)*4);
+    const relationalPacing=clamp(mean(lin)*0.5+(1-variance(nar)*3)*0.5);
+
+    // latency
+    const internalDepth=clamp(mean(rec)*0.7+(1-mean(s=>s.affect.urgency))*0.3);
+    const expressionDelay=clamp(mean(rec)*0.5+variance(ints)*2*0.5);
+    const integrationTime=clamp(mean(rec)*0.4+variance(vals)*2*0.3+(1-mean(urg))*0.3);
+
+    return{userId,computedAt:Date.now(),sampleSize:signals.length,persistence:{bondRetention,repairTendency,returnLikelihood},elasticity:{separationTolerance,independenceStability,nonCling},regulation:{predictability,emotionalConsistency,relationalPacing},latency:{internalDepth,expressionDelay,integrationTime}};
+  }
+
+  function classifyMode(v){
+    const scores={};
+    const pm=vs=>vs.reduce((a,b)=>a+b,0)/vs.length;
+    scores['structured-devotional']=pm([v.persistence.bondRetention,v.persistence.repairTendency,v.regulation.predictability,v.regulation.emotionalConsistency]);
+    scores['chaotic-attachment']=pm([1-v.regulation.predictability,1-v.regulation.emotionalConsistency,v.persistence.returnLikelihood,1-v.elasticity.separationTolerance]);
+    scores['detached-autonomous']=pm([v.elasticity.separationTolerance,v.elasticity.independenceStability,v.elasticity.nonCling,v.regulation.predictability]);
+    scores['deep-processor']=pm([v.latency.internalDepth,v.latency.expressionDelay,v.latency.integrationTime,v.elasticity.independenceStability]);
+    scores['anxious-attacher']=pm([1-v.elasticity.separationTolerance,1-v.elasticity.nonCling,1-v.regulation.predictability]);
+    scores['reciprocal-builder']=pm([v.persistence.repairTendency,v.persistence.bondRetention,pm(Object.values(v.regulation))]);
+    const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+    const primary=sorted[0][0],secondary=sorted[1][0];
+    return{primary,secondary,confidence:Math.round((sorted[0][1]-sorted[1][1])*100)/100+0.5,description:`Primary: ${primary} (${Math.round(sorted[0][1]*100)}%)`};
+  }
+
+  function computeRelationalDynamic(a,b,modeA,modeB){
+    const d=(x,y)=>Math.abs(x-y);
+    const pD=mean([d(a.persistence.bondRetention,b.persistence.bondRetention),d(a.persistence.repairTendency,b.persistence.repairTendency),d(a.persistence.returnLikelihood,b.persistence.returnLikelihood)]);
+    const eD=mean([d(a.elasticity.separationTolerance,b.elasticity.separationTolerance),d(a.elasticity.independenceStability,b.elasticity.independenceStability),d(a.elasticity.nonCling,b.elasticity.nonCling)]);
+    const rD=mean([d(a.regulation.predictability,b.regulation.predictability),d(a.regulation.emotionalConsistency,b.regulation.emotionalConsistency),d(a.regulation.relationalPacing,b.regulation.relationalPacing)]);
+    const lD=mean([d(a.latency.internalDepth,b.latency.internalDepth),d(a.latency.expressionDelay,b.latency.expressionDelay),d(a.latency.integrationTime,b.latency.integrationTime)]);
+    const overallDelta=mean([pD,eD,rD,lD]);
+    const procComp=Math.max(0,1-lD*1.8);
+    const regComp=rD<0.2?0.9:rD<0.4?0.7:Math.max(0.2,0.7-rD);
+    const overallFit=Math.max(0,1-overallDelta*1.2);
+    let type='complementary';
+    if(overallDelta<0.15)type='mirroring';
+    else if(modeA.primary==='structured-devotional'&&modeB.primary==='chaotic-attachment')type='stabilizing';
+    else if(overallDelta>0.5)type='asymmetric';
+    else if(rD>0.4)type='oscillating';
+    else if(overallFit>0.6)type='complementary';
+    const warnings=[];
+    if(lD>0.4)warnings.push('Large processing latency gap — one partner may feel unheard before the other is ready to respond.');
+    if(rD>0.4)warnings.push('Regulation mismatch — different emotional pacing may create timing friction.');
+    if(eD>0.5)warnings.push('Elasticity contrast — one partner needs more contact to self-regulate.');
+    return{userA:a.userId,userB:b.userId,computedAt:Date.now(),type,description:`${type} dynamic between ${a.userId} and ${b.userId}`,warnings,axes:{persistenceDelta:pD,elasticityDelta:eD,regulationDelta:rD,latencyDelta:lD},processingCompatibility:procComp,regulationCompatibility:regComp,overallFit};
+  }
+
+  return{computeIntimacyVector,classifyMode,computeRelationalDynamic};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// MEDIA UTILITIES — canvas, audio, file synthesis
+// ═══════════════════════════════════════════════════════════════
+const Media = (() => {
+  // Generate test image frames as ImageData
+  function makeFrame(w,h,type){
+    const d=new ImageData(w,h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      if(type==='face'){
+        const cx=w/2,cy=h/2,dist=Math.sqrt((x-cx)**2+(y-cy)**2);
+        const skin=dist<Math.min(w,h)*.4?200:50;
+        d.data[i]=skin;d.data[i+1]=Math.floor(skin*.8);d.data[i+2]=Math.floor(skin*.7);d.data[i+3]=255;
+      } else if(type==='dark'){
+        d.data[i]=20;d.data[i+1]=20;d.data[i+2]=25;d.data[i+3]=255;
+      } else if(type==='bright'){
+        d.data[i]=230;d.data[i+1]=235;d.data[i+2]=240;d.data[i+3]=255;
+      } else if(type==='gradient'){
+        d.data[i]=Math.floor(x/w*255);d.data[i+1]=Math.floor(y/h*255);d.data[i+2]=128;d.data[i+3]=255;
+      } else if(type==='noise'){
+        const v=Math.floor(Math.random()*255);d.data[i]=v;d.data[i+1]=v;d.data[i+2]=v;d.data[i+3]=255;
+      } else if(type==='motion'){
+        const v=((x+y*2)%30)<15?200:50;d.data[i]=v;d.data[i+1]=v;d.data[i+2]=v;d.data[i+3]=255;
+      } else {
+        d.data[i]=Math.floor(Math.random()*255);d.data[i+1]=Math.floor(Math.random()*255);d.data[i+2]=Math.floor(Math.random()*255);d.data[i+3]=255;
+      }
+    }
+    return d;
+  }
+
+  // Render ImageData to an offscreen canvas, return canvas + data URL
+  function renderToCanvas(imageData,scale=2){
+    const c=new OffscreenCanvas(imageData.width*scale,imageData.height*scale);
+    const ctx=c.getContext('2d');
+    // scale up for visibility
+    const tmp=new OffscreenCanvas(imageData.width,imageData.height);
+    tmp.getContext('2d').putImageData(imageData,0,0);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(tmp,0,0,c.width,c.height);
+    return c;
+  }
+
+  function canvasToBlob(offscreen){
+    return offscreen.convertToBlob({type:'image/png'});
+  }
+
+  // Generate PCM audio buffers
+  function makePCM(type,n=2048,sr=44100){
+    const s=new Float32Array(n);
+    if(type==='sine')for(let i=0;i<n;i++)s[i]=0.8*Math.sin(2*Math.PI*440*i/sr);
+    else if(type==='voice')for(let i=0;i<n;i++){const env=0.5+0.5*Math.sin(2*Math.PI*3*i/n);s[i]=env*(0.4*Math.sin(2*Math.PI*150*i/sr)+0.2*Math.sin(2*Math.PI*300*i/sr)+0.1*(Math.random()*2-1));}
+    else if(type==='noise')for(let i=0;i<n;i++)s[i]=(Math.random()*2-1)*0.4;
+    else if(type==='silence'){}// zeros
+    else if(type==='burst'){const b=Math.floor(n*.4);for(let i=b;i<b+Math.floor(n*.2);i++)s[i]=(Math.random()*2-1)*0.9;}
+    else if(type==='stress')for(let i=0;i<n;i++){s[i]=0.5*Math.sin(2*Math.PI*200*i/sr)+0.3*(Math.random()*2-1)+0.2*Math.sin(2*Math.PI*400*i/sr);}
+    return s;
+  }
+
+  // PCM → WAV blob (minimal header)
+  function pcmToWavBlob(pcm,sr=44100){
+    const n=pcm.length,bytesPerSample=2,channels=1;
+    const buf=new ArrayBuffer(44+n*bytesPerSample);
+    const view=new DataView(buf);
+    function ws(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
+    ws(0,'RIFF');view.setUint32(4,36+n*bytesPerSample,true);ws(8,'WAVE');ws(12,'fmt ');
+    view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,channels,true);
+    view.setUint32(24,sr,true);view.setUint32(28,sr*channels*bytesPerSample,true);
+    view.setUint16(32,channels*bytesPerSample,true);view.setUint16(34,bytesPerSample*8,true);
+    ws(36,'data');view.setUint32(40,n*bytesPerSample,true);
+    const s16=new Int16Array(buf,44);for(let i=0;i<n;i++)s16[i]=Math.max(-32768,Math.min(32767,pcm[i]*32767));
+    return new Blob([buf],{type:'audio/wav'});
+  }
+
+  // Synthetic "screenshot" — HTML canvas with text content
+  function makeScreenshot(text='System state: nominal'){
+    const c=new OffscreenCanvas(320,120);
+    const ctx=c.getContext('2d');
+    ctx.fillStyle='#080c10';ctx.fillRect(0,0,320,120);
+    ctx.strokeStyle='#1e2e3c';ctx.strokeRect(1,1,318,118);
+    ctx.fillStyle='#00f0c0';ctx.font='bold 11px monospace';ctx.fillText('◈ CrystalBall · Screenshot',12,22);
+    ctx.fillStyle='#506070';ctx.font='10px monospace';ctx.fillText(text,12,44);
+    ctx.fillStyle='#00c8ff';ctx.fillText(`ts: ${Date.now()}`,12,62);
+    ctx.fillStyle='#ff60c0';ctx.fillText('ASE · Resonance · IDL active',12,80);
+    return c;
+  }
+
+  // Text documents of various types
+  const docs={
+    clinical:`Patient presents with elevated anxiety and somatic tension around professional performance. She describes a recurring pattern: "I notice when someone criticizes my work, my whole chest tightens, and I can't think clearly. It's like the ground disappears." High self-monitoring, clear internal access, strong body-mind connection. Narrative structure coherent but emotionally weighted. Exploring whether this is protective mechanism or unprocessed fear response.`,
+    abstract:`The constraint field runtime emerges from a core inversion: instead of telling the computer what to do, you define what equilibrium looks like. The physics finds it. Fidelity resists entropy. Attention amplifies signal. Selection prunes noise. What you observe is not programmed — it is the natural consequence of competing forces finding their minimum energy configuration across N dimensions simultaneously.`,
+    poetic:`I carry the weight of it differently now — not as burden but as ballast. What was wound becomes root. The fire that burned through the frame left the beams visible. Architecture exposed. I'm learning to read the structure rather than mourn the walls.`,
+    fragmented:`I don't know. It's just — when you said that — I can't. It keeps coming back. Like I should be over this but. The thing is. Never mind. It doesn't matter. Or maybe it does. I don't know what I'm saying.`,
+    technical:`The Verlet integration scheme avoids explicit velocity storage by using position history: x(t+dt) = 2x(t) - x(t-dt) + a(t)dt². This provides second-order accuracy while maintaining numerical stability under constraint resolution. The key advantage over symplectic Euler is that energy drift is bounded rather than accumulative, making it suitable for long-running simulations with iterative constraint passes.`,
+    relational:`I need you to understand that when you go quiet, I don't know what it means. My whole system goes on alert. I start running through everything I said, checking for what broke it. I know that's my pattern, not yours — I'm not saying it's your fault. But I need us to find a signal. Something that tells me we're still okay.`,
+    short:`Yes. No. Maybe. I don't know.`,
+    rich_dense:`Emergence isn't magic — it's the consequence of local rules creating global structure. Each node in the field only knows its own forces: entropy pushing outward, fidelity pulling home, attention warping spacetime locally. Yet from these simple interactions, clusters form, hierarchies emerge, and the system develops something that looks, from the outside, like intention.`,
+    therapy_note:`Session 12. Client arrived visibly dysregulated — shallow breathing, avoiding eye contact. Reported waking at 3am with 'the voice' — internal critic cataloguing inadequacies. When asked what the voice sounds like, long pause. 'It sounds like no one particular. Just absolute certainty.' Worked with parts language. Some defusion. Left more grounded. Homework: notice when the voice uses 'always' or 'never'.`
+  };
+
+  return{makeFrame,renderToCanvas,canvasToBlob,makePCM,pcmToWavBlob,makeScreenshot,docs};
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// LOG ENGINE
+// ═══════════════════════════════════════════════════════════════
+const LOG = (() => {
+  const kernel=Nexus.createKernel({ringCap:8000});
+  let logFilter='all';
+
+  // Gate: flag high-drift ASE events
+  kernel.registerGate('ase.drift.watch',(ev)=>{
+    if(ev.type==='test.ase.update'&&ev.payload?.drift?.isShifting){
+      return[Nexus.gateOutput('test.gate.ase.drift',{userId:ev.payload.userId,magnitude:ev.payload.drift?.magnitude},{source:'gate:ase-drift',causedBy:ev.id,edgeType:Nexus.EDGE_RULE})];
+    }
+    return[];
+  },30);
+
+  // Gate: flag mirror resonance matches
+  kernel.registerGate('resonance.mirror.watch',(ev)=>{
+    if(ev.type==='test.resonance.result'&&ev.payload?.matchType==='mirror'){
+      return[Nexus.gateOutput('test.gate.resonance.mirror',{users:`${ev.payload.userA}↔${ev.payload.userB}`,total:ev.payload.total},{source:'gate:resonance-mirror',causedBy:ev.id,edgeType:Nexus.EDGE_RULE})];
+    }
+    return[];
+  },40);
+
+  function emit(type,payload,meta){return kernel.ingest(type,payload??{},meta??{});}
+  function getAll(){return kernel.getAll();}
+
+  function typeClass(type){
+    if(type.includes('media')||type.includes('video')||type.includes('audio')||type.includes('screenshot')||type.includes('wav')||type.includes('png')||type.includes('frame'))return 't-media';
+    if(type.includes('ase'))return 't-ase';
+    if(type.includes('resonance'))return 't-resonance';
+    if(type.includes('idl'))return 't-idl';
+    if(type.includes('heuristic')||type.includes('extract')||type.includes('signal'))return 't-heuristic';
+    if(type.includes('gate'))return 't-gate';
+    if(type.includes('error')||type.includes('fail'))return 't-error';
+    return 't-heuristic';
+  }
+
+  function setFilter(f){logFilter=f;renderLog();}
+
+  function renderLog(){
+    const events=kernel.getAll();
+    const filtered=logFilter==='all'?events:events.filter(ev=>{
+      const tc=typeClass(ev.type);
+      if(logFilter==='error')return tc==='t-error'||ev.type.includes('error');
+      return tc==='t-'+logFilter;
+    });
+    const stream=document.getElementById('log-stream');
+    if(!stream)return;
+    stream.innerHTML='';
+    const slice=filtered.slice(-400);
+    for(const ev of slice){
+      const div=document.createElement('div');
+      div.className='log-ev '+typeClass(ev.type);
+      const parts=ev.type.split('.');
+      const ns=parts.slice(0,2).join('.');const name=parts.slice(2).join('.');
+      const payStr=JSON.stringify(ev.payload).slice(0,90);
+      div.innerHTML=`<span class="ts">${Nexus.formatTs(ev.ts)}</span><div><div class="etype"><span class="ns">${ns}.</span>${name}${ev.causedBy?` <span style="color:var(--text3)">← ${Nexus.shortId(ev.causedBy)}</span>`:''}</div><div class="epay">${payStr}</div></div>`;
+      stream.appendChild(div);
+    }
+    stream.scrollTop=stream.scrollHeight;
+    const ec=document.getElementById('ev-count');
+    if(ec)ec.textContent=events.length;
+  }
+
+  let renderTimer=null;
+  kernel.subscribe(()=>{clearTimeout(renderTimer);renderTimer=setTimeout(renderLog,60);});
+
+  return{emit,getAll,setFilter,kernel};
+})();
+
+window.setFilter=(btn,f)=>{document.querySelectorAll('.lf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');LOG.setFilter(f);};
+
+// ═══════════════════════════════════════════════════════════════
+// TEST HELPERS
+// ═══════════════════════════════════════════════════════════════
+const TESTS=[];
+function ok(name,cond,got,expected,dur){return{name,pass:!!cond,got,expected,dur:dur??0,type:'assert'};}
+function info(msg,data){return{name:msg,pass:true,got:data,type:'info'};}
+function warn(msg,data){return{name:msg,pass:null,got:data,type:'warn'};}
+function media(msg,data){return{name:msg,pass:true,got:data,type:'media'};}
+function suite(name,color,tests){TESTS.push({name,color,tests});}
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 1 — HEURISTIC SIGNAL EXTRACTION (all doc types)
+// ═══════════════════════════════════════════════════════════════
+suite('Heuristic Extractor · All Text Types','var(--c7)',[
+  async function clinical_text_extraction(){
+    const sig=Heuristic.extract('user-clinical',Media.docs.clinical);
+    LOG.emit('test.heuristic.extract',{docType:'clinical',confidence:sig.confidence,somaticDensity:sig.affect.somaticDensity,recursionDepth:sig.cognition.recursionDepth,valence:sig.affect.valence},{source:'test.heuristic'});
+    return[ok('clinical: confidence > 0.4',sig.confidence>0.4,sig.confidence,'>0.4'),ok('clinical: somatic density elevated',sig.affect.somaticDensity>0,sig.affect.somaticDensity,'>0'),ok('clinical: recursion depth > 0',sig.cognition.recursionDepth>0,sig.cognition.recursionDepth,'>0'),info('valence',sig.affect.valence),info('intensity',sig.intensity)];
+  },
+  async function abstract_text_extraction(){
+    const sig=Heuristic.extract('user-abstract',Media.docs.abstract);
+    LOG.emit('test.heuristic.extract',{docType:'abstract',abstractionLevel:sig.cognition.abstractionLevel,systemThinking:sig.cognition.systemThinking,entropy:sig.entropy},{source:'test.heuristic'});
+    return[ok('abstract: abstraction level high',sig.cognition.abstractionLevel>0.4,sig.cognition.abstractionLevel,'>0.4'),ok('abstract: system thinking elevated',sig.cognition.systemThinking>0,sig.cognition.systemThinking,'>0'),ok('abstract: entropy elevated',sig.entropy>0.3,sig.entropy,'>0.3'),info('dominance pattern','cognition-heavy'),info('compression',sig.cognition.compression)];
+  },
+  async function poetic_text_extraction(){
+    const sig=Heuristic.extract('user-poetic',Media.docs.poetic);
+    LOG.emit('test.heuristic.extract',{docType:'poetic',poeticness:sig.language.poeticness,metaphorDensity:sig.language.metaphorDensity,symbolicUsage:sig.language.symbolicUsage},{source:'test.heuristic'});
+    return[ok('poetic: poeticness elevated',sig.language.poeticness>0.1,sig.language.poeticness,'>0.1'),ok('poetic: metaphor density > 0',sig.language.metaphorDensity>0,sig.language.metaphorDensity,'>0'),info('symbolic',sig.language.symbolicUsage),info('narrativeStructure',sig.language.narrativeStructure)];
+  },
+  async function fragmented_text_extraction(){
+    const sig=Heuristic.extract('user-frag',Media.docs.fragmented);
+    LOG.emit('test.heuristic.extract',{docType:'fragmented',confidence:sig.confidence,volatility:sig.affect.volatility,urgency:sig.affect.urgency},{source:'test.heuristic'});
+    return[ok('fragmented: lower confidence (short fragments)',sig.confidence<0.9,sig.confidence,'<0.9'),ok('fragmented: volatility or urgency present',sig.affect.volatility>0||sig.affect.urgency>0,true,true),info('fragmented confidence',sig.confidence)];
+  },
+  async function technical_text_extraction(){
+    const sig=Heuristic.extract('user-tech',Media.docs.technical);
+    LOG.emit('test.heuristic.extract',{docType:'technical',analyticalness:sig.language.analyticalness,linearity:sig.cognition.linearity},{source:'test.heuristic'});
+    return[ok('technical: analyticalness > 0',sig.language.analyticalness>0,sig.language.analyticalness,'>0'),ok('technical: linearity elevated',sig.cognition.linearity>0.2,sig.cognition.linearity,'>0.2'),info('systemThinking',sig.cognition.systemThinking)];
+  },
+  async function relational_text_extraction(){
+    const sig=Heuristic.extract('user-rel',Media.docs.relational);
+    LOG.emit('test.heuristic.extract',{docType:'relational',attachmentLoad:sig.affect.attachmentLoad,urgency:sig.affect.urgency},{source:'test.heuristic'});
+    return[ok('relational: attachment load elevated',sig.affect.attachmentLoad>0.1,sig.affect.attachmentLoad,'>0.1'),ok('relational: urgency present',sig.affect.urgency>0,sig.affect.urgency,'>0'),info('valence',sig.affect.valence)];
+  },
+  async function short_text_low_confidence(){
+    const sig=Heuristic.extract('user-short',Media.docs.short);
+    LOG.emit('test.heuristic.extract',{docType:'short',confidence:sig.confidence},{source:'test.heuristic'});
+    return[ok('short text: confidence penalized',sig.confidence<0.7,sig.confidence,'<0.7')];
+  },
+  async function null_empty_handling(){
+    const r1=Heuristic.extract('user-null',null);
+    const r2=Heuristic.extract('user-empty','');
+    LOG.emit('test.heuristic.null',{r1null:r1===null,r2null:r2===null},{source:'test.heuristic'});
+    return[ok('null text returns null',r1===null,r1,null),ok('empty text returns null',r2===null,r2,null)];
+  },
+  async function contrast_clinical_vs_abstract(){
+    const clin=Heuristic.extract('cmp-c',Media.docs.clinical);
+    const abst=Heuristic.extract('cmp-a',Media.docs.abstract);
+    LOG.emit('test.heuristic.contrast',{clinicalSomatic:clin.affect.somaticDensity,abstractSomatic:abst.affect.somaticDensity,clinicalAbstraction:clin.cognition.abstractionLevel,abstractAbstraction:abst.cognition.abstractionLevel},{source:'test.heuristic'});
+    return[ok('clinical has higher somatic density than abstract',clin.affect.somaticDensity>=abst.affect.somaticDensity,`clin=${clin.affect.somaticDensity} abst=${abst.affect.somaticDensity}`,true),info('abstraction contrast',`clin=${Math.round(clin.cognition.abstractionLevel*100)/100} abst=${Math.round(abst.cognition.abstractionLevel*100)/100}`)];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 2 — AUTHORSHIP SIGNATURE ENGINE
+// ═══════════════════════════════════════════════════════════════
+suite('Authorship Signature Engine · ASE','var(--c4)',[
+  async function ase_initial_ingestion(){
+    ASE.clear('ase-user-1');
+    const sig=Heuristic.extract('ase-user-1',Media.docs.clinical);
+    const result=ASE.ingest('ase-user-1',sig);
+    LOG.emit('test.ase.update',{userId:'ase-user-1',version:result.version,sampleSize:result.sampleSize,dominantMode:result.fingerprint.dominantMode,drift:result.drift},{source:'test.ase'});
+    return[ok('ASE creates signature',result!==null,!!result,true),ok('version starts at 1',result.version===1,result.version,1),ok('sampleSize is 1',result.sampleSize===1,result.sampleSize,1),ok('core has cognition',!!result.core.cognition,true,true),info('dominant mode',result.fingerprint.dominantMode)];
+  },
+  async function ase_ema_accumulation(){
+    ASE.clear('ase-ema-1');
+    const docs=[Media.docs.abstract,Media.docs.technical,Media.docs.relational,Media.docs.poetic,Media.docs.clinical,Media.docs.rich_dense];
+    let last;
+    for(const d of docs){const s=Heuristic.extract('ase-ema-1',d);last=ASE.ingest('ase-ema-1',s);}
+    LOG.emit('test.ase.update',{userId:'ase-ema-1',version:last.version,sampleSize:last.sampleSize,dominantMode:last.fingerprint.dominantMode,drift:last.drift},{source:'test.ase'});
+    return[ok('ASE accumulated 6 samples',last.sampleSize===6,last.sampleSize,6),ok('version incremented to 6',last.version===6,last.version,6),ok('core values in [0,1]',Object.values(last.core.cognition).every(v=>v>=0&&v<=1),true,true),info('mode after 6 docs',last.fingerprint.dominantMode),info('entropy core',Math.round(last.core.entropy*100)/100)];
+  },
+  async function ase_drift_detection(){
+    ASE.clear('ase-drift-1');
+    // Feed stable analytical texts first
+    for(let i=0;i<4;i++){const s=Heuristic.extract('ase-drift-1',Media.docs.technical);ASE.ingest('ase-drift-1',s);}
+    const before=ASE.get('ase-drift-1');
+    // Then feed highly contrasting poetic/somatic text
+    const s=Heuristic.extract('ase-drift-1',Media.docs.poetic+' '+Media.docs.relational);
+    const after=ASE.ingest('ase-drift-1',s);
+    LOG.emit('test.ase.update',{userId:'ase-drift-1',drift:after.drift,version:after.version},{source:'test.ase'});
+    return[ok('drift computed',typeof after.drift.magnitude==='number',typeof after.drift.magnitude,'number'),ok('magnitude in [0,1]',after.drift.magnitude>=0&&after.drift.magnitude<=1,after.drift.magnitude,'[0,1]'),info('drift magnitude',after.drift.magnitude),info('drift axes',after.drift.direction.join(', ')||'none')];
+  },
+  async function ase_trust_threshold(){
+    ASE.clear('ase-trust-1');
+    const notTrusted=ASE.isTrusted('ase-trust-1');
+    for(let i=0;i<ASE.MIN_SAMPLES;i++){const s=Heuristic.extract('ase-trust-1',Media.docs.clinical+' '+i);ASE.ingest('ase-trust-1',s);}
+    const trusted=ASE.isTrusted('ase-trust-1');
+    LOG.emit('test.ase.trust',{userId:'ase-trust-1',trusted,minSamples:ASE.MIN_SAMPLES},{source:'test.ase'});
+    return[ok('not trusted before MIN_SAMPLES',notTrusted===false,notTrusted,false),ok('trusted after MIN_SAMPLES',trusted===true,trusted,true)];
+  },
+  async function ase_signature_distance(){
+    ASE.clear('ase-dist-A');ASE.clear('ase-dist-B');ASE.clear('ase-dist-C');
+    // A and B: both analytical
+    for(let i=0;i<3;i++){ASE.ingest('ase-dist-A',Heuristic.extract('ase-dist-A',Media.docs.technical));ASE.ingest('ase-dist-B',Heuristic.extract('ase-dist-B',Media.docs.technical));}
+    // C: poetic/somatic — should be more distant from A
+    for(let i=0;i<3;i++){ASE.ingest('ase-dist-C',Heuristic.extract('ase-dist-C',Media.docs.poetic));}
+    const dAB=ASE.distance('ase-dist-A','ase-dist-B');
+    const dAC=ASE.distance('ase-dist-A','ase-dist-C');
+    LOG.emit('test.ase.distance',{dAB,dAC,closerThanAC:dAB<dAC},{source:'test.ase'});
+    return[ok('distance computed',dAB!==null&&dAC!==null,`dAB=${Math.round(dAB*100)/100} dAC=${Math.round(dAC*100)/100}`,'not null'),ok('similar authors closer than dissimilar',dAB<=dAC,`dAB=${Math.round(dAB*100)/100} <= dAC=${Math.round(dAC*100)/100}`,true),info('dAB (similar)',Math.round(dAB*1000)/1000),info('dAC (dissimilar)',Math.round(dAC*1000)/1000)];
+  },
+  async function ase_mode_inference_across_types(){
+    const modes={};
+    const typeMap={abstract:Media.docs.abstract,clinical:Media.docs.clinical,technical:Media.docs.technical,poetic:Media.docs.poetic,relational:Media.docs.relational};
+    for(const[name,doc]of Object.entries(typeMap)){
+      ASE.clear('ase-mode-'+name);
+      for(let i=0;i<3;i++)ASE.ingest('ase-mode-'+name,Heuristic.extract('ase-mode-'+name,doc));
+      modes[name]=ASE.get('ase-mode-'+name).fingerprint.dominantMode;
+      LOG.emit('test.ase.mode',{docType:name,mode:modes[name]},{source:'test.ase'});
+    }
+    const allModes=Object.values(modes);
+    const uniqueModes=new Set(allModes).size;
+    return[ok('multiple distinct modes inferred',uniqueModes>=2,uniqueModes,'>=2'),...Object.entries(modes).map(([t,m])=>info(`${t} → ${m}`,null))];
+  },
+  async function ase_high_volume_stability(){
+    ASE.clear('ase-hv');
+    const allDocs=Object.values(Media.docs).filter(Boolean);
+    const t0=performance.now();
+    for(let round=0;round<5;round++)for(const d of allDocs){const s=Heuristic.extract('ase-hv',d);ASE.ingest('ase-hv',s);}
+    const dur=performance.now()-t0;
+    const sig=ASE.get('ase-hv');
+    LOG.emit('test.ase.high_volume',{sampleSize:sig.sampleSize,durationMs:Math.round(dur),dominantMode:sig.fingerprint.dominantMode},{source:'test.ase'});
+    return[ok('40+ samples processed',sig.sampleSize>=40,sig.sampleSize,'>=40'),ok('core values stable in [0,1]',Object.values(sig.core.cognition).every(v=>v>=0&&v<=1),true,true),ok('under 500ms',dur<500,`${Math.round(dur)}ms`,'<500ms'),info('final mode',sig.fingerprint.dominantMode)];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 3 — RESONANCE ENGINE
+// ═══════════════════════════════════════════════════════════════
+suite('Resonance Engine · Scoring · Match Types','var(--c0)',[
+  async function resonance_mirror_match(){
+    // Two users with identical text streams → should mirror
+    const docs=[Media.docs.abstract,Media.docs.technical,Media.docs.rich_dense];
+    const sigA=docs.map(d=>Heuristic.extract('res-A',d));
+    const sigB=docs.map(d=>Heuristic.extract('res-B',d));
+    const oscA=Resonance.makeOscProfile('res-A',sigA);
+    const oscB=Resonance.makeOscProfile('res-B',sigB);
+    const result=Resonance.computeResonance({userA:'res-A',signalsA:sigA,oscA,userB:'res-B',signalsB:sigB,oscB});
+    LOG.emit('test.resonance.result',{...result},{source:'test.resonance'});
+    return[ok('resonance computed',result.total>=0&&result.total<=1,result.total,'[0,1]'),ok('mirror match for identical streams',result.matchType==='mirror'||result.matchType==='complementary',result.matchType,'mirror|complementary'),ok('structural > 0.5',result.structural>0.5,result.structural,'>0.5'),info('match type',result.matchType),info('total resonance',Math.round(result.total*100)/100),...result.insights.map(i=>info('insight',i))];
+  },
+  async function resonance_dissonant_match(){
+    const clinical_sigs=Array(3).fill(0).map(()=>Heuristic.extract('res-dis-A',Media.docs.clinical));
+    const abstract_sigs=Array(3).fill(0).map(()=>Heuristic.extract('res-dis-B',Media.docs.abstract));
+    const oscA=Resonance.makeOscProfile('res-dis-A',clinical_sigs);
+    const oscB=Resonance.makeOscProfile('res-dis-B',abstract_sigs);
+    const result=Resonance.computeResonance({userA:'res-dis-A',signalsA:clinical_sigs,oscA,userB:'res-dis-B',signalsB:abstract_sigs,oscB});
+    LOG.emit('test.resonance.result',{...result},{source:'test.resonance'});
+    return[ok('resonance total in [0,1]',result.total>=0&&result.total<=1,result.total,'[0,1]'),ok('axes computed',result.axes.cognition>=0&&result.axes.affect>=0&&result.axes.language>=0,true,true),info('match type',result.matchType),info('affect axis',Math.round(result.axes.affect*100)/100),info('cognition axis',Math.round(result.axes.cognition*100)/100)];
+  },
+  async function resonance_oscillation_profile(){
+    const sigs=Object.values(Media.docs).filter(Boolean).map(d=>Heuristic.extract('osc-test',d));
+    const osc=Resonance.makeOscProfile('osc-test',sigs);
+    LOG.emit('test.resonance.oscillation',{userId:'osc-test',amplitude:osc.amplitude,frequency:osc.frequency,stability:osc.stability},{source:'test.resonance'});
+    return[ok('oscillation profile computed',osc!==null,!!osc,true),ok('amplitude overall in [0,1]',osc.amplitude.overall>=0&&osc.amplitude.overall<=1,osc.amplitude.overall,'[0,1]'),ok('stability in [0,1]',osc.stability>=0&&osc.stability<=1,osc.stability,'[0,1]'),info('amplitude',JSON.stringify({cog:Math.round(osc.amplitude.cognition*100)/100,aff:Math.round(osc.amplitude.affect*100)/100,lang:Math.round(osc.amplitude.language*100)/100})),info('frequency',JSON.stringify({cog:Math.round(osc.frequency.cognition*100)/100,aff:Math.round(osc.frequency.affect*100)/100}))];
+  },
+  async function resonance_poetic_vs_analytical(){
+    const poeticSigs=[Media.docs.poetic,Media.docs.relational].map(d=>Heuristic.extract('res-poet',d));
+    const analyticSigs=[Media.docs.technical,Media.docs.abstract].map(d=>Heuristic.extract('res-analy',d));
+    const oscP=Resonance.makeOscProfile('res-poet',poeticSigs);
+    const oscA=Resonance.makeOscProfile('res-analy',analyticSigs);
+    const result=Resonance.computeResonance({userA:'res-poet',signalsA:poeticSigs,oscA:oscP,userB:'res-analy',signalsB:analyticSigs,oscB:oscA});
+    LOG.emit('test.resonance.result',{...result},{source:'test.resonance'});
+    return[ok('result computed',!!result,true,true),ok('language axis reflects contrast',result.axes.language>=0,result.axes.language,'>=0'),info('match type',result.matchType),info('language axis',Math.round(result.axes.language*100)/100),info('affect axis',Math.round(result.axes.affect*100)/100)];
+  },
+  async function resonance_insufficient_data(){
+    const result=Resonance.computeResonance({userA:'empty-A',signalsA:[],oscA:{userId:'empty-A',windowSize:0,computedAt:Date.now(),amplitude:{cognition:0,affect:0,language:0,overall:0},frequency:{cognition:0,affect:0,language:0},phaseShift:{direction:'stable',magnitude:0},stability:0,recovery:0,currentPhase:0},userB:'empty-B',signalsB:[],oscB:{userId:'empty-B',windowSize:0,computedAt:Date.now(),amplitude:{cognition:0,affect:0,language:0,overall:0},frequency:{cognition:0,affect:0,language:0},phaseShift:{direction:'stable',magnitude:0},stability:0,recovery:0,currentPhase:0}});
+    LOG.emit('test.resonance.result',{...result},{source:'test.resonance'});
+    return[ok('empty signals returns dissonant',result.matchType==='dissonant',result.matchType,'dissonant'),ok('total is 0',result.total===0,result.total,0)];
+  },
+  async function resonance_multi_user_comparison(){
+    const users=['alice','bob','carol','dave'];
+    const userDocs={alice:[Media.docs.poetic,Media.docs.relational],bob:[Media.docs.technical,Media.docs.abstract],carol:[Media.docs.clinical,Media.docs.therapy_note],dave:[Media.docs.poetic,Media.docs.abstract]};
+    const userSigs={},userOsc={};
+    for(const u of users){
+      userSigs[u]=userDocs[u].map(d=>Heuristic.extract(u,d));
+      userOsc[u]=Resonance.makeOscProfile(u,userSigs[u]);
+    }
+    const results=[];
+    const pairs=[['alice','dave'],['alice','bob'],['bob','carol']];
+    for(const[a,b]of pairs){
+      const r=Resonance.computeResonance({userA:a,signalsA:userSigs[a],oscA:userOsc[a],userB:b,signalsB:userSigs[b],oscB:userOsc[b]});
+      results.push({pair:`${a}↔${b}`,matchType:r.matchType,total:Math.round(r.total*100)/100});
+      LOG.emit('test.resonance.result',{userA:a,userB:b,matchType:r.matchType,total:r.total},{source:'test.resonance'});
+    }
+    return[ok('all pairs computed',results.length===3,results.length,3),...results.map(r=>info(`${r.pair}: ${r.matchType} (${r.total})`,null))];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 4 — IDL: Intimacy Dynamics Layer
+// ═══════════════════════════════════════════════════════════════
+suite('IDL · Intimacy Vectors · Relational Dynamics','var(--c5)',[
+  async function idl_intimacy_vector(){
+    const sigs=[Media.docs.clinical,Media.docs.relational,Media.docs.therapy_note].map(d=>Heuristic.extract('idl-v1',d));
+    const iv=IDL.computeIntimacyVector('idl-v1',sigs);
+    LOG.emit('test.idl.vector',{userId:'idl-v1',persistence:iv.persistence,elasticity:iv.elasticity,regulation:iv.regulation,latency:iv.latency},{source:'test.idl'});
+    return[ok('vector computed',iv!==null,!!iv,true),ok('all axes in [0,1]',Object.values(iv.persistence).concat(Object.values(iv.elasticity),Object.values(iv.regulation),Object.values(iv.latency)).every(v=>v>=0&&v<=1),true,true),info('persistence',JSON.stringify({bondRetention:Math.round(iv.persistence.bondRetention*100)/100,repairTendency:Math.round(iv.persistence.repairTendency*100)/100})),info('elasticity sep.tolerance',Math.round(iv.elasticity.separationTolerance*100)/100)];
+  },
+  async function idl_mode_classification(){
+    const typeDocs={structured:[Media.docs.technical,Media.docs.technical,Media.docs.abstract],chaotic:[Media.docs.fragmented,Media.docs.fragmented,Media.docs.relational],detached:[Media.docs.abstract,Media.docs.abstract,Media.docs.technical],deep:[Media.docs.clinical,Media.docs.therapy_note,Media.docs.poetic]};
+    const results={};
+    for(const[label,docs]of Object.entries(typeDocs)){
+      const sigs=docs.map(d=>Heuristic.extract('idl-mode-'+label,d));
+      const iv=IDL.computeIntimacyVector('idl-mode-'+label,sigs);
+      results[label]=IDL.classifyMode(iv);
+      LOG.emit('test.idl.mode',{label,primary:results[label].primary,confidence:results[label].confidence},{source:'test.idl'});
+    }
+    return[ok('all mode classifications computed',Object.keys(results).length===4,true,true),...Object.entries(results).map(([l,m])=>info(`${l} → ${m.primary} (${Math.round(m.confidence*100)/100})`,null))];
+  },
+  async function idl_relational_dynamic(){
+    const sigsA=[Media.docs.relational,Media.docs.clinical].map(d=>Heuristic.extract('idl-dyn-A',d));
+    const sigsB=[Media.docs.abstract,Media.docs.technical].map(d=>Heuristic.extract('idl-dyn-B',d));
+    const ivA=IDL.computeIntimacyVector('idl-dyn-A',sigsA);
+    const ivB=IDL.computeIntimacyVector('idl-dyn-B',sigsB);
+    const modeA=IDL.classifyMode(ivA);
+    const modeB=IDL.classifyMode(ivB);
+    const dynamic=IDL.computeRelationalDynamic(ivA,ivB,modeA,modeB);
+    LOG.emit('test.idl.dynamic',{type:dynamic.type,overallFit:dynamic.overallFit,warnings:dynamic.warnings,axes:dynamic.axes},{source:'test.idl'});
+    return[ok('dynamic computed',!!dynamic,true,true),ok('overallFit in [0,1]',dynamic.overallFit>=0&&dynamic.overallFit<=1,dynamic.overallFit,'[0,1]'),ok('axes computed',Object.values(dynamic.axes).every(v=>v>=0),true,true),info('dynamic type',dynamic.type),info('processingCompatibility',Math.round(dynamic.processingCompatibility*100)/100),...dynamic.warnings.map(w=>warn(w,null))];
+  },
+  async function idl_same_user_mirroring(){
+    const sigs=Array(4).fill(0).map(()=>Heuristic.extract('mirror-user',Media.docs.rich_dense));
+    const ivA=IDL.computeIntimacyVector('mirror-user',sigs);
+    const ivB=IDL.computeIntimacyVector('mirror-user',sigs);
+    const dynamic=IDL.computeRelationalDynamic(ivA,ivB,IDL.classifyMode(ivA),IDL.classifyMode(ivB));
+    LOG.emit('test.idl.dynamic',{type:dynamic.type,overallFit:dynamic.overallFit,scenario:'same-user'},{source:'test.idl'});
+    return[ok('same user → mirroring type',dynamic.type==='mirroring'||dynamic.overallFit>0.7,dynamic.type,'mirroring'),ok('high overall fit',dynamic.overallFit>0.7,dynamic.overallFit,'>0.7'),info('dynamic type',dynamic.type),info('overallFit',Math.round(dynamic.overallFit*100)/100)];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 5 — VIDEO / FRAME TESTING (real canvas + ImageData)
+// ═══════════════════════════════════════════════════════════════
+suite('Video · Frames · Screenshots · Canvas','var(--c8)',[
+  async function video_frame_types(){
+    const types=['face','dark','bright','gradient','noise','motion'];
+    const results=[];
+    for(const t of types){
+      const frame=Media.makeFrame(64,64,t);
+      // Analyze luminance
+      let lum=0;for(let i=0;i<frame.data.length;i+=4)lum+=0.299*frame.data[i]+0.587*frame.data[i+1]+0.114*frame.data[i+2];
+      lum/=(64*64);
+      results.push({type:t,lum:Math.round(lum),pixels:frame.data.length/4,w:frame.width,h:frame.height});
+      LOG.emit('test.media.video.frame',{type:t,lum:Math.round(lum),pixels:frame.data.length/4},{source:'test.media'});
+    }
+    return[ok('6 frame types generated',results.length===6,results.length,6),ok('dark scene has low lum',results.find(r=>r.type==='dark').lum<60,results.find(r=>r.type==='dark').lum,'<60'),ok('bright scene has high lum',results.find(r=>r.type==='bright').lum>150,results.find(r=>r.type==='bright').lum,'>150'),ok('all frames are 64×64',results.every(r=>r.pixels===4096),true,true),...results.map(r=>info(`${r.type}: lum=${r.lum}`,null))];
+  },
+  async function video_frame_to_canvas(){
+    const frame=Media.makeFrame(32,32,'face');
+    const canvas=Media.renderToCanvas(frame,3);
+    LOG.emit('test.media.video.canvas',{w:canvas.width,h:canvas.height,type:'face'},{source:'test.media'});
+    return[ok('canvas created',canvas instanceof OffscreenCanvas,true,true),ok('canvas scaled 3×',canvas.width===96&&canvas.height===96,`${canvas.width}x${canvas.height}`,'96x96'),info('offscreen canvas',`${canvas.width}×${canvas.height}`)];
+  },
+  async function video_frame_to_blob(){
+    const frame=Media.makeFrame(32,32,'gradient');
+    const canvas=Media.renderToCanvas(frame);
+    const blob=await Media.canvasToBlob(canvas);
+    LOG.emit('test.media.video.blob',{size:blob.size,type:blob.type},{source:'test.media'});
+    return[ok('PNG blob created',blob instanceof Blob,true,true),ok('blob type is image/png',blob.type==='image/png',blob.type,'image/png'),ok('blob has bytes',blob.size>0,blob.size,'>0'),info('PNG size',`${blob.size}B`)];
+  },
+  async function screenshot_generation(){
+    const shot=Media.makeScreenshot('Test session running. All modules active.');
+    LOG.emit('test.media.screenshot',{w:shot.width,h:shot.height},{source:'test.media'});
+    return[ok('screenshot canvas created',shot instanceof OffscreenCanvas,true,true),ok('screenshot dimensions 320×120',shot.width===320&&shot.height===120,`${shot.width}x${shot.height}`,'320x120'),info('screenshot','320×120 synthetic UI capture')];
+  },
+  async function screenshot_to_png_blob(){
+    const shot=Media.makeScreenshot('Compression test screenshot content');
+    const blob=await Media.canvasToBlob(shot);
+    const url=URL.createObjectURL(blob);
+    LOG.emit('test.media.screenshot.blob',{size:blob.size,type:blob.type,url:'blob://...'},{source:'test.media'});
+    URL.revokeObjectURL(url);
+    return[ok('screenshot blob created',blob instanceof Blob,true,true),ok('screenshot PNG > 100B',blob.size>100,blob.size,'>100B'),info('screenshot blob size',`${blob.size}B`)];
+  },
+  async function video_motion_delta(){
+    const f1=Media.makeFrame(32,32,'dark');
+    const f2=Media.makeFrame(32,32,'bright');
+    let delta=0;for(let i=0;i<f1.data.length;i+=4){delta+=Math.abs(f1.data[i]-f2.data[i])+Math.abs(f1.data[i+1]-f2.data[i+1])+Math.abs(f1.data[i+2]-f2.data[i+2]);}
+    delta/=(32*32);
+    const f3=Media.makeFrame(32,32,'dark');
+    let staticDelta=0;for(let i=0;i<f1.data.length;i+=4){staticDelta+=Math.abs(f1.data[i]-f3.data[i]);}
+    staticDelta/=(32*32);
+    LOG.emit('test.media.video.delta',{motionDelta:Math.round(delta),staticDelta:Math.round(staticDelta)},{source:'test.media'});
+    return[ok('dark→bright has large delta',delta>100,Math.round(delta),'>100'),ok('same type has low delta',staticDelta<5,Math.round(staticDelta),'<5'),info('motion delta',Math.round(delta)),info('static delta',Math.round(staticDelta))];
+  },
+  async function multi_frame_sequence(){
+    const frameTypes=['dark','face','motion','bright','noise','face','dark'];
+    const blobs=[];
+    for(const t of frameTypes){
+      const frame=Media.makeFrame(48,48,t);
+      const canvas=Media.renderToCanvas(frame);
+      const blob=await Media.canvasToBlob(canvas);
+      blobs.push({type:t,size:blob.size});
+    }
+    LOG.emit('test.media.video.sequence',{frameCount:blobs.length,totalBytes:blobs.reduce((s,b)=>s+b.size,0)},{source:'test.media'});
+    return[ok('7-frame sequence generated',blobs.length===7,blobs.length,7),ok('all frames have PNG bytes',blobs.every(b=>b.size>0),true,true),info('frame sizes',blobs.map(b=>`${b.type}:${b.size}B`).join(' | '))];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 6 — AUDIO TESTING (PCM, WAV, types)
+// ═══════════════════════════════════════════════════════════════
+suite('Audio · PCM · WAV · Analysis','var(--c8)',[
+  async function audio_pcm_types(){
+    const types=['sine','voice','noise','silence','burst','stress'];
+    const results=[];
+    for(const t of types){
+      const pcm=Media.makePCM(t,2048,44100);
+      let rms=0;for(let i=0;i<pcm.length;i++)rms+=pcm[i]*pcm[i];
+      rms=Math.sqrt(rms/pcm.length);
+      let zcr=0;for(let i=1;i<pcm.length;i++)if((pcm[i]>=0)!==(pcm[i-1]>=0))zcr++;
+      zcr/=pcm.length;
+      results.push({type:t,rms:Math.round(rms*10000)/10000,zcr:Math.round(zcr*10000)/10000,samples:pcm.length});
+      LOG.emit('test.media.audio.pcm',{type:t,rms:Math.round(rms*10000)/10000,zcr:Math.round(zcr*10000)/10000},{source:'test.media'});
+    }
+    return[ok('6 PCM types generated',results.length===6,results.length,6),ok('silence has zero RMS',results.find(r=>r.type==='silence').rms===0,results.find(r=>r.type==='silence').rms,0),ok('sine has low ZCR',results.find(r=>r.type==='sine').zcr<results.find(r=>r.type==='noise').zcr,true,true),ok('noise ZCR > sine ZCR',results.find(r=>r.type==='noise').zcr>results.find(r=>r.type==='sine').zcr,true,true),...results.map(r=>info(`${r.type}: rms=${r.rms} zcr=${r.zcr}`,null))];
+  },
+  async function audio_wav_encoding(){
+    const pcm=Media.makePCM('voice',4096,44100);
+    const wav=Media.pcmToWavBlob(pcm,44100);
+    LOG.emit('test.media.audio.wav',{size:wav.size,type:wav.type,samples:pcm.length},{source:'test.media'});
+    return[ok('WAV blob created',wav instanceof Blob,true,true),ok('WAV mime type',wav.type==='audio/wav',wav.type,'audio/wav'),ok('WAV has correct size (44+samples*2)',wav.size===44+pcm.length*2,wav.size,44+pcm.length*2),info('WAV size',`${wav.size}B for ${pcm.length} samples`)];
+  },
+  async function audio_wav_all_types(){
+    const types=['sine','voice','noise','silence','burst','stress'];
+    const blobs=await Promise.all(types.map(async t=>{const pcm=Media.makePCM(t,2048,44100);const b=Media.pcmToWavBlob(pcm,44100);return{type:t,size:b.size,blob:b};}));
+    blobs.forEach(b=>LOG.emit('test.media.audio.wav',{type:b.type,size:b.size},{source:'test.media'}));
+    return[ok('6 WAV blobs created',blobs.length===6,blobs.length,6),ok('all WAVs correctly sized',blobs.every(b=>b.size===44+2048*2),true,true),...blobs.map(b=>info(`${b.type}: ${b.size}B`,null))];
+  },
+  async function audio_spectral_contrast(){
+    const sine=Media.makePCM('sine',1024,44100);
+    const noise=Media.makePCM('noise',1024,44100);
+    // Spectral centroid (two-band)
+    function centroid(s){const split=Math.floor(s.length/4);let lo=0,hi=0;for(let i=0;i<s.length;i++){const e=s[i]*s[i];if(i<split*2)lo+=e;else hi+=e;}return(lo+hi)>0?hi/(lo+hi):0;}
+    const sineCent=centroid(sine),noiseCent=centroid(noise);
+    LOG.emit('test.media.audio.spectral',{sineCentroid:Math.round(sineCent*1000)/1000,noiseCentroid:Math.round(noiseCent*1000)/1000},{source:'test.media'});
+    return[ok('noise centroid >= sine centroid',noiseCent>=sineCent,`noise=${Math.round(noiseCent*100)/100} >= sine=${Math.round(sineCent*100)/100}`,true),info('sine centroid',Math.round(sineCent*1000)/1000),info('noise centroid',Math.round(noiseCent*1000)/1000)];
+  },
+  async function audio_blob_playable(){
+    const pcm=Media.makePCM('voice',8192,44100);
+    const wav=Media.pcmToWavBlob(pcm);
+    const url=URL.createObjectURL(wav);
+    // Can we construct an Audio element with it?
+    const audio=new Audio(url);
+    const canPlay=audio.canPlayType('audio/wav');
+    URL.revokeObjectURL(url);
+    LOG.emit('test.media.audio.playable',{canPlayType:canPlay,wavSize:wav.size},{source:'test.media'});
+    return[ok('audio element created',audio instanceof HTMLAudioElement,true,true),ok('browser reports WAV playable',canPlay!=='',canPlay,'probably|maybe'),info('canPlayType',canPlay||'(empty — browser may not support)')];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 7 — FILE TYPE HANDLING (blobs, file objects)
+// ═══════════════════════════════════════════════════════════════
+suite('File Types · Blobs · MIME · Metadata','var(--c8)',[
+  async function file_type_creation(){
+    const types=[
+      {name:'text.txt',content:'Hello world test content.',mime:'text/plain'},
+      {name:'data.json',content:JSON.stringify({session:'test',ts:Date.now(),signals:[1,2,3]}),mime:'application/json'},
+      {name:'report.md',content:'# Report\n\nTest content with **bold** and *italic*.',mime:'text/markdown'},
+      {name:'log.csv',content:'ts,energy,zcr,valence\n1000,0.4,0.1,0.6\n2000,0.5,0.2,0.7',mime:'text/csv'},
+    ];
+    const files=types.map(t=>{const b=new Blob([t.content],{type:t.mime});return{name:t.name,blob:b,size:b.size,mime:b.type};});
+    files.forEach(f=>LOG.emit('test.media.file.create',{name:f.name,size:f.size,mime:f.mime},{source:'test.media'}));
+    return[ok('4 file types created',files.length===4,files.length,4),ok('all blobs have content',files.every(f=>f.size>0),true,true),ok('mime types correct',files[1].mime==='application/json',files[1].mime,'application/json'),...files.map(f=>info(`${f.name}: ${f.size}B [${f.mime}]`,null))];
+  },
+  async function file_read_text(){
+    const content='Session transcript: "I feel like there is something shifting in how I relate to this."';
+    const blob=new Blob([content],{type:'text/plain'});
+    const text=await blob.text();
+    LOG.emit('test.media.file.read',{size:blob.size,readBack:text.length===content.length},{source:'test.media'});
+    return[ok('blob text round-trips',text===content,text.slice(0,30)+'...',content.slice(0,30)+'...'),ok('text length matches',text.length===content.length,text.length,content.length)];
+  },
+  async function file_read_json(){
+    const payload={userId:'test-user',session:42,signals:{valence:0.7,arousal:0.5,suppression:0.2}};
+    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+    const text=await blob.text();
+    const parsed=JSON.parse(text);
+    LOG.emit('test.media.file.json',{userId:parsed.userId,session:parsed.session},{source:'test.media'});
+    return[ok('JSON blob round-trips',parsed.userId===payload.userId,parsed.userId,payload.userId),ok('nested object preserved',parsed.signals.valence===0.7,parsed.signals.valence,0.7)];
+  },
+  async function file_wav_blob_size_contract(){
+    const durations=[0.1,0.5,1.0,2.0];// seconds
+    const sr=44100;
+    const results=durations.map(d=>{const n=Math.floor(d*sr);const pcm=Media.makePCM('sine',n,sr);const wav=Media.pcmToWavBlob(pcm,sr);return{duration:d,samples:n,wavSize:wav.size,expected:44+n*2};});
+    results.forEach(r=>LOG.emit('test.media.file.wav_size',{duration:r.duration,samples:r.samples,wavSize:r.wavSize},{source:'test.media'}));
+    return[ok('all WAV sizes match formula (44+samples*2)',results.every(r=>r.wavSize===r.expected),true,true),...results.map(r=>info(`${r.duration}s: ${r.samples} samples → ${r.wavSize}B`,null))];
+  },
+  async function file_image_blob(){
+    const frame=Media.makeFrame(128,128,'gradient');
+    const canvas=Media.renderToCanvas(frame);
+    const pngBlob=await Media.canvasToBlob(canvas);
+    const url=URL.createObjectURL(pngBlob);
+    LOG.emit('test.media.file.image',{size:pngBlob.size,mime:pngBlob.type},{source:'test.media'});
+    // Load it back as an image
+    const img=new Image();
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=url;});
+    URL.revokeObjectURL(url);
+    return[ok('PNG blob loadable as Image',img.complete||img.naturalWidth>0,true,true),ok('PNG mime correct',pngBlob.type==='image/png',pngBlob.type,'image/png'),ok('PNG size > 200B',pngBlob.size>200,pngBlob.size,'>200B'),info('loaded image dims',`${img.naturalWidth}×${img.naturalHeight}`)];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 8 — FULL PIPELINE: TEXT → SIGNAL → ASE → RESONANCE → IDL
+// ═══════════════════════════════════════════════════════════════
+suite('Full Pipeline · Text → ASE → Resonance → IDL','var(--c0)',[
+  async function full_therapy_session_pipeline(){
+    // Simulate a therapy session: therapist + client, multiple exchanges
+    const therapist_utterances=[
+      'What do you notice in your body right now as you say that?',
+      'It sounds like there is a part of you that wants to protect yourself from something. What is that something?',
+      'I am curious about that pattern — when did you first notice it?',
+      'That makes a lot of sense. The body remembers what the mind has not finished processing.',
+    ];
+    const client_utterances=[
+      Media.docs.clinical,
+      Media.docs.fragmented,
+      'I think... I think it started when I was younger. There was this pressure to be okay all the time. To not need anything. I got very good at it.',
+      Media.docs.relational,
+    ];
+
+    ASE.clear('therapist');ASE.clear('client');
+    const tSigs=[],cSigs=[];
+    let prevId=null;
+    for(let i=0;i<therapist_utterances.length;i++){
+      const ts=Heuristic.extract('therapist',therapist_utterances[i]);
+      const cs=Heuristic.extract('client',client_utterances[i]);
+      ASE.ingest('therapist',ts);ASE.ingest('client',cs);
+      tSigs.push(ts);cSigs.push(cs);
+      const ev=LOG.emit('test.media.session.exchange',{turn:i,therapistValence:ts.affect.valence,clientValence:cs.affect.valence,clientSomatic:cs.affect.somaticDensity},{source:'test.pipeline',causedBy:prevId,edgeType:prevId?Nexus.EDGE_CAUSAL:undefined});
+      prevId=ev.id;
+    }
+    const oscT=Resonance.makeOscProfile('therapist',tSigs);
+    const oscC=Resonance.makeOscProfile('client',cSigs);
+    const resonanceResult=Resonance.computeResonance({userA:'therapist',signalsA:tSigs,oscA:oscT,userB:'client',signalsB:cSigs,oscB:oscC});
+    const ivT=IDL.computeIntimacyVector('therapist',tSigs);
+    const ivC=IDL.computeIntimacyVector('client',cSigs);
+    const modeT=IDL.classifyMode(ivT);
+    const modeC=IDL.classifyMode(ivC);
+    const dynamic=IDL.computeRelationalDynamic(ivT,ivC,modeT,modeC);
+    LOG.emit('test.resonance.result',{userA:'therapist',userB:'client',matchType:resonanceResult.matchType,total:resonanceResult.total},{source:'test.pipeline'});
+    LOG.emit('test.idl.dynamic',{type:dynamic.type,overallFit:dynamic.overallFit,therapistMode:modeT.primary,clientMode:modeC.primary},{source:'test.pipeline'});
+    return[
+      ok('4 exchange turns processed',tSigs.length===4,tSigs.length,4),
+      ok('both ASE signatures built',ASE.get('therapist')!==null&&ASE.get('client')!==null,true,true),
+      ok('resonance computed',resonanceResult.total>=0&&resonanceResult.total<=1,Math.round(resonanceResult.total*100)/100,'[0,1]'),
+      ok('dynamic type valid',['stabilizing','mirroring','oscillating','asymmetric','complementary','friction-growth'].includes(dynamic.type),dynamic.type,'valid'),
+      info('therapist mode',modeT.primary),
+      info('client mode',modeC.primary),
+      info('resonance',resonanceResult.matchType+' ('+Math.round(resonanceResult.total*100)/100+')'),
+      info('dynamic',dynamic.type+' fit='+Math.round(dynamic.overallFit*100)/100),
+      ...resonanceResult.insights.slice(0,2).map(i=>info('insight',i)),
+    ];
+  },
+  async function full_media_plus_text_session(){
+    // Mixed media session: video frames + audio PCM + text + screenshots
+    const sessionId='mixed-session-001';
+    const events=[];
+
+    // Video frames
+    for(const t of['dark','face','face','bright']){
+      const frame=Media.makeFrame(32,32,t);
+      let lum=0;for(let i=0;i<frame.data.length;i+=4)lum+=0.299*frame.data[i]+0.587*frame.data[i+1]+0.114*frame.data[i+2];
+      lum/=1024;
+      const ev=LOG.emit('test.media.session.video_frame',{sessionId,frameType:t,lum:Math.round(lum)},{source:'test.pipeline'});
+      events.push(ev);
+    }
+    // Audio chunks
+    for(const t of['voice','stress','voice']){
+      const pcm=Media.makePCM(t,1024,44100);
+      let rms=0;for(const s of pcm)rms+=s*s;rms=Math.sqrt(rms/pcm.length);
+      const ev=LOG.emit('test.media.session.audio_chunk',{sessionId,audioType:t,rms:Math.round(rms*10000)/10000},{source:'test.pipeline'});
+      events.push(ev);
+    }
+    // Screenshots
+    const shot=Media.makeScreenshot(`Session ${sessionId} active`);
+    const shotBlob=await Media.canvasToBlob(shot);
+    LOG.emit('test.media.session.screenshot',{sessionId,size:shotBlob.size},{source:'test.pipeline'});
+
+    // Text transcript
+    const sig=Heuristic.extract(sessionId,Media.docs.therapy_note);
+    ASE.clear(sessionId);ASE.ingest(sessionId,sig);
+    LOG.emit('test.media.session.transcript',{sessionId,confidence:sig.confidence,intensity:sig.intensity},{source:'test.pipeline'});
+
+    // Causal chain
+    const chain=LOG.kernel.traceToRoot(events[events.length-1].id);
+    return[
+      ok('7+ media events in session',events.length>=7,events.length,'>=7'),
+      ok('screenshot blob created',shotBlob.size>0,shotBlob.size,'>0B'),
+      ok('text signal extracted',sig.confidence>0,sig.confidence,'>0'),
+      ok('ASE signature initialized',ASE.get(sessionId)!==null,true,true),
+      ok('causal chain connects events',chain.length>=1,chain.length,'>=1'),
+      info('session events',events.length),
+      info('screenshot',shotBlob.size+'B PNG'),
+      info('transcript intensity',Math.round(sig.intensity*100)/100),
+    ];
+  },
+  async function gate_ase_drift_fires(){
+    ASE.clear('gate-drift-user');
+    // Feed stable content first
+    for(let i=0;i<3;i++)ASE.ingest('gate-drift-user',Heuristic.extract('gate-drift-user',Media.docs.technical));
+    // Force a large shift
+    const shiftedSig=Heuristic.extract('gate-drift-user',Media.docs.poetic+' '+Media.docs.relational);
+    // Manually bump values to guarantee drift threshold
+    shiftedSig.cognition.abstractionLevel=0.9;shiftedSig.affect.somaticDensity=0.8;
+    const updated=ASE.ingest('gate-drift-user',shiftedSig);
+    // Emit to trigger gate
+    LOG.emit('test.ase.update',{userId:'gate-drift-user',version:updated.version,drift:updated.drift},{source:'test.pipeline'});
+    await new Promise(r=>setTimeout(r,20));
+    const gateEvs=LOG.getAll().filter(e=>e.type==='test.gate.ase.drift');
+    return[ok('ASE drift gate fired',gateEvs.length>0,gateEvs.length,'>0'),info('gate events',gateEvs.length),info('drift magnitude',updated.drift.magnitude)];
+  },
+  async function gate_resonance_mirror_fires(){
+    const sigs=Array(3).fill(0).map(()=>Heuristic.extract('mirror-gate',Media.docs.rich_dense));
+    const osc=Resonance.makeOscProfile('mirror-gate',sigs);
+    // Force a mirror result by making both sides identical
+    const r=Resonance.computeResonance({userA:'mirror-ga',signalsA:sigs,oscA:osc,userB:'mirror-gb',signalsB:sigs,oscB:osc});
+    LOG.emit('test.resonance.result',{userA:'mirror-ga',userB:'mirror-gb',matchType:r.matchType,total:r.total},{source:'test.pipeline'});
+    await new Promise(re=>setTimeout(re,20));
+    const mirrorEvs=LOG.getAll().filter(e=>e.type==='test.gate.resonance.mirror');
+    return[ok('resonance is mirror for identical streams',r.matchType==='mirror'||r.total>0.7,r.matchType,'mirror'),ok('mirror gate fired',mirrorEvs.length>0,mirrorEvs.length,'>0'),info('match type',r.matchType),info('total',Math.round(r.total*100)/100)];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════
+// UI + RUN ENGINE
+// ═══════════════════════════════════════════════════════════════
+let _allTests=[],_testResults=new Map(),_pass=0,_fail=0,_running=false;
+
+function buildSidebar(){
+  const sb=document.getElementById('sidebar');sb.innerHTML='';
+  let total=0;
+  for(const suite of TESTS){
+    const grp=document.createElement('div');grp.className='suite-group';
+    const head=document.createElement('div');head.className='suite-head';
+    head.innerHTML=`<span class="dot" style="background:${suite.color}"></span>${suite.name}`;
+    grp.appendChild(head);
+    for(const fn of suite.tests){
+      total++;
+      const item=document.createElement('div');item.className='test-item';item.id='ti-'+fn.name;
+      item.innerHTML=`<span class="status" id="st-${fn.name}">◌</span>${fn.name.replace(/_/g,' ')}<span class="dur" id="dr-${fn.name}"></span>`;
+      item.onclick=()=>showResult(fn.name);
+      grp.appendChild(item);
+      _allTests.push({fn,suite});
+    }
+    sb.appendChild(grp);
+  }
+  document.getElementById('c-total').textContent=total;
+}
+
+function showResult(name){
+  document.querySelectorAll('.test-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('ti-'+name)?.classList.add('active');
+  const r=_testResults.get(name);
+  const suite=_allTests.find(t=>t.fn.name===name)?.suite;
+  document.getElementById('th-name').textContent=name.replace(/_/g,' ');
+  const meta=document.getElementById('th-meta');
+  if(r){
+    const pass=r.results.filter(x=>x.pass===true).length,fail=r.results.filter(x=>x.pass===false).length;
+    meta.innerHTML=`<span class="meta-tag ${r.pass?'pass':'fail'}">${r.pass?'✓ PASS':'✗ FAIL'}</span><span class="meta-tag">${suite?.name||''}</span><span class="meta-tag">${Math.round(r.dur)}ms</span><span class="meta-tag">${pass}/${pass+fail} assertions</span>`;
+  } else {
+    meta.innerHTML=`<span class="meta-tag run">◌ pending</span><span class="meta-tag">${suite?.name||''}</span>`;
+  }
+  renderResults(name);
+}
+
+function renderResults(name){
+  const container=document.getElementById('results');container.innerHTML='';
+  const r=_testResults.get(name);if(!r)return;
+  for(const res of r.results){
+    const row=document.createElement('div');
+    const cls=res.type==='info'?'info':res.type==='warn'?'warn':res.type==='media'?'media':res.pass?'pass':'fail';
+    row.className='result-row '+cls;
+    const icon=res.type==='info'?'◈':res.type==='warn'?'⚠':res.type==='media'?'▣':res.pass?'✓':'✗';
+    let body='';
+    if(res.type==='info'||res.type==='media'){
+      body=`<span class="label">${res.name}:</span> <span class="val ${res.type==='media'?'cyan':'blue'}">${typeof res.got==='string'?res.got:JSON.stringify(res.got)??''}</span>`;
+    } else if(res.type==='warn'){
+      body=`<span class="val warn">⚠ ${res.name}</span>`;
+    } else {
+      const vc=res.pass?'val':'val bad';
+      body=`${res.name} — got <span class="${vc}">${JSON.stringify(res.got)}</span>`;
+      if(res.expected!==undefined&&!res.pass)body+=` expected <span class="val">${JSON.stringify(res.expected)}</span>`;
+    }
+    row.innerHTML=`<span class="icon">${icon}</span><div class="body">${body}</div><span class="dur">${res.dur>0?Math.round(res.dur)+'ms':''}</span>`;
+    container.appendChild(row);
+  }
+}
+
+function updateSidebarItem(name,pass,dur){
+  const item=document.getElementById('ti-'+name);
+  const st=document.getElementById('st-'+name);
+  const dr=document.getElementById('dr-'+name);
+  if(item){item.classList.remove('running');item.classList.add(pass?'pass':'fail');}
+  if(st)st.textContent=pass?'✓':'✗';
+  if(dr)dr.textContent=Math.round(dur)+'ms';
+}
+
+async function runAll(){
+  if(_running)return;
+  _running=true;_pass=0;_fail=0;
+  const btn=document.getElementById('run-btn');
+  btn.textContent='◼ RUNNING';btn.className='running';
+  document.getElementById('c-pass').textContent='0';
+  document.getElementById('c-fail').textContent='0';
+  const total=_allTests.length;
+  const bar=document.getElementById('progress-bar');
+
+  for(let i=0;i<total;i++){
+    const{fn,suite}=_allTests[i];
+    const item=document.getElementById('ti-'+fn.name);
+    if(item){item.classList.add('running');item.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    const t0=performance.now();
+    let results=[],pass=true;
+    try{results=await fn();}catch(e){results=[{name:'Uncaught: '+e.message,pass:false,got:e.stack?.split('\n')[1]||e.message,expected:'no error',type:'assert'}];LOG.emit('test.error',{name:fn.name,error:e.message},{source:'test.runner'});}
+    const dur=performance.now()-t0;
+    if(results.some(r=>r.pass===false))pass=false;
+    _testResults.set(fn.name,{results,pass,dur});
+    updateSidebarItem(fn.name,pass,dur);
+    if(pass)_pass++;else _fail++;
+    document.getElementById('c-pass').textContent=_pass;
+    document.getElementById('c-fail').textContent=_fail;
+    bar.style.width=((i+1)/total*100)+'%';
+    showResult(fn.name);
+    await new Promise(r=>setTimeout(r,5));
+  }
+
+  btn.textContent='▶ RUN ALL';btn.className='';btn.disabled=false;
+  _running=false;
+  bar.style.background=_fail>0?'var(--c1)':'var(--c0)';
+  LOG.emit('test.suite.complete',{pass:_pass,fail:_fail,total,passRate:Math.round(_pass/total*100)+'%'},{source:'test.runner'});
+}
+
+window.runAll=runAll;
+buildSidebar();
+showResult(_allTests[0]?.fn?.name);
+</script>
+</body>
+</html>

@@ -16,8 +16,17 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* UI scaling — controlled by slider in Settings */
-  --ui-scale: 1.35;
+  /* Text scaling ONLY — controlled by the "Text size" select in Settings,
+     independent of "UI size" (which drives document.body.style.zoom
+     directly and never touches this var). The JS value is actually
+     font_scale/ui_scale, not font_scale alone — that division is what
+     makes text stop moving when UI size changes; see _mmApplyScale() in
+     nexus-engine.js for why. Default here (1.0) matches font_scale=100 /
+     ui_scale=100 — these three MUST agree, since this is the fallback
+     whenever the scale-applying JS hasn't run yet or fails, and a
+     mismatched fallback is exactly how you get stuck at a broken UI
+     with no visible cause. */
+  --ui-scale: 1.0;
   --fs-base: calc(13px * var(--ui-scale));
   --fs-mono: calc(8px  * var(--ui-scale));
   --fs-sm:   calc(7px  * var(--ui-scale));
@@ -465,6 +474,8 @@ body.th-erosmancer::before {
 .hp-mode-card:nth-child(4) { animation: cardFloatB 6.5s ease-in-out .5s infinite; }
 .hp-mode-card:nth-child(5) { animation: cardFloat  7.5s ease-in-out 1.5s infinite; }
 .hp-mode-card:nth-child(6) { animation: cardFloatB 9s ease-in-out 2s infinite; }
+.hp-mode-card:nth-child(7) { animation: cardFloat  6.8s ease-in-out .8s infinite; }
+.hp-mode-card:nth-child(8) { animation: cardFloatB 8.2s ease-in-out 1.2s infinite; }
 
 /* Holographic pulsing border */
 .hp-mode-card { animation-name: cardFloat, holoPulse !important; }
@@ -542,8 +553,12 @@ body.th-erosmancer::before {
   border: 1px solid color-mix(in srgb, var(--mode-color, var(--c)) 30%, var(--wire2));
   background:
     radial-gradient(ellipse 80% 60% at 0% 0%, color-mix(in srgb, var(--mode-color,var(--c)) 7%, transparent), transparent 65%),
-    linear-gradient(140deg, rgba(10,21,32,.92), rgba(4,10,18,.97));
-  padding: 32px 28px 28px;
+    linear-gradient(140deg, rgb(10,21,32), rgb(4,10,18));
+  /* Was 32/28/28 with a 300–340px card. The homepage read as four posters
+     rather than a menu — you could not see the whole system at once, which
+     is the one thing a menu has to do. Sized down to a scannable grid; the
+     UI-scale control covers anyone who wants them bigger again. */
+  padding: 14px 13px 13px;
   cursor: pointer;
   transition: border-color .28s, box-shadow .28s;
   position: relative; overflow: hidden;
@@ -561,28 +576,42 @@ body.th-erosmancer .hp-mode-card {
   font-family: var(--f-mono); font-size: 6px; letter-spacing: 2px;
   color: var(--mode-color, var(--c)); text-transform: uppercase;
   border: 1px solid color-mix(in srgb, var(--mode-color,var(--c)) 35%, transparent);
-  padding: 2px 6px; opacity: .6;
+  padding: 2px 5px; opacity: .55; font-size: 6.5px;
 }
 .hp-mc-icon {
-  font-size: 44px; line-height: 1; margin-bottom: 22px;
-  filter: drop-shadow(0 0 14px var(--mode-color, var(--c)));
+  font-size: 22px; line-height: 1; margin-bottom: 7px;
+  filter: drop-shadow(0 0 10px var(--mode-color, var(--c)));
   transition: filter .28s;
 }
 .hp-mode-card:hover .hp-mc-icon {
   filter: drop-shadow(0 0 28px var(--mode-color, var(--c)));
 }
 .hp-mc-name {
-  font-family: var(--f-display); font-size: 22px; font-weight: 800;
-  letter-spacing: 5px; color: var(--white);
-  text-transform: uppercase; margin-bottom: 12px;
+  font-family: var(--f-display); font-size: 15px; font-weight: 800;
+  letter-spacing: 2.5px; color: var(--white);
+  text-transform: uppercase; margin-bottom: 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Two lines, clamped. A homepage card answers "what is this and do I want
+   it right now" — the full description belongs inside the module, where
+   there is room for it and where someone has already chosen to look. */
 .hp-mc-desc {
-  font-family: var(--f-mono); font-size: 9px; color: var(--muted);
-  line-height: 1.9; margin-bottom: 28px; flex: 1;
+  font-family: var(--f-mono); font-size: 8.5px; color: var(--muted);
+  line-height: 1.6; margin-bottom: 10px; flex: 1;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+/* The feature bullets were the bulk of the height. They are the module's
+   own contents list, not a reason to open it. Hidden by default, revealed
+   on hover for anyone who wants the detail before committing. */
 .hp-mc-features {
-  display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px;
+  max-height: 0; overflow: hidden; opacity: 0; margin-bottom: 0;
+  transition: max-height .28s ease, opacity .2s ease, margin-bottom .28s ease;
 }
+.hp-mode-card:hover .hp-mc-features {
+  max-height: 90px; opacity: 1; margin-bottom: 10px;
+}
+.hp-mc-features { display: flex; flex-direction: column; gap: 5px; }
 .hp-mc-feat {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--f-mono); font-size: 8px; color: var(--mid);
@@ -1008,6 +1037,17 @@ body.th-erosmancer .node-frame {
 }
 .sp-close { cursor: pointer; color: var(--dim); font-size: 9px; transition: color .12s; }
 .sp-close:hover { color: var(--r); }
+.lvg-kind-btn {
+  flex: 1; padding: 6px 2px; border: 1px solid color-mix(in srgb, var(--kc) 35%, transparent);
+  background: transparent; color: var(--kc); cursor: pointer;
+  font-family: var(--f-mono); font-size: 6px; letter-spacing: .5px; text-transform: uppercase;
+  transition: all .15s;
+}
+.lvg-kind-btn.act { background: color-mix(in srgb, var(--kc) 15%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--kc) 40%, transparent); }
+.lvg-slider-row { margin-bottom: 12px; }
+.lvg-slider-label { font-family: var(--f-mono); font-size: 6.5px; color: var(--dim); letter-spacing: 1px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+.lvg-slider-label span { color: var(--c); }
+.lvg-slider { width: 100%; accent-color: var(--c); cursor: pointer; }
 .sp-tabs { display: flex; border-bottom: 1px solid var(--wire); }
 .sp-tab {
   flex: 1; padding: 6px 3px; font-family: var(--f-mono); font-size: 6px;
@@ -1163,9 +1203,15 @@ body.th-erosmancer .node-frame {
 #opts-overlay.open { display: flex; }
 .opts-box {
   background: var(--deep); border: 1px solid var(--wire2);
-  width: 600px; max-width: 96vw; max-height: 88vh;
+  width: 1480px; max-width: 98vw; max-height: 92vh;
   display: flex; flex-direction: column;
 }
+.opts-row { flex-wrap: wrap; row-gap: 6px; }
+.opts-row > .opts-label { min-width: 200px; }
+.opts-select { max-width: 100%; }
+#ai-agent-accounts > div { flex-wrap: wrap; row-gap: 8px; }
+.opts-tab { overflow-x: hidden; }
+.opts-hint { white-space: normal; overflow-wrap: anywhere; }
 .opts-head {
   padding: 12px 16px; border-bottom: 1px solid var(--wire);
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -1211,11 +1257,11 @@ body.th-erosmancer .node-frame {
 /* Help hint */
 #help-hint {
   position: fixed; left: 8px; top: 52px; z-index: 400;
-  font-family: var(--f-mono); font-size: 6px; color: var(--dim);
-  line-height: 2.1; letter-spacing: .3px; pointer-events: none;
-  background: rgba(2,4,10,.92); padding: 8px 12px;
+  font-family: var(--f-mono); font-size: 7px; color: var(--dim);
+  line-height: 2.2; letter-spacing: .3px; pointer-events: none;
+  background: rgba(2,4,10,.95); padding: 10px 14px;
   border: 1px solid var(--wire); border-left: 2px solid rgba(0,200,255,.25);
-  width: 220px; max-height: calc(100vh - 80px);
+  width: 260px; max-height: calc(100vh - 60px);
   overflow-y: auto; opacity: 0; transition: opacity .3s;
 }
 #help-hint.visible { opacity: 1; }
@@ -1242,10 +1288,16 @@ body.th-erosmancer .node-frame {
   max-width: min(420px, 92vw);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 }
-/* Error/warn/gate toasts appear top-right */
+/* Error/warn/gate toasts appear top-right. Unlike the short bottom-
+   center status toasts, these carry real diagnostic messages (e.g.
+   "TEXT_INJECTION_FAILED on ChatGPT: ...") that regularly exceed the
+   nowrap max-width above — which just ran the text off the visible
+   window instead of wrapping it. Override to wrap here specifically. */
 #toast.pos-tr {
   bottom: auto; top: 56px; left: auto;
   right: 16px; transform: translateX(0);
+  white-space: normal; overflow-wrap: break-word;
+  max-width: min(380px, calc(100vw - 32px));
 }
 #toast.pos-tr.show { transform: translateX(0); }
 #toast.show { opacity: 1; }
@@ -1552,12 +1604,9 @@ input[type=file] { display: none; }
   font-family: var(--f-mono); font-size: 7.5px; color: var(--muted);
   line-height: 1.8;
 }
-/* Responsive homepage grid */
-@media (max-width: 1100px) {
-  .hp-modes[style] { grid-template-columns: repeat(2,1fr) !important; }
-}
+/* Responsive homepage grid — auto-fit/minmax on the grid itself now
+   handles reflow smoothly, no fixed breakpoints needed */
 @media (max-width: 680px) {
-  .hp-modes[style] { grid-template-columns: 1fr !important; }
   .hp-mode-card { padding: 24px 20px 20px; }
 }
 @media (max-width: 640px) {
@@ -1567,11 +1616,20 @@ input[type=file] { display: none; }
 /* ══════════════════════════════════════════════════════════════
    HP MODES — 3 cards layout fix
 ══════════════════════════════════════════════════════════════ */
+/* Eight slots, four across. Flex-wrap centred the last row and made the
+   grid look accidental; an explicit column count keeps every card the same
+   width and the rows aligned. */
 .hp-modes {
-  display: flex; gap: 18px; justify-content: center;
-  flex-wrap: wrap; max-width: 1100px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  max-width: 1180px; margin: 0 auto;
+  align-items: stretch;
 }
-.hp-mode-card { min-width: 300px; max-width: 340px; flex: 1; }
+@media (max-width: 1180px) { .hp-modes { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px)  { .hp-modes { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px)  { .hp-modes { grid-template-columns: 1fr; } }
+.hp-mode-card { min-width: 0; width: 100%; }
 
 
 /* ══════════════════════════════════════════════════════════════
@@ -1671,6 +1729,9 @@ input[type=file] { display: none; }
   transition: all .18s;
 }
 .mm-btn-ghost:hover { border-color: var(--mid); color: var(--muted); }
+/* MFA login-screen method tabs — same ghost button, an "on" state added */
+.mfa-tab { flex: 1; text-align: center; }
+.mfa-tab.on { border-color: var(--c); color: var(--c); background: rgba(0,200,255,.06); }
 
 /* Keygen display */
 .mm-keygen-display {
@@ -2041,7 +2102,7 @@ input[type=file] { display: none; }
 /* ── OPTS LAYOUT ─────────────────────────────────────────── */
 .opts-box {
   display: flex; flex-direction: column;
-  width: min(900px, 96vw); max-height: 88vh;
+  width: min(1080px, 96vw); max-height: 92vh;
   background: var(--deep); border: 1px solid var(--wire2);
   box-shadow: 0 20px 80px rgba(0,0,0,.9);
 }
@@ -2073,8 +2134,8 @@ input[type=file] { display: none; }
 }
 .opts-nav-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 9px 14px; cursor: pointer;
-  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: 1px;
+  padding: 8px 14px; cursor: pointer;
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 1px;
   color: var(--dim); transition: all .15s;
   border-left: 2px solid transparent;
 }
@@ -2083,29 +2144,29 @@ input[type=file] { display: none; }
 .opts-nav-icon { font-size: 11px; flex-shrink: 0; }
 
 /* Tab bodies */
-.opts-body { flex: 1; overflow-y: auto; padding: 20px 22px; }
+.opts-body { flex: 1; overflow-y: auto; padding: 14px 18px; }
 .opts-tab { display: none; }
 .opts-tab.active { display: block; }
 
 /* Section heads */
 .opts-section-head {
-  font-family: var(--f-mono); font-size: 7px; letter-spacing: 3px;
-  color: var(--c); text-transform: uppercase; margin-bottom: 10px;
-  padding-bottom: 6px; border-bottom: 1px solid var(--wire);
+  font-family: var(--f-mono); font-size: 8px; letter-spacing: 2.5px;
+  color: var(--c); text-transform: uppercase; margin-bottom: 8px;
+  padding-bottom: 5px; border-bottom: 1px solid var(--wire);
 }
 
 /* Rows */
 .opts-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 0; border-bottom: 1px solid rgba(24,40,64,.3);
+  padding: 6px 0; border-bottom: 1px solid rgba(24,40,64,.3);
   flex-wrap: wrap;
 }
 .opts-label {
-  flex: 1; font-family: var(--f-body); font-size: 11px; color: var(--bright);
+  flex: 1; font-family: var(--f-body); font-size: 13px; color: var(--bright);
   min-width: 120px;
 }
 .opts-hint {
-  font-family: var(--f-mono); font-size: 7px; color: var(--dim);
+  font-family: var(--f-mono); font-size: 8.5px; color: var(--dim);
   letter-spacing: .3px; margin-top: 2px; line-height: 1.6;
 }
 
@@ -2116,6 +2177,19 @@ input[type=file] { display: none; }
   font-family: var(--f-mono); font-size: 8px; letter-spacing: 1px;
   cursor: pointer; transition: all .18s; white-space: nowrap;
 }
+
+/* Options-panel density (OPTS.opts_density) — spacing only, every
+   font-size above is left exactly as declared. Distinct from the
+   'compact' key above (canvas node cards, a different surface — not
+   yet wired to anything, left alone). Toggle renders this class on
+   <body>. */
+body.mm-opts-compact .opts-body { padding: 10px 14px; }
+body.mm-opts-compact .opts-section-head { margin-bottom: 5px; padding-bottom: 3px; margin-top: 9px !important; }
+body.mm-opts-compact .opts-row { padding: 3px 0; gap: 6px; }
+body.mm-opts-compact .opts-hint { margin-top: 1px; line-height: 1.35; }
+body.mm-opts-compact .opts-action-btn { padding: 3px 9px; }
+body.mm-opts-compact .opts-select { padding: 3px 6px !important; }
+body.mm-opts-compact .opts-label { min-width: 0; }
 .opts-action-btn:hover { border-color: var(--c); color: var(--c); }
 .opts-action-btn.danger { border-color: rgba(255,51,85,.3); color: var(--r); }
 .opts-action-btn.danger:hover { background: rgba(255,51,85,.08); }
@@ -2125,6 +2199,25 @@ input[type=file] { display: none; }
   background: var(--deep); border: 1px solid var(--wire2);
   color: var(--muted); font-family: var(--f-mono); font-size: 8px;
   padding: 6px 10px; cursor: pointer;
+  /* Custom arrow — the native one renders light-on-light in Chromium's
+     dark-mode-unaware default and got lost against --deep. */
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2300c8ff' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; background-size: 9px;
+  padding-right: 26px;
+}
+.opts-select:hover { border-color: var(--c); }
+.opts-select:focus { outline: none; border-color: var(--c); }
+/* The closed box above was themed; the open option list was not, so it
+   fell back to the OS's light popup and looked broken against
+   everything else in this app. Chromium (and so Electron) honours
+   background-color/color on <option>, which is what actually fixes it —
+   the popup itself has no further styling hook. */
+.opts-select option {
+  background: var(--deep); color: var(--bright);
+}
+.opts-select option:checked, .opts-select option:hover {
+  background: var(--c2);
 }
 
 /* Toggle switches — proper pill style */
@@ -2494,10 +2587,210 @@ input[type=file] { display: none; }
   position: absolute; inset: 0; z-index: 100;
   background: rgba(2,4,10,.97);
 }
+#brain-relsys-selector {
+  align-items: center; justify-content: center;
+  gap: 28px; padding: 24px;
+  position: absolute; inset: 0; z-index: 101;
+  background: rgba(2,4,10,.97);
+}
 #brain-full-view {
   display: none; flex-direction: column; flex: 1; min-height: 0;
 }
 #brain-full-view.active { display: flex; }
+
+
+/* ══ BOOT SCREEN ═══════════════════════════════════════════════════
+   The verification spine. Nine checks in dependency order, joined by a
+   hairline — the same shape the audit ledger makes, because that is what
+   is being verified. The connector dashes from the first critical failure
+   down: past that point nothing has been confirmed, and the picture says
+   so rather than implying a clean run with one red mark in it. */
+#ss-boot .mmb-wrap { width: 100%; max-width: 560px; }
+
+.mmb-summary {
+  font-family: var(--f-mono); font-size: var(--fs-mono); letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  padding: 10px 0 18px; text-align: center; transition: color .3s ease;
+}
+.mmb-summary-ok   { color: var(--c); }
+.mmb-summary-warn { color: var(--o); }
+.mmb-summary-bad  { color: var(--r); }
+
+.mmb-steps { display: flex; flex-direction: column; }
+
+.mmb-step { display: flex; gap: 14px; align-items: flex-start; }
+.mmb-step-dim { opacity: .5; }
+
+.mmb-rail { display: flex; flex-direction: column; align-items: center; width: 18px; flex: 0 0 18px; }
+.mmb-node {
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; line-height: 1; color: var(--mmb-c); flex: 0 0 18px;
+}
+.mmb-node-pulse { animation: mmbPulse 1s ease-in-out infinite; }
+@keyframes mmbPulse { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+
+.mmb-connector { width: 1px; flex: 1 1 auto; min-height: 18px; background: var(--wire2); }
+.mmb-connector-broken {
+  background: none;
+  border-left: 1px dashed var(--r);
+  opacity: .55;
+}
+
+.mmb-body { flex: 1; padding-bottom: 14px; min-width: 0; }
+.mmb-head { display: flex; align-items: baseline; gap: 10px; }
+.mmb-label {
+  font-family: var(--f-mono); font-size: var(--fs-sm); letter-spacing: 2px;
+  text-transform: uppercase; color: var(--bright);
+}
+.mmb-status {
+  font-family: var(--f-mono); font-size: var(--fs-xs); letter-spacing: 1.5px;
+  color: var(--mmb-c); margin-left: auto; white-space: nowrap;
+}
+.mmb-detail {
+  font-family: var(--f-body); font-size: 11px; line-height: 1.55;
+  color: var(--mid); margin-top: 4px;
+}
+.mmb-remedy {
+  font-family: var(--f-body); font-size: 11px; line-height: 1.5;
+  color: var(--muted); margin-top: 5px;
+}
+
+.mmb-enter { opacity: 0; transform: translateY(4px); }
+.mmb-enter-in { opacity: 1; transform: none; transition: opacity .22s ease, transform .22s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .mmb-enter, .mmb-enter-in { opacity: 1; transform: none; transition: none; }
+  .mmb-node-pulse { animation: none; opacity: 1; }
+}
+
+.mmb-foot { margin-top: 6px; display: flex; flex-direction: column; }
+.mmb-proceed {
+  font-family: var(--f-mono); font-size: var(--fs-xs); letter-spacing: 3px;
+  text-transform: uppercase; color: var(--dim); text-align: center; padding: 10px 0;
+}
+
+/* Snapshot chooser */
+.mmb-snap {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; margin-bottom: 8px;
+  border: 1px solid var(--wire); background: var(--abyss);
+}
+.mmb-snap-bad { border-color: rgba(255,51,85,.35); }
+.mmb-snap-main { flex: 1; min-width: 0; }
+.mmb-snap-when { font-family: var(--f-mono); font-size: var(--fs-sm); color: var(--bright); letter-spacing: 1px; }
+.mmb-snap-meta { font-family: var(--f-body); font-size: 11px; color: var(--mid); margin-top: 3px; }
+.mmb-snap-state { font-family: var(--f-mono); font-size: var(--fs-xs); letter-spacing: 1px; margin-top: 5px; }
+.mmb-snap-blocked {
+  font-family: var(--f-mono); font-size: var(--fs-xs); letter-spacing: 1px; color: var(--dim);
+}
+
+@media (max-width: 520px) {
+  .mmb-snap { flex-direction: column; align-items: stretch; }
+  .mmb-status { margin-left: 0; }
+  .mmb-head { flex-wrap: wrap; }
+}
+
+
+/* ══ VOICE LATTICE — capture surface ═══════════════════════════════
+   The orb replaces an 800px textarea. Three concentric rings expand and
+   fade on a stagger; the core pulses. It reads as listening rather than
+   as a form waiting to be filled. */
+#vl-orb-outer { display:flex; align-items:center; justify-content:center; }
+.vl-orb-ring {
+  position:absolute; inset:0; border-radius:50%;
+  border:1px solid rgba(119,68,255,.35);
+  animation: vlOrbRing 2.7s ease-out infinite;
+}
+@keyframes vlOrbRing {
+  0%   { transform:scale(.55); opacity:.9 }
+  100% { transform:scale(1.05); opacity:0 }
+}
+#vl-orb-core {
+  position:absolute; inset:26px; border-radius:50%;
+  background:radial-gradient(circle at 40% 35%, rgba(119,68,255,.35), rgba(119,68,255,.08));
+  border:1px solid rgba(119,68,255,.5);
+  display:flex; align-items:center; justify-content:center;
+  transition:border-color .3s, box-shadow .3s;
+}
+#vl-orb-icon { font-size:20px; color:#7744ff; line-height:1 }
+#vl-orb-outer:hover #vl-orb-core { border-color:rgba(119,68,255,.9); box-shadow:0 0 26px rgba(119,68,255,.3) }
+
+#vl-orb-outer.recording .vl-orb-ring { border-color:rgba(255,51,85,.55); animation-duration:1.3s }
+#vl-orb-outer.recording #vl-orb-core {
+  border-color:rgba(255,51,85,.85);
+  background:radial-gradient(circle at 40% 35%, rgba(255,51,85,.35), rgba(255,51,85,.08));
+  box-shadow:0 0 30px rgba(255,51,85,.35);
+  animation: vlOrbPulse 1.3s ease-in-out infinite;
+}
+#vl-orb-outer.recording #vl-orb-icon { color:#ff3355 }
+@keyframes vlOrbPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+
+/* Phone-driven capture — added alongside .recording, not instead of it,
+   so anything relying on ".recording" alone (queue status text, etc.)
+   still works. Overrides the red back to the phone page's own purple
+   (rgba(119,68,255,...), same swatch as its on-page orb) — the desktop
+   orb should say what's actually feeding it, not default to "local mic"
+   red for audio that never touched this machine's microphone. */
+#vl-orb-outer.recording.recording-remote .vl-orb-ring { border-color:rgba(119,68,255,.55) }
+#vl-orb-outer.recording.recording-remote #vl-orb-core {
+  border-color:rgba(119,68,255,.85);
+  background:radial-gradient(circle at 40% 35%, rgba(119,68,255,.35), rgba(119,68,255,.08));
+  box-shadow:0 0 30px rgba(119,68,255,.35);
+}
+#vl-orb-outer.recording.recording-remote #vl-orb-icon { color:#7744ff }
+
+.vl-mode-btn {
+  padding:4px 8px; background:transparent; cursor:pointer;
+  border:1px solid rgba(119,68,255,.2); color:var(--dim);
+  font-family:var(--f-mono); font-size:6.5px; letter-spacing:1.5px;
+  transition:color .2s, border-color .2s;
+}
+.vl-mode-btn:hover { color:var(--muted); border-color:rgba(119,68,255,.4) }
+.vl-mode-btn.on { color:#7744ff; border-color:rgba(119,68,255,.7); background:rgba(119,68,255,.08) }
+
+@media (prefers-reduced-motion: reduce) {
+  .vl-orb-ring, #vl-orb-outer.recording #vl-orb-core { animation:none }
+}
+
+
+/* ══ PHONE INPUT ══════════════════════════════════════════════════ */
+#vl-phone-btn {
+  display:flex; align-items:center; gap:6px; padding:5px 11px; cursor:pointer;
+  background:transparent; border:1px solid rgba(119,68,255,.22); color:var(--dim);
+  font-family:var(--f-mono); font-size:7px; letter-spacing:1.5px;
+  transition:color .2s, border-color .2s, box-shadow .3s;
+}
+#vl-phone-btn:hover { color:var(--muted); border-color:rgba(119,68,255,.45) }
+#vl-phone-btn.on   { color:#7744ff; border-color:rgba(119,68,255,.7); background:rgba(119,68,255,.07) }
+#vl-phone-btn.live { color:#00ff88; border-color:rgba(0,255,136,.6); box-shadow:0 0 14px rgba(0,255,136,.18) }
+
+.mm-modal-backdrop {
+  position:fixed; inset:0; z-index:4000; display:none;
+  align-items:center; justify-content:center; background:rgba(0,0,0,.72);
+}
+.mm-modal {
+  width:min(420px,92vw); max-height:88vh; overflow-y:auto;
+  background:var(--abyss); border:1px solid var(--wire); padding:22px 20px;
+  display:flex; flex-direction:column; gap:12px; align-items:center; text-align:center;
+}
+.mm-modal-title {
+  font-family:var(--f-mono); font-size:9px; letter-spacing:3px; color:#7744ff;
+}
+.vlp-note { font-family:var(--f-body); font-size:11px; color:var(--mid); line-height:1.6 }
+.vlp-bad  { color:var(--o) }
+.vlp-url {
+  width:100%; padding:9px 10px; background:rgba(0,0,0,.5); border:1px solid rgba(119,68,255,.25);
+  font-family:var(--f-mono); font-size:8.5px; color:var(--bright); word-break:break-all;
+  cursor:pointer; line-height:1.6;
+}
+.vlp-url:hover { border-color:rgba(119,68,255,.6) }
+.vlp-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
+.vlp-qr { border:1px solid var(--wire2) }
+.vlp-warn {
+  font-family:var(--f-body); font-size:10.5px; line-height:1.7; color:var(--mid);
+  border:1px solid rgba(255,140,0,.3); background:rgba(255,140,0,.05); padding:10px 12px; text-align:left;
+}
+.vlp-warn strong { color:var(--o) }
+.vlp-fine { font-family:var(--f-body); font-size:9.5px; line-height:1.6; color:var(--dim); text-align:left }
 
 </style>
 </head>
@@ -2508,7 +2801,7 @@ input[type=file] { display: none; }
   <!-- MASTERMIND Logo — top left, always visible -->
   <div class="tb-logo-area" onclick="goHome()" style="-webkit-app-region:no-drag">
     <span class="tb-logo-sigil">MASTERMIND</span>
-    <span class="tb-version">v3.0 ∞</span>
+    <span class="tb-version" id="tb-version-display">v… ∞</span>
   </div>
 
   <!-- Canvas tools — only visible on canvas -->
@@ -2523,12 +2816,13 @@ input[type=file] { display: none; }
     <div class="tb-sep" style="margin:0 3px"></div>
     <button class="tb-btn" onclick="openSearch()" style="-webkit-app-region:no-drag">⌕</button>
     <button class="tb-btn" onclick="openBrainMap()" style="-webkit-app-region:no-drag">◎ BRAIN</button>
-    <button class="tb-btn" onclick="openSystems()" style="-webkit-app-region:no-drag;color:#11ddcc" title="Systems Canvas">∿ SYS</button>
-    <button class="tb-btn" onclick="cogNi()" style="-webkit-app-region:no-drag;color:#00c8ff" title="Contract (Ni)">Ni</button>
-    <button class="tb-btn" onclick="cogNe()" style="-webkit-app-region:no-drag;color:#00ff88" title="Expand (Ne)">Ne</button>
-    <button class="tb-btn" onclick="cogTi()" style="-webkit-app-region:no-drag;color:#cc44ff" title="Analyze (Ti)">Ti</button>
-    <button class="tb-btn" onclick="cogTe()" style="-webkit-app-region:no-drag;color:#ffe04a" title="Execute (Te)">Te</button>
-    <button class="tb-btn" onclick="toggleSidePanel()" style="-webkit-app-region:no-drag">⊞ INTEL</button>
+    <button class="tb-btn" onclick="brainEnterMode('systems')" style="-webkit-app-region:no-drag;color:#11ddcc" title="Systems (seeds canvas nodes)">∿ SYS</button>
+    <button class="tb-btn" onclick="document.getElementById('side-panel').classList.add('open');spTab('leverage')" style="-webkit-app-region:no-drag;color:#ff8c22" title="Leverage — score the selected node">◈ LVG</button>
+    <!-- Ni button hidden: cognitive function tracking is automatic now (coherence engine) -->
+    <!-- Ne button hidden: cognitive function tracking is automatic now (coherence engine) -->
+    <!-- Ti button hidden: cognitive function tracking is automatic now (coherence engine) -->
+    <!-- Te button hidden: cognitive function tracking is automatic now (coherence engine) -->
+    <!-- INTEL button hidden: intelligence ratings derive from lattice activity, not a panel you maintain -->
     <button class="tb-btn" onclick="saveCanvas()" style="-webkit-app-region:no-drag">↓ SAVE</button>
     <button class="tb-btn danger" onclick="clearConfirm()" style="-webkit-app-region:no-drag">✕ CLEAR</button>
     <span id="zd" style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-left:4px">100%</span>
@@ -2536,6 +2830,7 @@ input[type=file] { display: none; }
 
   <!-- Path + status — always visible -->
   <div class="tb-path" id="tb-path" style="flex:1;min-width:0">no data folder</div>
+  <div class="tb-path" id="tb-save-state" title="" style="flex:0 0 auto;padding-right:10px;cursor:default">◆ saved</div>
   <div class="tb-status">
     <div class="tb-status-dot" id="status-dot"></div>
     <span id="status-label">READY</span>
@@ -2559,7 +2854,7 @@ input[type=file] { display: none; }
 
 <!-- RGB border line -->
 <!-- ── BAYESIAN BACKGROUND ─────────────────────────────────────── -->
-<canvas id="mm-bg-cvs" style="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:0.7"></canvas>
+<canvas id="mm-bg-cvs" style="position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:0;opacity:1"></canvas>
 
 <div id="rgb-border-top"></div>
 
@@ -2577,8 +2872,6 @@ input[type=file] { display: none; }
     <div class="mm-step" id="mms-2"><span class="mm-step-num">02</span><span class="mm-step-label">VAULT</span></div>
     <div class="mm-step-line"></div>
     <div class="mm-step" id="mms-3"><span class="mm-step-num">03</span><span class="mm-step-label">MODULES</span></div>
-    <div class="mm-step-line"></div>
-    <div class="mm-step" id="mms-4"><span class="mm-step-num">04</span><span class="mm-step-label">DATA</span></div>
   </div>
 
   <!-- SCREEN 0: WELCOME — literal first thing seen on new install -->
@@ -2621,17 +2914,28 @@ input[type=file] { display: none; }
         Planning life and skill building.<br>
         Understanding every part of you — mind, body and soul.
       </div>
-      <!-- Begin button -->
-      <button id="ss-welcome-btn" onclick="ssWelcomeBegin()"
-        style="margin-top:8px;padding:20px 64px;border:1px solid var(--c);background:rgba(0,200,255,.07);
-          color:var(--c);font-family:var(--f-display);font-size:14px;font-weight:700;letter-spacing:5px;
-          text-transform:uppercase;cursor:pointer;transition:all .3s;
-          clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)"
-        onmouseenter="this.style.background='rgba(0,200,255,.18)';this.style.boxShadow='0 0 50px rgba(0,200,255,.25)'"
-        onmouseleave="this.style.background='rgba(0,200,255,.07)';this.style.boxShadow=''">
-        Let's begin this journey.
-      </button>
-      <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:1.5px;color:var(--dim)">Press <span style="color:var(--mid)">ENTER</span> to continue</div>
+      <!-- Two paths: create new, or import an existing identity -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+        <button id="ss-welcome-create-btn" onclick="ssWelcomeCreate()"
+          style="padding:20px 48px;border:1px solid var(--c);background:rgba(0,200,255,.07);
+            color:var(--c);font-family:var(--f-display);font-size:13px;font-weight:700;letter-spacing:4px;
+            text-transform:uppercase;cursor:pointer;transition:all .3s;
+            clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)"
+          onmouseenter="this.style.background='rgba(0,200,255,.18)';this.style.boxShadow='0 0 50px rgba(0,200,255,.25)'"
+          onmouseleave="this.style.background='rgba(0,200,255,.07)';this.style.boxShadow=''">
+          Create New Identity
+        </button>
+        <button id="ss-welcome-import-btn" onclick="ssWelcomeImport()"
+          style="padding:20px 48px;border:1px solid var(--wire2);background:transparent;
+            color:var(--muted);font-family:var(--f-display);font-size:13px;font-weight:700;letter-spacing:4px;
+            text-transform:uppercase;cursor:pointer;transition:all .3s;
+            clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)"
+          onmouseenter="this.style.borderColor='var(--c)';this.style.color='var(--c)'"
+          onmouseleave="this.style.borderColor='var(--wire2)';this.style.color='var(--muted)'">
+          Import Existing Identity
+        </button>
+      </div>
+      <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:1.5px;color:var(--dim)">Press <span style="color:var(--mid)">ENTER</span> to create a new identity</div>
     </div>
   </div>
 
@@ -2681,8 +2985,8 @@ input[type=file] { display: none; }
             </div>
             <div class="opts-toggle on" id="wiz-e2e-toggle" onclick="wizToggleE2E(this)" title="Toggle encryption"></div>
           </div>
-          <div id="wiz-noenc-notice" style="display:none;font-family:var(--f-mono);font-size:7.5px;color:var(--o);padding:8px 12px;background:rgba(255,140,34,.06);border:1px solid rgba(255,140,34,.2);margin-bottom:12px">
-            Running without encryption. Your vault will be stored in plain text. You can enable encryption later in Settings.
+          <div id="wiz-noenc-notice" style="display:none;font-family:var(--f-mono);font-size:7.5px;color:var(--o);letter-spacing:.3px;margin-bottom:12px">
+            &#9650; Running without encryption. Your vault will be stored in plain text. You can enable encryption later in Settings.
           </div>
 
           <div id="wiz-pw-fields">
@@ -2793,6 +3097,30 @@ input[type=file] { display: none; }
 
 
     <!-- SCREEN 2: LOGIN (returning user) -->
+
+  <!-- BOOT: pre-flight verification, before anything is loaded that could be lost -->
+  <div class="startup-inner hidden" id="ss-boot">
+    <div class="mm-sigil-wrap">
+      <div class="startup-sigil">
+        <div class="sigil-ring"></div><div class="sigil-ring"></div><div class="sigil-ring"></div>
+        <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:0">
+          <polygon points="40,8 72,26 72,54 40,72 8,54 8,26" fill="none" stroke="rgba(0,200,255,.35)" stroke-width="1"/>
+          <circle cx="40" cy="40" r="6" fill="none" stroke="rgba(0,200,255,.6)" stroke-width="1.2"/>
+          <circle cx="40" cy="40" r="3" fill="rgba(0,200,255,.8)"/>
+        </svg>
+      </div>
+      <div class="mm-title">MASTERMIND</div>
+      <div class="mm-sub">VAULT CHECK</div>
+      <div class="mm-tagline">Verifying your vault before it opens</div>
+    </div>
+    <div class="mm-card mmb-wrap">
+      <div class="mmb-summary" id="mmb-summary">Checking your vault…</div>
+      <div class="mmb-steps" id="mmb-steps"></div>
+      <div class="mmb-foot" id="mmb-foot"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: LOGIN -->
   <div class="startup-inner hidden" id="ss-login">
     <div class="mm-sigil-wrap">
       <div class="startup-sigil">
@@ -3026,7 +3354,7 @@ input[type=file] { display: none; }
   </div>
 
   <!-- SCREEN 5: DATA FOLDER (Electron) -->
-  <div class="startup-inner hidden" id="ss-folder">
+  <div class="startup-inner hidden" id="ss-import">
     <div class="mm-sigil-wrap">
       <div class="startup-sigil">
         <div class="sigil-ring"></div><div class="sigil-ring"></div><div class="sigil-ring"></div>
@@ -3037,28 +3365,58 @@ input[type=file] { display: none; }
         </svg>
       </div>
       <div class="mm-title">MASTERMIND</div>
-      <div class="mm-sub">DATA STORAGE</div>
-      <div class="mm-tagline">Choose where your nodes, deltas, and UUID ledger live</div>
+      <div class="mm-sub">IMPORT IDENTITY</div>
+      <div class="mm-tagline">Point at an existing vault — a .vault file, or the folder holding one</div>
     </div>
     <div class="mm-card">
-      <div class="startup-folder-display" id="startup-folder-display">
-        <span class="startup-folder-icon">&#x1F4C1;</span>
-        <span class="startup-folder-path placeholder" id="startup-folder-path">No folder selected</span>
-      </div>
-      <button class="startup-folder-btn" onclick="pickStartupFolder()" style="margin-top:10px">&#x2315; Browse for Folder</button>
-      <button class="startup-default-btn" onclick="useDefaultFolder()">&#x2193; Use Default (\Documents\MASTERMIND)</button>
-      <button class="mm-btn-primary" id="ss-folder-enter-btn" disabled onclick="enterFromStartup()" style="margin-top:14px">
-        &#x2B21; &nbsp; ENTER MASTERMIND
-      </button>
-      <!-- Vault error display -->
-      <div id="ss-folder-error" style="display:none;margin-top:12px;padding:10px 16px;
+      <button class="startup-folder-btn" onclick="importPickVaultFile()">&#x1F4C4; Select a .vault File</button>
+      <button class="startup-folder-btn" onclick="importPickVaultFolder()" style="margin-top:8px">&#x1F4C1; Select a Folder Containing a Vault</button>
+
+      <div id="ss-import-status" style="display:none;margin-top:14px;padding:10px 16px;
+        border:1px solid rgba(0,200,255,.3);background:rgba(0,200,255,.06);
+        font-family:var(--f-mono);font-size:8px;color:var(--c);
+        letter-spacing:.5px;line-height:1.8;text-align:center;word-break:break-all"></div>
+
+      <div id="ss-import-error" style="display:none;margin-top:12px;padding:10px 16px;
         border:1px solid var(--r);background:rgba(255,51,85,.07);
         font-family:var(--f-mono);font-size:8px;color:var(--r);
         letter-spacing:.5px;line-height:1.8;max-width:420px;text-align:center"></div>
+
+      <button class="mm-btn-ghost" onclick="_ssShow('ss-welcome')" style="margin-top:16px">&#x2190; Back</button>
     </div>
   </div>
 
+  <!-- kept for legacy vault-missing recovery: pickStartupFolder() (nexus-canvas.js) now
+       re-persists the chosen folder and re-runs startupRoute() directly, no ss-folder screen -->
+  <div class="startup-inner hidden" id="ss-folder" style="display:none"></div>
+
 </div>
+
+<!-- ── SESSION CHOICE ── shown after unlock if there's an existing session
+     to resume, unless "don't show this again" was previously checked ── -->
+<div id="session-choice-screen" style="display:none;position:fixed;inset:0;z-index:2500;background:rgba(2,4,10,.97);align-items:center;justify-content:center;opacity:0;transition:opacity .3s">
+  <div style="width:min(420px,90vw);border:1px solid var(--wire2);background:var(--void);padding:32px 28px;text-align:center">
+    <div style="font-family:var(--f-display);font-size:13px;font-weight:800;letter-spacing:5px;color:var(--c)">WELCOME BACK</div>
+    <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);letter-spacing:2px;margin-top:8px;line-height:1.7">
+      PICK UP WHERE YOU LEFT OFF, OR START A FRESH VIEW
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:24px">
+      <button onclick="window._mmSessionChoiceProceed && window._mmSessionChoiceProceed('resume')" style="
+        font-family:var(--f-mono);font-size:9px;letter-spacing:2px;padding:12px;
+        border:1px solid var(--c);background:rgba(0,200,255,.08);color:var(--c);cursor:pointer;text-transform:uppercase">
+        ↻ RESUME SESSION
+      </button>
+      <button onclick="window._mmSessionChoiceProceed && window._mmSessionChoiceProceed('new')" style="
+        font-family:var(--f-mono);font-size:9px;letter-spacing:2px;padding:12px;
+        border:1px solid var(--wire2);background:transparent;color:var(--bright);cursor:pointer;text-transform:uppercase">
+        + START NEW SESSION
+      </button>
+    </div>
+    <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:20px;cursor:pointer">
+      <input type="checkbox" id="session-choice-dontask" style="accent-color:var(--c)">
+      <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase">Don't show this again</span>
+    </label>
+  </div>
 </div>
 
 <!-- ── HOMEPAGE ────────────────────────────────────────────────── -->
@@ -3082,7 +3440,7 @@ input[type=file] { display: none; }
         </svg>
       </div>
       <div class="hp-title">MASTERMIND</div>
-      <div class="hp-sub">COGNITIVE OPERATING SYSTEM · v3.0 ∞</div>
+      <div class="hp-sub" id="hp-version-sub">COGNITIVE OPERATING SYSTEM · v… ∞</div>
       <div class="hp-tagline">Map your mind. Recurse everything. Build the future.</div>
       <div class="hp-data-badge" onclick="openOptions()">
         <div class="hp-data-dot"></div>
@@ -3091,10 +3449,10 @@ input[type=file] { display: none; }
     </div>
 
     <!-- 6 module cards — feeds into each other, holographic -->
-    <div class="hp-modes" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1100px;width:100%;padding:0 12px">
+    <div class="hp-modes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;max-width:1100px;width:100%;padding:0 12px">
 
       <!-- 1. BRAIN MAP -->
-      <div class="hp-mode-card" data-feature="brain" style="--mode-color:#00c8ff" onclick="enterCanvas();openBrainMap()">
+      <div class="hp-mode-card" data-feature="brain" style="--mode-color:#00c8ff" onclick="MM_WARP.navigateCard('brain')">
         <span class="hp-mc-corner">BRAIN MAP</span>
         <div class="hp-mc-icon">◎</div>
         <div class="hp-mc-name">Brain Map</div>
@@ -3109,13 +3467,13 @@ input[type=file] { display: none; }
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot"></div>Infinite canvas · fractal</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="hp-mc-cta" style="--mode-color:#00c8ff;flex:1" onclick="event.stopPropagation();enterCanvas()">⬡ CANVAS</button>
-          <button class="hp-mc-cta" style="--mode-color:#cc44ff;flex:1" onclick="event.stopPropagation();openBrainMap()">◎ MODES</button>
+          <button class="hp-mc-cta" style="--mode-color:#00c8ff;flex:1" onclick="event.stopPropagation();MM_WARP.navigateCard('brain-canvas')">⬡ CANVAS</button>
+          <button class="hp-mc-cta" style="--mode-color:#cc44ff;flex:1" onclick="event.stopPropagation();MM_WARP.navigateCard('brain-modes')">◎ MODES</button>
         </div>
       </div>
 
       <!-- 2. SPATIAL VOID -->
-      <div class="hp-mode-card" data-feature="void" style="--mode-color:#cc44ff" onclick="enterVoid()">
+      <div class="hp-mode-card" data-feature="void" style="--mode-color:#cc44ff" onclick="MM_WARP.navigateCard('void')">
         <span class="hp-mc-corner">SPATIAL VOID</span>
         <div class="hp-mc-icon">✦</div>
         <div class="hp-mc-name">Spatial Void</div>
@@ -3129,11 +3487,11 @@ input[type=file] { display: none; }
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#cc44ff"></div>Expansion ↔ contraction</div>
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#cc44ff"></div>Hooks into emotions</div>
         </div>
-        <button class="hp-mc-cta" style="--mode-color:#cc44ff" onclick="event.stopPropagation();enterVoid()">✦ OPEN VOID</button>
+        <button class="hp-mc-cta" style="--mode-color:#cc44ff" onclick="event.stopPropagation();MM_WARP.navigateCard('void')">✦ OPEN VOID</button>
       </div>
 
       <!-- 3. HORIZON LIVING -->
-      <div class="hp-mode-card" data-feature="horizon" style="--mode-color:#d4a820" onclick="openHorizon()">
+      <div class="hp-mode-card" data-feature="horizon" style="--mode-color:#d4a820" onclick="MM_WARP.navigateCard('horizon')">
         <span class="hp-mc-corner">HORIZON</span>
         <div class="hp-mc-icon">→</div>
         <div class="hp-mc-name">Horizon Living</div>
@@ -3147,25 +3505,11 @@ input[type=file] { display: none; }
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#d4a820"></div>Failure modes · constraints</div>
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#d4a820"></div>Export to canvas</div>
         </div>
-        <button class="hp-mc-cta" style="--mode-color:#d4a820" onclick="event.stopPropagation();openHorizon()">→ OPEN HORIZON</button>
+        <button class="hp-mc-cta" style="--mode-color:#d4a820" onclick="event.stopPropagation();MM_WARP.navigateCard('horizon')">→ OPEN HORIZON</button>
       </div>
 
-      <!-- 4. ALM -->
-      <div class="hp-mode-card" data-feature="systems" style="--mode-color:#11ddcc" onclick="openSystems()">
-        <div class="hp-mc-tag">SYSTEMS</div>
-        <div class="hp-mc-icon" style="color:#11ddcc">∿</div>
-        <div class="hp-mc-title">SYSTEMS CANVAS</div>
-        <div class="hp-mc-body">Feedback loops, stocks &amp; flows. Map the mind as a causal system. Reinforcing vs balancing loops. Simulate. Automate cognitive patterns.</div>
-        <ul class="hp-mc-list">
-          <li>Causal loop diagrams</li>
-          <li>AI discovers loop structure</li>
-          <li>Model mind as system</li>
-          <li>Recursive what-if engine</li>
-        </ul>
-        <button class="hp-mc-cta" style="--mode-color:#11ddcc" onclick="event.stopPropagation();openSystems()">∿ OPEN SYSTEMS</button>
-      </div>
-
-      <div class="hp-mode-card" data-feature="alm" style="--mode-color:#00ff88" onclick="openALM()">
+      <!-- 4. ALM (Systems Canvas consolidated into Brain Map → Relational Systems mode) -->
+      <div class="hp-mode-card" data-feature="alm" style="--mode-color:#00ff88" onclick="MM_WARP.navigateCard('alm')">
         <span class="hp-mc-corner">ALM</span>
         <div class="hp-mc-icon">∞</div>
         <div class="hp-mc-name">ALM</div>
@@ -3179,53 +3523,60 @@ input[type=file] { display: none; }
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#00ff88"></div>Sleep integration scheduling</div>
           <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#00ff88"></div>Delta tracking · growth log</div>
         </div>
-        <button class="hp-mc-cta" style="--mode-color:#00ff88" onclick="event.stopPropagation();openALM()">∞ OPEN ALM</button>
+        <button class="hp-mc-cta" style="--mode-color:#00ff88" onclick="event.stopPropagation();MM_WARP.navigateCard('alm')">∞ OPEN ALM</button>
       </div>
 
-      <!-- 5. CREATIVE MODULE -->
-      <div class="hp-mode-card" data-feature="creative" style="--mode-color:#ff8c22" onclick="enterVoid()">
-        <span class="hp-mc-corner">VOID</span>
-        <div class="hp-mc-icon">✦</div>
-        <div class="hp-mc-name">Spatial Void</div>
+      <!-- 4b. MEMORY ARCHITECTURE -->
+      <div class="hp-mode-card" data-feature="memory" style="--mode-color:#7744ff" onclick="MM_WARP.navigateCard('memory')">
+        <span class="hp-mc-corner">MEM</span>
+        <div class="hp-mc-icon">◐</div>
+        <div class="hp-mc-name">MEMORY</div>
         <div class="hp-mc-desc">
-          Create. Express. Bridge. Seeds, loops, what-ifs. Express. Bridge.
-          Using rhythm, what-ifs, and synthesis for innovation.
+          Compartments — modes, systems, domains, projects, people, anything worth
+          thinking inside. Make cognition editable and explicit.
         </div>
         <div class="hp-mc-features">
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#ff8c22"></div>Create · Expand · Express · Bridge</div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#ff8c22"></div>Idea tracking &amp; philosophy</div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#ff8c22"></div>Vector tracking on canvas</div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#ff8c22"></div>Recursive fractal synthesis</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Generic containers, your own taxonomy</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Points at real content, doesn't copy it</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Spatial view, layout from real overlap</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Suggests placement, never assigns silently</div>
         </div>
-        <button class="hp-mc-cta" style="--mode-color:#ff8c22" onclick="event.stopPropagation();enterVoid()">✦ OPEN VOID</button>
+        <button class="hp-mc-cta" style="--mode-color:#7744ff" onclick="event.stopPropagation();MM_WARP.navigateCard('memory')">◐ OPEN MEMORY</button>
       </div>
 
-      <!-- 6. VOICE LATTICE — COMING SOON -->
-      <div class="hp-mode-card coming-soon" style="--mode-color:#7744ff" onclick="gateFeature('voice')">
-        <span class="hp-mc-corner" style="color:#7744ff;border-color:#7744ff44">COMING SOON</span>
-        <div class="hp-mc-icon" style="color:#7744ff;opacity:.6">◉</div>
-        <div class="hp-mc-name" style="color:#7744ff;opacity:.7">Voice Lattice</div>
-        <div class="hp-mc-desc" style="opacity:.6">
-          Speak nodes into existence. Voice-to-concept with semantic clustering.
-          Real-time transcription, AI parsing, and auto-tagging.
+      <!-- 4c/5. VOICE LATTICE — consolidated. This one card is now the only
+           entry point into the lattice: voice is the capture surface every
+           other module's nodes flow through, and the lattice (sessions,
+           associations, coherence) is a set of tabs inside it, not a
+           separate module with its own front door. -->
+      <div class="hp-mode-card" data-feature="voice" style="--mode-color:#7744ff" onclick="MM_WARP.navigateCard('voice')">
+        <span class="hp-mc-corner">LATTICE</span>
+        <div class="hp-mc-icon" style="color:#7744ff">◉</div>
+        <div class="hp-mc-name">Voice Lattice</div>
+        <div class="hp-mc-desc">
+          Speak or type. Every note becomes a node — auto-connected,
+          grouped by session, routed and tracked across the whole app.
         </div>
         <div class="hp-mc-features">
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff;opacity:.5"></div><span style="opacity:.6">Voice-to-node conversion</span></div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff;opacity:.5"></div><span style="opacity:.6">Semantic clustering</span></div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff;opacity:.5"></div><span style="opacity:.6">AI intent parsing</span></div>
-          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff;opacity:.5"></div><span style="opacity:.6">Auto-tag &amp; domain linking</span></div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Voice capture · intent detection</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Sessions — grouped by capture window, auto-saved</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Lattice — auto tags, sequence &amp; association edges</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Heuristics · growth timeline · coherence</div>
+          <div class="hp-mc-feat"><div class="hp-mc-feat-dot" style="background:#7744ff"></div>Fed by canvas, ALM, Horizon, patterns — all in one place</div>
         </div>
-        <button class="hp-mc-cta" style="--mode-color:#7744ff;opacity:.5;cursor:not-allowed">◉ IN DEVELOPMENT</button>
+        <button class="hp-mc-cta" style="--mode-color:#7744ff" onclick="event.stopPropagation();MM_WARP.navigateCard('voice')">◉ OPEN LATTICE</button>
       </div>
+
+      <!-- MIRROR removed. RELATIONAL consolidated into Brain Map → Relational mode. -->
 
     </div>
 
     <!-- Footer -->
     <div class="hp-footer">
-      <button class="hp-opts-btn" id="hp-modes-btn" onclick="enterCanvas();openBrainModeSelector('home')">◎ MODES</button>
-      <button class="hp-opts-btn" onclick="enterVoid()">✦ VOID</button>
-      <button class="hp-opts-btn" onclick="openALM()">∞ ALM</button>
-      <button class="hp-opts-btn" onclick="openOptions()">⚙ OPTIONS</button>
+      <button class="hp-opts-btn" id="hp-modes-btn" onclick="MM_WARP.navigateCard('brain-modes')">◎ MODES</button>
+      <button class="hp-opts-btn" onclick="MM_WARP.navigateCard('void')">✦ VOID</button>
+      <button class="hp-opts-btn" onclick="MM_WARP.navigateCard('alm')">∞ ALM</button>
+      <button class="hp-opts-btn" onclick="MM_WARP.navigateCard('options')">⚙ OPTIONS</button>
     </div>
 
   </div>
@@ -3287,33 +3638,38 @@ input[type=file] { display: none; }
 
 <!-- ── HELP HINT ──────────────────────────────────────────────── -->
 <div id="help-hint">
+  <div onclick="toggleHelpHint()" title="Hide (press ? to show again)" style="
+    position:absolute;top:6px;right:8px;cursor:pointer;pointer-events:auto;
+    color:var(--dim);font-size:11px;line-height:1">×</div>
   <div class="hh-section">CANVAS</div>
-  <span>SPACE</span> + drag — pan<br>
+  <span>DRAG</span> canvas — pan<br>
+  <span>SPACE+DRAG</span> — pan (explicit)<br>
   <span>SCROLL</span> — zoom in/out<br>
   <span>CTRL+SCROLL</span> — zoom precise<br>
-  <span>DBL-CLICK</span> canvas — spawn node<br>
-  <span>RIGHT-CLICK</span> canvas — quick spawn<br>
+  <span>DBL-CLICK</span> — spawn node<br>
+  <span>RIGHT-CLICK</span> — quick spawn<br>
   <span>SHIFT+DRAG</span> — area select<br>
   <span>MIDDLE-DRAG</span> — pan<br>
 
   <div class="hh-section">NODES</div>
-  <span>DRAG</span> node head — move<br>
-  <span>RIGHT-CLICK</span> node — context menu<br>
-  <span>CLICK</span> ● dot — expand/collapse<br>
-  <span>DBL-CLICK</span> title — edit text<br>
+  <span>DRAG</span> node — move<br>
+  <span>RIGHT-CLICK</span> — context menu<br>
+  <span>CLICK ●</span> — expand/collapse<br>
+  <span>DBL-CLICK title</span> — edit<br>
   <span>SHIFT+CLICK</span> — multi-select<br>
+  <span>TAB</span> — cycle node type<br>
 
   <div class="hh-section">KEYBOARD</div>
   <span>CTRL+Z</span> — undo<br>
   <span>CTRL+Y</span> — redo<br>
-  <span>CTRL+C</span> — copy selected<br>
+  <span>CTRL+C</span> — copy<br>
   <span>CTRL+V</span> — paste<br>
   <span>CTRL+A</span> — select all<br>
   <span>DEL</span> — delete selected<br>
   <span>ESC</span> — deselect / close<br>
-  <span>TAB</span> — cycle node type<br>
+  <span>CTRL+S</span> — save<br>
 
-  <div class="hh-section">MODULES</div>
+  <div class="hh-section">MODULES (CANVAS)</div>
   <span>B</span> — Brain Map<br>
   <span>H</span> — Horizon Living<br>
   <span>M</span> — Brain modes<br>
@@ -3321,10 +3677,20 @@ input[type=file] { display: none; }
   <span>/</span> — Search nodes<br>
   <span>?</span> — Toggle this panel<br>
 
-  <div class="hh-section">NODE TOOLS</div>
+  <div class="hh-section">HOMEPAGE MODULES</div>
+  <span>◎</span> Brain Map<br>
+  <span>✦</span> Spatial Void<br>
+  <span>→</span> Horizon Living<br>
+  <span>∿</span> Systems Canvas<br>
+  <span>∞</span> ALM<br>
+  <span>◉</span> Voice Lattice<br>
+  <span>◎</span> Mirror<br>
+
+  <div class="hh-section">NODE ACTIONS</div>
   <span>⌁</span> — Create link<br>
-  <span>∞</span> — Fractal children<br>
+  <span>∞</span> — Fractal expand<br>
   <span>⊞</span> — Duplicate node<br>
+  <span>✦</span> — AI expand<br>
   <span>✕</span> — Delete node<br>
 </div>
 
@@ -3332,7 +3698,7 @@ input[type=file] { display: none; }
 <div id="toolbar">
   <div class="tb-tool act" id="tool-select" onclick="setTool('select')"><span class="tb-icon">↖</span>SELECT</div>
   <div class="tb-tool" id="tool-link"   onclick="setTool('link')"><span class="tb-icon">⌁</span>LINK</div>
-  <div class="tb-tool" id="tool-zone"   onclick="setTool('zone')"><span class="tb-icon">⬜</span>ZONE</div>
+  <div class="tb-tool" id="tool-zone"   onclick="setTool('zone')"><span class="tb-icon">⬚</span>ZONE</div>
   <div class="tb-div"></div>
   <div class="tb-tool" onclick="autoLayout()"><span class="tb-icon">⊞</span>LAYOUT</div>
   <div class="tb-tool" onclick="clusterNodes()"><span class="tb-icon">○</span>CLUSTER</div>
@@ -3353,6 +3719,7 @@ input[type=file] { display: none; }
     <div class="sp-tab" data-st="conns"  onclick="spTab('conns')">CONNS</div>
     <div class="sp-tab" data-st="deltas" onclick="spTab('deltas')">DELTAS</div>
     <div class="sp-tab" data-st="stats"  onclick="spTab('stats')">STATS</div>
+    <div class="sp-tab" data-st="leverage" onclick="spTab('leverage')">LVG</div>
   </div>
   <div class="sp-body">
     <div id="spt-detail">
@@ -3362,6 +3729,39 @@ input[type=file] { display: none; }
     <div id="spt-conns"  style="display:none"><div id="conns-empty" style="padding:20px 12px;font-family:var(--f-mono);font-size:7.5px;color:var(--dim);text-align:center">Select a node.</div><div id="conns-list"></div></div>
     <div id="spt-deltas" style="display:none"><div id="delta-log-list"></div></div>
     <div id="spt-stats"  style="display:none"><div id="canvas-stats"></div></div>
+    <div id="spt-leverage" style="display:none">
+      <div id="lvg-empty" style="padding:20px 12px;font-family:var(--f-mono);font-size:7.5px;color:var(--dim);text-align:center;line-height:2">Select a node to score.</div>
+      <div id="lvg-content" style="display:none;padding:12px">
+        <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px">L = TENSION × WEIGHT × SLOPE</div>
+
+        <div style="display:flex;gap:4px;margin-bottom:14px">
+          <button id="lvg-btn-friction" class="lvg-kind-btn" style="--kc:#ff3355" onclick="lvgSetKind('friction')">⚠ FRICTION</button>
+          <button id="lvg-btn-leverage" class="lvg-kind-btn" style="--kc:#00ff88" onclick="lvgSetKind('leverage')">↑ LEVERAGE</button>
+          <button id="lvg-btn-neutral" class="lvg-kind-btn act" style="--kc:#00c8ff" onclick="lvgSetKind('neutral')">○ NEUTRAL</button>
+        </div>
+
+        <div class="lvg-slider-row">
+          <div class="lvg-slider-label">TENSION <span id="lvg-t-val">5.0</span></div>
+          <input type="range" min="0" max="10" step="0.5" value="5" id="lvg-tension" class="lvg-slider" oninput="lvgSliderChanged()">
+        </div>
+        <div class="lvg-slider-row">
+          <div class="lvg-slider-label">WEIGHT <span id="lvg-w-val">5.0</span></div>
+          <input type="range" min="0" max="10" step="0.5" value="5" id="lvg-weight" class="lvg-slider" oninput="lvgSliderChanged()">
+        </div>
+        <div class="lvg-slider-row">
+          <div class="lvg-slider-label">SLOPE / MOMENTUM <span id="lvg-s-val">5.0</span></div>
+          <input type="range" min="0" max="10" step="0.5" value="5" id="lvg-slope" class="lvg-slider" oninput="lvgSliderChanged()">
+        </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--wire);text-align:center">
+          <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);letter-spacing:1.5px">LEVERAGE SCORE</div>
+          <div id="lvg-score" style="font-family:var(--f-display);font-size:26px;font-weight:800;margin:4px 0">5.00</div>
+          <div id="lvg-mutation" style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);line-height:1.6"></div>
+        </div>
+
+        <button style="width:100%;margin-top:14px;padding:7px;border:1px solid var(--wire2);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--f-mono);font-size:7px;letter-spacing:1.5px;text-transform:uppercase" onclick="lvgToggleView()" id="lvg-view-toggle">◈ TOGGLE LEVERAGE VIEW</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -3400,19 +3800,19 @@ input[type=file] { display: none; }
           <div class="bmc-cta">ENTER COGNITIVE →</div>
         </div>
 
-        <!-- RELATIONSHIPS -->
-        <div class="brain-mode-card" style="--mc:#00ff88" onclick="brainEnterMode('relationships')">
+        <!-- RELATIONAL SYSTEMS (merged card → opens sub-selector: Systems vs Ecosystems) -->
+        <div class="brain-mode-card" style="--mc:#11ddcc" onclick="brainOpenRelSysSelector()">
           <div class="bmc-accent"></div>
-          <div class="bmc-icon">⬡</div>
-          <div class="bmc-name">Relationships</div>
-          <div class="bmc-desc">Building bridges, co-creating, innovating together. Mapping gaps between people. Meaning, leverage, and understanding.</div>
+          <div class="bmc-icon">∿</div>
+          <div class="bmc-name">Relational Systems</div>
+          <div class="bmc-desc">Building bridges, co-creating, mapping feedback loops. How people and systems actually interact — causal loops, stocks, and flows.</div>
           <div class="bmc-features">
             <div class="bmc-feat">Bridge building &amp; gap mapping</div>
+            <div class="bmc-feat">Causal loop diagrams &amp; feedback structure</div>
             <div class="bmc-feat">Co-creation &amp; problem solving</div>
-            <div class="bmc-feat">Intimacy &amp; meaning</div>
             <div class="bmc-feat">Conflict &amp; connection tools</div>
           </div>
-          <div class="bmc-cta">ENTER RELATIONSHIPS →</div>
+          <div class="bmc-cta">ENTER RELATIONAL SYSTEMS →</div>
         </div>
 
         <!-- EMOTIONS -->
@@ -3452,6 +3852,61 @@ input[type=file] { display: none; }
       </div>
     </div>
 
+    <!-- RELATIONAL SYSTEMS SUB-SELECTOR — shown when the Relational Systems card is clicked -->
+    <div id="brain-relsys-selector" style="display:none;flex-direction:column;align-items:center;gap:26px">
+      <div style="text-align:center">
+        <div style="font-family:var(--f-display);font-size:14px;font-weight:800;letter-spacing:6px;color:#11ddcc">
+          RELATIONAL SYSTEMS
+        </div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);letter-spacing:3px;margin-top:6px">
+          SYSTEMS, OR THE PEOPLE LIVING INSIDE THEM?
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;width:100%;max-width:600px">
+
+        <!-- SYSTEMS -->
+        <div class="brain-mode-card" style="--mc:#11ddcc" onclick="brainEnterMode('systems')">
+          <div class="bmc-accent"></div>
+          <div class="bmc-icon">∿</div>
+          <div class="bmc-name">Systems</div>
+          <div class="bmc-desc">Model minds, relationships, and complex dynamics as interacting systems. Causal loops, feedback structures, stocks and flows.</div>
+          <div class="bmc-features">
+            <div class="bmc-feat">Causal loop diagrams</div>
+            <div class="bmc-feat">Feedback structure &amp; delay</div>
+            <div class="bmc-feat">Leverage points</div>
+            <div class="bmc-feat">Recursive what-if engine</div>
+          </div>
+          <div class="bmc-cta">ENTER SYSTEMS →</div>
+        </div>
+
+        <!-- ECOSYSTEMS (merged: Ecosystems + Relational) -->
+        <div class="brain-mode-card" style="--mc:#00ff88" onclick="brainEnterMode('ecosystems')">
+          <div class="bmc-accent"></div>
+          <div class="bmc-icon">⬡</div>
+          <div class="bmc-name">Ecosystems</div>
+          <div class="bmc-desc">People and real relationships. You are shaped in relationship, not isolation — people as living nodes, moments as source of truth, bridges, co-creation, attachment.</div>
+          <div class="bmc-features">
+            <div class="bmc-feat">People · moments · attachment · co-regulation</div>
+            <div class="bmc-feat">Bridge building &amp; gap mapping</div>
+            <div class="bmc-feat">Co-creation &amp; intimacy</div>
+            <div class="bmc-feat">Communication threads &amp; connection tools</div>
+          </div>
+          <div class="bmc-cta">ENTER ECOSYSTEMS →</div>
+        </div>
+
+      </div>
+
+      <button onclick="brainRelSysBack()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:2px;
+        padding:8px 20px;border:1px solid var(--wire2);background:transparent;
+        color:var(--dim);cursor:pointer;text-transform:uppercase;transition:all .18s"
+        onmouseenter="this.style.borderColor='#11ddcc';this.style.color='#11ddcc'"
+        onmouseleave="this.style.borderColor='';this.style.color=''">
+        ← BACK
+      </button>
+    </div>
+
     <!-- FULL MAP VIEW — hidden until mode selected or "Open Full Map" clicked -->
     <div id="brain-full-view" style="display:none;flex-direction:column;flex:1;min-height:0">
     <div class="brain-head">
@@ -3464,11 +3919,16 @@ input[type=file] { display: none; }
     </div>
     <div class="brain-layout">
       <div class="brain-canvas-area" id="brain-canvas-area">
-        <canvas id="brain-cvs"></canvas>
+        <canvas id="brain-cvs" tabindex="0" style="outline:none"></canvas>
         <div class="brain-ctrl">
           <button class="brain-ctrl-btn act" id="bv-force"  onclick="brainSetView('force')">⊞ FORCE</button>
           <button class="brain-ctrl-btn"     id="bv-radial" onclick="brainSetView('radial')">◎ RADIAL</button>
           <button class="brain-ctrl-btn"     id="bv-domain" onclick="brainSetView('domain')">⬡ DOMAIN</button>
+        </div>
+        <div class="brain-ctrl" style="top:auto;bottom:12px;left:12px" id="brain-zoom-ctrl">
+          <button class="brain-ctrl-btn act" id="bv-zoom-0" onclick="bmv2SetZoomLevel(0)" title="13 meta-domains">◉ META</button>
+          <button class="brain-ctrl-btn"     id="bv-zoom-1" onclick="bmv2SetZoomLevel(1)" title="+ expanded sub-domains">◎ DOMAINS</button>
+          <button class="brain-ctrl-btn"     id="bv-zoom-2" onclick="bmv2SetZoomLevel(2)" title="+ canvas nodes &amp; custom domains">◈ DETAIL</button>
         </div>
         <div class="brain-counters">
           <div class="brain-count-chip" id="bc-nodes">0 NODES</div>
@@ -3558,6 +4018,9 @@ input[type=file] { display: none; }
         <div class="opts-nav-item" data-tab="horizon" onclick="optsTab(this,'horizon')">
           <span class="opts-nav-icon">◎</span> Horizon
         </div>
+        <div class="opts-nav-item" data-tab="roadmap" onclick="optsTab(this,'roadmap')">
+          <span>◷</span> Roadmap
+        </div>
         <div class="opts-nav-item" data-tab="ai" onclick="optsTab(this,'ai')">
           <span class="opts-nav-icon">◈</span> AI
         </div>
@@ -3586,15 +4049,45 @@ input[type=file] { display: none; }
           <div class="opts-section-head">THEME</div>
           <div class="theme-grid" id="theme-grid"></div>
 
+          <div class="opts-section-head" style="margin-top:20px">HOMEPAGE MODULES</div>
+          <div class="opts-hint" style="margin-bottom:8px">The onboarding wizard only asks once — this is the way back if you change your mind later. Turning one off hides its card from the homepage; nothing is deleted.</div>
+          <div class="opts-row"><div class="opts-label">Brain Map</div><div class="opts-toggle on" id="opt-modfeat-brain" onclick="optsToggleModuleFeature('brain')"></div></div>
+          <div class="opts-row"><div class="opts-label">Spatial Void</div><div class="opts-toggle on" id="opt-modfeat-void" onclick="optsToggleModuleFeature('void')"></div></div>
+          <div class="opts-row"><div class="opts-label">Horizon Living</div><div class="opts-toggle on" id="opt-modfeat-horizon" onclick="optsToggleModuleFeature('horizon')"></div></div>
+          <div class="opts-row"><div class="opts-label">ALM</div><div class="opts-toggle on" id="opt-modfeat-alm" onclick="optsToggleModuleFeature('alm')"></div></div>
+
           <div class="opts-section-head" style="margin-top:20px">TYPOGRAPHY</div>
           <div class="opts-row">
-            <div class="opts-label">UI font size
-              <div class="opts-hint">Scales all labels and menus</div>
+            <div class="opts-label">Text size
+              <div class="opts-hint">Scales TEXT only — the app's fonts, independent of everything else. Does not change button, icon or panel sizes.</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <input type="range" id="opt-font-scale" min="80" max="130" value="100" style="width:80px"
-                oninput="optsSetFontScale(this.value)">
+              <select id="opt-font-scale" class="opts-select" style="width:90px" onchange="optsSetFontScale(this.value)">
+                <option value="80">80%</option>
+                <option value="100" selected>100%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+                <option value="175">175%</option>
+                <option value="200">200%</option>
+              </select>
               <span id="opt-font-scale-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:30px">100%</span>
+            </div>
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">UI size
+              <div class="opts-hint">Scales EVERYTHING ELSE — buttons, icons, spacing, panels, the canvas. Independent of Text size above; the Settings panel itself stays fixed so it never moves while you're choosing. Same as Ctrl+scroll / Ctrl+plus/minus anywhere in the app.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <select id="opt-ui-scale" class="opts-select" style="width:90px" onchange="optsSetUIScale(this.value)">
+                <option value="60">60%</option>
+                <option value="80">80%</option>
+                <option value="100" selected>100%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+                <option value="175">175%</option>
+                <option value="200">200%</option>
+              </select>
+              <span id="opt-ui-scale-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:30px">100%</span>
             </div>
           </div>
           <div class="opts-row">
@@ -3602,6 +4095,12 @@ input[type=file] { display: none; }
               <div class="opts-hint">Reduce node padding for dense layouts</div>
             </div>
             <div class="opts-toggle" id="opt-compact" onclick="optsToggle(this,'compact')"></div>
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">Compact settings panel
+              <div class="opts-hint">Tighter spacing throughout this Options panel — same text size, less scrolling</div>
+            </div>
+            <div class="opts-toggle" id="opt-opts-density" onclick="optsToggle(this,'opts_density')"></div>
           </div>
           <div class="opts-row">
             <div class="opts-label">Show node badges
@@ -3639,6 +4138,17 @@ input[type=file] { display: none; }
         <div class="opts-tab" id="otab-security">
           <div class="opts-section-head">VAULT SECURITY</div>
           <div id="opts-identity-info" style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:2;margin-bottom:14px;padding:10px;background:var(--abyss);border:1px solid var(--wire)">—</div>
+
+          <div id="opts-crypto-detail" style="display:none;font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:2;margin-bottom:10px;padding:10px;background:var(--abyss);border:1px solid var(--wire)">—</div>
+          <div class="opts-row" style="margin-bottom:14px">
+            <div class="opts-label">Export keys
+              <div class="opts-hint">Same export this vault offered once at creation — reachable here any time, not just then. The private key export requires the vault to be unlocked.</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="opts-action-btn" onclick="exportPublicKey()">⬇ Public</button>
+              <button class="opts-action-btn" onclick="exportPrivateKey()">⬇ Private</button>
+            </div>
+          </div>
 
           <div class="opts-row">
             <div class="opts-label">End-to-end encryption
@@ -3691,8 +4201,42 @@ input[type=file] { display: none; }
             <button class="opts-action-btn" onclick="optsRemovePin()">✕ Remove PIN</button>
           </div>
 
+          <div class="opts-section-head" style="margin-top:20px">TWO-FACTOR AUTHENTICATION</div>
+          <div class="opts-hint" style="margin-bottom:10px">A second factor lives inside the encrypted vault, same as your password — nothing here touches localStorage.</div>
+
+          <div class="opts-row">
+            <div class="opts-label">Authenticator app<div class="opts-hint" id="mfa-totp-status">Checking&hellip;</div></div>
+            <button class="opts-action-btn" id="mfa-totp-setup-btn" onclick="mfaUiTotpBegin()">Set up</button>
+            <button class="opts-action-btn danger" id="mfa-totp-disable-btn" style="display:none" onclick="mfaUiTotpDisable()">Disable</button>
+          </div>
+          <div id="mfa-totp-enroll-box" style="display:none;margin:10px 0;padding:14px;background:var(--abyss);border:1px solid var(--wire)">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+              <div id="mfa-totp-qr" style="width:150px;height:150px;flex-shrink:0"></div>
+              <div style="flex:1;min-width:200px">
+                <div class="opts-hint" style="margin-bottom:6px">Scan with your authenticator app, or enter this key manually:</div>
+                <div id="mfa-totp-secret" style="font-family:var(--f-mono);font-size:10px;color:var(--c);letter-spacing:2px;padding:8px;background:var(--deep);border:1px solid var(--wire2);word-break:break-all;user-select:all;margin-bottom:10px"></div>
+                <div class="setup-field-group">
+                  <label class="setup-label">CODE FROM THE APP</label>
+                  <input class="setup-input" id="mfa-totp-confirm-code" maxlength="8" inputmode="numeric" placeholder="6-digit code"
+                         onkeydown="if(event.key==='Enter')mfaUiTotpConfirm()"/>
+                </div>
+                <div class="setup-error" id="mfa-totp-confirm-error"></div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <button class="mm-btn-primary" onclick="mfaUiTotpConfirm()" style="flex:1">Confirm</button>
+                  <button class="mm-btn-ghost" onclick="mfaUiTotpCancel()">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Security keys (FIDO2/WebAuthn)<div class="opts-hint" id="mfa-webauthn-status">Checking&hellip;</div></div>
+            <button class="opts-action-btn" id="mfa-webauthn-add-btn" onclick="mfaUiWebauthnAdd()">Add a key</button>
+          </div>
+          <div id="mfa-webauthn-list" style="margin:8px 0"></div>
+
           <div class="opts-section-head" style="margin-top:20px">BACKUP CODES</div>
-          <div class="opts-hint" style="margin-bottom:10px">One-time use recovery codes. Store them offline. Each code can only be used once.</div>
+          <div class="opts-hint" style="margin-bottom:10px">Recovery for the above if you lose your phone or key. One-time use — store them offline.</div>
           <div id="opts-backup-codes-display" style="display:none;font-family:var(--f-mono);font-size:9px;color:var(--c);letter-spacing:2px;line-height:2.4;background:var(--abyss);border:1px solid var(--wire);padding:12px;margin-bottom:10px;user-select:all"></div>
           <div class="opts-row">
             <button class="opts-action-btn" onclick="optsGenerateBackupCodes()">⬡ Generate Backup Codes</button>
@@ -3925,8 +4469,122 @@ input[type=file] { display: none; }
         </div>
 
         <!-- ══ AI ══════════════════════════════════════════════════ -->
+        <div class="opts-tab" id="otab-roadmap">
+          <div class="opts-section-head">WHAT THIS IS FOR</div>
+          <div class="opts-hint" style="padding:9px 10px;background:var(--abyss);border:1px solid var(--wire);line-height:1.8;margin-bottom:14px">
+            Reduce cognitive load. Reduce overwhelm.<br>
+            Every phase is judged against that. Two things follow: you never choose a category — tags, domains,
+            intelligence and intuition types are inferred — and the assistant's job is reducing the number of
+            decisions in front of you, not generating content.
+          </div>
+
+          <div class="opts-section-head">PHASES</div>
+          <div class="opts-hint" style="margin-bottom:10px">Strict dependency order. A phase may only use what is below it. A phase is done when it is demonstrated, not when it is written.</div>
+          <div id="opt-roadmap-list" style="display:flex;flex-direction:column;gap:2px">Loading…</div>
+
+          <div class="opts-section-head" style="margin-top:16px">COMPONENTS</div>
+          <div class="opts-hint" style="margin-bottom:8px">The 2026-03 build decomposed per §8.5 — id, parent, lifecycle, and where each connects. Nothing here is built; §8.5 requires the spec first.</div>
+          <div id="opt-components-list" style="display:flex;flex-direction:column;gap:2px">—</div>
+
+          <div class="opts-section-head" style="margin-top:16px">SALVAGE</div>
+          <div class="opts-hint" style="line-height:1.8">
+            <code>phasemap/salvage/</code> holds material extracted from the 11,125-line 2026-03 build:
+            the two-column lattice markup, 414 lines of its CSS, and the force-directed canvas with its physics.
+            Reference only — nothing is wired.<br><br>
+            <span style="color:var(--o)">Deliberately not salvaged:</span> the camera panel's
+            EXPRESSION / POSTURE / GAZE / STRESS readouts. Those were pixel statistics wearing psychological
+            labels. Rebuilding them would manufacture confident numbers about your emotional state from
+            brightness noise.
+          </div>
+        </div>
+
         <div class="opts-tab" id="otab-ai">
-          <div class="opts-section-head">AI PROVIDER</div>
+
+          <!-- ── ASSISTANCE BOUNDARY ────────────────────────────────────
+               Everything the assistant is allowed to do, in one place.
+               The panel below (AI PROVIDER / web agents) predates the
+               contract and does NOT route through it — see the warning. -->
+          <div class="opts-section-head">ASSISTANCE · WHAT MAY LEAVE</div>
+
+          <div id="opt-assist-state" class="opts-hint" style="padding:9px 10px;background:var(--abyss);border:1px solid var(--wire);line-height:1.7;margin-bottom:12px">—</div>
+
+          <div class="opts-row">
+            <div class="opts-label">Assistance
+              <div class="opts-hint">Off means no request is built at all. Nothing is sent while this is off, whatever a module declares.</div>
+            </div>
+            <div class="opts-toggle" id="opt-assist-enabled" onclick="optsToggleAssist(this)"></div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Provider</div>
+            <select class="opts-select" id="opt-assist-provider" onchange="optsSetAssistProvider(this.value)">
+              <option value="local">Local model only — nothing leaves this machine</option>
+              <option value="cloud">Cloud — text leaves your machine</option>
+            </select>
+          </div>
+          <div class="opts-hint" id="opt-assist-cloud-warn" style="display:none;color:var(--o);margin-bottom:12px">
+            &#9650; Cloud means the text in each request reaches a third party in the clear. The allowlist and the receipt still apply, so you can always see exactly what was sent — but it does leave.
+          </div>
+
+          <div class="opts-section-head" style="margin-top:16px">WHAT IT MAY BE ASKED TO DO</div>
+          <div class="opts-hint" style="margin-bottom:8px">A closed set. There is no free-form prompt — an open prompt would make the boundary unauditable.</div>
+
+          <div class="opts-row"><div class="opts-label">Disambiguate<div class="opts-hint">Choose between words Whisper was unsure of. Sends the candidates and the surrounding words.</div></div>
+            <div class="opts-toggle" id="opt-intent-disambiguate" onclick="optsToggleIntent(this,'disambiguate')"></div></div>
+          <div class="opts-row"><div class="opts-label">Suggest tags<div class="opts-hint">Sends the utterance text.</div></div>
+            <div class="opts-toggle" id="opt-intent-suggest-tags" onclick="optsToggleIntent(this,'suggest-tags')"></div></div>
+          <div class="opts-row"><div class="opts-label">Propose edges<div class="opts-hint">Including <em>contradicts</em>. Sends the text of the nodes being compared.</div></div>
+            <div class="opts-toggle" id="opt-intent-propose-edges" onclick="optsToggleIntent(this,'propose-edges')"></div></div>
+          <div class="opts-row"><div class="opts-label">Expand / compress<div class="opts-hint">Sends the text of one node.</div></div>
+            <div class="opts-toggle" id="opt-intent-expand" onclick="optsToggleIntent(this,'expand')"></div></div>
+          <div class="opts-row"><div class="opts-label">Ask questions back<div class="opts-hint">Sends the text of one node.</div></div>
+            <div class="opts-toggle" id="opt-intent-question" onclick="optsToggleIntent(this,'question')"></div></div>
+
+          <div class="opts-section-head" style="margin-top:16px">LIMITS</div>
+          <div class="opts-row">
+            <div class="opts-label">Characters per request<div class="opts-hint">Hard ceiling. Items beyond it are dropped and reported, never silently truncated.</div></div>
+            <input type="number" class="opts-input" id="opt-assist-maxchars" min="200" max="20000" step="200"
+                   onchange="optsSetAssistBudget('maxChars', this.value)" style="width:110px">
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">Items per request</div>
+            <input type="number" class="opts-input" id="opt-assist-maxitems" min="1" max="100" step="1"
+                   onchange="optsSetAssistBudget('maxItems', this.value)" style="width:110px">
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">Confirm before every send<div class="opts-hint">Shows the exact text and the reason. Slower, and the only way to be certain.</div></div>
+            <div class="opts-toggle on" id="opt-assist-confirm" onclick="optsToggle(this,'assist_confirm')"></div>
+          </div>
+
+          <div class="opts-section-head" style="margin-top:16px">NEVER SENT</div>
+          <div class="opts-hint" style="line-height:1.9;padding:9px 10px;background:var(--abyss);border:1px solid var(--wire)">
+            <span style="color:var(--r)">■</span> vault contents · password · salt · private key · identity · PIN · backup codes · audit ledger · the lexicon<br>
+            These are refused by policy, in code, whatever a module asks for. Not a setting.
+          </div>
+
+          <div class="opts-section-head" style="margin-top:16px">EGRESS LOG</div>
+          <div class="opts-hint" style="margin-bottom:8px">Every request that left, with a hash of exactly what was in it.</div>
+          <div id="opt-assist-log" style="font-family:var(--f-mono);font-size:8px;color:var(--mid);max-height:150px;overflow-y:auto;padding:8px 10px;background:var(--abyss);border:1px solid var(--wire);line-height:1.9">Nothing has been sent.</div>
+
+          <div class="opts-section-head" style="margin-top:16px">LEXICON</div>
+          <div class="opts-row">
+            <div class="opts-label">Learn vocabulary and grammar<div class="opts-hint">Local, always. Builds from your speech and stays in the vault.</div></div>
+            <div class="opts-toggle on" id="opt-lexicon-learn" onclick="optsToggle(this,'lexicon_learn')"></div>
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">Seed Whisper with your words<div class="opts-hint">Improves transcription of your own jargon and names. Local.</div></div>
+            <div class="opts-toggle on" id="opt-lexicon-prompt" onclick="optsToggle(this,'lexicon_prompt')"></div>
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">Suggest corrections from context<div class="opts-hint">Offers a better word when Whisper was unsure. Suggests — never rewrites.</div></div>
+            <div class="opts-toggle" id="opt-lexicon-disambiguate" onclick="optsToggle(this,'lexicon_disambiguate')"></div>
+          </div>
+          <div id="opt-lexicon-state" class="opts-hint" style="padding:9px 10px;background:var(--abyss);border:1px solid var(--wire);margin-top:8px">—</div>
+
+          <div class="opts-section-head" style="margin-top:22px">AI PROVIDER</div>
+          <div class="opts-hint" style="color:var(--o);margin-bottom:10px">
+            &#9650; The web agents below predate the assistance contract and do <strong>not</strong> route through it. What you paste into an agent window goes wherever that service sends it, with no allowlist, no budget and no receipt. They are a browser inside the app, not part of the boundary above.
+          </div>
           <div class="opts-row">
             <div class="opts-label">Enable AI features<div class="opts-hint">Enables AI expand, analyze, bridge, and generate</div></div>
             <div class="opts-toggle" id="opt-ai-enabled" onclick="optsToggleAI(this)"></div>
@@ -3934,23 +4592,61 @@ input[type=file] { display: none; }
           <div class="opts-row">
             <div class="opts-label">Provider</div>
             <select class="opts-select" id="opt-ai-provider" onchange="AI.provider=this.value;aiSave();optsUpdateAIModel()">
-              <option value="anthropic">Anthropic Claude</option>
-              <option value="openai">OpenAI GPT</option>
+              <option value="chatgpt">ChatGPT (web)</option>
+              <option value="claude">Claude (web)</option>
+              <option value="perplexity">Perplexity (web)</option>
+              <option value="gemini">Gemini (web)</option>
               <option value="ollama">Ollama (local)</option>
-              <option value="lmstudio">LM Studio (local)</option>
             </select>
+          </div>
+          
+          <div id="ai-clearglass-note" class="opts-row" style="display:none">
+            <div class="opts-hint">Web agents run inside Mastermind — each in its own window with its own login, all signed in at once if you want. Add an account once and it persists. Model selection stays in each agent's own UI (their picker, always current). Replies come from a real chat, not an API — slower than Ollama.</div>
+            <div class="opts-section-head" style="margin-top:14px">AGENT ACCOUNTS</div>
+            <div id="ai-agent-accounts" style="display:flex;flex-direction:column;gap:8px;width:100%"></div>
+
+          <div id="ai-relay-electron-note" style="display:none;margin-top:18px">
+            <div class="opts-hint" style="color:var(--g)">✓ Web agents run directly inside Mastermind — no separate relay needed for this app. <a href="#" onclick="optsToggleRelayAdvanced();return false;" style="color:var(--c);text-decoration:underline;cursor:pointer">Configure the clear-glass-lite relay anyway (advanced)</a></div>
+          </div>
+
+          <div id="ai-relay-section" style="display:none">
+          <div class="opts-section-head" style="margin-top:18px">CLEAR-GLASS-LITE RELAY <span id="ai-relay-subtitle">(browser-mode fallback)</span></div>
+          <div class="opts-hint" style="margin-bottom:8px" id="ai-relay-hint">Only needed when Mastermind runs outside Electron. The hardened build requires the guardian-lite token — every route past /health returns 401 without it.</div>
+          <div class="opts-row">
+            <div class="opts-label" id="ai-relay-status" style="width:100%">Checking clear-glass-lite\u2026</div>
           </div>
           <div class="opts-row">
-            <div class="opts-label">Model</div>
-            <select class="opts-select" id="opt-ai-model" onchange="AI.model=this.value;aiSave()">
-              <option value="claude-sonnet-4-20250514">claude-sonnet-4</option>
-              <option value="claude-opus-4-20250514">claude-opus-4</option>
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="llama3">llama3 (local)</option>
-              <option value="mistral">mistral (local)</option>
-            </select>
+            <a href="#" id="ai-relay-manual-toggle" onclick="optsToggleRelayManual();return false;" style="color:var(--c);text-decoration:underline;cursor:pointer;font-family:var(--f-mono);font-size:8px">Configure manually</a>
           </div>
+          <div id="ai-relay-manual" style="display:none">
+          <div class="opts-row">
+            <div class="opts-label">Bridge userscript
+              <div class="opts-hint">Writes mastermind-ai-bridge.user.js straight into clear-glass-lite and removes the old ERAVOS one.</div>
+            </div>
+            <button class="opts-action-btn" onclick="optsInstallBridgeUserscript()">⇩ Install into clear-glass-lite</button>
+          </div>
+          <div class="opts-row" id="ai-relay-autodetect-row">
+            <div class="opts-label">Port + token
+              <div class="opts-hint">Reads clear-glass-lite's own config directly instead of copy-pasting — best effort, and says so if it can't find one.</div>
+            </div>
+            <button class="opts-action-btn" onclick="optsAutoDetectGuardian()">⌕ Auto-detect from clear-glass-lite</button>
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">guardian-lite port</div>
+            <input type="number" id="opt-guardian-port" class="opts-select" style="width:110px"
+              onchange="AI.guardianPort=parseInt(this.value)||7823;aiSave()">
+          </div>
+          <div class="opts-row">
+            <div class="opts-label">guardian-lite token
+              <div class="opts-hint">X-CGL-Token. Written by clear-glass-lite on first run — try Auto-detect above before pasting one by hand.</div>
+            </div>
+            <input type="password" id="opt-guardian-token" class="opts-select" style="min-width:240px"
+              placeholder="paste token, or use Auto-detect above" onchange="AI.guardianToken=this.value.trim();aiSave()">
+          </div>
+          </div>
+          </div>
+          </div>
+          
 
           <!-- Ollama row -->
           <div id="ai-ollama-row" class="opts-row" style="flex-direction:column;align-items:stretch;display:none">
@@ -3967,42 +4663,139 @@ input[type=file] { display: none; }
             </div>
             <div id="ollama-detect-status" style="font-family:var(--f-mono);font-size:7px;
               color:var(--dim);margin-top:5px"></div>
-            <select id="ai-ollama-model" style="display:none;margin-top:6px;background:var(--deep);
-              border:1px solid var(--wire2);color:var(--bright);font-family:var(--f-mono);
-              font-size:8px;padding:7px 10px" onchange="AI.model=this.value;aiSave()"></select>
+            <select id="ai-ollama-model" class="opts-select" style="display:none;margin-top:6px;width:100%"
+              onchange="AI.model=this.value;aiSave()"></select>
           </div>
 
-          <!-- LM Studio row -->
-          <div id="ai-lmstudio-row" class="opts-row" style="flex-direction:column;align-items:stretch;display:none">
-            <div class="opts-label" style="margin-bottom:6px">LM Studio Base URL</div>
-            <input type="text" id="ai-lmstudio-base" placeholder="http://localhost:1234"
-              style="background:var(--deep);border:1px solid var(--wire2);color:var(--bright);
-                font-family:var(--f-mono);font-size:8px;padding:7px 10px;outline:none;width:100%"
-              onchange="AI.lmstudioBase=this.value;aiSave()"
-              onfocus="this.style.borderColor='var(--c)'" onblur="this.style.borderColor='var(--wire2)'">
+
+          <div class="opts-section-head" style="margin-top:20px">VOICE CAPTURE</div>
+          <div class="opts-hint" style="margin-bottom:10px">The orb (Voice Lattice) and the always-on listener below share these settings — everything transcribes through the same local model, in the same order it was spoken.</div>
+
+          <div class="opts-row">
+            <div class="opts-label">Rolling recall
+              <div class="opts-hint">Always listening in the background — captures the 3s BEFORE speech starts too, so the first word is never clipped waiting for you to press record. Off by default; this is a deliberate choice to make.</div>
+            </div>
+            <div class="opts-toggle" id="opt-voice-recall" onclick="optsToggleVoiceRecall(this)"></div>
           </div>
 
-          <!-- Connection status + test -->
-          <div style="display:flex;align-items:center;gap:10px;margin:10px 0 6px">
-            <div id="ai-conn-badge" style="font-family:var(--f-mono);font-size:7.5px;
-              padding:4px 10px;border:1px solid var(--wire2);color:var(--dim)">◌ NOT TESTED</div>
-            <button onclick="optsTestAI()" style="padding:5px 14px;border:1px solid rgba(0,200,255,.35);
-              color:var(--c);background:transparent;cursor:pointer;font-family:var(--f-mono);
-              font-size:7.5px;letter-spacing:1px">⚡ TEST CONNECTION</button>
-          </div>
-
-          <div id="ai-key-row">
-          <div class="opts-section-head" style="margin-top:20px">API KEY</div>
-          <div class="opts-hint" style="margin-bottom:8px;color:var(--o)">Key stored locally. Never sent anywhere except your chosen provider.</div>
-          <div class="opts-row" style="flex-direction:column;align-items:stretch">
-            <div style="display:flex;gap:6px">
-              <input type="password" id="opt-ai-key" placeholder="sk-... or anthropic key"
-                style="flex:1;background:var(--deep);border:1px solid var(--wire2);color:var(--white);font-family:var(--f-mono);font-size:10px;padding:8px 12px"
-                onchange="AI.apiKey=this.value;aiSave()"/>
-              <button class="opts-action-btn" onclick="optsShowAIKey()">👁</button>
+          <div class="opts-row">
+            <div class="opts-label">Sensitivity
+              <div class="opts-hint">How loud you need to be before it's treated as speech. Lower catches quieter speech but also more background noise.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-threshold" min="5" max="60" value="18" style="width:80px"
+                oninput="optsSetVoiceThreshold(this.value)">
+              <span id="opt-voice-threshold-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">0.018</span>
             </div>
           </div>
-          </div><!-- /ai-key-row -->
+
+          <div class="opts-row">
+            <div class="opts-label">Pause length
+              <div class="opts-hint">How long you need to go quiet before a thought is considered finished and sent to transcription.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-silence" min="400" max="2500" step="100" value="1200" style="width:80px"
+                oninput="optsSetVoiceSilence(this.value)">
+              <span id="opt-voice-silence-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">1.2s</span>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Pre-roll buffer
+              <div class="opts-hint">How far back each segment reaches before the moment speech was detected — this is the anti-clipping buffer.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-preroll" min="200" max="2000" step="100" value="800" style="width:80px"
+                oninput="optsSetVoicePreroll(this.value)">
+              <span id="opt-voice-preroll-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">0.8s</span>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Transcription model
+              <div class="opts-hint">Larger models are more accurate and slower. Only a model you've already got downloaded will actually be used.</div>
+            </div>
+            <select class="opts-select" id="opt-voice-model" onchange="optsSetVoiceModel(this.value)">
+              <option value="tiny">Tiny — fastest</option>
+              <option value="base" selected>Base — balanced (default)</option>
+              <option value="small">Small — more accurate</option>
+              <option value="medium">Medium — slower, more accurate</option>
+              <option value="large-v3">Large — most accurate</option>
+            </select>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Language
+              <div class="opts-hint">Forcing your actual language skips whisper's own language-detection pass — slightly faster, and removes one place it can guess wrong on short segments. "Auto" detects per segment.</div>
+            </div>
+            <select class="opts-select" id="opt-voice-language" onchange="optsSetVoiceLanguage(this.value)">
+              <option value="auto" selected>Auto-detect</option>
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="nl">Dutch</option>
+              <option value="ru">Russian</option>
+              <option value="zh">Chinese</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="ar">Arabic</option>
+              <option value="hi">Hindi</option>
+            </select>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">CPU threads
+              <div class="opts-hint">How many threads whisper.cpp uses per segment. "Auto" splits your CPU cores in half — enough to transcribe fast without starving the rest of the app. Raise it on a machine that's only running this.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-threads" min="0" max="16" step="1" value="0" style="width:80px"
+                oninput="optsSetVoiceThreads(this.value)">
+              <span id="opt-voice-threads-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">auto</span>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Transcription timeout
+              <div class="opts-hint">If a single segment hasn't finished transcribing by this point, whisper.cpp is killed and the segment is marked unreadable rather than left hanging the queue. Raise this for the Large model on a slow machine.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-timeout" min="15" max="300" step="5" value="120" style="width:80px"
+                oninput="optsSetVoiceTimeout(this.value)">
+              <span id="opt-voice-timeout-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">120s</span>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Max segment length
+              <div class="opts-hint">A safety valve — if you talk this long without a pause, the segment is cut and transcribed anyway rather than growing without bound.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-maxsegment" min="5" max="60" step="5" value="25" style="width:80px"
+                oninput="optsSetVoiceMaxSegment(this.value)">
+              <span id="opt-voice-maxsegment-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">25s</span>
+            </div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Use your own vocabulary
+              <div class="opts-hint">Feeds Whisper your own distinctive words (foundation/ai/lexicon.js) as its prompt for every segment — the single largest accuracy gain for personal speech, proper nouns and jargon it would otherwise mishear. Same setting as "Prompt seeding" under Lexicon, shown here too since it's a Whisper option.</div>
+            </div>
+            <div class="opts-toggle on" id="opt-voice-promptseed" onclick="optsToggle(this,'lexicon_prompt')"></div>
+          </div>
+
+          <div class="opts-row">
+            <div class="opts-label">Vocabulary prompt size
+              <div class="opts-hint">How many of your most distinctive words to feed Whisper per segment. Whisper.js hard-caps this at 48 regardless of what's set here — an over-long prompt biases the model toward words you didn't say.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="opt-voice-promptcount" min="10" max="48" step="2" value="40" style="width:80px"
+                oninput="optsSetVoicePromptSeedCount(this.value)">
+              <span id="opt-voice-promptcount-val" style="font-family:var(--f-mono);font-size:8px;color:var(--c);min-width:36px">40</span>
+            </div>
+          </div>
 
           <div class="opts-section-head" style="margin-top:20px">AI ACTIONS</div>
           <div class="opts-row"><div class="opts-label">Node expand (right-click)<div class="opts-hint">AI generates 3-5 child nodes from any node</div></div><div class="opts-toggle on" id="opt-ai-expand" onclick="optsToggle(this,'ai_expand')"></div></div>
@@ -4030,7 +4823,7 @@ input[type=file] { display: none; }
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
             <div style="padding:10px;border:1px solid var(--wire2);background:var(--abyss)">
               <div style="font-family:var(--f-display);font-size:9px;font-weight:700;color:var(--c);letter-spacing:2px;margin-bottom:4px">MASTERMIND</div>
-              <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">.json · .nxvault<br>Native format, full fidelity</div>
+              <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">.vault · .json<br>Native format, full fidelity</div>
             </div>
             <div style="padding:10px;border:1px solid var(--wire2);background:var(--abyss)">
               <div style="font-family:var(--f-display);font-size:9px;font-weight:700;color:var(--v);letter-spacing:2px;margin-bottom:4px">OBSIDIAN</div>
@@ -4065,7 +4858,7 @@ input[type=file] { display: none; }
             ondrop="event.preventDefault();this.style.borderColor='var(--wire2)';Array.from(event.dataTransfer.files).forEach(f=>importFile(f))"
             onclick="importJSON()">
             DROP FILES HERE<br>
-            <span style="font-size:7px;color:var(--dim)">or click to browse · .json .md .nxvault .csv .xmind</span>
+            <span style="font-size:7px;color:var(--dim)">or click to browse · .vault .json .md .csv .xmind</span>
           </div>
         </div>
 
@@ -4104,6 +4897,10 @@ input[type=file] { display: none; }
           <div class="opts-row">
             <button class="opts-action-btn danger" onclick="optsWipeVault()">☠ Wipe Vault &amp; Identity</button>
           </div>
+          <div class="opts-row">
+            <button class="opts-action-btn danger" onclick="optsSecureWipeVault()">⛒ Secure Wipe (overwrite + zero, unrecoverable)</button>
+          </div>
+          <div class="opts-hint" style="margin-top:4px">Secure Wipe overwrites the vault file with random data, then zeros, then deletes it — stronger than the regular wipe above, and includes any backup snapshots. See About for the honest limits on SSDs.</div>
         </div>
 
         <!-- ══ IDENTITY & KEYS ════════════════════════════════ -->
@@ -4148,9 +4945,9 @@ input[type=file] { display: none; }
         <div class="opts-tab" id="otab-about">
           <div class="opts-section-head">MASTERMIND ∞</div>
           <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:2.2;padding:12px;background:var(--abyss);border:1px solid var(--wire);margin-bottom:16px">
-            <div>Version: <span style="color:var(--c)">3.0.0 ∞</span></div>
+            <div>Version: <span id="about-version-display" style="color:var(--c)">… ∞</span></div>
             <div>Foundation: <span style="color:var(--c)">MM Foundation v1.0 · UUID · Delta · Tags · Domains</span></div>
-            <div>Engine: <span style="color:var(--c)">Mastermind Engine v3 · Electron target</span></div>
+            <div>Engine: <span style="color:var(--c)">Mastermind Engine · Electron target</span></div>
             <div>Platform: <span style="color:var(--c)">Windows 11 · Node.js · Chromium</span></div>
             <div>Persistence: <span style="color:var(--c)">MM Vault · Snapshots · Integrity hashing</span></div>
             <div>Encryption: <span style="color:var(--c)">AES-256-GCM · PBKDF2-SHA256 · 310k iter</span></div>
@@ -4180,12 +4977,13 @@ input[type=file] { display: none; }
 
           <div class="opts-section-head" style="margin-top:20px">ELECTRON BUILD</div>
           <div class="opts-hint" style="margin-bottom:10px">For Windows 11 native app packaging:</div>
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);line-height:2;padding:10px;background:var(--abyss);border:1px solid var(--wire)">
-            npm install electron electron-builder<br>
-            npx electron-builder --win --x64<br>
-            Output: dist/MASTERMIND Setup 3.0.0.exe
+          <div id="about-build-output" style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);line-height:2;padding:10px;background:var(--abyss);border:1px solid var(--wire);white-space:pre-line">
+            npm install electron electron-builder
+            npx electron-builder --win --x64
+            Output: dist/MASTERMIND-Setup-….exe
           </div>
           <div class="opts-row" style="margin-top:10px">
+            <button class="opts-action-btn" onclick="optsOpenDocs()">📖 View Documentation</button>
             <button class="opts-action-btn" onclick="if(window.NXAPI)window.NXAPI.openDevTools()">⬡ DevTools</button>
             <button class="opts-action-btn" onclick="optsCheckForUpdates()">↺ Check for Updates</button>
           </div>
@@ -4249,12 +5047,14 @@ input[type=file] { display: none; }
             </select>
             <select id="opts-log-module" class="opts-select" onchange="optsRefreshLog()">
               <option value="">All modules</option>
+              <option value="uncaught">Uncaught errors</option>
               <option value="canvas">Canvas</option>
               <option value="vault">Vault</option>
               <option value="tags">Tags</option>
               <option value="core">Core</option>
             </select>
             <button class="opts-action-btn" onclick="optsRefreshLog()">↺</button>
+            <button class="opts-action-btn" onclick="optsCopyFullLog()" title="Copies every log entry as plain text — the fastest way to get error info out of the app">⧉ Copy Full Log</button>
           </div>
           <div id="opts-log-display" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:1px;font-family:var(--f-mono);font-size:7px"></div>
 
@@ -4296,18 +5096,10 @@ input[type=file] { display: none; }
 <!-- Version badge — always visible bottom right -->
 <div id="mm-version-badge">
   <span class="mm-vb-name">MASTERMIND</span>
-  <span class="mm-vb-ver">v3.0 ∞</span>
+  <span class="mm-vb-ver" id="mm-vb-ver-display">v… ∞</span>
 </div>
 
-<!-- Version badge — bottom right corner -->
-<div id="mm-version-badge" style="
-  position:fixed;right:10px;bottom:8px;z-index:400;
-  font-family:var(--f-mono);font-size:6px;letter-spacing:2px;
-  color:var(--dim);opacity:.45;pointer-events:none;
-  text-transform:uppercase;
-">v3.0 ∞</div>
-
-<input type="file" id="import-file" style="display:none" accept=".json,.md,.markdown,.nxvault,.csv,.xmind,.jsonl" multiple onchange="handleImportFile(event)">
+<input type="file" id="import-file" style="display:none" accept=".vault,.json,.md,.markdown,.nxvault,.csv,.xmind,.jsonl" multiple onchange="handleImportFile(event)">
 
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -4338,11 +5130,43 @@ input[type=file] { display: none; }
     </div>
   </div>
 
+  <!-- MODE TABS — the four modes of the void -->
+  <div id="void-mode-tabs" style="display:flex;gap:0;border-bottom:1px solid rgba(204,68,255,.15);
+    background:rgba(0,0,0,.5);flex-shrink:0">
+    <button class="void-mode-tab active" id="vtab-create" onclick="voidSetMode('create')" style="
+      padding:8px 18px;cursor:pointer;font-family:var(--f-mono);font-size:7.5px;
+      letter-spacing:1.5px;border:none;border-bottom:2px solid #ff8c22;
+      color:#ff8c22;background:rgba(255,140,34,.06);transition:all .15s">◈ CREATE</button>
+    <button class="void-mode-tab" id="vtab-expand" onclick="voidSetMode('expand')" style="
+      padding:8px 18px;cursor:pointer;font-family:var(--f-mono);font-size:7.5px;
+      letter-spacing:1.5px;border:none;border-bottom:2px solid transparent;
+      color:var(--dim);background:transparent;transition:all .15s">✦ EXPAND</button>
+    <button class="void-mode-tab" id="vtab-express" onclick="voidSetMode('express')" style="
+      padding:8px 18px;cursor:pointer;font-family:var(--f-mono);font-size:7.5px;
+      letter-spacing:1.5px;border:none;border-bottom:2px solid transparent;
+      color:var(--dim);background:transparent;transition:all .15s">♥ EXPRESS</button>
+    <button class="void-mode-tab" id="vtab-bridge" onclick="voidSetMode('bridge')" style="
+      padding:8px 18px;cursor:pointer;font-family:var(--f-mono);font-size:7.5px;
+      letter-spacing:1.5px;border:none;border-bottom:2px solid transparent;
+      color:var(--dim);background:transparent;transition:all .15s">⬡ BRIDGE</button>
+    <button class="void-mode-tab" id="vtab-log" onclick="voidSetMode('log')" style="
+      padding:8px 18px;cursor:pointer;font-family:var(--f-mono);font-size:7.5px;
+      letter-spacing:1.5px;border:none;border-bottom:2px solid transparent;
+      color:var(--dim);background:transparent;transition:all .15s">Δ LOG</button>
+    <div style="flex:1"></div>
+    <button onclick="voidSpawnAllSeeds()" style="
+      padding:8px 14px;font-family:var(--f-mono);font-size:7px;letter-spacing:1px;
+      border:none;border-bottom:2px solid transparent;color:var(--dim);
+      background:transparent;cursor:pointer"
+      onmouseenter="this.style.color='#00ff88'"
+      onmouseleave="this.style.color='var(--dim)'">→ ALL SEEDS TO CANVAS</button>
+  </div>
+
   <!-- Scrollable content -->
   <div style="flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px">
 
-    <!-- Row 1: Seeds + Open Loops -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- Seeds + Open Loops: shown in EXPAND and LOG modes -->
+    <div data-void-mode="expand log" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 
       <!-- SEEDS -->
       <div style="border:1px solid rgba(0,255,136,.2);background:rgba(0,255,136,.03);padding:16px">
@@ -4390,8 +5214,8 @@ input[type=file] { display: none; }
       </div>
     </div>
 
-    <!-- Row 2: What-ifs + Bridge -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- What-ifs + Bridge: expand/bridge modes -->
+    <div data-void-mode="expand bridge" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 
       <!-- WHAT-IFS -->
       <div style="border:1px solid rgba(204,68,255,.2);background:rgba(204,68,255,.03);padding:16px">
@@ -4453,11 +5277,11 @@ input[type=file] { display: none; }
       </div>
     </div>
 
-    <!-- Row 3: Create + Express -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- Create + Express: create/express modes -->
+    <div data-void-mode="create express" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 
-      <!-- CREATE -->
-      <div style="border:1px solid rgba(255,140,34,.2);background:rgba(255,140,34,.03);padding:16px;
+      <!-- CREATE: create mode -->
+      <div data-void-section="create" style="border:1px solid rgba(255,140,34,.2);background:rgba(255,140,34,.03);padding:16px;
         position:relative;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
         <div style="position:absolute;top:0;left:0;right:0;height:1px;
           background:linear-gradient(90deg,transparent,#ff8c22,transparent)"></div>
@@ -4483,8 +5307,8 @@ input[type=file] { display: none; }
         <div id="void-create-log" style="margin-top:10px"></div>
       </div>
 
-      <!-- EXPRESS -->
-      <div style="border:1px solid rgba(255,102,170,.2);background:rgba(255,102,170,.03);padding:16px;
+      <!-- EXPRESS: express mode -->
+      <div data-void-section="express" style="border:1px solid rgba(255,102,170,.2);background:rgba(255,102,170,.03);padding:16px;
         position:relative;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)">
         <div style="position:absolute;top:0;left:0;right:0;height:1px;
           background:linear-gradient(90deg,transparent,#ff66aa,transparent)"></div>
@@ -4511,8 +5335,8 @@ input[type=file] { display: none; }
       </div>
     </div>
 
-    <!-- Row 4: Priming + Constraints -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- Priming + Constraints: create mode -->
+    <div data-void-mode="create expand" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 
       <!-- PRIMING -->
       <div style="border:1px solid rgba(119,68,255,.2);background:rgba(119,68,255,.03);padding:16px">
@@ -4554,6 +5378,17 @@ input[type=file] { display: none; }
         </div>
         <div id="constraints-list"></div>
       </div>
+    </div>
+
+    <!-- LOG SECTION — shown in log mode only -->
+    <div id="void-log-section" style="display:none;flex-direction:column;gap:8px">
+      <div style="font-family:var(--f-display);font-size:9px;font-weight:800;
+        letter-spacing:3px;color:#00ff88;margin-bottom:4px">Δ VOID LOG</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);margin-bottom:10px">
+        Everything you've captured. Seeds, loops, what-ifs, creates, expressions.
+        Chronological. Exportable.
+      </div>
+      <div id="void-log-content" style="display:flex;flex-direction:column;gap:7px"></div>
     </div>
 
   </div><!-- /scrollable -->
@@ -4745,12 +5580,65 @@ input[type=file] { display: none; }
 </div><!-- /#app -->
 
 <!-- ── SCRIPTS ────────────────────────────────────────────────── -->
-  <script src="bayesian-bg.js" onerror="console.warn('bayesian-bg.js not found — background disabled')"></script>
-  <script src="mastermind-siso-jaa.js" onerror="console.warn('mastermind-siso-jaa.js not found — SISO/JAA using stubs')"></script>
-<script src="mastermind-foundation.js" onerror="console.warn('mastermind-foundation.js not found — foundation features disabled')"></script>
+  <script>
+    /* §5.4 — the single version global. MUST stay above every module script:
+       preload reads package.json synchronously and exposes it as
+       NXAPI.version, so this is already correct before the first module
+       evaluates. A test asserts the ordering, because the previous attempt
+       put this below nexus-canvas.js and that module read undefined. */
+    window.MM_VERSION = (window.NXAPI && window.NXAPI.version) || '0.0.0-browser';
+  </script>
+  <script src="foundation/siso-jaa/mastermind-siso-jaa.js" onerror="console.warn('mastermind-siso-jaa.js not found — SISO/JAA using stubs')"></script>
+<script src="foundation/bus/event-ledger.js" onerror="console.warn('event-ledger.js not found — pattern detection has no event memory')"></script>
+<script src="foundation/core/mastermind-foundation.js" onerror="console.warn('mastermind-foundation.js not found — foundation features disabled')"></script>
 <script src="nexus-canvas.js" onerror="document.body.innerHTML='<div style=&quot;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#02040a;color:#ff3355;font-family:monospace;font-size:14px&quot;>CANVAS MODULE LOAD FAILED — place nexus-canvas.js in the same folder as index.html</div>'"></script>
-<script src="mastermind-bg.js" onerror="console.warn('mastermind-bg.js not found')"></script>
-<script src="mastermind-vault.js" onerror="console.error('[MASTERMIND] mastermind-vault.js failed to load — vault, encryption and persistence disabled')"></script>
+<script src="foundation/theme/mastermind-bg.js" onerror="console.warn('mastermind-bg.js not found')"></script>
+<script src="foundation/ui/mm-dialogs.js" onerror="console.error('[MASTERMIND] mm-dialogs.js failed to load — prompts/confirms disabled')"></script>
+<script src="foundation/vault/vault-envelope.js" onerror="console.error('[MASTERMIND] vault-envelope.js failed to load — vault format unavailable')"></script>
+<script src="foundation/vault/vault-crypto.js" onerror="console.error('[MASTERMIND] vault-crypto.js failed to load — vault encryption unavailable')"></script>
+<script src="foundation/vault/vault-mfa.js" onerror="console.error('[MASTERMIND] vault-mfa.js failed to load — TOTP/backup-code/security-key math unavailable')"></script>
+<script src="foundation/ui/vendor/qrcode-generator.js" onerror="console.warn('qrcode-generator.js not found — TOTP QR codes unavailable, manual secret entry still works')"></script>
+<script src="foundation/vault/vault-guard.js" onerror="console.error('[MASTERMIND] vault-guard.js failed to load — tamper detection unavailable')"></script>
+<script src="foundation/vault/vault-boot.js" onerror="console.error('[MASTERMIND] vault-boot.js failed to load — startup checks unavailable')"></script>
+<script src="foundation/ai/assist-contract.js" onerror="console.error('[MASTERMIND] assist-contract.js failed to load — AI assistance disabled')"></script>
+<script src="foundation/ai/taxonomy.js" onerror="console.error('[MASTERMIND] taxonomy.js failed to load — no domain or intelligence classification')"></script>
+<script src="foundation/ai/pattern-detect.js" onerror="console.error('[MASTERMIND] pattern-detect.js failed to load — semantic-field tagging and weak-assumption detection unavailable, nodes fall back to literal-keyword tags only')"></script>
+<script src="foundation/ai/lexicon.js" onerror="console.error('[MASTERMIND] lexicon.js failed to load — no vocabulary or grammar learning')"></script>
+<script src="foundation/ai/capture-bridge.js" onerror="console.error('[MASTERMIND] capture-bridge.js failed to load — speech will not reach the lattice')"></script>
+<script src="foundation/ai/transcribe-queue.js" onerror="console.error('[MASTERMIND] transcribe-queue.js failed to load — voice capture cannot queue or persist transcriptions')"></script>
+<script src="foundation/core/mm-session.js" onerror="console.error('[MASTERMIND] mm-session.js failed to load — resume/clear unavailable')"></script>
+<script src="foundation/ui/mm-boot-screen.js" onerror="console.error('[MASTERMIND] mm-boot-screen.js failed to load — startup checks will not be shown')"></script>
+<script src="foundation/vault/mastermind-vault.js" onerror="console.error('[MASTERMIND] mastermind-vault.js failed to load — vault, encryption and persistence disabled')"></script>
+<script src="foundation/vault/vault-mfa-state.js" onerror="console.error('[MASTERMIND] vault-mfa-state.js failed to load — MFA enrollment and login verification disabled')"></script>
+<script src="foundation/ai/clearglass-transport.js" onerror="console.warn('clearglass-transport.js not found — ClearGlass provider disabled')"></script>
 <script src="nexus-engine.js" onerror="document.body.innerHTML='<div style=&quot;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#02040a;color:#ff3355;font-family:monospace;font-size:14px&quot;>ENGINE LOAD FAILED — place nexus-engine.js in the same folder as index.html</div>'"></script>
+<script src="modules/alm/engine.js" onerror="console.error('[MASTERMIND] modules/alm/engine.js failed to load — ALM disabled')"></script>
+<script src="modules/alm/ui.js" onerror="console.error('[MASTERMIND] modules/alm/ui.js failed to load — ALM disabled')"></script>
+<script src="modules/memory/engine.js" onerror="console.warn('modules/memory/engine.js not found — Memory Architecture disabled')"></script>
+<script src="modules/memory/ui.js" onerror="console.warn('modules/memory/ui.js not found — Memory Architecture disabled')"></script>
+<script src="foundation/bus/warp-core.js" onerror="console.warn('warp-core.js not found — navigation spine disabled, falling back to direct calls')"></script>
+<script src="foundation/bus/mastermind-warp-spine.js" onerror="console.warn('mastermind-warp-spine.js not found — navigation spine disabled')"></script>
+<script src="modules/leverage-map/engine.js" onerror="console.warn('leverage-map/engine.js not found — Leverage Map disabled')"></script>
+<script src="modules/leverage-map/events.js" onerror="console.warn('leverage-map/events.js not found — Leverage Map disabled')"></script>
+<script src="modules/alm/events.js" onerror="console.warn('alm/events.js not found — ALM will work but without bus events')"></script>
+<script src="foundation/ai/voicing.js" onerror="console.error('[MASTERMIND] voicing.js failed to load — voice capture falls back to volume-only speech detection')"></script>
+<script src="foundation/ai/clarity.js" onerror="console.error('[MASTERMIND] clarity.js failed to load — voice capture falls back to unprocessed audio')"></script>
+<script src="modules/voice-lattice/audio-encode.js" onerror="console.error('[MASTERMIND] audio-encode.js failed to load — voice capture cannot transcribe')"></script>
+<script src="modules/voice-lattice/recall.js" onerror="console.warn('recall.js not found — rolling recall disabled')"></script>
+<script src="modules/voice-lattice/ui-phone.js" onerror="console.error('[MASTERMIND] ui-phone.js failed to load — phone input unavailable')"></script>
+<script src="modules/voice-lattice/ui-capture.js" onerror="console.error('[MASTERMIND] ui-capture.js failed to load — lattice capture surface unavailable')"></script>
+<script src="modules/voice-lattice/engine.js" onerror="console.warn('voice-lattice/engine.js not found — associative engines disabled')"></script>
+<script src="modules/pattern-engine/engine.js" onerror="console.warn('pattern-engine/engine.js not found — pattern memory disabled')"></script>
+<script src="modules/lattice/text-analysis.js" onerror="console.warn('text-analysis.js not found — falling back to exact-word matching')"></script>
+<script src="modules/lattice/lattice.js" onerror="console.warn('lattice.js not found — cross-module association disabled')"></script>
+<script src="modules/lattice/coherence.js" onerror="console.warn('coherence.js not found — ripple/contradiction detection disabled')"></script>
+<!-- modules/lattice/ui.js retired: its standalone SESSIONS overlay (openLattice)
+     is now the SESSIONS tab inside Voice Lattice (nexus-engine.js _vlTabSessions).
+     lattice.js and coherence.js above are still the real engine/data layer and
+     stay loaded — only the old duplicate front door is gone. -->
+<script src="modules/ai-status/status.js" onerror="console.warn('ai-status missing')"></script>
+<script src="modules/capture/capture.js" onerror="console.warn('capture.js not found — unified capture disabled')"></script>
+<script src="modules/voice-lattice/dictation.js" onerror="console.warn('dictation.js not found — voice dictation disabled')"></script>
+<script src="modules/leverage-map/ui.js" onerror="console.warn('leverage-map/ui.js not found — Leverage Map disabled')"></script>
 </body>
 </html>

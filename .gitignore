@@ -1,0 +1,21 @@
+node_modules/
+
+# History bundles (npm run archive) are a portable, external backup —
+# the entire reason they exist is disaster recovery for "if .git is
+# ever lost, since this repo has no remote". Committing one INTO the
+# repo it's a snapshot of defeats that purpose (if .git is lost, a
+# bundle stored as a blob inside .git is lost with it) while causing
+# genuine compounding growth: each new bundle is built with `--all`,
+# so it necessarily contains every previous bundle's blob data too —
+# this is what took the repo from ~4MB to 164MB+ over eight releases.
+# The bundle is created fresh by `npm run archive` / `npm run release`
+# every time; it does not need to be tracked history itself, since git
+# already IS the tracked history. Keep it local, hand it out as a
+# separate file when a backup is actually needed.
+dist/history/*.bundle
+
+# cloudflared.exe (~52MB) is fetched at build time by BUILD.bat, same
+# pattern as the whisper model — see resources/whisper/README.md and
+# BUILD.bat's own comments. Not committed, for the same reason the
+# whisper model isn't: keep the repo itself small.
+resources/cloudflared/*.exe

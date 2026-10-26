@@ -1,0 +1,16 @@
+{
+  "name": "spatial",
+  "private": true,
+  "type": "module",
+  "description": "An operating system for the space between people.",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build":   "node scripts/build-all.js",
+    "test":    "node scripts/test-all.js",
+    "lint":    "node scripts/lint-all.js",
+    "publish": "node scripts/publish-all.js"
+  },
+  "engines": { "node": ">=18" }
+}

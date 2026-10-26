@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastermind/assist-response.schema.json",
+  "title": "Assist response",
+  "description": "What comes back, as PROPOSALS. Nothing here is applied automatically. A proposal becomes a node or edge only when the person accepts it, and it arrives carrying provenance.author = 'model' forever after.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "model", "receivedAt", "proposals"],
+  "properties": {
+    "requestId":  { "type": "string" },
+    "model":      { "type": "string" },
+    "receivedAt": { "type": "string", "format": "date-time" },
+    "durationMs": { "type": ["integer", "null"] },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind":       { "type": "string", "enum": ["tag", "edge", "node", "choice", "text"] },
+          "targetId":   { "type": ["string", "null"] },
+          "tag":        { "type": ["string", "null"] },
+          "edgeType":   { "type": ["string", "null"], "enum": ["related", "refines", "contradicts", "implements", "spawns", null] },
+          "toId":       { "type": ["string", "null"] },
+          "text":       { "type": ["string", "null"] },
+          "choice":     { "type": ["string", "null"] },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "rationale":  { "type": ["string", "null"], "description": "Why. A proposal with no rationale cannot be judged, only trusted." }
+        }
+      }
+    },
+    "refusal": { "type": ["string", "null"], "description": "Set when the assistant declined or had nothing useful. An empty proposal list with no refusal is indistinguishable from a failure." }
+  }
+}

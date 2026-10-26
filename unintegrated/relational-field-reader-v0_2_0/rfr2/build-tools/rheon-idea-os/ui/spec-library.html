@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spec Library · RHEON</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .library-layout {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 0;
+      height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    .library-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    .library-toolbar {
+      padding: var(--s3) var(--s5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      background: var(--bg-deep);
+      flex-shrink: 0;
+    }
+
+    .search-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: var(--s3);
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .search-input {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: var(--s2) var(--s3) var(--s2) 28px;
+      width: 100%;
+      outline: none;
+      transition: border-color var(--t-fast);
+    }
+    .search-input:focus { border-color: var(--signal-dim); }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .filter-tabs {
+      display: flex;
+      gap: 1px;
+    }
+
+    .filter-tab {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: var(--s1) var(--s3);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--t-fast);
+    }
+    .filter-tab.active {
+      background: var(--signal-glow);
+      border-color: var(--signal-muted);
+      color: var(--signal);
+    }
+    .filter-tab:hover:not(.active) {
+      background: var(--bg-raised);
+      color: var(--text-secondary);
+    }
+
+    /* Spec list */
+    .spec-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .spec-row {
+      display: grid;
+      grid-template-columns: 1fr 80px 80px 60px;
+      gap: var(--s4);
+      align-items: center;
+      padding: var(--s3) var(--s5);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--t-fast);
+    }
+
+    .spec-row:hover { background: var(--bg-raised); }
+    .spec-row.selected { background: var(--signal-glow); border-left: 2px solid var(--signal); }
+
+    .spec-row-header {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 80px 80px 60px;
+      gap: var(--s4);
+      padding: var(--s2) var(--s5);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-deep);
+    }
+
+    .spec-row-header span {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .spec-name-cell {}
+    .spec-name {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .spec-desc {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .spec-version {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .spec-status-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .spec-status-badge.draft    { color: var(--text-muted); }
+    .spec-status-badge.active   { color: var(--ok);   border-color: var(--ok-dim); }
+    .spec-status-badge.stable   { color: var(--signal); border-color: var(--signal-muted); }
+    .spec-status-badge.deprecated { color: var(--err); border-color: var(--err-dim); }
+
+    .spec-hash {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Detail panel */
+    .detail-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .detail-header {
+      padding: var(--s4) var(--s5);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .detail-name {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--s1);
+    }
+
+    .detail-meta {
+      display: flex;
+      gap: var(--s3);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--s4) var(--s5);
+    }
+
+    .detail-section {
+      margin-bottom: var(--s5);
+    }
+
+    .detail-section-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--s3);
+      padding-bottom: var(--s1);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: var(--s1) var(--s3);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      margin-bottom: var(--s2);
+    }
+    .detail-kv .k { color: var(--text-muted); }
+    .detail-kv .v { color: var(--text-secondary); }
+
+    .seam-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      padding: var(--s2) var(--s3);
+      border: 1px solid var(--border);
+      margin-bottom: var(--s2);
+      background: var(--bg-deep);
+    }
+
+    .no-selection {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: var(--s3);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <div class="page">
+    <div class="library-layout">
+
+      <!-- Main list -->
+      <div class="library-main">
+        <div class="library-toolbar">
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input class="search-input" id="search" placeholder="Search specs…">
+          </div>
+          <div class="filter-tabs">
+            <div class="filter-tab active" data-filter="all">All</div>
+            <div class="filter-tab" data-filter="draft">Draft</div>
+            <div class="filter-tab" data-filter="active">Active</div>
+            <div class="filter-tab" data-filter="stable">Stable</div>
+          </div>
+          <a href="/spec-builder" class="btn btn-signal">+ New Spec</a>
+        </div>
+
+        <div class="spec-row-header">
+          <span>Name</span>
+          <span>Version</span>
+          <span>Status</span>
+          <span>Hash</span>
+        </div>
+
+        <div class="spec-list" id="spec-list">
+          <div class="empty">
+            <div class="empty-icon">⊞</div>
+            <div class="empty-text">Loading specs…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail panel -->
+      <div class="detail-panel" id="detail-panel">
+        <div class="no-selection">
+          <div style="font-size:40px;opacity:0.15">⊞</div>
+          <div class="mono-xs">Select a spec to view details</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/shared.js"></script>
+  <script>
+    const { GET, POST, toast, formatTs, truncHash, renderNav, initNav } = window.rheon;
+    document.getElementById('nav-mount').innerHTML = renderNav();
+    initNav();
+
+    function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    let allSpecs   = [];
+    let filterStatus = 'all';
+    let searchQuery  = '';
+    let selectedSpec = null;
+
+    // ── Load specs ───────────────────────────────────────────────
+    async function loadSpecs() {
+      try {
+        const refs = await GET('/api/specs/specs');
+        // Fetch full content for each ref
+        const full = await Promise.all(refs.map(async ref => {
+          try {
+            const result = await GET(`/api/specs/specs/${ref.name}`);
+            return { ref, content: result.content };
+          } catch { return { ref, content: {} }; }
+        }));
+        allSpecs = full;
+        renderList();
+      } catch(e) {
+        document.getElementById('spec-list').innerHTML =
+          `<div class="empty"><div class="empty-text text-err">${esc(e.message)}</div></div>`;
+      }
+    }
+
+    // ── Render list ──────────────────────────────────────────────
+    function renderList() {
+      let specs = allSpecs;
+
+      if (filterStatus !== 'all') {
+        specs = specs.filter(s => (s.content.status || 'draft') === filterStatus);
+      }
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        specs = specs.filter(s =>
+          (s.ref.name || '').toLowerCase().includes(q) ||
+          (s.content.description || '').toLowerCase().includes(q)
+        );
+      }
+
+      const list = document.getElementById('spec-list');
+      if (!specs.length) {
+        list.innerHTML = `<div class="empty">
+          <div class="empty-icon">⊞</div>
+          <div class="empty-text">${searchQuery ? 'No matching specs' : 'No specs yet'}</div>
+        </div>`;
+        return;
+      }
+
+      list.innerHTML = specs.map(({ ref, content }) => `
+        <div class="spec-row ${selectedSpec?.ref.name === ref.name ? 'selected' : ''}"
+             data-name="${esc(ref.name)}">
+          <div class="spec-name-cell">
+            <div class="spec-name">${esc(content.name || ref.name)}</div>
+            <div class="spec-desc">${esc(content.description || '—')}</div>
+          </div>
+          <div class="spec-version">${esc(content.version || '—')}</div>
+          <div>
+            <span class="spec-status-badge ${content.status || 'draft'}">${esc(content.status || 'draft')}</span>
+          </div>
+          <div class="spec-hash">${truncHash(ref.hash)}</div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.spec-row[data-name]').forEach(row => {
+        row.onclick = () => {
+          const found = specs.find(s => s.ref.name === row.dataset.name);
+          if (found) selectSpec(found);
+        };
+      });
+    }
+
+    // ── Select spec ──────────────────────────────────────────────
+    function selectSpec({ ref, content }) {
+      selectedSpec = { ref, content };
+      renderList();
+      renderDetail(ref, content);
+    }
+
+    function renderDetail(ref, c) {
+      const panel = document.getElementById('detail-panel');
+      panel.innerHTML = `
+        <div class="detail-header">
+          <div class="detail-name">${esc(c.name || ref.name)}</div>
+          <div class="detail-meta">
+            <span class="spec-status-badge ${c.status||'draft'}">${esc(c.status||'draft')}</span>
+            <span class="mono-xs text-muted">v${esc(c.version||'?')}</span>
+            <span class="hash">${ref.hash.slice(0,16)}</span>
+            ${c.projectId ? `<span class="tag">${esc(c.projectId)}</span>` : ''}
+          </div>
+        </div>
+        <div class="detail-body">
+
+          ${c.description ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Description</div>
+            <div class="mono-xs" style="color:var(--text-secondary);line-height:1.7">${esc(c.description)}</div>
+          </div>` : ''}
+
+          <div class="detail-section">
+            <div class="detail-section-title">Identity</div>
+            <div class="detail-kv">
+              <span class="k">uuid</span><span class="v">${esc(c.uuid||'—')}</span>
+              <span class="k">version</span><span class="v">${esc(c.version||'—')}</span>
+              <span class="k">status</span><span class="v">${esc(c.status||'—')}</span>
+              <span class="k">project</span><span class="v">${esc(c.projectId||'—')}</span>
+            </div>
+          </div>
+
+          ${(c.seams||[]).length ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Seams (${c.seams.length})</div>
+            ${c.seams.map(s => `
+              <div class="seam-row">
+                <span class="seam-badge">${esc(s.name)}</span>
+                <span class="mono-xs text-muted">${esc(s.from)} ↔ ${esc(s.to)}</span>
+              </div>`).join('')}
+          </div>` : ''}
+
+          ${(c.layers||[]).length ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Layers</div>
+            ${c.layers.map((l,i) => `
+              <div class="flex items-center gap-3 mb-2">
+                <span class="tag">L${i}</span>
+                <span class="mono-sm">${esc(l.name)}</span>
+                <span class="mono-xs text-muted">${esc(l.status||'')}</span>
+              </div>`).join('')}
+          </div>` : ''}
+
+          ${(c.components||[]).length ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Components (${c.components.length})</div>
+            ${c.components.map(comp => `
+              <div class="flex items-center gap-2 mb-1">
+                <span class="tag">${esc(comp.type||'module')}</span>
+                <span class="mono-sm">${esc(comp.name)}</span>
+              </div>`).join('')}
+          </div>` : ''}
+
+          ${(c.gaps||[]).length ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Gaps (${c.gaps.length})</div>
+            ${c.gaps.map(g => `
+              <div class="flex items-center gap-2 mb-1">
+                <span class="tag text-warn">${esc(g.type)}</span>
+                <span class="mono-xs text-muted">${esc(g.description)}</span>
+              </div>`).join('')}
+          </div>` : ''}
+
+          <div class="detail-section">
+            <div class="detail-section-title">Acceptance</div>
+            ${Object.entries(c.acceptance||{}).map(([k,v]) => `
+              <div class="flex items-center gap-2 mb-1">
+                <span style="color:${v?'var(--ok)':'var(--text-muted)'}; font-family:var(--font-mono);font-size:12px">${v?'✓':'○'}</span>
+                <span class="mono-xs ${v?'text-ok':'text-muted'}">${k.replace(/_/g,' ')}</span>
+              </div>`).join('')}
+          </div>
+
+          ${c.notes ? `
+          <div class="detail-section">
+            <div class="detail-section-title">Notes</div>
+            <div class="mono-xs" style="color:var(--text-muted);line-height:1.7;white-space:pre-wrap">${esc(c.notes)}</div>
+          </div>` : ''}
+
+          <div class="flex gap-2 mt-4">
+            <a href="/spec-builder" class="btn flex-1">Edit</a>
+            <button class="btn btn-signal" id="btn-open-repo" style="${c.projectId?'':'display:none'}">
+              Open in Repo →
+            </button>
+          </div>
+
+        </div>
+      `;
+
+      const repoBtn = document.getElementById('btn-open-repo');
+      if (repoBtn && c.projectId) {
+        repoBtn.onclick = () => { location.href = `/repository?project=${encodeURIComponent(c.projectId)}`; };
+      }
+    }
+
+    // ── Filter tabs ──────────────────────────────────────────────
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        filterStatus = tab.dataset.filter;
+        renderList();
+      };
+    });
+
+    // ── Search ───────────────────────────────────────────────────
+    document.getElementById('search').oninput = (e) => {
+      searchQuery = e.target.value;
+      renderList();
+    };
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadSpecs();
+  </script>
+</body>
+</html>

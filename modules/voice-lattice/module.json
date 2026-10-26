@@ -1,0 +1,46 @@
+{
+  "id": "voice-lattice",
+  "name": "Voice Lattice",
+  "uuid": "4a3b2c1d-mod-9000-8000-voicelattice",
+  "version": "1.0.0",
+  "engine": "engine.js",
+  "ui": null,
+
+  "emits": [
+    "mm.capture.session.start",
+    "mm.capture.session.end",
+    "mm.capture.node",
+    "mm.capture.mode"
+  ],
+  "listens": [
+    "mm.module.open",
+    "mm.module.close",
+    "mm.vault.loaded",
+    "mm.vault.saving"
+  ],
+
+  "assistance": {
+    "_note": "This block IS the egress boundary for this module. DR-003 as an inspectable file rather than a promise in prose. Anything not listed in may_send cannot leave, and NEVER_SEND in assist-contract.js overrides this file regardless of what it says.",
+    "enabled": false,
+    "provider": "local",
+    "may_send": [
+      "utterance.text",
+      "node.tags",
+      "disambiguation.candidates"
+    ],
+    "never_send": [
+      "node.body",
+      "lattice.*",
+      "lexicon.*",
+      "session.*"
+    ],
+    "intents": ["disambiguate", "suggest-tags", "propose-edges"],
+    "budget": { "maxChars": 4000, "maxItems": 20 }
+  },
+
+  "persistence": {
+    "_note": "Module contract rule 4: the module returns state and receives state. It never writes to the vault, localStorage or the filesystem.",
+    "serialize": "vleSave",
+    "hydrate": "vleLoad"
+  }
+}

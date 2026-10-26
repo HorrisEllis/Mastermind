@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "topo-kernel/schemas/field.schema.json",
+  "title": "Topology Kernel — Field Definition",
+  "description": "Schema for a field lens. Five canonical fields. Each field has three polarity axes.",
+  "type": "object",
+  "required": ["id", "name", "axes"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": ["relational", "bonding", "threat", "temporal", "spatial"]
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "axes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["id", "positive", "negative"],
+        "properties": {
+          "id":          { "type": "string" },
+          "positive":    { "type": "string", "description": "Positive pole label" },
+          "negative":    { "type": "string", "description": "Negative pole label" },
+          "description": { "type": "string" },
+          "weight":      { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+        }
+      }
+    }
+  }
+}

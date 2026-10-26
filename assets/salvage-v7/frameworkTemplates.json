@@ -1,0 +1,126 @@
+[
+  {
+    "name": "3-Layer Framework",
+    "desc": "Foundation → Structure → Application",
+    "nodes": [
+      {
+        "l": "Foundation",
+        "t": "base"
+      },
+      {
+        "l": "Structure",
+        "t": "core"
+      },
+      {
+        "l": "Application",
+        "t": "output"
+      }
+    ]
+  },
+  {
+    "name": "Causal Loop",
+    "desc": "Trigger → Response → Feedback → Stabilizer",
+    "nodes": [
+      {
+        "l": "Trigger",
+        "t": "input"
+      },
+      {
+        "l": "Response",
+        "t": "process"
+      },
+      {
+        "l": "Feedback",
+        "t": "loop"
+      },
+      {
+        "l": "Stabilizer",
+        "t": "output"
+      }
+    ]
+  },
+  {
+    "name": "Dialectic",
+    "desc": "Thesis → Antithesis → Synthesis",
+    "nodes": [
+      {
+        "l": "Thesis",
+        "t": "input"
+      },
+      {
+        "l": "Antithesis",
+        "t": "input"
+      },
+      {
+        "l": "Synthesis",
+        "t": "output"
+      }
+    ]
+  },
+  {
+    "name": "OODA Loop",
+    "desc": "Observe → Orient → Decide → Act",
+    "nodes": [
+      {
+        "l": "Observe",
+        "t": "input"
+      },
+      {
+        "l": "Orient",
+        "t": "process"
+      },
+      {
+        "l": "Decide",
+        "t": "process"
+      },
+      {
+        "l": "Act",
+        "t": "output"
+      }
+    ]
+  },
+  {
+    "name": "Problem Space",
+    "desc": "Problem → Root Cause → Intervention → Result",
+    "nodes": [
+      {
+        "l": "Problem",
+        "t": "friction"
+      },
+      {
+        "l": "Root Cause",
+        "t": "friction"
+      },
+      {
+        "l": "Intervention",
+        "t": "leverage"
+      },
+      {
+        "l": "Result",
+        "t": "output"
+      }
+    ]
+  },
+  {
+    "name": "Meaning Making",
+    "desc": "Event → Interpretation → Belief → Action",
+    "nodes": [
+      {
+        "l": "Event",
+        "t": "input"
+      },
+      {
+        "l": "Interpretation",
+        "t": "process"
+      },
+      {
+        "l": "Belief",
+        "t": "core"
+      },
+      {
+        "l": "Action",
+        "t": "output"
+      }
+    ]
+  }
+]

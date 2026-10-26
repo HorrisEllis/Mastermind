@@ -1,0 +1,76 @@
+{
+  "_note": "Mechanisms, not content. Extracted from NEXUS Mastermind v7 (2026-03). These are the operators and formulas the old build ran on; the content they operated over is in the sibling JSON files.",
+
+  "mutations": {
+    "_what": "Operators applied to an existing node to produce a new one. This is the 'mutation lab' in the design notes — it already existed. Each is a transformation with a defined input and output, which makes them testable pure functions over a node.",
+    "generative": [
+      { "key": "expand",     "label": "Expand Possibilities",  "icon": "\u2b21" },
+      { "key": "compress",   "label": "Compress to Essence",   "icon": "\u25c8" },
+      { "key": "fork",       "label": "Fork \u2014 Parallel Branch", "icon": "\u2295" },
+      { "key": "synthesize", "label": "Cross-Domain Synthesis","icon": "\u2726" }
+    ],
+    "structural": [
+      { "key": "chain",     "label": "Causal Chain",   "icon": "\u229e" },
+      { "key": "shadow",    "label": "Shadow Side",    "icon": "\u25d0" },
+      { "key": "tension",   "label": "Extract Tension","icon": "\u26a1" },
+      { "key": "dialectic", "label": "Dialectic Split","icon": "\u2295" },
+      { "key": "end-state", "label": "End-State Simulation", "icon": "\u25b6" }
+    ]
+  },
+
+  "leverage": {
+    "_what": "The personal framework equation, implemented as a scored canvas.",
+    "formula": "L = Tension \u00d7 Weight \u00d7 f(Slope)",
+    "inputs": [
+      { "key": "tension", "range": [0, 10], "asks": "How much productive tension exists here?" },
+      { "key": "weight",  "range": [0, 10], "asks": "How consequential is the outcome?" },
+      { "key": "slope",   "range": [0, 10], "asks": "Rate of change \u2014 what is the current trajectory?" }
+    ],
+    "score": { "range": [0, 1000], "derives": ["mutationProbability", "colorScale"] },
+    "nodeTypes": ["FRICTION", "LEVERAGE", "NEUTRAL"],
+    "_reading": "Slope is the multiplier, not an addend. The Slope Amplifier heuristic in heuristics.json is the same claim stated as a rule of thumb."
+  },
+
+  "epistemicRegister": {
+    "_what": "Beliefs tracked with evidence and a confidence level, per domain, with pattern frequencies over time. This is the Bayesian-updating requirement from the design notes \u2014 it already had a working shape here.",
+    "fields": ["claim", "evidence", "domain", "confidence", "timestamp"],
+    "confidenceLevels": ["high", "medium", "low", "testing"],
+    "_gap": "It records confidence but never updates it. There is no mechanism that revisits a belief when new evidence arrives \u2014 no prior, no posterior, no prompt to re-rate. That is the actual missing piece, and it is small: a belief needs a review trigger and an update log.",
+    "_reading": "'testing / exploring' as a confidence level is the good idea here \u2014 it separates 'I am uncertain' from 'I am deliberately holding this loosely while I check'. That distinction is what P8 compartments need."
+  },
+
+  "metadataCategories": {
+    "_what": "The cross-cutting classification applied to every node from every source (canvas, library, vault).",
+    "values": ["thinking", "reasoning", "leverage", "scaffolding", "insight", "meta", "friction", "pattern"],
+    "sortModes": ["title", "type", "category", "score"],
+    "sources": ["canvas", "library", "vault"]
+  },
+
+  "intelligenceTaxonomy": {
+    "_what": "22 intelligence types used to tag every library entry and every scenario. This is the domain map's vocabulary \u2014 it already exists and is already applied across ~40 pieces of content.",
+    "types": [
+      "Pattern Recognition & Forecasting", "Meta-Cognition", "Social Cognition",
+      "Embodied Intelligence", "Logical-Mathematical", "Risk Assessment",
+      "Adaptive Strategy", "Systems Thinking", "Emotional Awareness",
+      "Reflective / Integrative", "Resilience & Self-Regulation",
+      "Attachment / Relational", "Virtue & Character", "Real-World Problem Solving",
+      "Convergent Thinking", "Conflict Management", "Meta-Learning",
+      "Divergent Thinking", "Imaginative / Conceptual", "Critical Thinking",
+      "Ethical Reasoning", "Innovative / Disruptive"
+    ]
+  },
+
+  "synthesisLab": {
+    "_what": "A workspace where tools, frameworks, patterns and insights are added as cards, then run through synthesis to find cross-domain connections and compounding loops.",
+    "views": ["cards", "matrix", "map"],
+    "flow": ["fromCanvas", "synthesizeAll", "toCanvas"],
+    "_reading": "The matrix view is the part worth keeping: an N\u00d7N grid of elements against each other forces every pair to be considered, which is what makes cross-domain synthesis systematic rather than lucky."
+  },
+
+  "vaultEntrySchema": {
+    "_what": "The Insight Vault entry \u2014 a candidate input to the P1 node envelope.",
+    "fields": ["id", "title", "body", "tags[]", "source", "color", "starred", "timestamp"],
+    "filters": ["ALL", "TOOL", "FRAMEWORK", "INSIGHT", "PATTERN", "STARRED"],
+    "_reading": "'source' is already here \u2014 which mode produced this entry. It is the ancestor of the provenance field P1 needs."
+  }
+}

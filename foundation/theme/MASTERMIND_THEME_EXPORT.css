@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MASTERMIND THEME EXPORT — v3.1.0
+   Generated: 2026-04-18T15:49:44
+   
+   This file contains:
+   1. CSS custom properties (:root variables)
+   2. Key component CSS blocks
+   3. Theme definitions (JS object)
+   4. Rebuild instructions
+   
+   To rebuild: copy these values into index-browser.html and nexus-canvas.js
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── REBUILD INSTRUCTIONS ─────────────────────────────────────────
+   
+   Files needed:
+   - index-browser.html  (UI + CSS)
+   - nexus-canvas.js     (canvas engine + theme switching)
+   - nexus-engine.js     (all modules)
+   - mastermind-vault.js (encryption)
+   - mastermind-bg.js    (Bayesian particle background)
+   - mastermind-foundation.js
+   - mastermind-siso-jaa.js
+   - main.js             (Electron)
+   - preload.js          (Electron contextBridge)
+   
+   Build: npm install && npm run build
+   Output: dist/MASTERMIND-Setup-3.1.0.exe
+   
+   Theme switching: applyTheme(key) in nexus-canvas.js
+   Themes: nexus (default), erosmancer, void, matrix, arctic
+   
+   Color system uses CSS custom properties — all colors flow from :root
+   Background: Bayesian particle network (mastermind-bg.js)
+   Accent animations: rgbShift keyframe on logo + border-top gradient
+─────────────────────────────────────────────────────────────────── */
+
+
+/* ── CSS CUSTOM PROPERTIES (:root) ───────────────────────────────── */
+:root {
+
+  /* UI scaling — controlled by slider in Settings */
+  --ui-scale: 1.35;
+  --fs-base: calc(13px * var(--ui-scale));
+  --fs-mono: calc(8px  * var(--ui-scale));
+  --fs-sm:   calc(7px  * var(--ui-scale));
+  --fs-xs:   calc(6px  * var(--ui-scale));
+  --fs-lg:   calc(15px * var(--ui-scale));
+
+  /* NEXUS default theme */
+  --void:    #02040a;
+  --abyss:   #03060d;
+  --deep:    #060e18;
+  --surface: #0a1520;
+  --lift:    #0f1e2e;
+  --wire:    #162840;
+  --wire2:   #1e3850;
+  --dim:     #2e4e6e;
+  --mid:     #4a7898;
+  --muted:   #6a98b8;
+  --bright:  #c0daf0;
+  --white:   #eaf6ff;
+
+  --c:    #00c8ff;   /* cyan */
+  --c2:   #0090cc;
+  --g:    #00ff88;   /* green */
+  --o:    #ff8c22;   /* orange */
+  --r:    #ff3355;   /* red */
+  --v:    #cc44ff;   /* violet */
+  --y:    #ffe04a;   /* yellow */
+  --pk:   #ff66aa;   /* pink */
+  --teal: #11ddcc;
+  --gold: #d4a820;
+  --plasma: #7744ff;
+
+  --f-display: 'Oxanium', sans-serif;
+  --f-body:    'Space Grotesk', sans-serif;
+  --f-mono:    'JetBrains Mono', monospace;
+
+  /* RGB border animation color stops */
+  --rgb1: #00c8ff; --rgb2: #cc44ff; --rgb3: #ff3355;
+  --rgb4: #ff8c22; --rgb5: #00ff88; --rgb6: #00c8ff;
+}
+
+
+/* ── KEY COMPONENT CSS ────────────────────────────────────────────── */
+#titlebar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 44px; z-index: 900;
+  display: flex; align-items: center;
+  background: rgba(2,4,10,.98);
+  border-bottom: 1px solid var(--wire2);
+  -webkit-app-region: drag;
+  gap: 0;
+}
+.node {
+  position: absolute; min-width: 190px; max-width: 340px;
+  z-index: 10; cursor: default;
+  filter: drop-shadow(0 4px 24px rgba(0,0,0,.5));
+}
+.node-frame {
+  background: linear-gradient(140deg, rgba(8,16,28,.9), rgba(4,10,18,.95));
+  border-left: 2px solid var(--node-color, var(--c));
+  border-top: 1px solid rgba(255,255,255,.04);
+  border-right: none; border-bottom: none;
+  backdrop-filter: blur(14px) saturate(1.3);
+  position: relative; overflow: hidden;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+.hp-mode-card { animation-name: cardFloat, holoPulse !important; }
+#help-hint {
+  position: fixed; left: 8px; top: 52px; z-index: 400;
+  font-family: var(--f-mono); font-size: 7px; color: var(--dim);
+  line-height: 2.2; letter-spacing: .3px; pointer-events: none;
+  background: rgba(2,4,10,.95); padding: 10px 14px;
+  border: 1px solid var(--wire); border-left: 2px solid rgba(0,200,255,.25);
+  width: 260px; max-height: calc(100vh - 60px);
+  overflow-y: auto; opacity: 0; transition: opacity .3s;
+}
+.hp-mc-name {
+  font-family: var(--f-display); font-size: 22px; font-weight: 800;
+  letter-spacing: 5px; color: var(--white);
+  text-transform: uppercase; margin-bottom: 12px;
+}
+.hp-mc-desc {
+  font-family: var(--f-mono); font-size: 9px; color: var(--muted);
+  line-height: 1.9; margin-bottom: 28px; flex: 1;
+}
+#void-overlay {
+  position: fixed; top: 38px; left: 0; right: 0; bottom: 0; z-index: 750;
+  background: rgba(0,0,0,.97); backdrop-filter: blur(8px);
+  display: none; flex-direction: column;
+}
+.void-back-btn {
+  padding: 6px 14px; border: 1px solid var(--wire2); background: transparent;
+  color: var(--dim); cursor: pointer; font-family: var(--f-mono);
+  font-size: 7px; letter-spacing: 1px; text-transform: uppercase; transition: all .18s;
+}
+
+
+/* ── THEME DEFINITIONS (JavaScript) ──────────────────────────────── */
+/* Paste into nexus-canvas.js, replacing the THEMES object */
+
+const THEMES = {
+  nexus: {
+    name: 'NEXUS', desc: 'Dark cyber — deep space. The original.',
+    palette: ['#00c8ff', '#cc44ff', '#00ff88', '#ff8c22', '#02040a'],
+    cls: '',
+  },
+  erosmancer: {
+    name: 'EROSMANCER', desc: 'Fire & desire. Warm amber flames. From Eravos.',
+    palette: ['#ff6a00', '#ee0979', '#ffd700', '#bf5fff', '#08050a'],
+    cls: 'th-erosmancer',
+  },
+  void: {
+    name: 'VOID', desc: 'Pure dark. Zero distraction. Maximum focus.',
+    palette: ['#ffffff', '#888', '#444', '#222', '#000'],
+    cls: 'th-void',
+  },
+  aurora: {
+    name: 'AURORA', desc: 'Northern lights. Spectral luminescence.',
+    palette: ['#44ffcc', '#ff44aa', '#44aaff', '#ffcc44', '#020d10'],
+    cls: 'th-aurora',
+  },
+};
+
+
+
+
+/* ── FONT STACK ───────────────────────────────────────────────────── */
+/*
+   Display:  JetBrains Mono 800 — headers, labels, module titles
+   Mono:     JetBrains Mono 400 — all data, timestamps, technical text  
+   Body:     System UI stack    — prose, descriptions
+   
+   Loaded via Google Fonts CDN in <head>:
+   JetBrains+Mono:ital,wght@0,300;0,400;0,700;0,800;1,400
+*/
+
+
+/* ── ACCENT COLOR SYSTEM ──────────────────────────────────────────── */
+/*
+   Each module has a dedicated accent color, never shared:
+   
+   Brain Map:     #00c8ff  (cyan)
+   Spatial Void:  #cc44ff  (purple)  
+   Horizon:       #d4a820  (gold)
+   Systems:       #11ddcc  (teal)
+   ALM:           #00ff88  (green)
+   Voice Lattice: #7744ff  (violet)
+   Mirror:        #d4a820  (gold — same as Horizon, distinguished by context)
+   Relational:    #ff66aa  (rose)
+   
+   Canvas node types have their own colors defined in NT object (nexus-canvas.js)
+   
+   Bayesian background palettes (mastermind-bg.js PALETTES object):
+   nexus, erosmancer, void, matrix, arctic
+   
+   Background syncs with theme via: MMBG.setTheme(key)
+*/
+
+
+/* ── ANIMATION TOKENS ─────────────────────────────────────────────── */
+/*
+   rgbShift:     4s linear infinite — logo gradient shift
+   holoPulse:    card floating animation
+   cardFloat:    6-9s ease-in-out infinite — homepage card levitation
+   cardFloatB:   offset variant for alternating cards
+   
+   --ui-scale: 1.35 default — controlled via optsSetFontScale()
+               Saved in OPTS.font_scale (0-100 → 0-1.3 CSS scale)
+               Applied on boot via _applyScaleOnBoot()
+*/

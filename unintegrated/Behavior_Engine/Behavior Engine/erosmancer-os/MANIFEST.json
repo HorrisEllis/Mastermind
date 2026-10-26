@@ -1,0 +1,121 @@
+{
+  "name": "erosmancer-os",
+  "fullName": "ErosmancerOS — CDP Perception Engine",
+  "version": "0.1.0",
+  "targetVersion": "1.0.0",
+  "author": "James Brooks",
+  "license": "Proprietary",
+  "auditDate": "2026-04-08",
+
+  "architecture": {
+    "entrypoint": "src/index.ts",
+    "language": "TypeScript 5.4+ (ESM)",
+    "runtime": "Node.js 20+",
+    "modules": {
+      "BridgeCore": "src/bridge/index.ts — WebSocket CDP transport",
+      "SelectorEngine": "src/selector/index.ts — 7-strategy UUID resolver",
+      "SignalDispatcher": "src/dispatcher/index.ts — priority queue, CDP execution",
+      "NodeRegistry": "src/registry/index.ts — UUID node store, fingerprinting",
+      "Telemetry": "src/telemetry/index.ts — JSONL ring buffer logger",
+      "ErosmancerOS": "src/index.ts — top-level orchestrator"
+    }
+  },
+
+  "dependencies": {
+    "ws": "^8.17.0",
+    "uuid": "^9.0.1",
+    "eventemitter3": "^5.0.1",
+    "zod": "^3.23.8"
+  },
+
+  "capabilities": {
+    "cdpTransport": ["local", "remote"],
+    "selectorStrategies": 7,
+    "commandTypes": ["click", "type", "hover", "scroll", "evaluate", "navigate", "screenshot", "getAttribute", "getProperty", "waitForSelector"],
+    "registryPersistence": true,
+    "telemetryPersistence": true,
+    "multiTab": true,
+    "multiFrame": false,
+    "extensionMode": false
+  },
+
+  "knownBugs": [
+    {
+      "id": "EROS-001",
+      "severity": "HIGH",
+      "location": "SelectorEngine.byTextMatch, SelectorEngine.byRelativePosition",
+      "description": "String interpolation in Runtime.evaluate expressions — node.textContent injected unsanitized",
+      "fix": "Replace with Runtime.callFunctionOn + serialized arg array"
+    },
+    {
+      "id": "EROS-002",
+      "severity": "HIGH",
+      "location": "BridgeCore.send()",
+      "description": "No backpressure. Unbounded pending promise map. CDP overload possible under concurrent load.",
+      "fix": "Semaphore / concurrency cap with queue"
+    },
+    {
+      "id": "EROS-003",
+      "severity": "MEDIUM",
+      "location": "SelectorEngine.byRelativePosition",
+      "description": "Strategy is misnamed. Executes same global tag scan as byTextMatch. No DOM hierarchy traversal.",
+      "fix": "Phase 4 — structural path capture + anchor-delta traversal"
+    },
+    {
+      "id": "EROS-004",
+      "severity": "MEDIUM",
+      "location": "SelectorEngine.resolve()",
+      "description": "Fallback chain is static. No per-node strategy weighting or resolution history.",
+      "fix": "Phase 3 — ResolutionProfile on Node. Phase 5 — scoring engine."
+    },
+    {
+      "id": "EROS-005",
+      "severity": "LOW",
+      "location": "SelectorEngine.tryStrategy() case 'uuid'",
+      "description": "Strategy name 'uuid' routes to byBackendNodeId(). Naming inconsistent — 'uuid' implies data-eros-uuid attribute scan.",
+      "fix": "Rename or split strategies"
+    }
+  ],
+
+  "tests": {
+    "unit": {
+      "count": 6,
+      "status": "passing",
+      "coverage": "NodeRegistry only"
+    },
+    "selectorStrategies": {
+      "count": 0,
+      "status": "MISSING — requires mock bridge"
+    },
+    "dispatcherQueue": {
+      "count": 0,
+      "status": "MISSING"
+    },
+    "bridgeReconnect": {
+      "count": 0,
+      "status": "MISSING"
+    },
+    "integration": {
+      "count": 0,
+      "status": "MISSING — requires live browser"
+    }
+  },
+
+  "security": {
+    "injectionRisk": "HIGH — Runtime.evaluate string interpolation in byTextMatch / byRelativePosition",
+    "gitignore": false,
+    "secretsInCode": false
+  },
+
+  "roadmapPhases": {
+    "total": 10,
+    "complete": 0,
+    "current": "Phase 1 — Security Patch"
+  },
+
+  "nexusIntegration": {
+    "status": "planned — Phase 9",
+    "bridgeEndpoints": ["/eros/session/register", "/eros/command", "/eros/telemetry"],
+    "transport": "HTTP to NEXUS bridge :3747"
+  }
+}

@@ -1,5 +1,95 @@
+// ── Void mode tab system ─────────────────────────────────────────
+const VOID_MODE_COLORS = {
+  create:  { color: '#ff8c22', label: '◈ CREATE' },
+  expand:  { color: '#cc44ff', label: '✦ EXPAND' },
+  express: { color: '#ff66aa', label: '♥ EXPRESS' },
+  bridge:  { color: '#00c8ff', label: '⬡ BRIDGE' },
+  log:     { color: '#00ff88', label: 'Δ LOG' },
+};
+let _voidCurrentMode = 'create';
+
+function voidSetMode(mode) {
+  _voidCurrentMode = mode;
+  const mc = VOID_MODE_COLORS[mode] || VOID_MODE_COLORS.create;
+
+  // Update tab styles
+  Object.keys(VOID_MODE_COLORS).forEach(m => {
+    const tab = document.getElementById('vtab-' + m);
+    if (!tab) return;
+    const mc2 = VOID_MODE_COLORS[m];
+    if (m === mode) {
+      tab.style.color = mc2.color;
+      tab.style.borderBottomColor = mc2.color;
+      tab.style.background = mc2.color.replace('#', 'rgba(').replace(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i, (_, r,g,b) =>
+        `${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}) `) + '.06)';
+    } else {
+      tab.style.color = 'var(--dim)';
+      tab.style.borderBottomColor = 'transparent';
+      tab.style.background = 'transparent';
+    }
+  });
+
+  // Show/hide sections by data-void-mode
+  const scrollable = document.querySelector('#void-overlay > div[style*="overflow-y:auto"]');
+  if (!scrollable) return;
+
+  // All sections with data-void-mode
+  scrollable.querySelectorAll('[data-void-mode]').forEach(el => {
+    const modes = el.getAttribute('data-void-mode').split(' ');
+    el.style.display = modes.includes(mode) ? '' : 'none';
+  });
+
+  // LOG mode: show the combined log
+  const logSection = document.getElementById('void-log-section');
+  if (logSection) {
+    logSection.style.display = mode === 'log' ? '' : 'none';
+    if (mode === 'log') _voidRenderLog();
+  }
+
+  // Update header gradient to match mode
+  const voidHeader = document.querySelector('#void-overlay > div:first-child > div > div:first-child');
+  if (voidHeader) {
+    voidHeader.style.backgroundImage = `linear-gradient(135deg, ${mc.color}, ${mc.color}88)`;
+  }
+
+  try { localStorage.setItem('mm_void_mode', mode); } catch(e) {}
+}
+
+function _voidRenderLog() {
+  const el = document.getElementById('void-log-content');
+  if (!el) return;
+  const allItems = [
+    ...(VOID_STATE.seeds || []).map(s => ({ ...s, logType: 'seed' })),
+    ...(VOID_STATE.openLoops || []).map(l => ({ ...l, logType: 'loop' })),
+    ...(VOID_STATE.whatIfs || []).map(w => ({ ...w, logType: 'whatif' })),
+    ...(VOID_STATE.createLog || []).map(c => ({ ...c, logType: 'create' })),
+    ...(VOID_STATE.expressLog || []).map(e => ({ ...e, logType: 'express' })),
+    ...(VOID_STATE.primingLog || []).map(p => ({ ...p, logType: 'priming' })),
+  ].sort((a, b) => (b.created || b.ts || 0) - (a.created || a.ts || 0));
+
+  const typeColors = {
+    seed:'#00ff88', loop:'#ff8c22', whatif:'#cc44ff',
+    create:'#ff8c22', express:'#ff66aa', priming:'#7744ff',
+  };
+
+  el.innerHTML = allItems.slice(0, 60).map(item => {
+    const tc = typeColors[item.logType] || '#00c8ff';
+    const text = item.text || item.content || item.note || '';
+    const ts = item.created || item.ts || 0;
+    return `<div style="padding:9px 12px;border-left:2px solid ${tc};
+      background:rgba(0,0,0,.25);display:flex;gap:10px;align-items:flex-start">
+      <span style="font-family:var(--f-mono);font-size:6.5px;color:${tc};
+        border:1px solid ${tc}44;padding:1px 5px;flex-shrink:0">${item.logType}</span>
+      <span style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);
+        flex:1;line-height:1.5">${escH(text)}</span>
+      <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);flex-shrink:0">
+        ${ts ? new Date(ts).toLocaleDateString() : ''}</span>
+    </div>`;
+  }).join('') || '<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);padding:16px">Nothing logged yet.</div>';
+}
+
 // ═══════════════════════════════════════════════════════════════════
-// MASTERMIND ENGINE — v3.0.5
+// MASTERMIND ENGINE
 // Application modules: Auth (hardened), Vault, Wizard, Options, AI,
 // Void, GAP, Signal, Threads, Body, BrainMap, Horizon, ALM, Toast,
 // Feature gates, Welcome, Domain taxonomy.
@@ -10,6 +100,13 @@
 //
 // Canvas access: always via window.CANVAS.* — never direct calls
 // UUID: e6d5c4b3-e7n8-4i9n-8000-engine000001
+//
+// Product version lives in ONE place: package.json. Everything that
+// displays it (titlebar, homepage, About panel, vault byline, bridge
+// registration) reads it once at boot via mmApplyVersion() below and
+// fills in from there — see MM_VERSION. Do not hardcode a version
+// number anywhere else in this file; that's exactly how it drifted
+// into five different numbers before.
 // ═══════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -20,7 +117,7 @@
 (function() {
   if (typeof window.CANVAS === 'undefined') {
     const msg = '[MASTERMIND ENGINE] FATAL: window.CANVAS bridge not found. ' +
-      'Ensure nexus-canvas.js loads BEFORE nexus-engine.js (MASTERMIND v3.0.5).';
+      'Ensure nexus-canvas.js loads BEFORE nexus-engine.js.';
     console.error(msg);
     document.addEventListener('DOMContentLoaded', () => {
       document.body.innerHTML =
@@ -54,6 +151,9 @@ function enterVoid() {
   vo.classList.add('open');
   vo.style.display = 'flex';
   vo.style.opacity = '1';
+  // Restore last mode
+  const _vm = (function(){ try{return localStorage.getItem('mm_void_mode')||'create';}catch(e){return 'create';} })();
+  setTimeout(() => { if (typeof voidSetMode === 'function') voidSetMode(_vm); }, 100);
   if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'void' });
   initVoid();
 }
@@ -62,15 +162,18 @@ function closeVoid() {
   saveVoidState();
   const v = document.getElementById('void-overlay');
   v.style.opacity = '0';
+  v.style.pointerEvents = 'none'; // stop catching clicks immediately, not 400ms from now
   setTimeout(() => {
-    v.classList.remove('open'); v.style.display = 'none';
+    // Clear, never set: an inline display:none outlives the class and the
+    // overlay can never be reopened.
+    v.classList.remove('open'); v.style.display = ''; v.style.pointerEvents = '';
     if (CANVAS.NX._voidPrev === 'canvas') {
       document.getElementById('homepage').classList.add('hidden');
       ['topbar','canvas-wrap','toolbar','minimap','zoom-widget','layer-controls','help-hint'].forEach(id => {
         document.getElementById(id)?.classList.add('visible');
       });
     } else {
-      document.getElementById('homepage').classList.remove('hidden');
+      document.getElementById('homepage').classList.remove('hidden'); document.getElementById('homepage').scrollTop = 0;
     }
   }, 400);
 }
@@ -861,7 +964,7 @@ const MODULE_HELP = {
     sections: [
       { head: 'WHAT IT IS', body: 'Infinite zoomable/pannable cognitive canvas. 18 node types, directed connections, force/radial/cluster layouts. Every entity UUID-tracked in the JAA ledger.' },
       { head: 'SPAWNING NODES', body: 'Right-click canvas background for quick spawn menu at cursor. Or use ⊕ NODE button in toolbar. 18 types: concept, insight, pattern, seed, question, friction, synthesis, and more.' },
-      { head: 'NODE CONTROLS', body: 'Drag header to move. Double-click body to edit text. Right-click for options (duplicate, delete, connect, tag). Drag ◉ link port to draw a connection. Ctrl+D to duplicate.' },
+      { head: 'NODE CONTROLS', body: 'Drag header to move. Double-click body to edit text. Right-click for options (duplicate, delete, connect, tag). Click ⌁ to link manually, ⊛ to connect to every node sharing a distinctive tag. Ctrl+D to duplicate.' },
       { head: 'KEYBOARD', body: 'V=Void, B=Brain, H=Horizon, S=select, L=link, Ctrl+Z undo, Ctrl+Y redo, Ctrl+A select all, Ctrl+S save, Del delete selected, Escape deselect/cancel.' },
       { head: 'UUID + JAA', body: 'Every node registered in JAA.ledger with UUID, type, delta history. All mutations tracked as immutable deltas. Full audit via JAA.getLog(). Observable via MM_BUS.sampleLog().' },
     ]
@@ -912,11 +1015,32 @@ function closeModuleHelp() {
 // Guard against undefined reference during closure before declaration
 let _brainRAF = null;
 
-function closeBrainMap() {
+// `immediate` skips the 350ms fade. goHome() needs that: it hides the
+// homepage's competitors and shows the homepage in the same tick, and a
+// full-screen z-index:3000 overlay still sitting there — even invisible —
+// is what "the home button does nothing" looks like from the outside.
+function closeBrainMap(immediate) {
   const el = document.getElementById('brain-overlay');
   if (!el) return;
+  if (immediate) {
+    el.classList.remove('open');
+    el.style.display = 'none';
+    el.style.opacity = '';
+    el.style.pointerEvents = '';
+    if (typeof _brainRAF !== 'undefined' && _brainRAF) { cancelAnimationFrame(_brainRAF); _brainRAF = null; }
+    return;
+  }
   el.style.opacity = '0';
-  setTimeout(() => { el.classList.remove('open'); el.style.display = 'none'; }, 350);
+  // Stop intercepting clicks immediately, not after the fade finishes.
+  // Every call site that closes this overlay and then immediately acts on
+  // the canvas underneath (spawnDomainTool, bmv2JumpToNode, brainEnterMode,
+  // the old v1 nearest-node jump) was getting blocked for the whole 350ms
+  // fade — the overlay stayed display:flex, full-screen, z-index:3000,
+  // just invisible, so it caught every click before it could land on
+  // anything below. This is what "can't interact with anything" actually
+  // was.
+  el.style.pointerEvents = 'none';
+  setTimeout(() => { el.classList.remove('open'); el.style.display = ''; el.style.pointerEvents = ''; }, 350);
   if (typeof _brainRAF !== 'undefined' && _brainRAF) {
     cancelAnimationFrame(_brainRAF); _brainRAF = null;
   }
@@ -1250,7 +1374,7 @@ function brainTab(t) {
   if (t === 'cross') { if (typeof renderCrossDomainMatrix === 'function') renderCrossDomainMatrix(); }
 }
 
-console.log('[MASTERMIND] Engine v3.0.5 loaded — QA clean');
+console.log('[MASTERMIND] Engine loaded — QA clean');
 
 
 
@@ -1277,11 +1401,11 @@ function spawnFromMenu(type) {
   CANVAS.spawnNode(type, wx, wy);
 }
 
-function openCustomNodeDialog() {
-  const title = prompt('Node name:'); if (!title) return;
-  const icon  = prompt('Icon (emoji or char):', '✎') || '✎';
-  const color = prompt('Color (hex):', '#aaaaaa') || '#aaaaaa';
-  const domain = (prompt('Domain:', 'CUSTOM') || 'CUSTOM').toUpperCase();
+async function openCustomNodeDialog() {
+  const title = await mmPrompt('Node name:'); if (!title) return;
+  const icon  = (await mmPrompt('Icon (emoji or char):', '✎')) || '✎';
+  const color = (await mmPrompt('Color (hex):', '#aaaaaa')) || '#aaaaaa';
+  const domain = ((await mmPrompt('Domain:', 'CUSTOM')) || 'CUSTOM').toUpperCase();
   const key = 'c_' + Date.now();
   CANVAS.NT[key] = { icon, color, badge: title.slice(0,8).toUpperCase(), domain, ph: 'Your custom node...' };
   if (!DOMAINS[domain]) DOMAINS[domain] = color;
@@ -1716,6 +1840,27 @@ const AUTH_META_KEY  = 'nexus_auth_meta';
 const AUTH_VAULT_KEY = 'nexus_auth_vault';
 const FEATURES_KEY   = 'nexus_features';
 
+// Persists the non-secret identity marker _authLoadMeta() reads on the next
+// launch: just the username (already shown throughout the UI regardless)
+// and whether this vault opted out of encryption. Deliberately excludes
+// pinHash — a PIN hash in localStorage would be both a credential outside
+// the vault and trivially brute-forceable offline against a 4-digit
+// keyspace (see optsChangePin's own note on this). That means PIN
+// quick-unlock only works within a session that has already opened the
+// vault with the password once — not across a full relaunch. That's the
+// correct narrower model, not something to route around.
+function _persistIdentityMarker({ username, noEncryption }) {
+  try {
+    localStorage.setItem(AUTH_META_KEY, JSON.stringify({
+      username: username || null,
+      noEncryption: !!noEncryption,
+      version: 6,
+    }));
+  } catch (e) {
+    MMLog?.warn('auth', 'Could not persist identity marker: ' + e.message);
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    SECURITY HARDENING LAYER — v1.0
    • _assertAuth()     — single gate for ALL navigation entry points
@@ -1794,7 +1939,7 @@ async function registerWithBridge() {
         capabilities: ['canvas', 'brain-map', 'voice-lattice', 'human-models',
                        'horizon', 'body', 'gap', 'signal', 'vault'],
         uuid: 'mastermind-cognitive-canvas-v3-000-000000000001',
-        version: '3.0.5',
+        version: MM_VERSION,
       }),
     });
     const ok = res.ok;
@@ -1828,6 +1973,57 @@ function _updateBridgeDot(connected) {
   }
   dot.style.background = connected ? '#00ff88' : '#444';
   dot.title = connected ? 'NEXUS bridge connected' : 'NEXUS bridge offline';
+}
+
+// ── Resume / New Session choice ────────────────────────────────────
+// Shown once per unlock (unless "don't show again" is set) when there's
+// existing canvas content to actually resume — no point asking if the
+// canvas is empty. "New session" resets the view only (pan/zoom), it
+// never deletes node data — that's a separate, deliberate action
+// elsewhere, not something a session-start prompt should risk doing.
+const SESSION_CHOICE_KEY = 'mm_session_choice_pref';
+
+function _getSessionChoicePref() {
+  try { return JSON.parse(localStorage.getItem(SESSION_CHOICE_KEY) || '{}'); } catch (e) { return {}; }
+}
+function _setSessionChoicePref(pref) {
+  try { localStorage.setItem(SESSION_CHOICE_KEY, JSON.stringify(pref)); } catch (e) {}
+}
+function _resetSessionViewport() {
+  if (typeof CANVAS !== 'undefined' && CANVAS.NX) {
+    CANVAS.NX.panX = 0; CANVAS.NX.panY = 0; CANVAS.NX.zoom = 1;
+    if (typeof CANVAS.applyT === 'function') CANVAS.applyT();
+  }
+}
+
+function _maybeShowSessionChoice(onProceed) {
+  const pref = _getSessionChoicePref();
+  const hasExisting = typeof CANVAS !== 'undefined' && CANVAS.NX && CANVAS.NX.nodes && CANVAS.NX.nodes.length > 0;
+
+  if (!hasExisting || pref.dontAsk) {
+    if (pref.dontAsk && pref.lastChoice === 'new') _resetSessionViewport();
+    onProceed();
+    return;
+  }
+
+  const scr = document.getElementById('session-choice-screen');
+  if (!scr) { onProceed(); return; } // safety fallback if HTML somehow missing
+
+  scr.style.display = 'flex';
+  scr.style.pointerEvents = 'auto';
+  requestAnimationFrame(() => { scr.style.opacity = '1'; });
+
+  window._mmSessionChoiceProceed = (choice) => {
+    const dontAsk = document.getElementById('session-choice-dontask')?.checked || false;
+    _setSessionChoicePref({ dontAsk, lastChoice: choice });
+    // Same pointer-events discipline as closeBrainMap/closeVoid/dismissWelcomeScreen —
+    // stop catching clicks the instant the fade starts, not after it finishes.
+    scr.style.opacity = '0';
+    scr.style.pointerEvents = 'none';
+    setTimeout(() => { scr.style.display = 'none'; }, 300);
+    if (choice === 'new') _resetSessionViewport();
+    onProceed();
+  };
 }
 
 function _sealSession(username) {
@@ -1888,8 +2084,10 @@ function _pinReadOnlyBanner() {
    localStorage is a session cache — never the primary store.
 ─────────────────────────────────────────────────────────────── */
 function _showDesktopRequiredScreen() {
-  // Hide all startup screens
-  document.querySelectorAll('.startup-inner').forEach(el => el.classList.add('hidden'));
+  // Hide all startup screens — inline display included, or a screen that set
+  // its own display:flex stays visible underneath this one.
+  if (typeof mmHideAllStartupScreens === 'function') mmHideAllStartupScreens();
+  else document.querySelectorAll('.startup-inner').forEach(el => { el.classList.add('hidden'); el.style.display = ''; });
   document.getElementById('homepage')?.classList.add('hidden');
   document.getElementById('mm-steps')?.style && (document.getElementById('mm-steps').style.display = 'none');
 
@@ -1940,7 +2138,7 @@ function _showDesktopRequiredScreen() {
 
     <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);letter-spacing:2px;
       margin-top:8px;padding:8px 16px;border:1px solid var(--wire)">
-      MASTERMIND v3.0.5 · AES-256-GCM · PBKDF2 310k iterations · RSA-OAEP 2048-bit
+      MASTERMIND v${MM_VERSION} · AES-256-GCM · PBKDF2 310k iterations · RSA-OAEP 2048-bit
     </div>
   `;
 
@@ -1967,8 +2165,12 @@ function startupRoute() {
 
   // ── GATE 0: Vault watchdog (async, only for returning users with a data dir) ─
   const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
-  if (dataDir && meta) {
-    // Has identity + data dir → check vault before routing to login or home
+  if (dataDir) {
+    // Has a data dir → check for a real vault there before routing to login
+    // or home. meta (local identity marker) is used only to personalize the
+    // login screen below — its absence must never re-trigger first-time setup
+    // when a vault genuinely exists on disk (e.g. freshly imported, or an
+    // older install from before the marker existed).
     _vaultWatchdogCheck().then(vaultOk => {
       if (!vaultOk) return; // _showVaultMissingScreen already called
       _continueStartup(meta, savedFeatures);
@@ -1980,48 +2182,222 @@ function startupRoute() {
   _continueStartup(meta, savedFeatures);
 }
 
-function _continueStartup(meta, savedFeatures) {
-  if (!meta) {
-    // Brand new user — WELCOME SCREEN FIRST, then setup
+// Pre-flight runs before the unlock screen, and only when there is something
+// to check: a first-time user has no vault, no folder and nothing to lose, so
+// sending them through nine checks that all say "not yet" would be noise.
+async function _continueStartup(meta, savedFeatures) {
+  const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+  const firstRun = !dataDir;
+
+  if (!firstRun && window.NXAPI && typeof mmBootRun === 'function') {
+    // The report is handed on rather than discarded. It is the only thing in
+    // the startup path that has actually READ the vault file, and routing was
+    // previously deciding encrypted-vs-unencrypted from a localStorage marker
+    // that can disagree with what is on disk.
+    await mmBootRun((report) => _routeStartup(meta, savedFeatures, report));
+    return;
+  }
+  _routeStartup(meta, savedFeatures, null);
+}
+
+// Offered after the vault is open and its state is in memory — never before,
+// because "where you left off" is meaningless until the data it refers to is
+// actually loaded.
+async function _maybeOfferResume() {
+  try {
+    if (typeof MM_SESSION === 'undefined' || !MM_SESSION.resumable()) return false;
+    return await MM_SESSION.offerResume();
+  } catch (e) {
+    MMLog?.warn('session', 'Resume offer failed: ' + e.message);
+    return false;
+  }
+}
+
+// ── Startup routing ──────────────────────────────────────────────────────
+// `report` is the boot pre-flight result, or null when the pre-flight did not
+// run (first launch, or no NXAPI). It is the authority whenever it exists.
+//
+// This used to branch on `meta.noEncryption`, read from localStorage. That is
+// a claim ABOUT the vault stored somewhere other than the vault, and the two
+// can disagree in both directions:
+//
+//   marker says plain, file is encrypted  → the app skipped the password
+//     screen entirely and dropped the person on a homepage with no data
+//     loaded, having proven nothing.
+//   marker missing, file is plain         → the app demanded a password for
+//     a vault that has none. Clearing site data was enough to do this.
+//
+// The file is the only thing that knows what the file is. The marker is
+// demoted to a fallback for when nothing has read the disk yet, and is healed
+// whenever it turns out to be wrong.
+function _routeStartup(meta, savedFeatures, report) {
+  const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+  const probes  = (report && report.probes) || null;
+  const fileWasRead = !!(probes && probes.vaultExists && probes.parseOk);
+  const isPlain = fileWasRead ? probes.plain === true : !!(meta && meta.noEncryption);
+
+  if (fileWasRead && !!(meta && meta.noEncryption) !== isPlain) {
+    MMLog?.warn('auth', 'Identity marker disagreed with the vault file (marker said ' +
+      (meta && meta.noEncryption ? 'unencrypted' : 'encrypted') + ', file is ' +
+      (isPlain ? 'unencrypted' : 'encrypted') + ') — trusting the file');
+  }
+
+  if (!dataDir) {
+    // Truly first run — no vault has ever been set up on this machine.
     _ssShow('ss-welcome');
     setTimeout(() => _initWelcomeBg(document.getElementById('ss-welcome-bg')), 50);
     const onKey = e => {
       if ((e.key === 'Enter' || e.key === ' ') && !document.getElementById('ss-welcome')?.classList.contains('hidden')) {
         document.removeEventListener('keydown', onKey);
-        ssWelcomeBegin();
+        ssWelcomeCreate();
       }
     };
     document.addEventListener('keydown', onKey);
-  } else if (meta.noEncryption) {
-    AUTH.username = meta.username || 'operator';
+  } else if (isPlain) {
+    // Username comes from the file when the file was read, so a machine with
+    // no marker at all (fresh install, cleared site data, imported folder)
+    // still opens the vault instead of asking for a password it has none of.
+    const uname = (fileWasRead && probes.plainUsername) || meta?.username || 'operator';
+    AUTH.username = uname;
     AUTH.encrypted = false;
-    _sealSession(meta.username || 'operator'); // unencrypted users get a sealed session
+    // Heal the marker so the next launch agrees with the disk even before the
+    // pre-flight runs. Writing what the file said is not a new claim; it is
+    // the same claim, put back where the fast path looks for it.
+    if (fileWasRead && (!meta || !meta.noEncryption || meta.username !== uname)) {
+      _persistIdentityMarker({ username: uname, noEncryption: true });
+    }
+    _sealSession(uname); // unencrypted users get a sealed session
     setTimeout(registerWithBridge, 1200);
     if (!savedFeatures._configured) _ssShow('ss-features');
     else {
-      document.getElementById('startup-screen').classList.add('hidden');
-      document.getElementById('homepage').classList.remove('hidden');
-      applyFeatureFlags();
-      setTimeout(() => maybeShowWelcome?.(), 400);
+      _maybeShowSessionChoice(() => {
+        document.getElementById('startup-screen').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden'); document.getElementById('homepage').scrollTop = 0;
+        applyFeatureFlags();
+        setTimeout(() => maybeShowWelcome?.(), 400);
+        _applyScaleOnBoot();
+      });
     }
   } else {
-    AUTH.username = meta.username;
-    AUTH.hasPin = !!meta.pinHash;
-    AUTH.pinHash = meta.pinHash || null;
+    // A real vault was confirmed at dataDir (the watchdog already checked
+    // this before _routeStartup was ever called with dataDir set). meta
+    // may still be null here — an imported vault's first launch on this
+    // machine, or an install from before the local marker existed — so
+    // personalization is best-effort, not a requirement to proceed.
+    AUTH.username = meta?.username || null;
+    AUTH.hasPin = !!_AUTH_STORE?.meta?.pinHash;
+    AUTH.pinHash = _AUTH_STORE?.meta?.pinHash || null;
     const sub = document.getElementById('login-welcome-sub');
     const lbl = document.getElementById('login-username-label');
-    if (sub) sub.textContent = 'WELCOME BACK, ' + meta.username.toUpperCase();
+    if (sub) sub.textContent = meta?.username ? ('WELCOME BACK, ' + meta.username.toUpperCase()) : 'ENTER YOUR PASSWORD';
     if (lbl) lbl.textContent = 'Unlock your encrypted vault';
     const pinToggle = document.getElementById('login-pin-toggle');
-    if (pinToggle) pinToggle.style.display = meta.pinHash ? '' : 'none';
+    // PIN quick-unlock only works once this session has already decrypted
+    // the vault with the password — the hash is never cached across a
+    // relaunch (see optsChangePin's note). So the toggle reflects
+    // in-memory state, not the persisted marker.
+    if (pinToggle) pinToggle.style.display = _AUTH_STORE?.meta?.pinHash ? '' : 'none';
     _ssShow('ss-login');
     setTimeout(() => document.getElementById('login-password')?.focus(), 200);
   }
 }
 
-function ssWelcomeBegin() {
+function ssWelcomeCreate() {
   _ssShow('ss-setup', 1);
   setTimeout(() => document.getElementById('setup-username')?.focus(), 150);
+}
+
+function ssWelcomeImport() {
+  _ssShow('ss-import');
+  const err = document.getElementById('ss-import-error');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+}
+
+function _importShowStatus(msg) {
+  const el = document.getElementById('ss-import-status');
+  const err = document.getElementById('ss-import-error');
+  if (err) err.style.display = 'none';
+  if (el) { el.style.display = ''; el.textContent = msg; }
+}
+function _importShowError(msg) {
+  const el = document.getElementById('ss-import-status');
+  const err = document.getElementById('ss-import-error');
+  if (el) el.style.display = 'none';
+  if (err) { err.style.display = ''; err.textContent = msg; }
+}
+
+async function importPickVaultFile() {
+  if (!window.NXAPI) { _importShowError('Desktop app required.'); return; }
+  const filePath = await window.NXAPI.openFileDialog({
+    title: 'Select your .vault file',
+    filters: [{ name: 'MASTERMIND Vault', extensions: ['vault'] }],
+  });
+  if (!filePath) return; // cancelled
+
+  _importShowStatus('Checking ' + filePath + '…');
+
+  // Every other read/write in the app addresses the vault as
+  // <dataDir>/mastermind.vault. Rather than generalize that convention
+  // app-wide for one screen, treat the picked file's own folder as
+  // dataDir, and if the file isn't already named mastermind.vault, copy
+  // it into place under that name.
+  const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  const dir = filePath.slice(0, lastSlash);
+  const filename = filePath.slice(lastSlash + 1);
+  const targetPath = dir + '/mastermind.vault';
+
+  if (filename.toLowerCase() !== 'mastermind.vault') {
+    const alreadyThere = await window.NXAPI.vaultExists(targetPath);
+    if (alreadyThere) {
+      _importShowError('This folder already has a different mastermind.vault. Choose an empty folder, or select that existing file directly if it\u2019s the one you meant.');
+      return;
+    }
+    const raw = await window.NXAPI.vaultRead(filePath);
+    if (raw == null) { _importShowError('Could not read that file.'); return; }
+    const written = await window.NXAPI.vaultWrite(targetPath, raw);
+    if (!written?.ok) { _importShowError('Could not copy the file into place: ' + (written?.error || 'unknown error')); return; }
+  }
+
+  await _importFinalize(dir, targetPath);
+}
+
+async function importPickVaultFolder() {
+  if (!window.NXAPI) { _importShowError('Desktop app required.'); return; }
+  const dir = await window.NXAPI.pickDataFolder();
+  if (!dir) return; // cancelled
+  _importShowStatus('Checking ' + dir + '…');
+  const targetPath = dir + '/mastermind.vault';
+  const exists = await window.NXAPI.vaultExists(targetPath);
+  if (!exists) {
+    _importShowError('No mastermind.vault found in that folder.');
+    return;
+  }
+  await _importFinalize(dir, targetPath);
+}
+
+// Shared tail for both import paths: verify the file actually parses as a
+// vault, persist the directory the same way setupCreateVault() does, and
+// hand off to normal startup routing. No password is asked here — that's
+// what ss-login is for, and it works whether or not a local identity
+// marker exists yet for this vault (see _routeStartup's else branch,
+// which treats "vault confirmed on disk" as sufficient on its own).
+async function _importFinalize(dataDir, vaultPath) {
+  const raw = await window.NXAPI.vaultRead(vaultPath);
+  if (raw == null) { _importShowError('Vault file exists but could not be read — check folder permissions.'); return; }
+
+  const parsed = VaultEnvelope.parse(raw);
+  if (!parsed.ok) { _importShowError(parsed.message || 'That file doesn\u2019t look like a MASTERMIND vault.'); return; }
+
+  await window.NXAPI.setDataDir(dataDir);
+  NX_CONFIG.dataDir = dataDir;
+  NX_CONFIG.vaultPath = vaultPath;
+  localStorage.setItem('nexus_datadir', dataDir);
+
+  _importShowStatus('Vault found — unlocking…');
+  MMLog?.info('vault', 'Imported vault at: ' + vaultPath);
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.imported', { path: vaultPath });
+
+  setTimeout(() => { if (typeof startupRoute === 'function') startupRoute(); }, 500);
 }
 
 function _ssShow(id, step) {
@@ -2030,19 +2406,19 @@ function _ssShow(id, step) {
     const el = document.getElementById(s);
     if (el) { el.style.display = 'none'; el.classList.add('hidden'); }
   });
-  ['ss-welcome','ss-setup','ss-login','ss-keygen','ss-features','ss-folder'].forEach(s => {
+  ['ss-welcome','ss-setup','ss-login','ss-keygen','ss-features','ss-import','ss-boot'].forEach(s => {
     const el = document.getElementById(s);
     if (el) el.classList.toggle('hidden', s !== id);
   });
   const bar = document.getElementById('mm-steps');
-  if (bar) bar.style.display = (id === 'ss-login' || id === 'ss-welcome') ? 'none' : '';
-  if (id === 'ss-welcome') return;
+  if (bar) bar.style.display = (id === 'ss-login' || id === 'ss-welcome' || id === 'ss-boot' || id === 'ss-import') ? 'none' : '';
+  if (id === 'ss-welcome' || id === 'ss-import') return;
   if (id === 'ss-features') {
     setTimeout(() => { if (typeof initFeaturesScreen === 'function') initFeaturesScreen(); }, 50);
   }
-  const stepMap = { 'ss-setup':1, 'ss-keygen':2, 'ss-features':3, 'ss-folder':4 };
+  const stepMap = { 'ss-setup':1, 'ss-keygen':2, 'ss-features':3 };
   const cur = step || stepMap[id] || 1;
-  [1,2,3,4].forEach(n => {
+  [1,2,3].forEach(n => {
     const el = document.getElementById('mms-' + n);
     if (!el) return;
     el.classList.remove('active','done');
@@ -2086,9 +2462,21 @@ function _setupPasswordInput() {
 
 
 function setupSkipEncryption() {
+  // "Yes, username required" (2026-08-30) — checked here too, not just
+  // in _setupSkipEncryptionConfirmed(), so a person with a blank name
+  // field finds out immediately rather than after reading the whole
+  // security warning and typing SKIP, only to get bounced back for a
+  // reason that had nothing to do with encryption.
+  const usernameEl = document.getElementById('setup-username');
+  if (!usernameEl?.value.trim()) {
+    const errEl = document.getElementById('setup-error');
+    if (errEl) errEl.textContent = 'Username required';
+    usernameEl?.focus();
+    return;
+  }
+
   // ── SECURITY: Require explicit double-confirmation before disabling encryption ──
   // This is an irreversible decision for the vault — user must acknowledge risks.
-  const username = document.getElementById('setup-username')?.value.trim() || 'operator';
 
   // Inline confirmation modal — no native dialog (Electron blocks some)
   const existing = document.getElementById('_mm_noenc_confirm');
@@ -2129,22 +2517,83 @@ function setupSkipEncryption() {
   setTimeout(() => document.getElementById('_mm_noenc_input')?.focus(), 50);
 }
 
-function _setupSkipEncryptionConfirmed() {
+async function _setupSkipEncryptionConfirmed() {
   const input = document.getElementById('_mm_noenc_input');
   if (!input || input.value.trim().toUpperCase() !== 'SKIP') {
     input.style.borderColor = '#ff3355';
     input.placeholder = 'type SKIP exactly to confirm';
     return;
   }
+
+  // "Yes, username required" (2026-08-30) — this path had no check at
+  // all: an empty username field silently became 'operator', forever,
+  // baked into the identity. The encrypted path (setupCreateVault)
+  // already required one; there was never a real reason the two should
+  // disagree about whether "who are you" is optional. Checked here,
+  // AFTER the SKIP confirmation rather than before it, so a person who
+  // left the name blank sees the actual problem (their name, not the
+  // encryption choice) rather than the modal just silently vanishing on
+  // a technicality they didn't cause.
+  const usernameEl = document.getElementById('setup-username');
+  const username = usernameEl?.value.trim();
+  if (!username) {
+    document.getElementById('_mm_noenc_confirm')?.remove();
+    const errEl = document.getElementById('setup-error');
+    if (errEl) errEl.textContent = 'Username required';
+    usernameEl?.focus();
+    return;
+  }
+
   document.getElementById('_mm_noenc_confirm')?.remove();
 
-  const username = document.getElementById('setup-username')?.value.trim() || 'operator';
   AUTH.username = username;
   AUTH.encrypted = false;
-  localStorage.setItem(AUTH_META_KEY, JSON.stringify({
+
+  if (!window.NXAPI) {
+    _showDesktopRequiredScreen();
+    return;
+  }
+
+  let dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+  if (!dataDir) {
+    dataDir = await window.NXAPI.defaultFolder();
+    NX_CONFIG.dataDir = dataDir;
+    localStorage.setItem('nexus_datadir', dataDir);
+    await window.NXAPI.setDataDir(dataDir);
+  }
+  const vaultPath = dataDir + '/mastermind.vault';
+
+  const _initialState = {
+    version: 6, format: 'mastermind-vault-plain', saved: Date.now(),
+    canvas: { nodes: [], conns: [], viewport: { zoom: 1, panX: 0, panY: 0 }, clipboard: [] },
+    modules: { void: null, gaps: null, signal: null, threads: null,
+               body: null, horizon: null, brainMap: null, domain: null,
+               almDeltas: [], intuitionRatings: {}, options: OPTS || {}, features: AUTH.features || {} },
+    aiConfig: null,
+    snr: null,
+    identity: { username, pinHash: null, created: Date.now(), version: 6, noEncryption: true },
+    keys: { pubKey: null, encPrivKey: null },
+    username,
+    jaa: {},
+  };
+
+  try {
+    await vaultCreateNewUnencrypted(_initialState, { dataDir, vaultPath });
+  } catch (e) {
+    mm_toast('⚡ Vault creation failed: ' + e.message, 'error', { dur: 6000 });
+    MMLog?.error('vault', 'Unencrypted vault creation failed: ' + e.message);
+    return;
+  }
+
+  NX_CONFIG.vaultPath = vaultPath;
+  // Even the unencrypted opt-out keeps its identity in the vault payload.
+  // The vault file is still the only store; it just has no cipher on it.
+  _AUTH_STORE.meta = {
     username, noEncryption: true, created: Date.now(),
     noEncryptionAcknowledged: true, noEncryptionTs: new Date().toISOString(),
-  }));
+    version: 6,
+  };
+  _persistIdentityMarker({ username, noEncryption: true });
 
   // MM Foundation: create unencrypted vault — explicit opt-out recorded
   if (typeof MMVault !== 'undefined' && !MMVault.meta) {
@@ -2155,7 +2604,7 @@ function _setupSkipEncryptionConfirmed() {
 
   const kgUser = document.getElementById('mm-kg-username');
   const kgPin = document.getElementById('mm-kg-pinval');
-  if (kgUser) kgUser.textContent = username || 'operator';
+  if (kgUser) kgUser.textContent = username;
   if (kgPin) kgPin.textContent = 'N/A (unencrypted mode)';
   const rows = document.querySelectorAll('.mm-keygen-row .mm-key-val');
   if (rows[0]) rows[0].textContent = 'None (unencrypted — opted out)';
@@ -2168,12 +2617,186 @@ function _setupSkipEncryptionConfirmed() {
 // Track pending unlock toast timeout so we can cancel it on failure
 let _loginUnlockToastTimer = null;
 
+// Holds the password between a successful unlock and the KDF upgrade, for
+// the few milliseconds that separate them. Cleared in a finally block.
+let _pendingRekey = null;
+
+// The part of a successful login that used to run unconditionally at
+// the end of loginSubmit — pulled out so both "no MFA enrolled" and
+// "MFA just verified" reach the same place rather than duplicating it.
+async function _completeLoginSuccess(meta, btn) {
+  _sealSession(meta.username);
+  _persistIdentityMarker({ username: meta.username, noEncryption: false });
+  setTimeout(() => { _maybeOfferResume(); }, 900);
+  setTimeout(registerWithBridge, 1200);
+  if (btn) btn.textContent = '⬡  UNLOCKED';
+  _loginUnlockToastTimer = setTimeout(() => { _loginUnlockToastTimer = null; T.vaultUnlocked(meta?.username || AUTH.username || 'operator'); }, 600);
+
+  if (typeof MMVault !== 'undefined' && !MMVault.meta) {
+    const meta2 = _authLoadMeta();
+    MMVault.create(meta2?.username || 'operator', { encrypted: true });
+  }
+  MMLog?.info('auth', 'Login successful — all gates passed');
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.success', { username: meta.username });
+
+  if (window.NXAPI && NX_CONFIG.vaultPath) {
+    const raw = await window.NXAPI.vaultRead(NX_CONFIG.vaultPath);
+    if (raw) MMLog?.info('vault', 'Vault file opened on login: ' + raw.length + ' bytes');
+  }
+
+  // "This needs only show once per identity" (2026-08-30). It was
+  // checking ONLY localStorage[FEATURES_KEY] — a cache tied to this
+  // machine's browser/Electron profile, not to the identity itself.
+  // AUTH.features._configured is ALSO saved into the real vault file
+  // (foundation/vault/mastermind-vault.js, vaultSerialize/deserialize —
+  // confirmed already wired) and is genuinely fresh here: vaultDeserialize()
+  // already ran earlier in this same login chain (gate 3, above), so by
+  // this point AUTH.features carries whatever this identity's own vault
+  // file actually says, not a stale local cache. That is the answer that
+  // travels with the identity — restored from a backup, opened from a
+  // different data folder (the title bar shows an arbitrary custom path;
+  // this is not a hypothetical), or moved to another machine, the vault
+  // file still knows it was already configured even when localStorage
+  // does not. Self-heals the cache to match, so a future launch that
+  // DOES hit the faster localStorage-only path (see _continueStartup's
+  // isPlain branch, which cannot check the vault this early by design)
+  // still gets the right answer next time.
+  const _savedF = JSON.parse(localStorage.getItem(FEATURES_KEY) || '{}');
+  const _vaultConfigured = (typeof AUTH !== 'undefined' && AUTH.features && AUTH.features._configured);
+  if (_vaultConfigured && !_savedF._configured) {
+    localStorage.setItem(FEATURES_KEY, JSON.stringify(Object.assign({}, _savedF, AUTH.features)));
+  }
+  if (_savedF._configured || _vaultConfigured) {
+    setTimeout(() => {
+      _maybeShowSessionChoice(() => {
+        document.getElementById('startup-screen').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden'); document.getElementById('homepage').scrollTop = 0;
+        applyFeatureFlags();
+        if (typeof maybeShowWelcome === 'function') maybeShowWelcome();
+        _autolockStart?.();
+        _applyScaleOnBoot();
+      });
+    }, 400);
+  } else {
+    setTimeout(() => _ssShow('ss-features', 3), 400);
+  }
+}
+
+// ── MFA login screen ─────────────────────────────────────────────────
+// Shown between the password gate and _completeLoginSuccess when
+// mfaLoginMethods() reports at least one enrolled second factor.
+// _pendingLogin holds { meta, btn } from loginSubmit while this runs.
+
+let _pendingLogin = null;
+
+function _showMfaLoginScreen(methods) {
+  document.getElementById('login-pw-form')?.style.setProperty('display', 'none');
+  document.getElementById('login-pin-form')?.style.setProperty('display', 'none');
+  let box = document.getElementById('login-mfa-form');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'login-mfa-form';
+    document.getElementById('login-password')?.closest('.mm-card')?.appendChild(box);
+  }
+  const has = (m) => methods.includes(m);
+  box.innerHTML = `
+    <div style="font-family:var(--f-mono);font-size:8.5px;letter-spacing:1px;color:var(--dim);margin-bottom:10px">
+      SECOND FACTOR REQUIRED
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px" id="mfa-method-tabs">
+      ${has('totp') ? '<button class="mm-btn-ghost mfa-tab on" data-m="totp" onclick="_mfaSwitchTab(\'totp\')">Authenticator app</button>' : ''}
+      ${has('webauthn') ? `<button class="mm-btn-ghost mfa-tab${has('totp') ? '' : ' on'}" data-m="webauthn" onclick="_mfaSwitchTab('webauthn')">Security key</button>` : ''}
+      ${has('backup') ? `<button class="mm-btn-ghost mfa-tab${(!has('totp') && !has('webauthn')) ? ' on' : ''}" data-m="backup" onclick="_mfaSwitchTab('backup')">Backup code</button>` : ''}
+    </div>
+    <div id="mfa-tab-totp" style="display:${has('totp') ? '' : 'none'}">
+      <div class="setup-field-group">
+        <label class="setup-label">CODE</label>
+        <input class="setup-input" id="mfa-totp-code" maxlength="8" inputmode="numeric" placeholder="6-digit code"
+               onkeydown="if(event.key==='Enter')_mfaSubmitTotp()"/>
+      </div>
+      <div class="setup-error" id="mfa-totp-error"></div>
+      <button class="mm-btn-primary" onclick="_mfaSubmitTotp()">&#x2B21; &nbsp; VERIFY</button>
+    </div>
+    <div id="mfa-tab-webauthn" style="display:${(!has('totp') && has('webauthn')) ? '' : 'none'}">
+      <div class="opts-hint" style="margin-bottom:10px">Insert or tap your security key when prompted.</div>
+      <div class="setup-error" id="mfa-webauthn-error"></div>
+      <button class="mm-btn-primary" onclick="_mfaSubmitWebauthn()">&#x2B21; &nbsp; USE SECURITY KEY</button>
+    </div>
+    <div id="mfa-tab-backup" style="display:${(!has('totp') && !has('webauthn') && has('backup')) ? '' : 'none'}">
+      <div class="setup-field-group">
+        <label class="setup-label">BACKUP CODE</label>
+        <input class="setup-input" id="mfa-backup-code" placeholder="XXXXX-XXXXX"
+               onkeydown="if(event.key==='Enter')_mfaSubmitBackup()"/>
+      </div>
+      <div class="setup-error" id="mfa-backup-error"></div>
+      <button class="mm-btn-primary" onclick="_mfaSubmitBackup()">&#x2B21; &nbsp; VERIFY</button>
+    </div>
+  `;
+  box.style.display = '';
+  setTimeout(() => document.getElementById('mfa-totp-code')?.focus(), 50);
+}
+
+function _mfaSwitchTab(method) {
+  ['totp', 'webauthn', 'backup'].forEach((m) => {
+    const tab = document.querySelector(`.mfa-tab[data-m="${m}"]`);
+    const panel = document.getElementById('mfa-tab-' + m);
+    if (tab) tab.classList.toggle('on', m === method);
+    if (panel) panel.style.display = m === method ? '' : 'none';
+  });
+}
+
+function _mfaHideScreen() {
+  const box = document.getElementById('login-mfa-form');
+  if (box) box.style.display = 'none';
+  document.getElementById('login-pw-form')?.style.setProperty('display', '');
+}
+
+async function _mfaFinish(result, errEl) {
+  if (!result.ok) {
+    if (errEl) errEl.textContent = result.error || 'Verification failed';
+    return;
+  }
+  const pending = _pendingLogin;
+  _pendingLogin = null;
+  _mfaHideScreen();
+  if (pending) await _completeLoginSuccess(pending.meta, pending.btn);
+}
+
+async function _mfaSubmitTotp() {
+  const code = document.getElementById('mfa-totp-code')?.value;
+  const errEl = document.getElementById('mfa-totp-error');
+  if (errEl) errEl.textContent = '';
+  const r = await mfaVerifyLogin('totp', code);
+  await _mfaFinish(r, errEl);
+}
+
+async function _mfaSubmitWebauthn() {
+  const errEl = document.getElementById('mfa-webauthn-error');
+  if (errEl) errEl.textContent = 'Waiting for your security key\u2026';
+  const r = await mfaVerifyLogin('webauthn', null);
+  await _mfaFinish(r, errEl);
+}
+
+async function _mfaSubmitBackup() {
+  const code = document.getElementById('mfa-backup-code')?.value;
+  const errEl = document.getElementById('mfa-backup-error');
+  if (errEl) errEl.textContent = '';
+  const r = await mfaVerifyLogin('backup', code);
+  if (r.ok && r.remaining != null && r.remaining <= 2) {
+    mm_toast?.(`Only ${r.remaining} backup code${r.remaining === 1 ? '' : 's'} left — generate new ones in Settings`, 'warn', { dur: 6000 });
+  }
+  await _mfaFinish(r, errEl);
+}
+
 async function loginSubmit() {
   const pw = document.getElementById('login-password')?.value;
   const errEl = document.getElementById('login-error');
   const setErr = msg => { if (errEl) errEl.textContent = msg; };
   setErr('');
-  if (!pw) return setErr('Enter your password');
+  // The "you must type a password" rule cannot be applied before the file has
+  // been read, because it is not true of every vault: an unencrypted vault has
+  // no password, and demanding one would be asking for a secret that does not
+  // exist. Enforced after GATE 2, where the vault's kind is known.
 
   // ── GATE 0: Brute-force lockout check ─────────────────────────
   const bfWait = _bfCheck();
@@ -2192,97 +2815,249 @@ async function loginSubmit() {
   if (btn) { btn.textContent = '⬡  UNLOCKING…'; btn.disabled = true; }
 
   try {
-    // ── GATE 1: Identity must exist ────────────────────────────────
-    const meta = _authLoadMeta();
-    if (!meta) {
-      setErr('No identity found — complete first-time setup');
-      mm_toast('No identity — complete setup first', 'error');
-      MMLog?.error('auth', 'Login attempt: no identity in localStorage');
+    // ── GATE 1: The vault file must exist ──────────────────────────
+    // v6 reversal: the FILE is the source of truth for identity, not
+    // localStorage. The salt and KDF parameters live in the vault header,
+    // so a vault can be opened on a machine that has never run setup —
+    // which was impossible in v5 and made every vault non-portable.
+    if (!window.NXAPI) {
+      setErr('Desktop app required — the vault cannot be opened in a browser.');
       if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
-      // Emit SISO login fail event
-      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_identity' });
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_nxapi' });
       return;
     }
 
-    // ── GATE 2: Vault keys must exist in localStorage ──────────────
-    const vaultKeyRaw = localStorage.getItem(AUTH_VAULT_KEY);
-    if (!vaultKeyRaw) {
-      setErr('Vault keys missing — vault may be corrupted. Recreate from first-time setup.');
-      mm_toast('Vault keys missing — vault needs recreation', 'error');
-      MMLog?.error('auth', 'Login attempt: vault keys absent from localStorage');
+    const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+    if (!dataDir) {
+      setErr('No data folder selected — choose where your vault lives.');
       if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
-      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_vault_keys' });
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_datadir' });
       return;
     }
 
-    // ── GATE 3: Vault FILE must exist on disk (Electron) ───────────
-    if (window.NXAPI) {
-      const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
-      if (dataDir) {
-        const vaultPath = dataDir + '/mastermind.vault';
-        const fileExists = await window.NXAPI.vaultExists(vaultPath);
-        if (!fileExists) {
-          setErr('Vault file not found on disk — choose your data folder or recreate vault.');
-          mm_toast('Vault file missing on disk', 'error');
-          MMLog?.error('auth', 'Login gate 3 FAIL: vault file absent at ' + vaultPath);
-          if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
-          if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_vault_file', path: vaultPath });
-          // Show vault missing screen after brief delay
-          setTimeout(() => _showVaultMissingScreen(vaultPath, 'missing'), 1200);
-          return;
+    const vaultPath = dataDir + '/mastermind.vault';
+    const rawVault = await window.NXAPI.vaultRead(vaultPath);
+    if (!rawVault) {
+      setErr('Vault file not found on disk — choose your data folder or recreate vault.');
+      MMLog?.error('auth', 'Login gate 1 FAIL: no vault at ' + vaultPath);
+      if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'no_vault_file', path: vaultPath });
+      setTimeout(() => _showVaultMissingScreen(vaultPath, 'missing'), 1200);
+      return;
+    }
+    NX_CONFIG.vaultPath = vaultPath;
+
+    // ── GATE 2: The file must be a vault we can read ───────────────
+    const parsedVault = VaultEnvelope.parse(rawVault);
+    if (!parsedVault.ok) {
+      setErr(parsedVault.message);
+      MMLog?.error('auth', 'Login gate 2 FAIL: ' + parsedVault.reason);
+      if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: parsedVault.reason });
+      setTimeout(() => _showVaultMissingScreen(vaultPath, 'corrupt'), 1200);
+      return;
+    }
+
+    // ── GATE 2b: A password is required only where one can be proven ──
+    if (!parsedVault.plain && !pw) {
+      setErr('Enter your password');
+      if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+      return;
+    }
+
+    // ── GATE 3: Derive and PROVE the key against the vault itself ──
+    // v5 proved the password by decrypting the RSA blob in localStorage,
+    // which meant a machine without that blob could not log in even with
+    // the right password. The real proof is the vault opening.
+    let key, meta;
+    if (parsedVault.plain) {
+      // An unencrypted vault: the file IS the state. There is no key to
+      // derive and nothing to prove a password against, so none is claimed.
+      // Hydration is otherwise identical to the encrypted path — the same
+      // vaultDeserialize() call, the same integrity sweep — because what
+      // makes a session live is the state reaching the globals, and that is
+      // not a property of the cipher.
+      const read = VaultEnvelope.readPlain(parsedVault.envelope);
+      if (!read.ok) {
+        setErr(read.message || 'The unencrypted vault could not be read.');
+        if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+        if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: read.reason || 'plain_unreadable' });
+        return;
+      }
+      const state = read.state;
+      key  = null;
+      meta = state.identity || { username: state.username || 'operator' };
+      AUTH.encrypted = false;
+      _AUTH_STORE.keys = state.keys || _AUTH_STORE.keys;
+
+      try {
+        vaultDeserialize(state);
+        const integrity = vaultCheckNodeIntegrity(state);
+        if (!integrity.ok) {
+          MMLog?.warn('vault', 'Node integrity check found problems: ' +
+            integrity.duplicateIds.length + ' duplicate id(s), ' +
+            integrity.danglingConns.length + ' dangling connection(s)');
+          if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.integrity.problem', integrity);
         }
-        // Open vault file on login success — store path
-        NX_CONFIG.vaultPath = vaultPath;
-        MMLog?.info('auth', 'Login gate 3 PASS: vault file confirmed at ' + vaultPath);
-        if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.confirmed', { path: vaultPath, context: 'login' });
+      } catch (e) {
+        MMLog?.error('vault', 'vaultDeserialize failed on unencrypted login: ' + e.message);
+        mm_toast('Could not fully restore your data — try "Load from Vault" in Settings.', 'error', { dur: 9000 });
+      }
+
+      // No envelope, so no vaultId to anchor a ledger against and no
+      // saveCount in a header. Left null rather than invented: a fabricated
+      // anchor would make the ledger claim a lineage that does not exist.
+      VAULT.vaultId   = null;
+      VAULT.saltB64   = null;
+      VAULT.saveCount = state.saveCount != null ? state.saveCount : 0;
+      VAULT.anchor    = null;
+
+      MMLog?.warn('auth', 'Opened an UNENCRYPTED vault — no cipher, no integrity hash');
+    } else if (parsedVault.legacy) {
+      // One-time bridge for a v5 file: the salt only exists in
+      // localStorage on the machine that created it.
+      meta = _authLoadMeta();
+      if (!meta?.salt) {
+        setErr('This is a v5 vault and its salt is not on this machine — open it once on the original computer to upgrade it.');
+        if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+        if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'v5_salt_absent' });
+        // Not recoverable from THIS machine by re-entering the password —
+        // the salt that would let it decrypt simply isn't here. Offer the
+        // same recovery screen every other unopenable-vault case uses,
+        // rather than leaving the only option a button that will fail
+        // identically every time it's pressed.
+        setTimeout(() => _showVaultMissingScreen(vaultPath, 'legacy-salt-absent'), 1500);
+        return;
+      }
+      key = await VaultCrypto.deriveKey(pw, meta.salt, 310000, 32);
+      const legacy = VaultEnvelope.readLegacyV5(parsedVault.envelope);
+      if (legacy.encrypted !== false) {
+        // Throws on a wrong password — caught below as a failed attempt.
+        await VaultCrypto.decrypt(key, VaultCrypto.fromBase64(legacy.data), legacy.iv, null);
+      }
+      // Bind the parameters that actually produced this key BEFORE anything
+      // can seal with it. v5 used 310k and this salt; claiming otherwise in
+      // a v6 header would write a vault no password could reopen.
+      _setSessionKey(key, meta.salt, 310000);
+      _vaultAdoptLegacyIdentity(null);
+      _pendingRekey = pw;   // upgrade to the current target below
+    } else {
+      const env = parsedVault.envelope;
+      const ct = VaultCrypto.fromBase64(env.data);
+      const sha = await VaultCrypto.sha256Hex(ct);
+      if (!VaultCrypto.timingSafeEqualHex(sha, env.ciphertextSha256)) {
+        // Damaged file, NOT a wrong password. Saying "incorrect password"
+        // here sends people hunting for a typo while their vault rots.
+        setErr('Vault file is damaged — this is not a password problem. Restore from a backup.');
+        MMLog?.error('auth', 'Ciphertext hash mismatch at ' + vaultPath);
+        await window.NXAPI.ledgerAppend?.(dataDir, 'vault.unlock.corrupt', { vaultId: env.vaultId });
+        if (btn) { btn.textContent = '⬡  UNLOCK MASTERMIND'; btn.disabled = false; }
+        if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.fail', { reason: 'ciphertext_corrupt' });
+        setTimeout(() => _showVaultMissingScreen(vaultPath, 'corrupt'), 1200);
+        return;
+      }
+      key = await VaultCrypto.deriveKey(pw, env.kdf.salt, env.kdf.iterations, env.kdf.keyLen);
+      _setSessionKey(key, env.kdf.salt, env.kdf.iterations);
+      if (env.kdf.iterations < vaultGetIterations()) _pendingRekey = pw;
+      // Throws on a wrong password — and on any edit to the header, since
+      // the header is the AAD.
+      const plain = await VaultCrypto.decrypt(key, ct, env.iv, VaultEnvelope.aadBytes(env));
+      const state = JSON.parse(VaultCrypto.utf8Decode(plain));
+      meta = state.identity || { username: state.username || 'operator' };
+      if (state.security && state.security.mfa && typeof mfaHydrateFromVault === 'function') {
+        mfaHydrateFromVault(state.security.mfa);
+      }
+      // state.keys (the RSA keypair) was being decrypted and then dropped —
+      // never assigned to _AUTH_STORE.keys. Nothing else populates it before
+      // featuresConfirm()'s "Vault keys missing" check for a returning user
+      // who hasn't confirmed features yet (that check only exists to catch
+      // a genuinely broken vault, not this).
+      _AUTH_STORE.keys = state.keys || _AUTH_STORE.keys;
+
+      // THE actual "decrypted vault lives in RAM" step. `state` here is
+      // the whole vault payload — canvas nodes, connections, lattice,
+      // every module's saved state — and until this line it was being
+      // parsed and then discarded; only identity/keys/MFA were ever
+      // pulled out of it. vaultDeserialize() already does full
+      // restoration correctly (it's what "Load from Vault" in Settings
+      // calls), it just was never reached on the path everyone actually
+      // logs in through. This is what makes `state` a live, working copy
+      // instead of dead JSON — every module reads from the globals this
+      // populates (NX, LATTICE, VL_STATE, OPTS, ...) from here on, and
+      // vaultSave() is what writes that live copy back to the real file.
+      try {
+        vaultDeserialize(state);
+        const integrity = vaultCheckNodeIntegrity(state);
+        if (!integrity.ok) {
+          MMLog?.warn('vault', 'Node integrity check found problems: ' +
+            integrity.duplicateIds.length + ' duplicate id(s), ' +
+            integrity.danglingConns.length + ' dangling connection(s)');
+          mm_toast('⚡ Found ' + integrity.duplicateIds.length + ' duplicate node id(s) and ' +
+            integrity.danglingConns.length + ' connection(s) pointing at missing nodes — the data ' +
+            'still loaded, but some links may look broken.', 'warn', { dur: 9000 });
+          if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.integrity.problem', integrity);
+        }
+      } catch (e) {
+        MMLog?.error('vault', 'vaultDeserialize failed on login — entering with an empty working copy: ' + e.message);
+        mm_toast('Could not fully restore your data — try "Load from Vault" in Settings, or contact support if it keeps happening.', 'error', { dur: 9000 });
+      }
+
+      VAULT.vaultId    = env.vaultId;
+      VAULT.saltB64    = env.kdf.salt;
+      VAULT.iterations = env.kdf.iterations;
+      VAULT.saveCount  = env.saveCount;
+      VAULT.anchor     = env.ledgerAnchor;
+    }
+
+    AUTH.username = meta.username || AUTH.username;
+
+    // Upgrade the KDF while the password is still in scope. This is the only
+    // moment it is possible: a new iteration count needs a new salt AND a
+    // freshly derived key, and the key cannot be re-derived from itself.
+    // Key and salt move together, and the pair only reaches disk on the next
+    // successful save — until then the old file still opens with the same
+    // password, so an interrupted upgrade loses nothing.
+    if (_pendingRekey) {
+      try {
+        const before = AUTH.kdf.iterations;
+        await vaultRekeySession(_pendingRekey, vaultGetIterations());
+        await window.NXAPI.ledgerAppend?.(dataDir, 'vault.kdf.upgraded', {
+          from: before, to: AUTH.kdf.iterations,
+        });
+      } catch (rk) {
+        MMLog?.warn('auth', 'KDF upgrade skipped: ' + rk.message);
+      } finally {
+        _pendingRekey = null;
       }
     }
+    await window.NXAPI.ledgerAppend?.(dataDir, 'vault.unlock.success', { vaultId: VAULT.vaultId || null });
 
-    // ── All gates passed — proceed with key derivation ─────────────
-    const salt = Uint8Array.from(atob(meta.salt), c => c.charCodeAt(0));
-    const key = await _deriveKey(pw, salt);
-    // Verify key by trying to read vault
-    const vault = JSON.parse(vaultKeyRaw);
-    // Try decrypting private key to verify password
-    await _aesDecrypt(key, vault.encPrivKey);
-
-    AUTH.key = key; AUTH.encrypted = true;
-    _sealSession(meta.username);
-    setTimeout(registerWithBridge, 1200);
-    if (btn) btn.textContent = '⬡  UNLOCKED';
-    _loginUnlockToastTimer = setTimeout(() => { _loginUnlockToastTimer = null; T.vaultUnlocked(meta?.username || AUTH.username || 'operator'); }, 600);
-
-    // MM Foundation: init vault on login success
-    if (typeof MMVault !== 'undefined' && !MMVault.meta) {
-      const meta2 = _authLoadMeta();
-      MMVault.create(meta2?.username || 'operator', { encrypted: true });
-    }
-    MMLog?.info('auth', 'Login successful — all 3 gates passed');
-    if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.auth.login.success', { username: meta.username });
-
-    // Open the vault file on disk now that we are logged in
-    if (window.NXAPI && NX_CONFIG.vaultPath) {
-      const raw = await window.NXAPI.vaultRead(NX_CONFIG.vaultPath);
-      if (raw) MMLog?.info('vault', 'Vault file opened on login: ' + raw.length + ' bytes');
+    // ── GATE 4: second factor, if one is enrolled ───────────────────
+    // Only reachable once the vault is decrypted — MFA_STATE lives
+    // inside it, so this is the earliest point it's even possible to
+    // know whether a second factor exists. _completeLoginSuccess (the
+    // rest of what used to run unconditionally here) is deferred until
+    // mfaVerifyLogin() says ok.
+    const mfaMethods = (typeof mfaLoginMethods === 'function') ? mfaLoginMethods() : [];
+    if (mfaMethods.length) {
+      if (btn) { btn.textContent = '⬡  UNLOCKED'; btn.disabled = false; }
+      _pendingLogin = { meta, btn };
+      _showMfaLoginScreen(mfaMethods);
+      return;
     }
 
-    const _savedF = JSON.parse(localStorage.getItem(FEATURES_KEY)||'{}');
-    if (_savedF._configured) {
-      setTimeout(() => {
-        document.getElementById('startup-screen').classList.add('hidden');
-        document.getElementById('homepage').classList.remove('hidden');
-        applyFeatureFlags();
-        if (typeof maybeShowWelcome === 'function') maybeShowWelcome();
-        _autolockStart?.();
-      }, 400);
-    } else {
-      setTimeout(() => _ssShow('ss-features', 3), 400);
-    }
+    await _completeLoginSuccess(meta, btn);
   } catch(e) {
     // Cancel any pending success toast (race condition prevention)
     if (_loginUnlockToastTimer) { clearTimeout(_loginUnlockToastTimer); _loginUnlockToastTimer = null; }
     mm_toast_clear?.(); // hard-clear all pending toasts — prevent stale success toast
     _bfRecord(); // record failed attempt toward lockout
+    // Recorded in the audit ledger, which lives OUTSIDE the vault precisely
+    // so that a failed unlock — which never gets the key — can be logged.
+    try {
+      const _dd = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+      if (_dd) await window.NXAPI?.ledgerAppend?.(_dd, 'vault.unlock.failed', { attempts: _BF.attempts });
+    } catch (_le) {}
     const bfRem = _BF.attempts > 0 ? ` (${_BF.maxAttempts - _BF.attempts} attempts left)` : '';
     setErr('Incorrect password' + bfRem);
     MMLog?.warn('auth', 'Login failed: wrong password for ' + (AUTH.username || 'unknown'));
@@ -2335,10 +3110,13 @@ async function loginPinSubmit() {
   const _pinSavedF = JSON.parse(localStorage.getItem(FEATURES_KEY)||'{}');
   setTimeout(() => {
     if (_pinSavedF._configured) {
-      document.getElementById('startup-screen').classList.add('hidden');
-      document.getElementById('homepage').classList.remove('hidden');
-      applyFeatureFlags();
-      _pinReadOnlyBanner(); // show persistent read-only warning
+      _maybeShowSessionChoice(() => {
+        document.getElementById('startup-screen').classList.add('hidden');
+        document.getElementById('homepage').classList.remove('hidden'); document.getElementById('homepage').scrollTop = 0;
+        applyFeatureFlags();
+        _applyScaleOnBoot();
+        _pinReadOnlyBanner(); // show persistent read-only warning
+      });
     } else {
       _ssShow('ss-features', 3);
     }
@@ -2362,6 +3140,25 @@ const MODULES = {
   horizon: { name: 'Horizon Living',  color: '#d4a820', key: 'horizon', defaultOn: true  },
   alm:     { name: 'ALM',             color: '#00ff88', key: 'alm',     defaultOn: true  },
 };
+
+// Persistent module-visibility toggle for the Options panel — the
+// onboarding wizard's toggleFeature() below only ever runs once, during
+// setup, with no way back afterward if you change your mind. This is
+// that way back: same FEATURES_KEY the wizard writes to, immediately
+// re-applies to the homepage, no wizard-specific side effects.
+function optsToggleModuleFeature(name) {
+  AUTH.features[name] = AUTH.features[name] === false ? true : false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(FEATURES_KEY) || '{}');
+    saved[name] = AUTH.features[name];
+    saved._configured = true;
+    localStorage.setItem(FEATURES_KEY, JSON.stringify(saved));
+  } catch(e) { MMLog?.error('ui', 'optsToggleModuleFeature save failed: ' + e.message); }
+  applyFeatureFlags();
+  const btn = document.getElementById('opt-modfeat-' + name);
+  if (btn) btn.classList.toggle('on', AUTH.features[name] !== false);
+  mm_toast((AUTH.features[name] !== false ? 'Enabled: ' : 'Disabled: ') + name, 'info', { dur: 1400 });
+}
 
 function toggleFeature(name) {
   if (!MODULES[name]) return;
@@ -2408,8 +3205,33 @@ async function featuresConfirm() {
       const decrypted = await _aesDecrypt(AUTH.key, encrypted);
       const decoded   = new TextDecoder().decode(new Uint8Array(decrypted));
       if (!decoded.startsWith('vault_ok_')) throw new Error('Round-trip mismatch');
-      const vaultRaw = localStorage.getItem(AUTH_VAULT_KEY);
-      if (!vaultRaw) throw new Error('Vault keys missing');
+
+      // A vault missing its RSA keypair — real, and seen in the wild on
+      // vaults from earlier in this app's life before keygen was reliably
+      // wired into every creation path — is NOT the same severity as a
+      // vault that fails its own encryption round-trip above. That
+      // keypair only feeds the Settings → Keys display/export; it has
+      // never been what protects this vault's actual data. Repair it in
+      // place — generate one now, the same way setupCreateVault() does
+      // for a new identity, and save it — rather than blocking entry to
+      // someone's real, otherwise-healthy canvas over a cosmetic gap.
+      if (!_AUTH_STORE.keys?.pubKey) {
+        MMLog?.warn('vault', 'Vault opened successfully but has no RSA keypair — generating one now rather than blocking entry.');
+        const kp = await crypto.subtle.generateKey(
+          { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+          true, ['encrypt', 'decrypt']
+        );
+        const pubRaw  = await crypto.subtle.exportKey('spki', kp.publicKey);
+        const privRaw = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+        _AUTH_STORE.keys = {
+          pubKey: VaultCrypto.toBase64(new Uint8Array(pubRaw)),
+          encPrivKey: await _aesEncrypt(AUTH.key, new Uint8Array(privRaw)),
+        };
+        VAULT.dirty = true;
+        await vaultSave(false);
+        if (VAULT.dirty) throw new Error('generated a keypair but the save did not land — try again');
+        mm_toast('Repaired a missing key pair on this vault', 'info', { dur: 4000 });
+      }
     } catch(e) {
       if (vaultErr) {
         vaultErr.textContent = '⚡ Vault verification failed: ' + e.message + ' — go back and recreate your identity.';
@@ -2435,14 +3257,27 @@ async function featuresConfirm() {
   applyFeatureFlags();
   if (btn) { btn.disabled = false; btn.textContent = '⬡ ACTIVATE & CREATE VAULT'; }
 
-  if (window.NXAPI) {
-    _ssShow('ss-folder', 4);
-  } else {
+  if (!window.NXAPI) {
     // No NXAPI — desktop app required
     _showDesktopRequiredScreen();
     if (btn) { btn.disabled = false; btn.textContent = '⬡ ACTIVATE & CREATE VAULT'; }
     return;
   }
+
+  // The vault already exists on disk by this point — setupCreateVault() for
+  // the encrypted path, _setupSkipEncryptionConfirmed() for the opt-out
+  // path — so finishing here means revealing the homepage, not asking for
+  // a folder that used to arrive after the vault was already written there.
+  setTimeout(() => {
+    document.getElementById('startup-screen').classList.add('hidden');
+    document.getElementById('homepage').classList.remove('hidden');
+    document.getElementById('homepage').scrollTop = 0;
+    applyFeatureFlags();
+    if (typeof maybeShowWelcome === 'function') maybeShowWelcome();
+    _autolockStart?.();
+    _applyScaleOnBoot();
+    setTimeout(registerWithBridge, 800);
+  }, 300);
 }
 
 function applyFeatureFlags() {
@@ -2515,8 +3350,40 @@ function _cwrapCtxMenu(x, y) {
   _spawnMenuOpen = true;
 }
 
+// ── Version — single source of truth is package.json ────────────────
+// Electron's app.getVersion() reads it directly; every on-screen or
+// logged version string in this file fills in from MM_VERSION rather
+// than hardcoding its own number. In browser mode (no NXAPI) there's
+// no package.json to read, so it falls back to a clearly-labeled
+// placeholder rather than a number that would just go stale too.
+// Seeded synchronously from window.MM_VERSION (set in index-browser.html
+// from NXAPI.version, which preload reads straight out of package.json).
+// `let` at top level does NOT create a window property, so MM_VERSION and
+// window.MM_VERSION are separate bindings — they are kept in step here and
+// nowhere else.
+let MM_VERSION = (typeof window !== 'undefined' && window.MM_VERSION) || '0.0.0-dev';
+
+async function mmApplyVersion() {
+  try {
+    if (window.NXAPI?.version) MM_VERSION = window.NXAPI.version;
+    else if (window.NXAPI?.getVersion) MM_VERSION = await window.NXAPI.getVersion();
+    else MM_VERSION = '0.0.0-browser';
+  } catch (e) { MM_VERSION = '0.0.0-unknown'; }
+  window.MM_VERSION = MM_VERSION;
+
+  const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setText('tb-version-display', 'v' + MM_VERSION + ' \u221e');
+  setText('mm-vb-ver-display', 'v' + MM_VERSION + ' \u221e');
+  setText('hp-version-sub', 'COGNITIVE OPERATING SYSTEM \u00b7 v' + MM_VERSION + ' \u221e');
+  setText('about-version-display', MM_VERSION + ' \u221e');
+  setText('about-build-output', 'npm install electron electron-builder\nnpx electron-builder --win --x64\nOutput: dist/MASTERMIND-Setup-' + MM_VERSION + '.exe');
+  return MM_VERSION;
+}
+
 /* ── Single DOMContentLoaded — init + auth ──────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
+  _mmInstallScaleControls();
+  await mmApplyVersion();
   await init();
   _setupPasswordInput();
   startupRoute();
@@ -2781,30 +3648,29 @@ async function setupCreateVault() {
   wizStartKeygenAnimation();
 
   try {
-    const salt = crypto.getRandomValues(new Uint8Array(32));
-    const key = await _deriveKey(password, salt);
-    AUTH.key = key; AUTH.username = username; AUTH.encrypted = true;
+    // v6: the salt and iteration count are minted by vaultCreateNew() and
+    // written into the vault header, not here and not into localStorage.
+    // Setup's job is now to assemble the initial state and hand it over.
+    AUTH.username = username;
 
     let pinHash = null;
     if (pin) {
       const pinBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + username));
-      pinHash = btoa(String.fromCharCode(...new Uint8Array(pinBuf)));
+      pinHash = VaultCrypto.toBase64(new Uint8Array(pinBuf));
     }
 
-    const meta = { username, salt: btoa(String.fromCharCode(...salt)), pinHash, created: Date.now(), version: 1 };
-    localStorage.setItem(AUTH_META_KEY, JSON.stringify(meta));
+    const meta = { username, pinHash, created: Date.now(), version: 6 };
 
+    // Keypair is generated here but stored INSIDE the vault payload below.
+    // It used to go to localStorage[AUTH_VAULT_KEY], which login then
+    // required — the dependency that made a vault file unopenable on any
+    // machine that had not run setup.
     const kp = await crypto.subtle.generateKey(
       { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' },
       true, ['encrypt','decrypt']
     );
     const pubRaw  = await crypto.subtle.exportKey('spki', kp.publicKey);
     const privRaw = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
-    const encPriv = await _aesEncrypt(AUTH.key, new Uint8Array(privRaw));
-    localStorage.setItem(AUTH_VAULT_KEY, JSON.stringify({
-      pubKey: btoa(String.fromCharCode(...new Uint8Array(pubRaw))),
-      encPrivKey: encPriv,
-    }));
 
     AUTH.hasPin = !!pin; AUTH.pinHash = pinHash;
 
@@ -2830,45 +3696,53 @@ async function setupCreateVault() {
       localStorage.setItem('nexus_datadir', dataDir);
       await window.NXAPI.setDataDir(dataDir);
     }
-
-    // Create the vault file immediately — this is the primary vault store
     const vaultPath = dataDir + '/mastermind.vault';
-    // Build a real (encrypted if key available) initial vault payload.
-    // data: null caused the shell-vault bug where nothing was ever persisted.
-    // Instead we write a complete empty-state envelope from the start.
-    let initialVaultPayload;
-    {
-      const _emptyState = {
-        version: 5, format: 'nexus-vault', saved: Date.now(),
-        canvas: { nodes: [], conns: [], viewport: { zoom: 1, panX: 0, panY: 0 }, clipboard: [] },
-        modules: { void: null, gaps: null, signal: null, threads: null,
-                   body: null, horizon: null, brainMap: null, domain: null,
-                   almDeltas: [], intuitionRatings: {}, options: OPTS || {}, features: AUTH.features || {} },
-        aiConfig: null,
-        snr: null,
-        identity: { username, salt: meta.salt, pinHash: meta.pinHash || null,
-                    created: meta.created, version: 1, noEncryption: !AUTH.encrypted },
-        keys: JSON.parse(localStorage.getItem(AUTH_VAULT_KEY) || '{}'),
-        username,
-        jaa: {},
+
+    // Create the vault file — v6, encrypted, verified by reopening it.
+    // The hand-rolled v5 envelope that used to live here is why a freshly
+    // created vault was still v5 after the v6 work shipped: two code paths
+    // writing the same format, only one of them updated.
+    const _initialState = {
+      version: 6, format: 'mastermind-vault', saved: Date.now(),
+      canvas: { nodes: [], conns: [], viewport: { zoom: 1, panX: 0, panY: 0 }, clipboard: [] },
+      modules: { void: null, gaps: null, signal: null, threads: null,
+                 body: null, horizon: null, brainMap: null, domain: null,
+                 almDeltas: [], intuitionRatings: {}, options: OPTS || {}, features: AUTH.features || {} },
+      aiConfig: null,
+      snr: null,
+      // No salt here. The salt lives in the cleartext header, which is what
+      // makes the file openable on a machine that has never run setup.
+      identity: { username, pinHash: meta.pinHash || null, created: meta.created, version: 6 },
+      keys: {
+        pubKey: VaultCrypto.toBase64(new Uint8Array(pubRaw)),
+        encPrivKey: null,   // filled in below, once the session key exists
+      },
+      username,
+      jaa: {},
+    };
+
+    let created;
+    try {
+      // vaultCreateNew derives the key, mints salt + vaultId, seals, writes,
+      // then reads the file back and decrypts it before reporting success.
+      created = await vaultCreateNew(password, _initialState, { dataDir, vaultPath });
+
+      // The RSA private key is wrapped with the session key, which only
+      // exists after vaultCreateNew has derived it. Second save, not a
+      // second file.
+      // _AUTH_STORE is what vaultSerialize reads for identity and keys, so
+      // the keypair goes there rather than into a parallel structure.
+      _AUTH_STORE.meta = { username, pinHash: meta.pinHash || null, created: meta.created, version: 6 };
+      _AUTH_STORE.keys = {
+        pubKey: VaultCrypto.toBase64(new Uint8Array(pubRaw)),
+        encPrivKey: await _aesEncrypt(AUTH.key, new Uint8Array(privRaw)),
       };
-      if (AUTH.key && AUTH.encrypted && typeof _aesEncrypt === 'function') {
-        try {
-          const _enc = await _aesEncrypt(AUTH.key, new TextEncoder().encode(JSON.stringify(_emptyState)));
-          initialVaultPayload = JSON.stringify({ encrypted: true, version: 5, ..._enc });
-        } catch(e) {
-          // Fallback to plaintext if encrypt fails — better than data: null
-          initialVaultPayload = JSON.stringify({ encrypted: false, version: 5, data: _emptyState });
-        }
-      } else {
-        initialVaultPayload = JSON.stringify({ encrypted: false, version: 5, data: _emptyState });
-      }
-    }
-    const writeResult = await window.NXAPI.vaultWrite(vaultPath, initialVaultPayload);
-    if (!writeResult?.ok) {
-      setErr('⚡ Vault file creation failed: ' + (writeResult?.error || 'unknown error') + 
-             '\nPath: ' + vaultPath);
-      MMLog?.error('vault', 'Vault creation failed: ' + writeResult?.error);
+      AUTH.hasPin = !!pin; AUTH.pinHash = pinHash;
+      await vaultSave(false);
+      if (VAULT.dirty) throw new Error('vault created but the keypair save did not land');
+    } catch (ce) {
+      setErr('⚡ Vault file creation failed: ' + ce.message + '\nPath: ' + vaultPath);
+      MMLog?.error('vault', 'Vault creation failed: ' + ce.message);
       const btn2 = document.getElementById('setup-create-btn');
       if (btn2) { btn2.disabled = false; }
       const icon2 = document.getElementById('wiz-btn-icon');
@@ -2886,6 +3760,7 @@ async function setupCreateVault() {
     NX_CONFIG.vaultPath = vaultPath;
     MMLog?.info('vault', 'Vault file created at: ' + vaultPath);
     if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.created', { path: vaultPath, username });
+    _persistIdentityMarker({ username, noEncryption: false });
 
     // MM Foundation: create vault record
     if (typeof MMVault !== 'undefined') {
@@ -2920,12 +3795,38 @@ console.log('[MASTERMIND] Wizard loaded');
 const OPTS_KEY = 'nexus_options';
 const OPTS = {
   // Appearance
-  font_scale: 100, compact: false, badges: true, depth: true,
+  font_scale: 100, ui_scale: 100, compact: false, opts_density: false, badges: true, depth: true,
   typecolor: true, scanlines: true, ambient: true,
   // Canvas
   particles: true, grid: true, clusters: true, animated: true,
   snap: false, inertia: true, dblspawn: true, rcpan: true,
   connlabels: true, autosave: true, autosave_interval: 30,
+  // Hard ceiling on how long anything may stay unwritten, regardless of
+  // how fast new nodes arrive. Without it the debounce starves.
+  autosave_max_wait: 10, panel_scale: 100,
+  // Lexicon / capture. All default ON except anything that sends data
+  // anywhere or rewrites what you said.
+  lexicon_learn: true,
+  lexicon_prompt: true,
+  lexicon_disambiguate: false,
+  allow_cloud_speech: false,    // DR-004: browser speech sends audio to Google
+  // Assistance boundary (docs/AI-CONTRACT.md). Off, local, confirming —
+  // every default here is the cautious one, because a default is what
+  // almost everyone runs.
+  assist_enabled: false,
+  assist_provider: 'local',
+  assist_intents: { 'disambiguate': true, 'suggest-tags': true, 'propose-edges': false, 'expand': false, 'question': false },
+  assist_maxchars: 4000,
+  assist_maxitems: 20,
+  assist_confirm: true,
+  assist_log: [],
+  // Lexicon / capture. All default ON except the ones that send data
+  // anywhere or rewrite what you said.
+  lexicon_learn: true,          // build vocabulary + grammar from speech
+  lexicon_prompt: true,         // seed Whisper with your own distinctive words
+  lexicon_disambiguate: false,  // SUGGEST corrections — never silent, off by default
+  allow_cloud_speech: false,    // DR-004: browser speech sends audio to Google
+
   undo_depth: 200,
   // Brain map
   brain_view: 'force', brain_physics: true, brain_halos: true,
@@ -2938,6 +3839,15 @@ const OPTS = {
   // Security
   e2e: false, pw_required: false, pin_enabled: false,
   autolock: false, autolock_mins: 15, clear_clip: false,
+
+  // Whisper CLI + pipeline — full surface. threads:0 means "let whisper.js
+  // pick" (Math.max(2, cpus/2)), same as leaving cfg.threads undefined did
+  // before this existed; 0 is the sentinel for that, not a real thread count.
+  voice_whisper_language: 'auto',
+  voice_whisper_threads: 0,
+  voice_whisper_timeout_ms: 120000,
+  voice_max_segment_ms: 25000,
+  voice_prompt_seed_count: 40,
 };
 
 let _backupCodes = [];
@@ -2946,7 +3856,9 @@ function loadOpts() {
   try {
     const saved = JSON.parse(localStorage.getItem(OPTS_KEY) || '{}');
     Object.assign(OPTS, saved);
-  } catch(e) {}
+  } catch(e) {
+    MMLog?.error('ui', 'loadOpts failed, using defaults: ' + e.message);
+  }
 }
 
 let _saveOptsTimer = null;
@@ -2958,6 +3870,193 @@ function saveOpts() {
   // Flash saved indicator
   const ind = document.getElementById('opts-save-indicator');
   if (ind) { ind.style.opacity = '1'; setTimeout(() => { ind.style.opacity = '0'; }, 1200); }
+}
+
+// ── Roadmap ──────────────────────────────────────────────────────────────
+// Rendered from phasemap/phases.json rather than written into the markup,
+// so the panel cannot drift from the plan. One source, no second copy to
+// forget to update.
+let _mmPhases = null;
+
+async function optsRenderRoadmap() {
+  const el = document.getElementById('opt-roadmap-list');
+  if (!el) return;
+  if (!_mmPhases) {
+    try { _mmPhases = await (await fetch('phasemap/phases.json')).json(); }
+    catch (e) {
+      el.innerHTML = '<div class="opts-hint" style="color:var(--o)">Could not read phasemap/phases.json \u2014 ' + escH(e.message) + '</div>';
+      return;
+    }
+  }
+  const colour = { done: 'var(--g)', partial: 'var(--c)', next: 'var(--o)', open: 'var(--o)', planned: 'var(--dim)' };
+  const glyph  = { done: '\u25c6', partial: '\u25d0', next: '\u25b6', open: '\u25b3', planned: '\u25cb' };
+
+  el.innerHTML = _mmPhases.phases.map(p => {
+    const c = colour[p.state] || 'var(--dim)';
+    return '<div style="border:1px solid var(--wire);background:var(--abyss);padding:8px 10px">' +
+      '<div style="display:flex;align-items:baseline;gap:9px">' +
+        '<span style="color:' + c + ';font-size:9px">' + (glyph[p.state] || '\u25cb') + '</span>' +
+        '<span style="font-family:var(--f-mono);font-size:8px;letter-spacing:2px;color:var(--dim);min-width:38px">' + escH(p.id) + '</span>' +
+        '<span style="font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px;color:var(--bright);text-transform:uppercase;flex:1">' + escH(p.name) + '</span>' +
+        '<span style="font-family:var(--f-mono);font-size:8px;color:' + c + '">' + escH(String(p.state).toUpperCase()) + '</span>' +
+      '</div>' +
+      '<div style="height:2px;background:var(--wire2);margin:6px 0 5px"><div style="height:100%;width:' + (p.pct || 0) + '%;background:' + c + '"></div></div>' +
+      '<div style="font-family:var(--f-body);font-size:10px;line-height:1.6;color:var(--mid)">' + escH(p.note || '') + '</div>' +
+      (p.blocks && p.blocks.length
+        ? '<div style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;color:var(--o);margin-top:5px">BLOCKS ' + escH(p.blocks.join(' \u00b7 ')) + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+// Components are rendered from phasemap/components.json for the same
+// reason the phases are: one source. A panel that restates a manifest
+// drifts from it the first time only one of the two is updated.
+let _mmComponents = null;
+
+async function optsRenderComponents() {
+  const el = document.getElementById('opt-components-list');
+  if (!el) return;
+  if (!_mmComponents) {
+    try { _mmComponents = await (await fetch('phasemap/components.json')).json(); }
+    catch (e) { el.innerHTML = '<div class="opts-hint" style="color:var(--o)">Could not read phasemap/components.json</div>'; return; }
+  }
+
+  const lifeColour = {
+    Released: 'var(--g)', Verified: 'var(--c)', Implemented: 'var(--c)',
+    Specified: 'var(--o)', Draft: 'var(--dim)',
+  };
+
+  const row = (c, isFoundation) =>
+    '<div style="border:1px solid var(--wire);background:var(--abyss);padding:7px 10px">' +
+      '<div style="display:flex;align-items:baseline;gap:9px">' +
+        '<span style="font-family:var(--f-mono);font-size:8px;letter-spacing:1.5px;color:' +
+          (isFoundation ? 'var(--v)' : 'var(--c)') + ';min-width:88px">' + escH(c.id) + '</span>' +
+        '<span style="font-family:var(--f-body);font-size:10px;color:var(--mid);flex:1">' +
+          escH(c.path || (c.parent ? 'parent ' + c.parent : '')) +
+          (c.fnsInV7 ? ' \u00b7 ' + c.fnsInV7 + ' fn in v7' : '') + '</span>' +
+        '<span style="font-family:var(--f-mono);font-size:7.5px;color:' +
+          (lifeColour[c.lifecycle] || 'var(--dim)') + '">' + escH(String(c.lifecycle).toUpperCase()) + '</span>' +
+      '</div>' +
+      (c.note ? '<div style="font-family:var(--f-body);font-size:9.5px;color:var(--dim);margin-top:4px;line-height:1.5">' + escH(c.note) + '</div>' : '') +
+    '</div>';
+
+  el.innerHTML =
+    '<div style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:2px;color:var(--v);padding:4px 0">FOUNDATION</div>' +
+    _mmComponents.foundation.map(c => row(c, true)).join('') +
+    '<div style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:2px;color:var(--c);padding:8px 0 4px">COMPONENTS</div>' +
+    _mmComponents.components.map(c => row(c, false)).join('') +
+    (_mmComponents.openQuestions && _mmComponents.openQuestions.length
+      ? '<div style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:2px;color:var(--o);padding:8px 0 4px">OPEN QUESTIONS</div>' +
+        _mmComponents.openQuestions.map(q =>
+          '<div style="font-family:var(--f-body);font-size:9.5px;color:var(--mid);line-height:1.6;padding:2px 0">\u25b3 ' + escH(q) + '</div>').join('')
+      : '');
+}
+
+// ── Assistance options ───────────────────────────────────────────────────
+// The only controls over what leaves the machine, so each says what it
+// does in concrete terms rather than naming a feature.
+
+function optsToggleAssist(el) {
+  el.classList.toggle('on');
+  OPTS.assist_enabled = el.classList.contains('on');
+  saveOpts();
+  optsRefreshAssist();
+  if (OPTS.assist_enabled && OPTS.assist_provider === 'cloud') {
+    mm_toast('Assistance on, provider is CLOUD \u2014 request text will leave this machine', 'warn', { dur: 6000 });
+  }
+}
+
+function optsSetAssistProvider(v) {
+  if (v === 'cloud') {
+    // A confirmation, not a toast. This is the most consequential
+    // setting in the application.
+    mmConfirm(
+      'Send assistance requests to a cloud model?\n\n' +
+      'The text in each request reaches a third party in the clear. The allowlist still applies and every ' +
+      'request is still logged with a hash \u2014 but it does leave this machine.\n\n' +
+      'Your vault, lexicon, keys and audit ledger are never sent either way.'
+    ).then(ok => {
+      OPTS.assist_provider = ok ? 'cloud' : 'local';
+      const sel = document.getElementById('opt-assist-provider');
+      if (sel) sel.value = OPTS.assist_provider;
+      saveOpts(); optsRefreshAssist();
+    });
+    return;
+  }
+  OPTS.assist_provider = 'local';
+  saveOpts(); optsRefreshAssist();
+}
+
+function optsToggleIntent(el, intent) {
+  el.classList.toggle('on');
+  OPTS.assist_intents = OPTS.assist_intents || {};
+  OPTS.assist_intents[intent] = el.classList.contains('on');
+  saveOpts(); optsRefreshAssist();
+}
+
+function optsSetAssistBudget(key, value) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return;
+  if (key === 'maxChars') OPTS.assist_maxchars = Math.max(200, Math.min(20000, n));
+  if (key === 'maxItems') OPTS.assist_maxitems = Math.max(1, Math.min(100, n));
+  saveOpts(); optsRefreshAssist();
+}
+
+// Bounded. The log is a record of recent egress, not an archive — an
+// unbounded array inside the vault payload grows on every save forever.
+function optsRecordEgress(receipt) {
+  OPTS.assist_log = (OPTS.assist_log || []).concat([receipt]).slice(-50);
+  saveOpts(); optsRefreshAssist();
+}
+
+function optsRefreshAssist() {
+  const on = OPTS.assist_enabled === true;
+  const cloud = OPTS.assist_provider === 'cloud';
+  const set = (id, val) => { const e = document.getElementById(id); if (e) e.classList.toggle('on', !!val); };
+
+  set('opt-assist-enabled', on);
+  set('opt-assist-confirm', OPTS.assist_confirm !== false);
+  set('opt-lexicon-learn', OPTS.lexicon_learn !== false);
+  set('opt-lexicon-prompt', OPTS.lexicon_prompt !== false);
+  set('opt-lexicon-disambiguate', OPTS.lexicon_disambiguate === true);
+
+  const intents = OPTS.assist_intents || {};
+  for (const k of ['disambiguate', 'suggest-tags', 'propose-edges', 'expand', 'question']) set('opt-intent-' + k, intents[k] === true);
+
+  const sel = document.getElementById('opt-assist-provider');
+  if (sel) sel.value = OPTS.assist_provider || 'local';
+  const warn = document.getElementById('opt-assist-cloud-warn');
+  if (warn) warn.style.display = cloud ? '' : 'none';
+  const mc = document.getElementById('opt-assist-maxchars'); if (mc) mc.value = OPTS.assist_maxchars || 4000;
+  const mi = document.getElementById('opt-assist-maxitems'); if (mi) mi.value = OPTS.assist_maxitems || 20;
+
+  const state = document.getElementById('opt-assist-state');
+  if (state) {
+    const enabled = Object.entries(intents).filter(([, v]) => v).map(([k]) => k);
+    state.innerHTML = !on
+      ? '<span style="color:var(--g)">\u25c6 OFF</span> \u2014 no assistance request is built. Nothing leaves this machine.'
+      : (cloud ? '<span style="color:var(--o)">\u25b3 CLOUD</span> \u2014 request text leaves this machine. '
+               : '<span style="color:var(--c)">\u25c6 LOCAL</span> \u2014 nothing leaves this machine. ') +
+        (enabled.length ? 'Allowed: ' + enabled.join(', ') + '.' : 'No intents enabled, so nothing can be asked.');
+  }
+
+  const lex = document.getElementById('opt-lexicon-state');
+  if (lex && typeof MM_LEXICON !== 'undefined' && MM_LEXICON) {
+    try { lex.textContent = MM_LEXICON.maturity().summary; } catch (e) { lex.textContent = '\u2014'; }
+  }
+
+  const log = document.getElementById('opt-assist-log');
+  if (log) {
+    const entries = (OPTS.assist_log || []).slice(-25).reverse();
+    log.innerHTML = entries.length ? entries.map(r =>
+      '<div>' + escH(String(r.at || '').slice(0, 19).replace('T', ' ')) +
+      ' \u00b7 <span style="color:var(--c)">' + escH(r.intent || '?') + '</span>' +
+      ' \u00b7 ' + escH(String(r.requestedBy || '?')) +
+      ' \u00b7 ' + (r.items || 0) + ' item(s), ' + (r.chars || 0) + ' chars' +
+      ' \u00b7 <span style="color:' + (r.provider === 'cloud' ? 'var(--o)' : 'var(--dim)') + '">' + escH(r.provider || 'local') + '</span>' +
+      (r.sha256 ? ' \u00b7 <span style="color:var(--dim)">' + escH(r.sha256.slice(0, 12)) + '</span>' : '') + '</div>').join('')
+      : 'Nothing has been sent.';
+  }
 }
 
 function optsTab(el, name) {
@@ -2973,13 +4072,13 @@ function optsTab(el, name) {
   if (name === 'vault')      optsRefreshVault();
   if (name === 'foundation') optsRefreshFoundation();
   if (name === 'horizon')    optsRefreshHorizon();
+  if (name === 'roadmap') { optsRenderRoadmap(); optsRenderComponents(); }
   if (name === 'ai') {
+    // The assistance boundary panel — the part governed by the contract.
+    optsRefreshAssist();
     // Sync provider select from AI state
     const provSel = document.getElementById('opt-ai-provider');
-    if (provSel) provSel.value = AI.provider || 'anthropic';
-    // Sync API key
-    const keyInp = document.getElementById('opt-ai-key');
-    if (keyInp && AI.apiKey) keyInp.value = AI.apiKey;
+    if (provSel) provSel.value = AI.provider || 'ollama';
     // Sync enabled toggle
     const enabledToggle = document.getElementById('opt-ai-enabled');
     if (enabledToggle) enabledToggle.classList.toggle('on', !!AI.enabled);
@@ -2989,8 +4088,6 @@ function optsTab(el, name) {
     // Sync ollama base URL if set
     const ollamaBase = document.getElementById('ai-ollama-base');
     if (ollamaBase && AI.ollamaBase) ollamaBase.value = AI.ollamaBase;
-    const lmBase = document.getElementById('ai-lmstudio-base');
-    if (lmBase && AI.lmstudioBase) lmBase.value = AI.lmstudioBase;
   }
 }
 
@@ -3007,26 +4104,253 @@ function optsToggle(el, key) {
   }
   if (key === 'scanlines') document.body.style.setProperty('--scanline-opacity', OPTS.scanlines ? '' : '0');
   if (key === 'ambient') document.body.classList.toggle('no-ambient', !OPTS.ambient);
+  if (key === 'opts_density') document.body.classList.toggle('mm-opts-compact', !!OPTS.opts_density);
 }
 
 function optsSet(key, val) {
   OPTS[key] = val; saveOpts();
 }
 
-function optsSetFontScale(val) {
-  OPTS.font_scale = parseInt(val);
-  document.getElementById('opt-font-scale-val').textContent = val + '%';
-  const scale = val / 100;
-  document.documentElement.style.setProperty('--ui-scale', scale);
-  document.documentElement.style.fontSize = (16 * scale) + 'px';
-  document.body.style.fontSize = (13 * scale) + 'px';
+// ── UI scale by keyboard and wheel ───────────────────────────────────────
+// The control lives in Settings, which is exactly where you cannot reach it
+// when the UI is too large to navigate. Ctrl+scroll and Ctrl+/- work from
+// anywhere, which is what people already expect from a browser. This nudges
+// ui_scale (everything), not font_scale (text only) — Ctrl+scroll is a
+// "zoom" gesture in every browser and matches that expectation; a person
+// who wants text-only sizing has the dedicated font-size control in
+// Settings for that, separate from this.
+function mmNudgeUIScale(deltaPct) {
+  const cur = OPTS.ui_scale || 100;
+  const next = Math.max(60, Math.min(200, cur + deltaPct));
+  if (next === cur) return next;
+  optsSetUIScale(next);
+  const sel = document.getElementById('opt-ui-scale');
+  if (sel) sel.value = next;
+  mm_toast('Interface ' + next + '%', 'info', { dur: 900 });
+  return next;
+}
+
+function mmResetUIScale() {
+  optsSetUIScale(100);
+  const sel = document.getElementById('opt-ui-scale');
+  if (sel) sel.value = 100;
+  mm_toast('Interface 100%', 'info', { dur: 900 });
+}
+
+function _mmInstallScaleControls() {
+  // Wheel: passive:false so the browser's own page zoom can be prevented.
+  window.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    mmNudgeUIScale(e.deltaY < 0 ? 5 : -5);
+  }, { passive: false });
+
+  window.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    // Ignore while typing — Ctrl+- in a text field is not a zoom request.
+    const tag = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || e.target?.isContentEditable) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); mmNudgeUIScale(5); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); mmNudgeUIScale(-5); }
+    else if (e.key === '0') { e.preventDefault(); mmResetUIScale(); }
+  });
+}
+
+function optsSetPanelScale(val) {
+  const pct = Math.max(60, Math.min(160, parseInt(val) || 100));
+  OPTS.panel_scale = pct;
+  const valEl = document.getElementById('opt-panel-scale-val');
+  if (valEl) valEl.textContent = pct + '%';
+  _mmApplyScale();   // re-applies the panel ratio
   saveOpts();
-  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.opts.ui_scale', { scale, percent: val });
+}
+
+// font_scale and ui_scale used to be one variable wearing two names —
+// moving the old single "UI font size" control resized text AND every
+// button/icon/spacing together, because it drove both the --fs-*
+// typography tokens AND document.body.style.zoom (which re-multiplies
+// whatever pixel size text already has). There was no way to make text
+// bigger without the whole app growing with it, or the reverse.
+//
+// They are genuinely independent now:
+//   ui_scale   -> document.body.style.zoom alone. Layout, controls,
+//                 icons, spacing, canvas rendering — "how big is
+//                 everything", the way Ctrl+scroll zoom works anywhere.
+//   font_scale -> --ui-scale CSS var alone, which is what --fs-base/
+//                 --fs-mono/--fs-sm/--fs-xs/--fs-lg and the two
+//                 explicit root/body font-size lines are built from.
+//                 "How big is TEXT" — independent of ui_scale.
+//
+// The independence needs real math, not two separate assignments,
+// because zoom multiplies literally every already-rendered pixel,
+// including whatever font-size the CSS vars produce. If font_scale set
+// --ui-scale directly, body.zoom(ui_scale) would multiply the resulting
+// text a second time and font_scale would stop meaning what its label
+// says the moment ui_scale changed. So --ui-scale is set to
+// (font_scale / ui_scale): once body.zoom multiplies everything by
+// ui_scale, the division cancels back out and the on-screen text ends
+// up sized by font_scale alone —
+//   observed = (base_px * font_scale / ui_scale) * ui_scale = base_px * font_scale
+// — regardless of what ui_scale is set to. Non-token pixels (padding,
+// icon dimensions, the thousands of hardcoded inline font-size:Npx
+// values elsewhere that don't go through --fs-*) still only respond to
+// ui_scale, which is correct: those ARE "everything else", not text.
+//
+// This does NOT reach every hardcoded inline font-size in the app —
+// same pre-existing limit as before (see the comment this replaced).
+// What it fixes is that the two THINGS THAT DO EXIST — the --fs-*
+// tokens and the zoom — are no longer forced to move together.
+function _mmApplyScale() {
+  const fontPct = _nearestScalePreset(Math.max(80, Math.min(200, OPTS.font_scale || 100)));
+  const uiPct   = _nearestScalePreset(Math.max(60, Math.min(200, OPTS.ui_scale || 100)));
+  OPTS.font_scale = fontPct;
+  OPTS.ui_scale = uiPct;
+
+  const fontScale = fontPct / 100;
+  const uiScale = uiPct / 100;
+  const tokenRatio = fontScale / uiScale; // cancels against body.zoom below
+
+  document.documentElement.style.setProperty('--ui-scale', tokenRatio);
+  document.documentElement.style.fontSize = (16 * tokenRatio) + 'px';
+  document.body.style.fontSize = (13 * tokenRatio) + 'px';
+  document.body.style.zoom = uiScale;
+
+  // The Options panel gets its OWN local --ui-scale override, set to
+  // fontScale directly (NOT divided by uiScale). If it inherited the
+  // divided value from the root, the panel's counter-zoom below (which
+  // only cancels the body's zoom contribution) would leave the /uiScale
+  // term from the CSS var stranded, uncancelled — the panel's text
+  // would still drift with ui_scale even though nothing else about the
+  // panel does. Setting it locally, undivided, avoids that leak: the
+  // panel's own zoom cancels ui_scale from the LAYOUT side, and this
+  // local var means there was never a ui_scale term in the TEXT side to
+  // begin with.
+  const optsOverlay = document.getElementById('opts-overlay');
+  if (optsOverlay) {
+    optsOverlay.style.setProperty('--ui-scale', fontScale);
+    const panel = (OPTS.panel_scale || 100) / 100;
+    optsOverlay.style.zoom = String(panel / uiScale);
+  }
+
+  const fontValEl = document.getElementById('opt-font-scale-val');
+  if (fontValEl) fontValEl.textContent = fontPct + '%';
+  const uiValEl = document.getElementById('opt-ui-scale-val');
+  if (uiValEl) uiValEl.textContent = uiPct + '%';
+  const fontSel = document.getElementById('opt-font-scale');
+  if (fontSel) fontSel.value = String(fontPct);
+  const uiSel = document.getElementById('opt-ui-scale');
+  if (uiSel) uiSel.value = String(uiPct);
+
+  saveOpts();
+  if (typeof MM_BUS !== 'undefined') {
+    MM_BUS.emit('mm.opts.font_scale', { scale: fontScale, percent: fontPct });
+    MM_BUS.emit('mm.opts.ui_scale', { scale: uiScale, percent: uiPct });
+  }
+}
+
+function optsSetFontScale(val) {
+  OPTS.font_scale = parseInt(val) || 100;
+  _mmApplyScale();
+}
+
+function optsSetUIScale(val) {
+  OPTS.ui_scale = parseInt(val) || 100;
+  _mmApplyScale();
+
 }
 
 function optsSetAutosaveInterval(val) {
   OPTS.autosave_interval = parseInt(val);
   document.getElementById('opt-autosave-interval-val').textContent = val + 's';
+  saveOpts();
+}
+
+// ── Voice capture ──────────────────────────────────────────────────
+// Shared by the orb (modules/voice-lattice/ui-capture.js) and rolling
+// recall (modules/voice-lattice/recall.js) — one set of numbers, read
+// fresh by each capture whenever it starts, not duplicated per-feature.
+
+async function optsToggleVoiceRecall(el) {
+  if (typeof recallToggle !== 'function') {
+    mm_toast('Rolling recall unavailable in this build', 'warn');
+    return;
+  }
+  el.style.opacity = '.5';
+  try {
+    const r = await recallToggle();
+    if (!r.ok) {
+      mm_toast(r.error || 'Could not toggle rolling recall', 'error', { dur: 6000 });
+      return;
+    }
+    el.classList.toggle('on', r.enabled !== false && (typeof RECALL === 'undefined' || RECALL.enabled));
+  } finally {
+    el.style.opacity = '1';
+  }
+}
+
+function optsSetVoiceThreshold(val) {
+  // Slider is 5–60 (integer, easy to drag); RMS threshold is a small
+  // decimal (~0.005–0.06) — this just puts a friendlier control on top
+  // of the real unit rather than asking anyone to type 0.018.
+  OPTS.voice_vad_threshold = parseInt(val) / 1000;
+  document.getElementById('opt-voice-threshold-val').textContent = OPTS.voice_vad_threshold.toFixed(3);
+  if (typeof RECALL !== 'undefined') RECALL.rmsThreshold = OPTS.voice_vad_threshold;
+  saveOpts();
+}
+
+function optsSetVoiceSilence(val) {
+  OPTS.voice_silence_hold_ms = parseInt(val);
+  document.getElementById('opt-voice-silence-val').textContent = (OPTS.voice_silence_hold_ms / 1000).toFixed(1) + 's';
+  if (typeof RECALL !== 'undefined') RECALL.silenceHoldMs = OPTS.voice_silence_hold_ms;
+  saveOpts();
+}
+
+function optsSetVoicePreroll(val) {
+  OPTS.voice_preroll_ms = parseInt(val);
+  document.getElementById('opt-voice-preroll-val').textContent = (OPTS.voice_preroll_ms / 1000).toFixed(1) + 's';
+  if (typeof RECALL !== 'undefined') RECALL.prerollMs = OPTS.voice_preroll_ms;
+  saveOpts();
+}
+
+function optsSetVoiceModel(val) {
+  OPTS.voice_whisper_model = val;
+  saveOpts();
+}
+
+function optsSetVoiceLanguage(val) {
+  OPTS.voice_whisper_language = val;
+  saveOpts();
+}
+
+function optsSetVoiceThreads(val) {
+  // 0 = auto (whisper.js's own Math.max(2, cpus/2) default). Slider max
+  // is generous rather than clamped to this machine's core count — a
+  // request for more threads than exist just gets ignored by the OS
+  // scheduler, it doesn't error, so there's nothing to validate here.
+  OPTS.voice_whisper_threads = parseInt(val);
+  const el = document.getElementById('opt-voice-threads-val');
+  if (el) el.textContent = OPTS.voice_whisper_threads === 0 ? 'auto' : String(OPTS.voice_whisper_threads);
+  saveOpts();
+}
+
+function optsSetVoiceTimeout(val) {
+  OPTS.voice_whisper_timeout_ms = parseInt(val) * 1000;
+  const el = document.getElementById('opt-voice-timeout-val');
+  if (el) el.textContent = parseInt(val) + 's';
+  saveOpts();
+}
+
+function optsSetVoiceMaxSegment(val) {
+  OPTS.voice_max_segment_ms = parseInt(val) * 1000;
+  const el = document.getElementById('opt-voice-maxsegment-val');
+  if (el) el.textContent = parseInt(val) + 's';
+  saveOpts();
+}
+
+function optsSetVoicePromptSeedCount(val) {
+  OPTS.voice_prompt_seed_count = parseInt(val);
+  const el = document.getElementById('opt-voice-promptcount-val');
+  if (el) el.textContent = String(OPTS.voice_prompt_seed_count);
   saveOpts();
 }
 
@@ -3115,141 +4439,464 @@ function optsRefreshSecurity() {
   setToggle('opt-e2e', !meta.noEncryption);
   setToggle('opt-pw-required', !meta.noEncryption);
   setToggle('opt-pin-enabled', !!meta.pinHash);
+
+  // ── Cryptographic detail + key export, on demand ──────────────────
+  // This used to only ever appear once — the ss-keygen wizard screen,
+  // shown exactly one time at vault creation. Lose that moment (closed
+  // the app too fast, never got to export) and there was no way back to
+  // it: no vault ID, no key thumbprints, no export buttons, anywhere.
+  // Same detail, same export functions (exportPublicKey/exportPrivateKey
+  // — unchanged, just called from a second place), now reachable from
+  // Settings any time the vault is unlocked, not just at creation.
+  const cryptoEl = document.getElementById('opts-crypto-detail');
+  if (cryptoEl && !meta.noEncryption) {
+    const vaultId = (typeof VAULT !== 'undefined' && VAULT.vaultId) || '—';
+    const iterations = (typeof AUTH !== 'undefined' && AUTH.kdf?.iterations) || '—';
+    const pub = (typeof _AUTH_STORE !== 'undefined' && _AUTH_STORE.keys?.pubKey) || '';
+    const pubThumb = pub ? (pub.slice(0, 8) + '…' + pub.slice(-8)) : 'not generated';
+    cryptoEl.style.display = '';
+    cryptoEl.innerHTML =
+      'Vault ID: <span class="wiz-mono" style="color:var(--c)">' + escH(vaultId) + '</span><br>' +
+      'KDF: <span style="color:var(--c)">PBKDF2-SHA256 &times; ' + escH(String(iterations)) + '</span><br>' +
+      'Key pair: <span style="color:var(--v)">RSA-OAEP 2048-bit</span><br>' +
+      'Public key: <span class="wiz-mono" style="color:var(--g)">' + escH(pubThumb) + '</span>';
+  } else if (cryptoEl) {
+    cryptoEl.style.display = 'none';
+  }
+
+  if (typeof mfaUiRefresh === 'function') mfaUiRefresh();
 }
 
-function optsToggleE2E(el) {
+// ── MFA Settings UI ───────────────────────────────────────────────────
+// Glue between the Security tab's markup and the MFA_STATE / MfaCrypto
+// functions in vault-mfa.js / vault-mfa-state.js.
+
+function mfaUiRefresh() {
+  if (typeof MFA_STATE === 'undefined') return;
+
+  // TOTP
+  const totpStatus = document.getElementById('mfa-totp-status');
+  const setupBtn = document.getElementById('mfa-totp-setup-btn');
+  const disableBtn = document.getElementById('mfa-totp-disable-btn');
+  if (totpStatus) {
+    totpStatus.innerHTML = MFA_STATE.totp.enabled
+      ? '<span style="color:var(--g)">\u25c6 Enabled</span> \u00b7 confirmed ' + new Date(MFA_STATE.totp.confirmedAt).toLocaleDateString()
+      : 'Not set up. A 6-digit code from an app like Authy, 1Password, or Google/Microsoft Authenticator.';
+  }
+  if (setupBtn) setupBtn.style.display = MFA_STATE.totp.enabled ? 'none' : '';
+  if (disableBtn) disableBtn.style.display = MFA_STATE.totp.enabled ? '' : 'none';
+
+  // WebAuthn
+  const cap = (typeof mfaWebauthnCapability === 'function') ? mfaWebauthnCapability() : { supported: false, reason: 'Unavailable' };
+  const waStatus = document.getElementById('mfa-webauthn-status');
+  const waAddBtn = document.getElementById('mfa-webauthn-add-btn');
+  const count = (MFA_STATE.webauthn.credentials || []).length;
+  if (waStatus) {
+    waStatus.innerHTML = !cap.supported
+      ? '<span style="color:var(--o)">\u25b3 ' + escH(cap.reason) + '</span>'
+      : (count ? '<span style="color:var(--g)">\u25c6 ' + count + ' key' + (count === 1 ? '' : 's') + ' registered</span>' : 'No security keys registered yet.');
+  }
+  if (waAddBtn) waAddBtn.disabled = !cap.supported;
+
+  const list = document.getElementById('mfa-webauthn-list');
+  if (list) {
+    list.innerHTML = (MFA_STATE.webauthn.credentials || []).map((c) => `
+      <div class="opts-row">
+        <div class="opts-label">${escH(c.name)}<div class="opts-hint">Added ${new Date(c.addedAt).toLocaleDateString()}${c.lastUsedAt ? ' \u00b7 last used ' + new Date(c.lastUsedAt).toLocaleDateString() : ''}</div></div>
+        <button class="opts-action-btn danger" onclick="mfaUiWebauthnRemove('${c.id}')">Remove</button>
+      </div>`).join('');
+  }
+}
+
+function mfaUiTotpBegin() {
+  if (typeof mfaTotpBeginEnroll !== 'function') { mm_toast('MFA module not loaded', 'error'); return; }
+  const { secretB32, uri } = mfaTotpBeginEnroll();
+  document.getElementById('mfa-totp-secret').textContent = secretB32.match(/.{1,4}/g).join(' ');
+  document.getElementById('mfa-totp-confirm-code').value = '';
+  document.getElementById('mfa-totp-confirm-error').textContent = '';
+  document.getElementById('mfa-totp-enroll-box').style.display = '';
+
+  const qrBox = document.getElementById('mfa-totp-qr');
+  if (qrBox) {
+    qrBox.innerHTML = '';
+    if (typeof qrcode === 'function') {
+      const qr = qrcode(0, 'M');
+      qr.addData(uri);
+      qr.make();
+      // Themed SVG rather than the library's own black/white output, so
+      // it sits inside the app's palette rather than fighting it.
+      const n = qr.getModuleCount();
+      const cell = 150 / n;
+      let cells = '';
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (qr.isDark(r, c)) cells += `<rect x="${(c * cell).toFixed(2)}" y="${(r * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" fill="var(--bright)"/>`;
+        }
+      }
+      qrBox.innerHTML = `<svg viewBox="0 0 150 150" width="150" height="150" style="background:var(--deep);padding:6px">${cells}</svg>`;
+    } else {
+      qrBox.innerHTML = '<div class="opts-hint">QR unavailable — enter the key manually.</div>';
+    }
+  }
+  setTimeout(() => document.getElementById('mfa-totp-confirm-code')?.focus(), 50);
+}
+
+async function mfaUiTotpConfirm() {
+  const code = document.getElementById('mfa-totp-confirm-code')?.value;
+  const errEl = document.getElementById('mfa-totp-confirm-error');
+  if (errEl) errEl.textContent = '';
+  const r = await mfaTotpConfirmEnroll(code);
+  if (!r.ok) { if (errEl) errEl.textContent = r.error; return; }
+  await vaultSave(false);
+  document.getElementById('mfa-totp-enroll-box').style.display = 'none';
+  mfaUiRefresh();
+  mm_toast('Authenticator app enabled', 'success', { dur: 3000 });
+}
+
+function mfaUiTotpCancel() {
+  if (typeof mfaTotpCancelEnroll === 'function') mfaTotpCancelEnroll();
+  document.getElementById('mfa-totp-enroll-box').style.display = 'none';
+}
+
+async function mfaUiTotpDisable() {
+  const ok = await mmConfirm(
+    'Disable authenticator app verification?\n\n' +
+    'Your account will only be as secure as your password (and any security keys or backup codes still set up) until you set this up again.'
+  );
+  if (!ok) return;
+  await mfaTotpDisable();
+  await vaultSave(false);
+  mfaUiRefresh();
+  mm_toast('Authenticator app disabled', 'warn');
+}
+
+async function mfaUiWebauthnAdd() {
+  const cap = mfaWebauthnCapability();
+  if (!cap.supported) { await mmConfirm(cap.reason + '\n\nThis is informational — there is nothing to confirm.'); return; }
+  const label = await mmPrompt('Name this security key (e.g. "YubiKey — desk drawer")', 'Security key');
+  if (label == null) return;
+  const r = await mfaWebauthnRegister(label);
+  if (!r.ok) { mm_toast('Could not register the key: ' + r.error, 'error', { dur: 5000 }); return; }
+  await vaultSave(false);
+  mfaUiRefresh();
+  mm_toast('Security key added', 'success');
+}
+
+async function mfaUiWebauthnRemove(credentialId) {
+  const ok = await mmConfirm('Remove this security key? You can re-register it later if needed.');
+  if (!ok) return;
+  await mfaWebauthnRemove(credentialId);
+  await vaultSave(false);
+  mfaUiRefresh();
+}
+
+async function optsToggleE2E(el) {
   const meta = _authLoadMeta();
   if (!meta) { toast('No vault found — complete setup first'); return; }
   const isOn = el.classList.contains('on');
   if (isOn) {
-    // Turn OFF encryption
-    if (!confirm('Disable encryption? Your vault will be stored unencrypted.')) return;
-    const newMeta = Object.assign({}, meta, { noEncryption: true });
-    localStorage.setItem(AUTH_META_KEY, JSON.stringify(newMeta));
-    AUTH.encrypted = false;
-    el.classList.remove('on');
-    mm_toast('Encryption disabled · restart to apply', 'warn');
-  } else {
-    // Turn ON encryption — requires password
-    const pw = prompt('Set a master password to enable encryption:');
-    if (!pw || pw.length < 8) { toast('Password must be at least 8 characters'); return; }
-    mm_toast('Generating encryption key…', 'vault');
-    (async () => {
-      try {
-        const salt = crypto.getRandomValues(new Uint8Array(32));
-        const key = await _deriveKey(pw, salt);
-        AUTH.key = key; AUTH.encrypted = true;
-        const newMeta = Object.assign({}, meta, {
-          noEncryption: false,
-          salt: btoa(String.fromCharCode(...salt)),
-        });
-        localStorage.setItem(AUTH_META_KEY, JSON.stringify(newMeta));
-        el.classList.add('on');
-        mm_toast('Encryption enabled · vault secured', 'vault');
-      } catch(e) { toast('Error: ' + e.message); }
-    })();
+    // Turning encryption OFF used to flip a localStorage flag and toast
+    // "restart to apply" — while the vault on disk stayed encrypted and the
+    // session key stayed live. Nothing was applied, at restart or ever.
+    // Rather than implement a real downgrade, this refuses: writing an
+    // unencrypted copy of the vault is the one thing the whole design exists
+    // to prevent, and a toggle is far too quiet a way to do it.
+    await mmConfirm(
+      'Encryption cannot be switched off on an existing vault.\n\n' +
+      'Doing so would write every node to disk in the clear. If you truly want an ' +
+      'unencrypted vault, export your data and run first-time setup again, where the ' +
+      'choice is explicit and recorded.'
+    );
+    el.classList.add('on');
+    return;
+  }
+  // Turning encryption ON for a vault created without it is a full re-seal:
+  // new salt, new key, a keypair this vault never had, rewrite the file,
+  // verify it reopens. Previously this just toasted "use Change Password" —
+  // but optsChangePassword() explicitly refuses to run on a plain vault
+  // ("there is no password to change"), so that instruction led nowhere.
+  await optsEncryptVaultInPlace();
+}
+
+async function optsEncryptVaultInPlace() {
+  if (!window.NXAPI) { toast('Desktop app required'); return; }
+  if (VAULT.readOnly) { toast('Session is read-only — resolve the integrity warning first'); return; }
+
+  const dataDir = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+  const vaultPath = NX_CONFIG.vaultPath || (dataDir ? dataDir + '/mastermind.vault' : null);
+  if (!vaultPath) { toast('No vault path — cannot encrypt'); return; }
+
+  const raw = await window.NXAPI.vaultRead(vaultPath);
+  if (!raw) { toast('Vault file not found'); return; }
+  const parsed = VaultEnvelope.parse(raw);
+  if (!parsed.ok) { mm_toast('⚡ Cannot encrypt: ' + parsed.message, 'error', { dur: 7000 }); return; }
+  if (!parsed.plain) { toast('This vault is already encrypted'); return; }
+
+  const state = parsed.envelope; // a plain vault's "envelope" IS its state — no key, no decrypt step
+
+  const newPw = await mmPrompt('Choose a password to encrypt this vault:');
+  if (!newPw || newPw.length < 8) { toast('Password too short (min 8 characters)'); return; }
+  const confirmPw = await mmPrompt('Confirm password:');
+  if (confirmPw !== newPw) { toast('Passwords do not match'); return; }
+
+  const proceed = await mmConfirm(
+    'Encrypt this vault with AES-256-GCM?\n\n' +
+    'You will need this password every time MASTERMIND opens from now on. ' +
+    'There is no recovery if you lose it — write it down somewhere safe.'
+  );
+  if (!proceed) return;
+
+  const rollbackEncrypted = AUTH.encrypted;
+  mm_toast('Encrypting vault…', 'vault');
+  try {
+    // ── 1. Mint real encryption parameters ─────────────────────────
+    const newSalt  = VaultCrypto.randomSaltB64(VaultEnvelope.SALT_BYTES);
+    const newIters = vaultGetIterations();
+    const newKey   = await VaultCrypto.deriveKey(newPw, newSalt, newIters, 32);
+
+    // ── 2. This vault never had a keypair (plain vaults are created with
+    // keys: { pubKey: null, encPrivKey: null } — there was no key to wrap
+    // a private key with). Generate one now, the same self-heal pattern
+    // used at login for a vault missing its keypair.
+    let keys = state.keys;
+    if (!keys?.pubKey) {
+      const kp = await crypto.subtle.generateKey(
+        { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+        true, ['encrypt', 'decrypt']
+      );
+      const pubRaw  = await crypto.subtle.exportKey('spki', kp.publicKey);
+      const privRaw = await crypto.subtle.exportKey('pkcs8', kp.privateKey);
+      keys = {
+        pubKey: VaultCrypto.toBase64(new Uint8Array(pubRaw)),
+        encPrivKey: await _aesEncrypt(newKey, new Uint8Array(privRaw)),
+      };
+    }
+
+    state.identity = Object.assign({}, state.identity, { noEncryption: false });
+    state.keys = keys;
+
+    // ── 3. Hydrate live state from what was actually on disk, THEN swap
+    // the session key — vaultSave() below writes whatever is in memory,
+    // so memory has to be the real content before that write happens.
+    vaultDeserialize(state);
+    _AUTH_STORE.meta = state.identity;
+    _AUTH_STORE.keys = keys;
+    _setSessionKey(newKey, newSalt, newIters);
+    AUTH.encrypted = true;
+
+    // ── 4. Write, and require the write to land ────────────────────
+    VAULT.dirty = true;
+    await vaultSave(false);
+    if (VAULT.dirty) throw new Error('vault save did not land — vault NOT encrypted');
+
+    // ── 5. Prove the password opens the file before claiming success ─
+    const verifyRaw = await window.NXAPI.vaultRead(vaultPath);
+    const vp = VaultEnvelope.parse(verifyRaw);
+    if (!vp.ok || vp.legacy || vp.plain) throw new Error('post-write verification failed: not an encrypted v6 vault');
+    const vKey = await VaultCrypto.deriveKey(newPw, vp.envelope.kdf.salt, vp.envelope.kdf.iterations, 32);
+    await VaultCrypto.decrypt(vKey, VaultCrypto.fromBase64(vp.envelope.data), vp.envelope.iv, VaultEnvelope.aadBytes(vp.envelope));
+
+    if (typeof _persistIdentityMarker === 'function') {
+      _persistIdentityMarker({ username: state.identity.username, noEncryption: false });
+    }
+    await window.NXAPI.ledgerAppend?.(dataDir, 'vault.encrypted', { vaultId: VAULT.vaultId });
+    mm_toast('✓ Vault encrypted — you\u2019ll be asked for this password from now on', 'success', { dur: 7000 });
+    if (typeof syncOptsToggles === 'function') syncOptsToggles();
+  } catch (e) {
+    // The file on disk is either still the plain original (nothing
+    // written) or the new encrypted one (verified) — never a half state,
+    // because the write is atomic and verification happens after it.
+    AUTH.encrypted = rollbackEncrypted;
+    MMLog?.error('vault', 'Encrypt-in-place failed: ' + e.message);
+    mm_toast('⚡ Vault NOT encrypted: ' + e.message, 'error', { dur: 8000 });
   }
 }
 
-function optsChangePassword() {
-  const current = prompt('Current password:'); if (!current) return;
-  const newPw   = prompt('New password (min 8 chars):'); if (!newPw || newPw.length < 8) { toast('Password too short'); return; }
-  const confirm_ = prompt('Confirm new password:'); if (confirm_ !== newPw) { toast('Passwords do not match'); return; }
-  mm_toast('Updating encryption key…', 'vault');
-  (async () => {
-    try {
+async function optsChangePassword() {
+  // ── v6 rewrite ───────────────────────────────────────────────────────
+  // The previous version derived the old key from a localStorage salt,
+  // verified it against a localStorage key blob, minted a new salt, wrote
+  // BOTH to localStorage, set AUTH.key = newKey — and never touched the
+  // vault file. Result: the file on disk was still encrypted under the old
+  // key while the session held the new one, and AUTH.kdf still described the
+  // old salt. The next save would have sealed the vault with a key its own
+  // header could not re-derive. Unopenable, permanently, with the correct
+  // password. This is now the single most dangerous operation in the app, so
+  // it is written to fail safe at every step.
+  if (!window.NXAPI) { toast('Desktop app required'); return; }
+  if (VAULT.readOnly) { toast('Session is read-only — resolve the integrity warning first'); return; }
+
+  const current = await mmPrompt('Current password:'); if (!current) return;
+  const newPw   = await mmPrompt('New password (min 8 chars):'); if (!newPw || newPw.length < 8) { toast('Password too short'); return; }
+  const confirm_ = await mmPrompt('Confirm new password:'); if (confirm_ !== newPw) { toast('Passwords do not match'); return; }
+  if (newPw === current) { toast('New password is the same as the current one'); return; }
+
+  const dataDir   = NX_CONFIG.dataDir || localStorage.getItem('nexus_datadir');
+  const vaultPath = NX_CONFIG.vaultPath || (dataDir ? dataDir + '/mastermind.vault' : null);
+  if (!vaultPath) { toast('No vault path — cannot change password'); return; }
+
+  // Everything needed to put the session back exactly as it was.
+  const rollback = { key: AUTH.key, kdf: AUTH.kdf ? { ...AUTH.kdf } : null, saveCount: VAULT.saveCount };
+
+  mm_toast('Re-encrypting vault…', 'vault');
+  try {
+    // ── 1. Read the vault as it actually is on disk ───────────────────
+    const raw = await window.NXAPI.vaultRead(vaultPath);
+    if (!raw) throw new Error('vault file not found at ' + vaultPath);
+    const parsed = VaultEnvelope.parse(raw);
+    if (!parsed.ok) throw new Error(parsed.message);
+    if (parsed.plain) {
+      // There is no password to change. Falling through would reach
+      // env.kdf.salt on an envelope that has no kdf and fail as an opaque
+      // TypeError, which reads like a bug in the password change rather than
+      // the plain statement it should be.
+      throw new Error('This vault is unencrypted — there is no password to change. ' +
+        'Turn encryption on first.');
+    }
+
+    // ── 2. Prove the current password against the FILE, not a side store
+    let state, oldSalt, oldIters;
+    if (parsed.legacy) {
       const meta = _authLoadMeta();
-      const oldSalt = Uint8Array.from(atob(meta.salt), c => c.charCodeAt(0));
-      const oldKey  = await _deriveKey(current, oldSalt);
-      // Verify old key
-      const vault = JSON.parse(localStorage.getItem(AUTH_VAULT_KEY) || '{}');
-      if (vault.encPrivKey) await _aesDecrypt(oldKey, vault.encPrivKey);
-      // Re-derive with new password
-      const newSalt = crypto.getRandomValues(new Uint8Array(32));
-      const newKey  = await _deriveKey(newPw, newSalt);
-      // Re-encrypt private key
-      if (vault.encPrivKey) {
-        const privRaw = await _aesDecrypt(oldKey, vault.encPrivKey);
-        vault.encPrivKey = await _aesEncrypt(newKey, new Uint8Array(privRaw));
-        localStorage.setItem(AUTH_VAULT_KEY, JSON.stringify(vault));
-      }
-      const newMeta = Object.assign({}, meta, { salt: btoa(String.fromCharCode(...newSalt)) });
-      localStorage.setItem(AUTH_META_KEY, JSON.stringify(newMeta));
-      AUTH.key = newKey;
-      if (typeof T!=='undefined') T.passwordChanged(); else mm_toast('Password updated','success');
-    } catch(e) { toast('Error: ' + e.message + ' (wrong current password?)'); }
-  })();
+      if (!meta?.salt) throw new Error('v5 vault with no salt on this machine — unlock it here once first');
+      oldSalt = meta.salt; oldIters = 310000;
+      const legacy = VaultEnvelope.readLegacyV5(parsed.envelope);
+      const oldKey = await VaultCrypto.deriveKey(current, oldSalt, oldIters, 32);
+      state = legacy.encrypted === false
+        ? legacy.plainState
+        : JSON.parse(VaultCrypto.utf8Decode(
+            await VaultCrypto.decrypt(oldKey, VaultCrypto.fromBase64(legacy.data), legacy.iv, null)));
+      _pwOldKey = oldKey;
+    } else {
+      const env = parsed.envelope;
+      oldSalt = env.kdf.salt; oldIters = env.kdf.iterations;
+      const oldKey = await VaultCrypto.deriveKey(current, oldSalt, oldIters, env.kdf.keyLen);
+      state = JSON.parse(VaultCrypto.utf8Decode(await VaultCrypto.decrypt(
+        oldKey, VaultCrypto.fromBase64(env.data), env.iv, VaultEnvelope.aadBytes(env))));
+      _pwOldKey = oldKey;
+      VAULT.vaultId   = env.vaultId;
+      VAULT.saveCount = env.saveCount;
+    }
+
+    // ── 3. Mint new parameters and rewrap the RSA private key ─────────
+    const newSalt  = VaultCrypto.randomSaltB64(VaultEnvelope.SALT_BYTES);
+    const newIters = vaultGetIterations();
+    const newKey   = await VaultCrypto.deriveKey(newPw, newSalt, newIters, 32);
+
+    if (state?.keys?.encPrivKey) {
+      const privRaw = await _aesDecrypt(_pwOldKey, state.keys.encPrivKey);
+      state.keys.encPrivKey = await _aesEncrypt(newKey, new Uint8Array(privRaw));
+    }
+
+    // ── 4. Swap the session key and its parameters together ───────────
+    _setSessionKey(newKey, newSalt, newIters);
+    if (state) { _AUTH_STORE.meta = state.identity || _AUTH_STORE.meta; _AUTH_STORE.keys = state.keys || _AUTH_STORE.keys; }
+
+    // ── 5. Write, and require the write to land ───────────────────────
+    VAULT.dirty = true;
+    await vaultSave(false);
+    if (VAULT.dirty) throw new Error('vault save did not land — password NOT changed');
+
+    // ── 6. Prove the new password opens the file before claiming success
+    const verifyRaw = await window.NXAPI.vaultRead(vaultPath);
+    const vp = VaultEnvelope.parse(verifyRaw);
+    if (!vp.ok || vp.legacy || vp.plain) throw new Error('post-write verification failed: not an encrypted v6 vault');
+    const vKey = await VaultCrypto.deriveKey(newPw, vp.envelope.kdf.salt, vp.envelope.kdf.iterations, 32);
+    await VaultCrypto.decrypt(vKey, VaultCrypto.fromBase64(vp.envelope.data),
+      vp.envelope.iv, VaultEnvelope.aadBytes(vp.envelope));
+
+    await window.NXAPI.ledgerAppend?.(dataDir, 'vault.kdf.upgraded', {
+      vaultId: VAULT.vaultId, from: oldIters, to: newIters, reason: 'password-change',
+    });
+
+    _pwOldKey = null;
+    if (typeof T !== 'undefined') T.passwordChanged(); else mm_toast('Password updated · vault re-encrypted', 'success');
+  } catch(e) {
+    // Put the session back. The file on disk is either the old vault
+    // (nothing written) or the new one (verified) — never a half state,
+    // because the write is atomic and verification happens after it.
+    if (rollback.kdf) _setSessionKey(rollback.key, rollback.kdf.salt, rollback.kdf.iterations);
+    VAULT.saveCount = rollback.saveCount;
+    _pwOldKey = null;
+    MMLog?.error('auth', 'Password change failed: ' + e.message);
+    mm_toast('⚡ Password NOT changed: ' + e.message, 'error', { dur: 8000 });
+  }
 }
 
-function optsChangePin() {
-  const pin = prompt('New PIN (4–8 digits):'); if (!pin) return;
+let _pwOldKey = null;
+
+async function optsChangePin() {
+  const pin = await mmPrompt('New PIN (4–8 digits):'); if (!pin) return;
   if (!/^\d{4,8}$/.test(pin)) { toast('PIN must be 4–8 digits'); return; }
-  (async () => {
-    const meta = _authLoadMeta(); if (!meta) return;
-    const pinBuf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + meta.username));
-    const pinHash = btoa(String.fromCharCode(...new Uint8Array(pinBuf)));
-    localStorage.setItem(AUTH_META_KEY, JSON.stringify(Object.assign({}, meta, { pinHash })));
-    AUTH.hasPin = true; AUTH.pinHash = pinHash;
-    if (typeof T !== 'undefined') T.pinChanged(); else toast('PIN updated');
-    optsRefreshSecurity();
-  })();
+  const meta = _authLoadMeta(); if (!meta) return;
+  const pinBuf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + meta.username));
+  const pinHash = VaultCrypto.toBase64(new Uint8Array(pinBuf));
+  // Into the vault, not localStorage. A PIN hash sitting in browser storage
+  // is both a credential outside the vault and one an attacker can brute
+  // force offline against a 4-digit space.
+  _AUTH_STORE.meta = Object.assign({}, meta, { pinHash });
+  AUTH.hasPin = true; AUTH.pinHash = pinHash;
+  VAULT.dirty = true;
+  await vaultSave(false);
+  if (VAULT.dirty) { mm_toast('⚡ PIN not saved — the vault write did not land', 'error'); return; }
+  if (typeof T !== 'undefined') T.pinChanged(); else toast('PIN updated');
+  optsRefreshSecurity();
 }
 
-function optsRemovePin() {
-  if (!confirm('Remove PIN? You will only be able to use password to unlock.')) return;
+async function optsRemovePin() {
+  if (!(await mmConfirm('Remove PIN? You will only be able to use password to unlock.'))) return;
   const meta = _authLoadMeta(); if (!meta) return;
   const newMeta = Object.assign({}, meta); delete newMeta.pinHash;
-  localStorage.setItem(AUTH_META_KEY, JSON.stringify(newMeta));
+  _AUTH_STORE.meta = newMeta;
   AUTH.hasPin = false; AUTH.pinHash = null;
+  VAULT.dirty = true;
+  await vaultSave(false);
+  if (VAULT.dirty) { mm_toast('⚡ PIN not removed — the vault write did not land', 'error'); return; }
   if (typeof T!=='undefined') T.pinChanged(); else mm_toast('PIN removed','info');
   optsRefreshSecurity();
 }
 
 /* ── Backup codes ─────────────────────────────────────────── */
-function optsGenerateBackupCodes() {
-  _backupCodes = Array.from({length: 10}, () => {
-    const bytes = crypto.getRandomValues(new Uint8Array(6));
-    return Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('').toUpperCase();
+async function optsGenerateBackupCodes() {
+  if (typeof mfaBackupCodesGenerate !== 'function') { mm_toast('MFA module not loaded', 'error'); return; }
+  const ok = await mmConfirm(
+    'Generate new backup codes?\n\n' +
+    'Any codes you generated before this will stop working. Store the new ones somewhere offline — this is the only time they are shown.'
+  );
+  if (!ok) return;
+
+  _backupCodes = await mfaBackupCodesGenerate(); // MFA_STATE now holds only the hashes; this is the one-time plaintext
+  await vaultSave(false);
+  if (VAULT.dirty) {
+    mm_toast('⚡ Backup codes NOT saved — the vault write did not land. These codes will not work.', 'error', { dur: 9000 });
+    return;
+  }
+
+  const codeHtml = _backupCodes.map((c, i) =>
+    '<div style="display:flex;gap:16px;align-items:center">' +
+    '<span style="color:var(--dim);font-size:7px">' + String(i + 1).padStart(2, '0') + '</span>' +
+    '<span style="letter-spacing:3px">' + c + '</span>' +
+    '</div>'
+  ).join('');
+  ['opts-backup-codes-display', 'opts-backup-codes-2'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = ''; el.innerHTML = codeHtml; }
   });
-  // Store hashed versions only
-  (async () => {
-    const hashed = await Promise.all(_backupCodes.map(async code => {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code));
-      return btoa(String.fromCharCode(...new Uint8Array(buf)));
-    }));
-    const meta = _authLoadMeta();
-    if (meta) {
-      localStorage.setItem(AUTH_META_KEY, JSON.stringify(Object.assign({}, meta, {
-        backupCodes: hashed.map(h => ({ hash: h, used: false }))
-      })));
-    }
-    // Render in both panels
-    const codeHtml = _backupCodes.map((c, i) =>
-      '<div style="display:flex;gap:16px;align-items:center">' +
-      '<span style="color:var(--dim);font-size:7px">' + String(i+1).padStart(2,'0') + '</span>' +
-      '<span style="letter-spacing:3px">' + c.slice(0,4) + '-' + c.slice(4) + '</span>' +
-      '</div>'
-    ).join('');
-    ['opts-backup-codes-display','opts-backup-codes-2'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.style.display = ''; el.innerHTML = codeHtml; }
-    });
-    ['opts-backup-status','opts-backup-status-2'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = '10 backup codes generated — export or copy them now.';
-    });
-    mm_toast('10 backup codes generated · export immediately', 'warn', {dur:4000});
-  })();
+  ['opts-backup-status', 'opts-backup-status-2'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '10 backup codes generated — export or copy them now. These will not be shown again.';
+  });
+  mm_toast('10 backup codes generated — store them offline now', 'warn', { dur: 5000 });
 }
 
 function optsExportBackupCodes() {
-  if (!_backupCodes.length) { toast('Generate codes first'); return; }
+  if (!_backupCodes.length) { mm_toast('Generate codes first', 'warn'); return; }
   const meta = _authLoadMeta();
   const text = '=== MASTERMIND BACKUP RECOVERY CODES ===\n' +
     'Identity: ' + (meta?.username || '—') + '\n' +
     'Generated: ' + new Date().toLocaleString() + '\n' +
     'Store offline. Each code is one-time use.\n\n' +
-    _backupCodes.map((c, i) => (i+1) + '. ' + c.slice(0,4) + '-' + c.slice(4)).join('\n') +
+    _backupCodes.map((c, i) => (i + 1) + '. ' + c).join('\n') +
     '\n\n=== KEEP THIS FILE SECURE ===';
   _downloadText('nexus-backup-codes.txt', text);
   mm_toast('Backup codes exported', 'export');
@@ -3267,16 +4914,17 @@ async function optsRefreshKeys() {
     'Created: <span style="color:var(--mid)">' + (meta.created ? new Date(meta.created).toLocaleString() : '—') + '</span>';
   optsRefreshFingerprint();
   // Refresh backup codes display
-  if (meta?.backupCodes) {
+  const bcEntries = (typeof MFA_STATE !== 'undefined' && MFA_STATE.backupCodes.entries) || [];
+  if (bcEntries.length) {
     const el = document.getElementById('opts-backup-codes-2');
     const statusEl = document.getElementById('opts-backup-status-2');
     if (el) {
-      const used = meta.backupCodes.filter(c => c.used).length;
-      el.innerHTML = meta.backupCodes.map((c, i) =>
+      const used = bcEntries.filter(c => c.used).length;
+      el.innerHTML = bcEntries.map((c, i) =>
         '<div style="' + (c.used ? 'text-decoration:line-through;color:var(--dim)' : '') + ';font-size:8.5px">' +
-        String(i+1).padStart(2,'0') + '.  ' + '●●●●-●●●●' + (c.used ? '  <span style="color:var(--r);font-size:7px">USED</span>' : '') + '</div>'
+        String(i+1).padStart(2,'0') + '.  ' + '●●●●●-●●●●●' + (c.used ? '  <span style="color:var(--r);font-size:7px">USED</span>' : '') + '</div>'
       ).join('');
-      if (statusEl) statusEl.textContent = used + ' of ' + meta.backupCodes.length + ' codes used.';
+      if (statusEl) statusEl.textContent = used + ' of ' + bcEntries.length + ' codes used.';
     }
   } else {
     const el = document.getElementById('opts-backup-codes-2');
@@ -3323,26 +4971,50 @@ function optsShowPubkeyPreview() {
 }
 
 /* ── Storage info ─────────────────────────────────────────── */
-function refreshStorageInfo() {
+// §2.3 all state must be observable · §1.2 nothing pretends to work.
+// The old panel reported localStorage keys as though they were the vault.
+// After v6 those keys are gone, so it would have shown "Canvas data: 0 B"
+// forever next to a working vault — a panel that lies is worse than no
+// panel. This reads the live diagnostic engine (§12.6) instead.
+async function refreshStorageInfo() {
   const el = document.getElementById('opts-storage-info'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--dim)">Reading vault…</div>';
   try {
-    let total = 0;
-    const items = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      const val = localStorage.getItem(key) || '';
-      const bytes = new Blob([val]).size;
-      items[key] = bytes; total += bytes;
-    }
-    const fmt = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(2) + ' MB';
-    el.innerHTML = '<div>Total localStorage: <span style="color:var(--c)">' + fmt(total) + '</span></div>' +
-      '<div>Canvas data: <span style="color:var(--mid)">' + fmt(items['nexus_mm_v3']||0) + '</span></div>' +
-      '<div>Void state: <span style="color:var(--mid)">' + fmt(items['nexus_void_state']||0) + '</span></div>' +
-      '<div>Gap state: <span style="color:var(--mid)">' + fmt(items['nexus_gap_state']||0) + '</span></div>' +
-      '<div>Auth vault: <span style="color:var(--mid)">' + fmt(items['nexus_auth_vault']||0) + '</span></div>' +
+    const h = await vaultHealth();
+    const fmt = b => b == null ? '—' : b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(2) + ' MB';
+    const dot = ok => ok ? '<span style="color:var(--g)">\u25CF</span>' : '<span style="color:var(--r)">\u25CF</span>';
+    const statusColor = h.status === 'healthy' ? 'var(--g)' : h.status === 'degraded' ? 'var(--o)' : 'var(--r)';
+
+    const failed = h.checks.filter(c => !c.pass);
+    const orphans = vaultScanOrphans();
+
+    el.innerHTML =
+      '<div>Vault health: <span style="color:' + statusColor + '">' + h.status.toUpperCase() + ' \u00B7 ' + h.score + '%</span></div>' +
+      '<div>Vault file: <span style="color:var(--mid)">' + fmt(h.vault.bytes) + '</span></div>' +
+      '<div>Saves: <span style="color:var(--c)">#' + (h.vault.saveCount || 0) + '</span>' +
+        (h.vault.savedAt ? ' &nbsp; <span style="color:var(--dim)">' + escH(h.vault.savedAt) + '</span>' : '') + '</div>' +
+      '<div>KDF: <span style="color:var(--mid)">' + (h.vault.iterations ? h.vault.iterations.toLocaleString() : '—') + ' iterations</span></div>' +
+      '<div>Audit ledger: <span style="color:var(--v)">' + h.ledger.seq + ' entries</span> ' +
+        dot(h.ledger.chainOk) + ' <span style="color:var(--dim)">' + (h.ledger.chainOk ? 'chain verified' : 'CHAIN BROKEN') + '</span></div>' +
+      '<div>Failed unlocks recorded: <span style="color:var(--mid)">' + (h.ledger.unlockFailures != null ? h.ledger.unlockFailures : '—') + '</span></div>' +
       '<div>Nodes: <span style="color:var(--c)">' + CANVAS.NX.nodes.length + '</span> &nbsp; Connections: <span style="color:var(--c)">' + CANVAS.NX.conns.length + '</span></div>' +
-      '<div>UUID ledger: <span style="color:var(--v)">' + (typeof JAA !== 'undefined' ? JAA.ledger.size : 0) + ' entries</span></div>';
-  } catch(e) { el.textContent = 'Error reading storage: ' + e.message; }
+      '<div>UUID ledger: <span style="color:var(--v)">' +
+        ((typeof JAA !== 'undefined' && JAA.ledger instanceof Map) ? JAA.ledger.size : 0) + ' entries</span></div>' +
+      (failed.length
+        ? '<div style="margin-top:8px;color:var(--o)">' + failed.map(c =>
+            '\u26A0 ' + escH(c.name) + (c.msg ? ': ' + escH(c.msg) : '')).join('<br>') + '</div>'
+        : '') +
+      (orphans.length
+        ? '<div style="margin-top:8px;color:var(--o)">' + orphans.length +
+          ' item(s) from an older build are still stored outside the vault' +
+          ' (' + fmt(orphans.reduce((n,o) => n + o.bytes, 0)) + ').<br>' +
+          '<button onclick="vaultHarvestOrphans().then(refreshStorageInfo)" style="margin-top:6px;padding:6px 12px;' +
+          'border:1px solid var(--o);background:transparent;color:var(--o);cursor:pointer;' +
+          'font-family:var(--f-mono);font-size:8px;letter-spacing:1px">\u2913 HARVEST INTO VAULT</button></div>'
+        : '');
+  } catch(e) {
+    el.textContent = 'Error reading vault: ' + e.message;
+  }
 }
 
 function exportFullVault() {
@@ -3358,14 +5030,14 @@ function exportFullVault() {
   if (typeof T !== 'undefined') T.backupDownloaded(); else toast('Full vault exported');
 }
 
-function optsResetAllSettings() {
-  if (!confirm('Reset all settings to defaults? This does not affect your vault or canvas data.')) return;
+async function optsResetAllSettings() {
+  if (!(await mmConfirm('Reset all settings to defaults? This does not affect your vault or canvas data.'))) return;
   localStorage.removeItem(OPTS_KEY);
   if (typeof T !== 'undefined') mm_toast('Settings reset · Reload to apply', 'warn'); else toast('Settings reset — reload to apply');
 }
 
 async function optsWipeVault() {
-  const conf = prompt('Type DELETE to wipe all vault data, identity, and canvas. This cannot be undone.');
+  const conf = await mmPrompt('Type DELETE to wipe all vault data, identity, and canvas. This cannot be undone.');
   if (conf !== 'DELETE') { mm_toast('Wipe cancelled', 'info'); return; }
 
   // Delete the vault FILE from disk first
@@ -3378,11 +5050,19 @@ async function optsWipeVault() {
     }
   }
 
-  // Clear all localStorage session data
-  ['nexus_mm_v3','nexus_void_state','nexus_gap_state','nexus_auth_meta',
-   'nexus_auth_vault','nexus_features','nexus_brain_map_v2','nexus_horizon_state',
-   OPTS_KEY,'nexus_theme','nexus_ai_config','nexus_datadir',
-   'mm_brain_map_v2','mm_horizon_state'].forEach(k => {
+  // Clear all localStorage session data. Reuses _ORPHAN_KEYS
+  // (mastermind-vault.js) for the retired module-state keys rather than
+  // hand-maintaining a second list here — this exact list drifted stale
+  // once already (missing every key retired by the localStorage audit:
+  // body/horizon/domain/mirror/relational/almState/systems/memory), and
+  // a second copy is how that keeps happening.
+  [
+    'nexus_mm_v3', 'nexus_void_state', 'nexus_gap_state', 'nexus_auth_meta',
+    'nexus_auth_vault', 'nexus_features', 'nexus_brain_map_v2', 'nexus_horizon_state',
+    OPTS_KEY, 'nexus_theme', 'nexus_ai_config', 'nexus_datadir',
+    'mm_brain_map_v2', 'mm_horizon_state',
+    ...(typeof _ORPHAN_KEYS !== 'undefined' ? _ORPHAN_KEYS : []),
+  ].forEach(k => {
     try { localStorage.removeItem(k); } catch(e) {}
   });
 
@@ -3396,6 +5076,68 @@ async function optsWipeVault() {
   setTimeout(() => location.reload(), 2000);
 }
 
+// Regular delete only removes the directory entry — the file's actual
+// bytes typically stay on disk, readable, until something else happens
+// to overwrite those exact blocks. This is for when that's not enough:
+// overwrites the vault file (and every .backup.*.json snapshot next to
+// it — leaving those would defeat the whole point) with random data,
+// then zeros, then deletes it. Requires Electron (main-process fs
+// access); does nothing useful in browser mode.
+async function optsSecureWipeVault() {
+  if (!window.NXAPI?.vaultSecureWipe) { mm_toast('Secure wipe needs the Electron app', 'warn'); return; }
+  if (!NX_CONFIG.vaultPath) { mm_toast('No vault file to wipe', 'warn'); return; }
+
+  const warned = await mmConfirm(
+    'SECURE WIPE overwrites the vault file (and any backups) with random data, then zeros, then deletes it. ' +
+    'This is much stronger than the regular Wipe Vault above and cannot be undone.\n\n' +
+    'Honest limit: on an SSD this is not a physical guarantee — wear-leveling can leave old data in ' +
+    'remapped cells the overwrite never touches. The vault is already AES-256-GCM encrypted; as long as ' +
+    'your password is never recoverable, that encryption is the real protection. This is defense in depth ' +
+    'on top of it, not a replacement for it.\n\nContinue?'
+  );
+  if (!warned) { mm_toast('Secure wipe cancelled', 'info'); return; }
+
+  const conf = await mmPrompt('Type DESTROY to permanently and unrecoverably overwrite and delete the vault.');
+  if (conf !== 'DESTROY') { mm_toast('Secure wipe cancelled', 'info'); return; }
+
+  mm_toast('Overwriting and deleting — do not close Mastermind…', 'warn', { dur: 8000 });
+  let result;
+  try {
+    result = await window.NXAPI.vaultSecureWipe(NX_CONFIG.vaultPath);
+  } catch (e) {
+    mm_toast('Secure wipe failed: ' + e.message, 'error', { dur: 8000 });
+    MMLog?.error('vault', 'Secure wipe threw: ' + e.message);
+    return;
+  }
+  if (!result || !result.ok) {
+    mm_toast('Secure wipe incomplete: ' + ((result && result.failed && result.failed.map(f => f.file).join(', ')) || 'unknown error') + ' — nothing else was touched', 'error', { dur: 8000 });
+    MMLog?.error('vault', 'Secure wipe incomplete: ' + JSON.stringify(result));
+    return;
+  }
+
+  ['nexus_mm_v3','nexus_void_state','nexus_gap_state','nexus_auth_meta',
+   'nexus_auth_vault','nexus_features','nexus_brain_map_v2','nexus_horizon_state',
+   OPTS_KEY,'nexus_theme','nexus_ai_config','nexus_datadir',
+   'mm_brain_map_v2','mm_horizon_state'].forEach(k => {
+    try { localStorage.removeItem(k); } catch(e) {}
+  });
+  NX_CONFIG.vaultPath = null;
+  NX_CONFIG.dataDir   = null;
+
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.securely-wiped', { wiped: result.wiped });
+  MMLog?.warn('vault', 'Vault SECURELY wiped by user: ' + result.wiped.join(', '));
+
+  mm_toast('✓ Securely wiped ' + result.wiped.length + ' file(s) — reloading in 2s…', 'warn', { dur: 3000 });
+  setTimeout(() => location.reload(), 2000);
+}
+
+function optsOpenDocs() {
+  if (!window.NXAPI?.openDocs) { mm_toast('Needs the Electron app', 'warn'); return; }
+  window.NXAPI.openDocs().then((r) => {
+    if (!r || !r.ok) mm_toast('Could not open documentation: ' + ((r && r.error) || 'not found'), 'error');
+  });
+}
+
 function optsCheckForUpdates() {
   gateFeature('update', () => {
     mm_toast('Check https://github.com/mastermind for latest release', 'info', { dur: 6000 });
@@ -3404,9 +5146,40 @@ function optsCheckForUpdates() {
 
 
 
+// ── Apply saved UI scale immediately on boot/login ───────────────
+// optsSetFontScale() sets --ui-scale but only runs when user moves the slider.
+// On startup we need to manually apply the saved value.
+function _nearestScalePreset(pct) {
+  const presets = [60, 80, 100, 125, 150, 175, 200];
+  return presets.reduce((best, p) => Math.abs(p - pct) < Math.abs(best - pct) ? p : best, presets[0]);
+}
+
+function _applyScaleOnBoot() {
+  try {
+    loadOpts();
+    // font_scale and ui_scale each default to 100 if absent/corrupted —
+    // _mmApplyScale() itself clamps and snaps to presets, same guard
+    // against a stray/corrupted saved value as before.
+    if (!OPTS.font_scale) OPTS.font_scale = 100;
+    if (!OPTS.ui_scale) OPTS.ui_scale = 100;
+    _mmApplyScale();
+  } catch(e) {
+    MMLog?.error('ui', 'Scale apply failed, forcing 100%: ' + e.message);
+    // Don't leave the CSS fallback in charge silently — force a known-good
+    // value so a thrown error here can't strand the UI at whatever the
+    // stylesheet default happens to be.
+    try {
+      document.documentElement.style.setProperty('--ui-scale', 1);
+      document.body.style.zoom = 1;
+      const optsOverlay = document.getElementById('opts-overlay');
+      if (optsOverlay) { optsOverlay.style.setProperty('--ui-scale', 1); optsOverlay.style.zoom = '1'; }
+    } catch(e2) {}
+  }
+}
+
 function syncOptsToggles() {
   const pairs = [
-    ['opt-compact','compact'],['opt-badges','badges'],['opt-depth','depth'],
+    ['opt-compact','compact'],['opt-opts-density','opts_density'],['opt-badges','badges'],['opt-depth','depth'],
     ['opt-typecolor','typecolor'],['opt-scanlines','scanlines'],['opt-ambient','ambient'],
     ['opt-particles','particles'],['opt-grid','grid'],['opt-clusters','clusters'],
     ['opt-animated','animated'],['opt-snap','snap'],['opt-inertia','inertia'],
@@ -3424,9 +5197,19 @@ function syncOptsToggles() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', !!OPTS[key]);
   });
+  const gp = document.getElementById('opt-guardian-port');
+  if (gp) gp.value = AI.guardianPort || 7823;
+  const gt = document.getElementById('opt-guardian-token');
+  if (gt) gt.value = AI.guardianToken || '';
+  // Homepage module toggles read from AUTH.features, not OPTS
+  ['brain', 'void', 'horizon', 'alm'].forEach(name => {
+    const el = document.getElementById('opt-modfeat-' + name);
+    if (el) el.classList.toggle('on', AUTH.features[name] !== false);
+  });
   // Sliders
   const sliders = [
     ['opt-font-scale','opt-font-scale-val','font_scale','%'],
+    ['opt-ui-scale','opt-ui-scale-val','ui_scale','%'],
     ['opt-autosave-interval','opt-autosave-interval-val','autosave_interval','s'],
     ['opt-undo-depth','opt-undo-depth-val','undo_depth',''],
     ['opt-brain-repulsion','opt-brain-repulsion-val','brain_repulsion',''],
@@ -3445,10 +5228,66 @@ function syncOptsToggles() {
   // Autolock row
   const alRow = document.getElementById('opt-autolock-minutes-row');
   if (alRow) alRow.style.display = OPTS.autolock ? '' : 'none';
+
+  // Voice capture — reflects OPTS with the same defaults ui-capture.js's
+  // _vlVadOpts() falls back to, so an untouched panel shows the numbers
+  // actually in effect, not blank/zero.
+  const vr = document.getElementById('opt-voice-recall');
+  if (vr) vr.classList.toggle('on', typeof RECALL !== 'undefined' && RECALL.enabled);
+  const vThresh = OPTS.voice_vad_threshold ?? (typeof RecallCore !== 'undefined' ? RecallCore.DEFAULT_RMS_THRESHOLD : 0.018);
+  const vThreshEl = document.getElementById('opt-voice-threshold');
+  const vThreshVal = document.getElementById('opt-voice-threshold-val');
+  if (vThreshEl) vThreshEl.value = Math.round(vThresh * 1000);
+  if (vThreshVal) vThreshVal.textContent = vThresh.toFixed(3);
+  const vSilence = OPTS.voice_silence_hold_ms ?? (typeof RecallCore !== 'undefined' ? RecallCore.DEFAULT_SILENCE_HOLD_MS : 1200);
+  const vSilenceEl = document.getElementById('opt-voice-silence');
+  const vSilenceVal = document.getElementById('opt-voice-silence-val');
+  if (vSilenceEl) vSilenceEl.value = vSilence;
+  if (vSilenceVal) vSilenceVal.textContent = (vSilence / 1000).toFixed(1) + 's';
+  const vPreroll = OPTS.voice_preroll_ms ?? 800;
+  const vPrerollEl = document.getElementById('opt-voice-preroll');
+  const vPrerollVal = document.getElementById('opt-voice-preroll-val');
+  if (vPrerollEl) vPrerollEl.value = vPreroll;
+  if (vPrerollVal) vPrerollVal.textContent = (vPreroll / 1000).toFixed(1) + 's';
+  const vModel = document.getElementById('opt-voice-model');
+  if (vModel) vModel.value = OPTS.voice_whisper_model || 'base';
+
+  // ── Full Whisper CLI + pipeline surface ────────────────────────────
+  const vLang = document.getElementById('opt-voice-language');
+  if (vLang) vLang.value = OPTS.voice_whisper_language || 'auto';
+
+  const vThreads = OPTS.voice_whisper_threads ?? 0;
+  const vThreadsEl = document.getElementById('opt-voice-threads');
+  const vThreadsVal = document.getElementById('opt-voice-threads-val');
+  if (vThreadsEl) vThreadsEl.value = vThreads;
+  if (vThreadsVal) vThreadsVal.textContent = vThreads === 0 ? 'auto' : String(vThreads);
+
+  const vTimeout = (OPTS.voice_whisper_timeout_ms ?? 120000) / 1000;
+  const vTimeoutEl = document.getElementById('opt-voice-timeout');
+  const vTimeoutVal = document.getElementById('opt-voice-timeout-val');
+  if (vTimeoutEl) vTimeoutEl.value = vTimeout;
+  if (vTimeoutVal) vTimeoutVal.textContent = vTimeout + 's';
+
+  const vMaxSeg = (OPTS.voice_max_segment_ms ?? 25000) / 1000;
+  const vMaxSegEl = document.getElementById('opt-voice-maxsegment');
+  const vMaxSegVal = document.getElementById('opt-voice-maxsegment-val');
+  if (vMaxSegEl) vMaxSegEl.value = vMaxSeg;
+  if (vMaxSegVal) vMaxSegVal.textContent = vMaxSeg + 's';
+
+  const vPromptToggle = document.getElementById('opt-voice-promptseed');
+  if (vPromptToggle) vPromptToggle.classList.toggle('on', OPTS.lexicon_prompt !== false);
+  const vPromptCount = OPTS.voice_prompt_seed_count ?? 40;
+  const vPromptCountEl = document.getElementById('opt-voice-promptcount');
+  const vPromptCountVal = document.getElementById('opt-voice-promptcount-val');
+  if (vPromptCountEl) vPromptCountEl.value = vPromptCount;
+  if (vPromptCountVal) vPromptCountVal.textContent = String(vPromptCount);
 }
 
 // Load opts on engine boot
 loadOpts();
+// Options-panel density preference — applied here so it survives a
+// restart instead of only taking effect after the toggle is clicked.
+document.body.classList.toggle('mm-opts-compact', !!OPTS.opts_density);
 console.log('MASTERMIND — Options engine loaded');
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -3489,7 +5328,10 @@ const IMPORT = {
 
 function importDetectFormat(text, filename) {
   const ext = (filename || '').split('.').pop().toLowerCase();
-  if (ext === 'nxvault') return 'nexus-vault';
+  // .vault is what export actually writes (v6 envelope). .nxvault was the
+  // v5 name and has not been produced since v0.1.2 — accepted only so an
+  // old file still opens, never advertised.
+  if (ext === 'vault' || ext === 'nxvault') return 'nexus-vault';
   if (ext === 'md' || ext === 'markdown') {
     if (text.includes('[[') && text.includes(']]')) return 'obsidian';
     if (text.includes('- ') && text.match(/^#+\s/m)) return 'logseq';
@@ -3498,6 +5340,7 @@ function importDetectFormat(text, filename) {
   if (ext === 'json' || ext === 'jsonl') {
     try {
       const d = JSON.parse(text);
+      if (d.format === 'mastermind-vault' || d.format === 'mastermind-export-plaintext') return 'nexus-vault';
       if (d.format === 'nexus-vault' || d.version >= 4 && d.canvas) return 'nexus';
       if (d['__version'] || d.roamAlphaAPI) return 'roam';
       if (Array.isArray(d) && d[0]?.title && d[0]?.children) return 'roam';
@@ -3544,9 +5387,73 @@ function importNexus(text) {
 }
 
 async function importNexusVault(text) {
+  // Handles BOTH envelope generations. The previous version only knew the
+  // v5 shape — {encrypted, iv, data} — and called _aesDecrypt with no
+  // additionalData. A v6 envelope is AAD-bound to its own header, so that
+  // path could never have decrypted one: it would fail as "wrong
+  // password" on a file exported by this very build.
+  const parsed = (typeof VaultEnvelope !== 'undefined') ? VaultEnvelope.parse(text) : null;
+
+  // ── unencrypted ───────────────────────────────────────────────────
+  // Checked first. Without this, `parsed.ok && !parsed.legacy` claimed a
+  // plain vault as v6, then read env.data — which does not exist — and the
+  // import died as a base64 error on a perfectly good file.
+  if (parsed && parsed.ok && parsed.plain) {
+    const read = VaultEnvelope.readPlain(parsed.envelope);
+    if (!read.ok) { toast('\u26a1 ' + read.message); return; }
+    if (!(await mmConfirm(
+      'That file is an UNENCRYPTED vault.\n\n' +
+      'Importing it replaces your current working data with its contents. ' +
+      'The file itself is plain readable JSON — it was never protected.\n\n' +
+      'Import it?'
+    ))) return;
+    vaultDeserialize(read.state);
+    VAULT.dirty = true;
+    toast('Imported an unencrypted vault \u2014 it will be saved in your current vault\u2019s format');
+    return;
+  }
+
+  // ── v6 ────────────────────────────────────────────────────────────
+  if (parsed && parsed.ok && !parsed.legacy) {
+    const env = parsed.envelope;
+    if (!AUTH.key || !AUTH.kdf) { toast('\u26a0 Unlock your vault before importing an encrypted one'); return; }
+
+    const ct = VaultCrypto.fromBase64(env.data);
+    const sha = await VaultCrypto.sha256Hex(ct);
+    if (!VaultCrypto.timingSafeEqualHex(sha, env.ciphertextSha256)) {
+      // Damaged file, NOT a wrong password. Saying the wrong one here
+      // sends someone hunting for a typo while their backup rots.
+      toast('\u26a1 That vault file is damaged \u2014 this is not a password problem');
+      return;
+    }
+
+    // An export carries its own salt and iteration count, which are
+    // usually NOT this session's. Derive against the file's header.
+    let key = AUTH.key;
+    if (env.kdf.salt !== AUTH.kdf.salt || env.kdf.iterations !== AUTH.kdf.iterations) {
+      const pw = await mmPrompt('Password for the vault file being imported:');
+      if (!pw) return;
+      key = await VaultCrypto.deriveKey(pw, env.kdf.salt, env.kdf.iterations, env.kdf.keyLen);
+    }
+
+    let plain;
+    try {
+      plain = await VaultCrypto.decrypt(key, ct, env.iv, VaultEnvelope.aadBytes(env));
+    } catch (e) {
+      toast('\u26a1 Could not decrypt \u2014 wrong password, or the file header was edited');
+      return;
+    }
+    vaultDeserialize(JSON.parse(VaultCrypto.utf8Decode(plain)));
+    T.canvasImported(CANVAS.NX.nodes.length);
+    CANVAS.resetView();
+    return;
+  }
+
+  // ── v5, and the plaintext export ──────────────────────────────────
   const d = JSON.parse(text);
-  if (d.encrypted) {
-    if (!AUTH.key) { toast('⚠ Vault is encrypted — unlock first'); return; }
+  if (d.format === 'mastermind-export-plaintext') { vaultDeserialize(d.data); }
+  else if (d.encrypted) {
+    if (!AUTH.key) { toast('\u26a0 Vault is encrypted \u2014 unlock first'); return; }
     const buf = await _aesDecrypt(AUTH.key, { iv: d.iv, data: d.data });
     vaultDeserialize(JSON.parse(new TextDecoder().decode(buf)));
   } else {
@@ -3734,15 +5641,21 @@ function handleImportFile(e) {
 const AI = {
   id: 'module:ai',
   enabled: false,
-  provider: 'anthropic',  // 'anthropic' | 'openai' | 'ollama' | 'lmstudio'
-  apiKey: '',
-  model: 'claude-sonnet-4-20250514',
+  provider: 'ollama',  // 'ollama' | 'clearglass'
+  model: 'llama3',
   temperature: 0.7,
   maxTokens: 1000,
   contextLimit: 8000,
   ollamaBase: 'http://localhost:11434',   // configurable Ollama endpoint
   ollamaModels: [],                        // populated by ollamaDetectModels()
-  lmstudioBase: 'http://localhost:1234',  // LM Studio endpoint
+  // Accounts per agent. Each accountId maps to its own isolated browser
+  // session in the main process (persist:cg-<agent>-<accountId>), so
+  // two logins for the same agent never collide.
+  accounts: { chatgpt: ['default'], claude: ['default'], perplexity: ['default'], gemini: ['default'] },
+  account: 'default',                      // active account for the active provider
+  guardianPort: 7823,                      // clear-glass-lite guardian-lite port
+  guardianToken: '',                       // X-CGL-Token — required by the hardened build
+  clearglassUserscriptDir: '',             // confirmed install dir — once known, never search or ask again
 };
 
 const AI_KEY = 'nexus_ai_config';
@@ -3750,21 +5663,64 @@ const AI_KEY = 'nexus_ai_config';
 function aiLoad() {
   try {
     const s = JSON.parse(localStorage.getItem(AI_KEY) || '{}');
+    // SECURITY FIX: an earlier build stored AI.apiKey directly in this
+    // key, in plaintext, before aiConfig moved into the encrypted vault
+    // (mastermind-vault.js — see the comment on vaultSerialize()'s
+    // aiConfig block). This key is still legitimately used for
+    // non-sensitive fields (provider, model, a local pairing token), so
+    // it can't go through the wholesale _ORPHAN_KEYS harvest — this
+    // targets just the one field that shouldn't be here and leaves the
+    // rest untouched. AI.apiKey itself is never read from here; the
+    // vault is the only source for it (see vaultDeserialize below).
+    if ('apiKey' in s) {
+      delete s.apiKey;
+      try { localStorage.setItem(AI_KEY, JSON.stringify(s)); } catch (e) {}
+      MMLog?.info('ai', 'Scrubbed a stray plaintext API key left over from an older build');
+    }
     if (s.provider) AI.provider = s.provider;
-    if (s.apiKey)   AI.apiKey   = s.apiKey;
     if (s.model)    AI.model    = s.model;
     if (s.enabled !== undefined) AI.enabled = s.enabled;
-  } catch(e) {}
+    if (s.ollamaBase) AI.ollamaBase = s.ollamaBase;
+    if (s.accounts) AI.accounts = s.accounts;
+    if (s.guardianPort) AI.guardianPort = s.guardianPort;
+    if (typeof s.guardianToken === 'string') AI.guardianToken = s.guardianToken;
+    if (typeof s.clearglassUserscriptDir === 'string') AI.clearglassUserscriptDir = s.clearglassUserscriptDir;
+    if (s.account) AI.account = s.account;
+
+    // Migration guard: a config saved before providers were narrowed to
+    // just Ollama/ClearGlass can still hold old values like
+    // provider:'anthropic' or model:'claude-sonnet-4-20250514'. Loading
+    // those back in silently is exactly what caused real, repeated
+    // HTTP 404s against Ollama trying to run a Claude model name that
+    // doesn't exist there — confirmed from an actual user's Application
+    // Log. Reset to sane defaults rather than resurrect a stale value.
+    // Valid providers: ollama (local) + the web agents. 'clearglass' is
+    // the legacy pre-multi-agent value and maps to claude rather than
+    // being wiped — otherwise every existing config silently resets.
+    const _validProviders = ['ollama', 'chatgpt', 'claude', 'perplexity', 'gemini'];
+    if (AI.provider === 'clearglass') {
+      MMLog?.info('ai', 'Migrating legacy provider "clearglass" -> "claude"');
+      AI.provider = 'claude';
+    } else if (!_validProviders.includes(AI.provider)) {
+      MMLog?.info('ai', `Saved AI provider "${AI.provider}" is not recognised — resetting to chatgpt`);
+      AI.provider = 'chatgpt';
+    }
+    if (AI.provider === 'ollama' && /^(claude|gpt|o[0-9]|text-)/i.test(AI.model || '')) {
+      MMLog?.info('ai', `Saved AI model "${AI.model}" is not an Ollama model — resetting to llama3`);
+      AI.model = 'llama3';
+    }
+  } catch(e) {
+    MMLog?.error('ai', 'aiLoad failed, using defaults: ' + e.message);
+  }
 }
 
 function aiSave() {
-  // NOTE: API key is ALSO written to localStorage here for session continuity
-  // but the authoritative store is the encrypted vault file (via vaultDirtySave below).
-  // On load, the vault copy takes precedence; localStorage is session cache only.
   try { localStorage.setItem(AI_KEY, JSON.stringify({
-    provider: AI.provider, apiKey: AI.apiKey, model: AI.model,
-    enabled: AI.enabled, ollamaBase: AI.ollamaBase,
-    lmstudioBase: AI.lmstudioBase, ollamaModels: AI.ollamaModels,
+    provider: AI.provider, model: AI.model,
+    enabled: AI.enabled, ollamaBase: AI.ollamaBase, accounts: AI.accounts, account: AI.account,
+    guardianPort: AI.guardianPort, guardianToken: AI.guardianToken,
+    clearglassUserscriptDir: AI.clearglassUserscriptDir,
+    ollamaModels: AI.ollamaModels,
   })); } catch(e) {}
   if (typeof vaultDirtySave === 'function') vaultDirtySave(3000);
 }
@@ -3800,43 +5756,43 @@ async function aiCall(systemPrompt, userMessage) {
   const sysMsg  = userMessage !== undefined ? systemPrompt : 'You are a helpful assistant.';
   const userMsg = userMessage !== undefined ? userMessage  : systemPrompt;
 
-  // Local providers (Ollama, LM Studio) don't require an API key
-  const isLocal = AI.provider === 'ollama' || AI.provider === 'lmstudio';
   if (!AI.enabled) {
     mm_toast('AI disabled — enable in Options → AI', 'warn'); return null;
   }
-  if (!isLocal && !AI.apiKey) {
-    if (typeof T !== 'undefined') T.aiNotConfigured();
-    else mm_toast('AI key not set — configure in Options → AI', 'warn');
-    return null;
+
+  // ClearGlass — real transport, built against the actual clear-glass-lite
+  // source. See integrations/clearglass/README.md for setup: it needs
+  // ClearGlass Lite running, Claude logged in there, and the bridge
+  // userscript installed — none of which Mastermind can do for you.
+  if (typeof cgIsWebAgent === 'function' ? cgIsWebAgent(AI.provider) : AI.provider === 'clearglass') {
+    if (typeof clearglassCall !== 'function') {
+      const msg = '[ClearGlass transport not loaded — foundation/ai/clearglass-transport.js missing]';
+      MMLog?.error('ai', msg);
+      mm_toast('ClearGlass transport not loaded', 'error');
+      return msg;
+    }
+    MMLog?.info('ai', `Call via ClearGlass — ${userMsg.slice(0,60)}…`);
+    if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.ai.call', { provider: 'clearglass' });
+    try {
+      const result = await clearglassCall(sysMsg, userMsg);
+      MMLog?.info('ai', `ClearGlass response: ${result.slice(0,80)}…`);
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.ai.response', { provider: 'clearglass', length: result.length });
+      return result;
+    } catch (e) {
+      MMLog?.error('ai', `ClearGlass error: ${e.message}`);
+      if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.ai.error', { provider: 'clearglass', error: e.message });
+      if (typeof T !== 'undefined') T.aiError(e.message);
+      else mm_toast('ClearGlass: ' + e.message, 'error');
+      return null;
+    }
   }
 
-  // Endpoint routing
-  const ollamaBase   = AI.ollamaBase   || 'http://localhost:11434';
-  const lmstudioBase = AI.lmstudioBase || 'http://localhost:1234';
-  const endpoints = {
-    anthropic: 'https://api.anthropic.com/v1/messages',
-    openai:    'https://api.openai.com/v1/chat/completions',
-    ollama:    ollamaBase + '/api/chat',
-    lmstudio:  lmstudioBase + '/v1/chat/completions',
-  };
-  const endpoint = endpoints[AI.provider] || endpoints.anthropic;
+  // Endpoint routing — Ollama only from here on
+  const ollamaBase = AI.ollamaBase || 'http://localhost:11434';
+  const endpoint = ollamaBase + '/api/chat';
   const headers  = { 'Content-Type': 'application/json' };
-  let body;
-
-  if (AI.provider === 'anthropic') {
-    headers['x-api-key']          = AI.apiKey;
-    headers['anthropic-version']  = '2023-06-01';
-    body = { model: AI.model || 'claude-sonnet-4-20250514', max_tokens: AI.maxTokens || 1000,
-             system: sysMsg, messages: [{ role: 'user', content: userMsg }] };
-  } else if (AI.provider === 'openai' || AI.provider === 'lmstudio') {
-    if (AI.apiKey) headers['Authorization'] = 'Bearer ' + AI.apiKey;
-    body = { model: AI.model || 'gpt-4o', max_tokens: AI.maxTokens || 1000,
-             messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: userMsg }] };
-  } else if (AI.provider === 'ollama') {
-    body = { model: AI.model || 'llama3', stream: false,
-             messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: userMsg }] };
-  }
+  const body = { model: AI.model || 'llama3', stream: false,
+                 messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: userMsg }] };
 
   MMLog?.info('ai', `Call: ${AI.provider}/${AI.model} — ${userMsg.slice(0,60)}…`);
   if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.ai.call', { provider: AI.provider, model: AI.model });
@@ -3846,10 +5802,7 @@ async function aiCall(systemPrompt, userMessage) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}: ${JSON.stringify(data).slice(0,200)}`);
 
-    let result = '';
-    if (AI.provider === 'anthropic')              result = data.content?.[0]?.text || '';
-    else if (AI.provider === 'ollama')            result = data.message?.content   || '';
-    else /* openai / lmstudio */                  result = data.choices?.[0]?.message?.content || '';
+    const result = data.message?.content || '';
 
     MMLog?.info('ai', `Response: ${result.slice(0,80)}…`);
     if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.ai.response', { provider: AI.provider, length: result.length });
@@ -3872,7 +5825,9 @@ async function aiExpandNode(nodeId) {
   const sys = 'You are a cognitive mapping assistant. Generate 3-5 connected insight nodes as JSON array. Each: {type, title, body, relation}. Types: concept|insight|pattern|question|synthesis|vector|gap|invariant|causal|friction|signal. Keep titles under 50 chars.';
   const ctx = aiBuildContext(nodeId);
   const result = await aiCall(sys, `Expand this node:\n${ctx}\n\nReturn ONLY valid JSON array.`);
-  if (!result) return;
+  // Was a bare return: the thinking indicator never cleared and nothing
+  // said why. This is the "clicked AI expand, nothing happened" bug.
+  if (!result) { T.aiDone(); mm_toast('AI expand returned nothing - the reason was toasted above', 'warn', { dur: 5000 }); return; }
   try {
     const clean = result.replace(/```json|```/g, '').trim();
     const expansions = JSON.parse(clean);
@@ -3889,7 +5844,7 @@ async function aiExpandNode(nodeId) {
       CANVAS.addConn(nodeId, n.id, exp.relation || 'ai-generated');
     });
     T.aiDone(); mm_toast(`AI: ${count} nodes generated`, 'success', {dur:2500});
-  } catch(e) { toast('⚠ AI response parse error: ' + e.message); }
+  } catch(e) { T.aiDone(); mm_toast('AI replied, but not with valid JSON: ' + e.message, 'error', { dur: 7000 }); }
 }
 
 async function aiAnalyzeCanvas() {
@@ -3897,7 +5852,7 @@ async function aiAnalyzeCanvas() {
   const sys = 'You are a cognitive mapping analyst. Analyze the knowledge map and identify: key patterns, missing connections, highest-leverage nodes, synthesis opportunities. Return a structured analysis.';
   const ctx = aiBuildContext();
   const result = await aiCall(sys, `Analyze this knowledge canvas:\n\n${ctx}`);
-  if (!result) return;
+  if (!result) { T.aiDone(); mm_toast('Canvas analysis returned nothing', 'warn', { dur: 5000 }); return; }
   const { x: wx, y: wy } = s2w(window.innerWidth/2, window.innerHeight/2 - 200);
   CANVAS.spawnNode('synthesis', wx, wy, {
     title: 'AI CANVAS ANALYSIS',
@@ -3983,6 +5938,22 @@ async function aiSpawnFromPrompt(prompt) {
 
 // Load AI config on boot
 aiLoad();
+if (typeof latLoad === "function") latLoad();
+
+// Automatic relay configuration: this only matters in the rare case
+// where Mastermind's own baked-in cgAsk path (clear-glass-lite hosted
+// inside Electron, foundation/ai/clearglass-main.js) isn't available for
+// some reason — that's the only situation clearglassCall() ever reaches
+// the external-relay fallback. Normally under Electron cgAsk exists and
+// this whole relay is moot, so don't bother scanning anything.
+setTimeout(() => {
+  try {
+    const isWebAgent = typeof cgIsWebAgent === 'function' && cgIsWebAgent(AI.provider);
+    if (AI.enabled && isWebAgent && window.NXAPI?.cgInstallUserscript && !window.NXAPI?.cgAsk) {
+      _relayAutoConfigure();
+    }
+  } catch (e) {}
+}, 0);
 
 /* ═══════════════════════════════════════════════════════════════════
    MODULE: body — Embodiment, nervous system, intuition, patterns
@@ -4057,18 +6028,22 @@ const INTUITION_TYPES = {
 };
 
 function bodyInit() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(BODY_KEY) || '{}');
-    if (saved.nervousSystemState) BODY.nervousSystemState = saved.nervousSystemState;
-    if (saved.intuitionMode) BODY.intuitionMode = saved.intuitionMode;
-    if (saved.somaticLog) BODY.somaticLog = saved.somaticLog;
-    if (saved.patternLog) BODY.patternLog = saved.patternLog;
-    if (saved.invariantMap) BODY.invariantMap = saved.invariantMap;
-  } catch(e) {}
+  // SECURITY FIX: this read localStorage['nexus_body_state'] — somatic
+  // log, nervous-system state, pattern log — as its source, in parallel
+  // with the vault (mastermind-vault.js's modules.body already covers
+  // BODY in full). The function was dead code (never called), so this
+  // specific read was not an active clobber risk, but bodySave() below
+  // was still writing this same sensitive log to plaintext on every
+  // change regardless. Vault-only now; see _ORPHAN_KEYS in
+  // mastermind-vault.js for recovering any pre-fix copy.
+  BODY._loaded = true;
 }
 
 function bodySave() {
-  try { localStorage.setItem(BODY_KEY, JSON.stringify(BODY)); } catch(e) {}
+  // SECURITY FIX: this used to ALSO write localStorage['nexus_body_state']
+  // in plaintext, in parallel with the vault, on every change — somatic
+  // log and nervous-system state sitting unencrypted on disk regardless
+  // of whether vault encryption was on. The vault is the only store now.
   if (typeof vaultDirtySave === 'function') vaultDirtySave(5000);
 }
 
@@ -4266,11 +6241,6 @@ function optsToggleAI(el) {
 
 // optsUpdateAIModel — see full version with Ollama support below
 
-function optsShowAIKey() {
-  const inp = document.getElementById('opt-ai-key');
-  if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
-}
-
 async function optsTestAI() {
   const badge = document.getElementById('ai-conn-badge');
   const setBadge = (ok, msg) => {
@@ -4332,20 +6302,415 @@ async function ollamaDetectModels() {
   }
 }
 
+// Relay config (bridge userscript + guardian-lite port/token) is only
+// ever relevant when Mastermind runs OUTSIDE Electron — the baked-in
+// path above needs none of it. And even then, none of the four settings
+// here should need a person to touch them: both steps run automatically,
+// silently, the moment this section is ever looked at. Manual controls
+// exist only as an escape hatch for the genuine edge case where
+// clear-glass-lite isn't installed where we guessed, or its config
+// doesn't match the filenames/keys we guessed — collapsed behind an
+// explicit "Configure manually" link, never shown by default.
+let _aiRelayAdvancedOpen = false;
+let _aiRelayManualOpen = false;
+let _aiRelayAutoStatus = null; // {attempted, bridgeOk, bridgeDir, guardianOk, guardianSource}
+
+function optsToggleRelayAdvanced() {
+  _aiRelayAdvancedOpen = !_aiRelayAdvancedOpen;
+  optsRenderRelaySection();
+}
+
+function optsToggleRelayManual() {
+  _aiRelayManualOpen = !_aiRelayManualOpen;
+  const manual = document.getElementById('ai-relay-manual');
+  const toggle = document.getElementById('ai-relay-manual-toggle');
+  if (manual) manual.style.display = _aiRelayManualOpen ? '' : 'none';
+  if (toggle) toggle.textContent = _aiRelayManualOpen ? 'Hide manual controls' : 'Configure manually';
+}
+
+// Runs both auto-config steps with no toast, no prompt, no click — that's
+// the whole point of "implicit". Only ever WRITES AI.guardianToken if
+// detection actually found one; never overwrites a value someone already
+// set by hand, and never pretends success it didn't have.
+let _aiRelayAutoConfigPromise = null;
+function _relayAutoConfigure() {
+  if (_aiRelayAutoConfigPromise) return _aiRelayAutoConfigPromise; // one scan per session, not one per render
+  _aiRelayAutoConfigPromise = (async () => {
+    const status = { attempted: false, bridgeOk: false, bridgeDir: '', guardianOk: false, guardianSource: '' };
+    if (!window.NXAPI?.cgInstallUserscript) { _aiRelayAutoStatus = status; return status; }
+    status.attempted = true;
+    try {
+      const bridgeRes = AI.clearglassUserscriptDir
+        ? await window.NXAPI.cgInstallUserscript(AI.clearglassUserscriptDir)
+        : await window.NXAPI.cgInstallUserscript();
+      if (bridgeRes && bridgeRes.ok) {
+        status.bridgeOk = true;
+        status.bridgeDir = AI.clearglassUserscriptDir || (bridgeRes.installed[0] && bridgeRes.installed[0].dir) || '';
+        if (!AI.clearglassUserscriptDir && bridgeRes.installed[0]) { AI.clearglassUserscriptDir = bridgeRes.installed[0].dir; aiSave(); }
+      } else if (AI.clearglassUserscriptDir) {
+        AI.clearglassUserscriptDir = ''; aiSave(); // remembered path went stale — forget it, don't get stuck
+      }
+    } catch (e) {}
+    try {
+      if (AI.guardianToken) {
+        status.guardianOk = true; status.guardianSource = '(already configured)';
+      } else if (window.NXAPI?.cgDetectGuardian) {
+        const gRes = await window.NXAPI.cgDetectGuardian();
+        if (gRes && gRes.ok) {
+          AI.guardianPort = gRes.port; AI.guardianToken = gRes.token; aiSave();
+          status.guardianOk = true; status.guardianSource = gRes.source;
+          const gp = document.getElementById('opt-guardian-port'); if (gp) gp.value = gRes.port;
+          const gt = document.getElementById('opt-guardian-token'); if (gt) gt.value = gRes.token;
+        }
+      }
+    } catch (e) {}
+    _aiRelayAutoStatus = status;
+    return status;
+  })();
+  return _aiRelayAutoConfigPromise;
+}
+
+function optsRenderRelaySection() {
+  const isElectron = !!window.NXAPI;
+  const note    = document.getElementById('ai-relay-electron-note');
+  const section = document.getElementById('ai-relay-section');
+  const subtitle= document.getElementById('ai-relay-subtitle');
+  const hint    = document.getElementById('ai-relay-hint');
+  const statusEl= document.getElementById('ai-relay-status');
+  const autoRow = document.getElementById('ai-relay-autodetect-row');
+  if (!section) return;
+  if (isElectron) {
+    if (note) note.style.display = _aiRelayAdvancedOpen ? 'none' : '';
+    section.style.display = _aiRelayAdvancedOpen ? '' : 'none';
+    if (subtitle) subtitle.textContent = '(advanced — not used by this app)';
+    if (hint) hint.textContent = 'Mastermind already hosts web agents directly — this only matters if you are ALSO driving a separate clear-glass-lite browser install for something else.';
+  } else {
+    if (note) note.style.display = 'none';
+    section.style.display = '';
+    if (subtitle) subtitle.textContent = '(browser-mode fallback)';
+    if (hint) hint.textContent = 'Only needed because Mastermind is running outside Electron right now.';
+  }
+  if (autoRow) autoRow.style.display = isElectron ? '' : 'none'; // needs filesystem access browser mode doesn't have
+  const sectionVisible = isElectron ? _aiRelayAdvancedOpen : true;
+  if (!sectionVisible || !statusEl) return; // don't bother scanning disk for a section nobody's looking at
+
+  if (!_aiRelayAutoStatus) {
+    statusEl.textContent = 'Checking clear-glass-lite\u2026';
+    statusEl.style.color = 'var(--dim)';
+    _relayAutoConfigure().then(() => optsRenderRelaySection());
+    return;
+  }
+  const s = _aiRelayAutoStatus;
+  if (!s.attempted) {
+    statusEl.textContent = 'Needs the Electron app to auto-configure.';
+    statusEl.style.color = 'var(--dim)';
+  } else if (s.bridgeOk && s.guardianOk) {
+    statusEl.textContent = '\u2713 Configured automatically \u2014 nothing to do here.';
+    statusEl.style.color = 'var(--g)';
+  } else if (s.bridgeOk && !s.guardianOk) {
+    statusEl.textContent = '\u2713 Bridge installed automatically. Could not auto-detect the guardian-lite token \u2014 configure manually below if you need it.';
+    statusEl.style.color = 'var(--o,#ff8c22)';
+  } else {
+    statusEl.textContent = 'clear-glass-lite not found automatically \u2014 configure manually below, or confirm it\u2019s installed.';
+    statusEl.style.color = 'var(--o,#ff8c22)';
+  }
+}
+
+// Reads clear-glass-lite's own config file directly (best effort — it's
+// a separate app, this is a guess at plausible filenames/keys in the
+// same install directories the userscript installer already searches)
+// instead of asking a person to open clear-glass-lite's settings, copy
+// a token by hand, and paste it in here. Manual fallback only — the
+// automatic pass above already tries this on its own.
+async function optsAutoDetectGuardian() {
+  if (!window.NXAPI?.cgDetectGuardian) { mm_toast('Auto-detect needs the Electron app', 'warn'); return; }
+  mm_toast('Looking for clear-glass-lite\u2019s config\u2026', 'info', { dur: 2000 });
+  let res;
+  try { res = await window.NXAPI.cgDetectGuardian(); }
+  catch (e) { mm_toast('Auto-detect failed: ' + e.message, 'error'); return; }
+  if (!res || !res.ok) {
+    mm_toast('Could not find a clear-glass-lite config to read — paste the token by hand below, or confirm it\u2019s installed', 'warn', { dur: 6000 });
+    MMLog?.warn('ai', 'guardian auto-detect failed, tried: ' + (res && res.tried ? res.tried.join(', ') : '?'));
+    return;
+  }
+  AI.guardianPort = res.port;
+  AI.guardianToken = res.token;
+  aiSave();
+  const gp = document.getElementById('opt-guardian-port'); if (gp) gp.value = res.port;
+  const gt = document.getElementById('opt-guardian-token'); if (gt) gt.value = res.token;
+  if (_aiRelayAutoStatus) { _aiRelayAutoStatus.guardianOk = true; _aiRelayAutoStatus.guardianSource = res.source; }
+  mm_toast('\u2713 Found it \u2014 port ' + res.port, 'success', { dur: 4000 });
+  MMLog?.info('ai', 'guardian auto-detected from ' + res.source);
+}
+
 function optsShowOllamaFields() {
-  const isOllama   = AI.provider === 'ollama';
-  const isLMStudio = AI.provider === 'lmstudio';
+  const isOllama     = AI.provider === 'ollama';
+  const isClearGlass = typeof cgIsWebAgent === 'function' ? cgIsWebAgent(AI.provider) : AI.provider === 'clearglass';
   const ollamaRow  = document.getElementById('ai-ollama-row');
-  const lmRow      = document.getElementById('ai-lmstudio-row');
   const keyRow     = document.getElementById('ai-key-row');
+  const cgNote     = document.getElementById('ai-clearglass-note');
   if (ollamaRow)  ollamaRow.style.display  = isOllama ? '' : 'none';
-  if (lmRow)      lmRow.style.display      = isLMStudio ? '' : 'none';
-  if (keyRow)     keyRow.style.display     = (isOllama || isLMStudio) ? 'none' : '';
+  if (keyRow)     keyRow.style.display     = 'none'; // neither Ollama nor ClearGlass need an API key here
+  if (cgNote)     cgNote.style.display     = isClearGlass ? '' : 'none';
+  if (isClearGlass) optsRenderRelaySection();
+  if (typeof optsPopulateAccounts === 'function') optsPopulateAccounts();
+  if (isClearGlass && typeof optsRenderAgentAccounts === 'function') optsRenderAgentAccounts();
   // Populate Ollama base URL
   const baseEl = document.getElementById('ai-ollama-base');
   if (baseEl && isOllama) baseEl.value = AI.ollamaBase || 'http://localhost:11434';
-  const lmBaseEl = document.getElementById('ai-lmstudio-base');
-  if (lmBaseEl && isLMStudio) lmBaseEl.value = AI.lmstudioBase || 'http://localhost:1234';
+}
+
+// ── Agent + account manager ───────────────────────────────────────
+// Accounts are per agent; each accountId gets its own isolated browser
+// session in the main process. The Account dropdown under Provider
+// picks the active one; the list below manages all of them.
+function _aiAccountsFor(agent) {
+  if (!AI.accounts) AI.accounts = {};
+  if (!Array.isArray(AI.accounts[agent])) AI.accounts[agent] = ['default'];
+  return AI.accounts[agent];
+}
+
+function optsPopulateAccounts() {
+  const sel = document.getElementById('opt-ai-account');
+  if (!sel) return;
+  const agent = (typeof cgResolveAgent === 'function') ? cgResolveAgent() : 'chatgpt';
+  const list = _aiAccountsFor(agent);
+  if (!list.includes(AI.account)) AI.account = list[0] || 'default';
+  sel.innerHTML = list.map(a => `<option value="${escH(a)}"${a === AI.account ? ' selected' : ''}>${escH(a)}</option>`).join('');
+  const row = sel.closest('.opts-row');
+  if (row) row.style.display = (AI.provider === 'ollama') ? 'none' : ''; // Ollama has no accounts
+}
+
+// Every {agent, accountId} pair the app knows about — what statusAll needs.
+function _aiAllAccountPairs() {
+  const pairs = [];
+  for (const agent of (typeof CG_WEB_AGENTS !== 'undefined' ? CG_WEB_AGENTS : ['chatgpt','claude','perplexity','gemini'])) {
+    for (const acct of _aiAccountsFor(agent)) pairs.push({ agent, accountId: acct });
+  }
+  return pairs;
+}
+
+
+// Which account is currently selected in each agent's dropdown. The
+// active agent tracks AI.account so the panel and the real routing can
+// never disagree; other agents just default to their first account.
+const _agentSel = {};
+function _agentSelected(agent, accts) {
+  const ids = accts.map(a => a.accountId);
+  const activeAgent = (typeof cgResolveAgent === 'function') ? cgResolveAgent() : null;
+  if (_agentSel[agent] && ids.includes(_agentSel[agent])) return _agentSel[agent];
+  if (agent === activeAgent && ids.includes(AI.account)) return AI.account;
+  return ids[0];
+}
+function optsAgentSelectAccount(agent, accountId) {
+  _agentSel[agent] = accountId;
+  // If this agent is the active provider, selecting an account really
+  // switches which login the app talks to — not just a UI preference.
+  if ((typeof cgResolveAgent === 'function') && cgResolveAgent() === agent) { AI.account = accountId; aiSave(); }
+  optsRenderAgentAccounts();
+}
+// The "default" checkbox is the single source of truth for which
+// agent+account every AI feature uses, until per-feature routing lands.
+function optsAgentSetDefault(agent, accountId) {
+  AI.provider = agent;
+  AI.account = accountId;
+  _agentSel[agent] = accountId;
+  aiSave();
+  const provSel = document.getElementById('opt-ai-provider');
+  if (provSel) provSel.value = agent;
+  if (typeof optsUpdateAIModel === 'function') optsUpdateAIModel();
+  mm_toast('Default AI: ' + agent + ' / ' + accountId, 'success', { dur: 2000 });
+  optsRenderAgentAccounts();
+}
+
+async function optsRenderAgentAccounts() {
+  const host = document.getElementById('ai-agent-accounts');
+  if (!host) return;
+  optsPopulateAccounts();
+  if (!window.NXAPI?.cgStatusAll) {
+    host.innerHTML = '<div class="opts-hint">Web agents need the Electron app (not browser mode).</div>';
+    return;
+  }
+  let rows = [];
+  try { rows = await window.NXAPI.cgStatusAll(_aiAllAccountPairs()); }
+  catch (e) { host.innerHTML = '<div class="opts-hint">Could not read agent status: ' + escH(e.message) + '</div>'; return; }
+
+  const activeAgent = (typeof cgResolveAgent === 'function') ? cgResolveAgent() : null;
+  const byAgent = {};
+  for (const r of rows) { (byAgent[r.agent] = byAgent[r.agent] || []).push(r); }
+
+  host.innerHTML = Object.keys(byAgent).map(agent => {
+    const accts = byAgent[agent];
+    const label = accts[0].label, verified = accts[0].verified;
+    const anyIn = accts.some(a => a.loggedIn === true);
+    const sel = _agentSelected(agent, accts);
+    const isDefault = (typeof cgResolveAgent === 'function') && cgResolveAgent() === agent && AI.account === sel;
+
+    // Not signed in yet: one button, nothing else to manage.
+    if (!anyIn) {
+      return `
+      <div style="border:1px solid var(--wire);border-left:2px solid var(--wire2);padding:11px 14px;
+        background:var(--abyss);display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:1.5px;
+          color:var(--muted)">${escH(label)}</span>
+        ${verified ? '' : '<span style="font-family:var(--f-mono);font-size:7px;color:var(--o)">selectors unverified</span>'}
+        <button class="opts-action-btn" style="margin-left:auto"
+          onclick="optsAgentOpen('${agent}','${escH(accts[0].accountId)}')">Sign in to ${escH(label)}</button>
+      </div>`;
+    }
+
+    // Signed in: status on the left stays put; all controls live on the right.
+    const selRow = accts.find(a => a.accountId === sel) || accts[0];
+    const st = selRow.loggedIn === true ? { t: 'signed in', c: 'var(--g,#00ff88)' }
+             : selRow.running           ? { t: 'window open — NOT signed in', c: 'var(--o,#ff8c22)' }
+                                        : { t: 'not opened yet', c: 'var(--dim)' };
+    return `
+      <div style="border:1px solid var(--wire);border-left:2px solid ${isDefault ? 'var(--c)' : 'var(--wire2)'};
+        padding:11px 14px;background:var(--abyss);display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px">
+        <span style="font-family:var(--f-display);font-size:10px;font-weight:700;letter-spacing:1.5px;
+          color:${isDefault ? 'var(--c)' : 'var(--muted)'}">${escH(label)}</span>
+        <span style="font-family:var(--f-mono);font-size:8px;color:${st.c}">${st.t}</span>
+        ${verified ? '' : '<span style="font-family:var(--f-mono);font-size:7px;color:var(--o)">selectors unverified</span>'}
+
+        <span style="margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap;row-gap:6px">
+          <select class="opts-select" style="min-width:120px" title="Which ${escH(label)} account to use"
+            onchange="optsAgentSelectAccount('${agent}', this.value)">
+            ${accts.map(a => `<option value="${escH(a.accountId)}"${a.accountId === sel ? ' selected' : ''}>${escH(a.accountId)}</option>`).join('')}
+          </select>
+          <button class="opts-action-btn" onclick="optsTestAgent('${agent}','${escH(sel)}')">Test</button>
+          <label style="display:flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:7.5px;
+            color:${isDefault ? 'var(--c)' : 'var(--dim)'};cursor:pointer;white-space:nowrap"
+            title="Use this agent/account for all AI features (until per-feature routing exists)">
+            <input type="checkbox" ${isDefault ? 'checked' : ''} style="accent-color:var(--c);cursor:pointer"
+              onchange="optsAgentSetDefault('${agent}','${escH(sel)}')"> default
+          </label>
+          <button class="opts-action-btn" onclick="optsAgentOpen('${agent}','${escH(sel)}')">Open</button>
+          <button class="opts-action-btn" title="Add another ${escH(label)} account"
+            onclick="optsAgentAddAnother('${agent}')">+</button>
+          <button class="opts-action-btn danger" onclick="optsAgentSignOut('${agent}','${escH(sel)}')">Sign out</button>
+        </span>
+      </div>`;
+  }).join('');
+}
+
+// silent=true suppresses toasts/prompts entirely — used for the automatic
+// boot-time attempt, where a failure is a normal, expected outcome (the
+// person may not even have clear-glass-lite installed) and shouldn't
+// interrupt anyone. Interactive use (the Options button) always passes
+// silent=false and gets the full feedback + paste-a-path fallback.
+async function optsInstallBridgeUserscript(silent) {
+  if (!window.NXAPI?.cgInstallUserscript) { if (!silent) mm_toast('Needs the Electron app', 'warn'); return; }
+
+  // Already confirmed once — install straight there. No search, no ask.
+  if (AI.clearglassUserscriptDir) {
+    const r0 = await window.NXAPI.cgInstallUserscript(AI.clearglassUserscriptDir);
+    if (r0 && r0.ok) {
+      if (!silent) mm_toast('✓ Bridge updated at ' + AI.clearglassUserscriptDir, 'success', { dur: 3000 });
+      return;
+    }
+    // The remembered path stopped working (moved/uninstalled) — fall
+    // through and re-search rather than staying stuck on a dead path.
+    AI.clearglassUserscriptDir = '';
+    aiSave();
+  }
+
+  if (!silent) mm_toast('Looking for clear-glass-lite…', 'info', { dur: 1500 });
+  const r = await window.NXAPI.cgInstallUserscript();
+  if (r && r.ok) {
+    const removed = r.installed.some(i => i.removedEravos);
+    // Remember the first successful location so every future call —
+    // including the next app boot — goes straight there.
+    AI.clearglassUserscriptDir = r.installed[0].dir;
+    aiSave();
+    if (!silent) mm_toast('✓ Bridge installed to ' + r.installed.length + ' location' + (r.installed.length > 1 ? 's' : '') +
+      (removed ? ' · removed the old ERAVOS bridge' : ''), 'success', { dur: 4000 });
+    return;
+  }
+  if (silent) return;   // boot-time attempt: fail quietly, the Options button remains available
+  // Say exactly where we looked — "not found" with no paths is useless.
+  const searched = (r && r.searched) || [];
+  await mmPrompt('Could not find a clear-glass-lite userscripts folder. Searched:\n\n' +
+    searched.slice(0, 6).join('\n') + '\n\nPaste the correct folder path to install there:', '')
+    .then(async (dir) => {
+      if (!dir) return;
+      const clean = dir.trim();
+      const r2 = await window.NXAPI.cgInstallUserscript(clean);
+      if (r2 && r2.ok) {
+        // Persist the pasted path too — this is the last time anyone
+        // should ever have to type it.
+        AI.clearglassUserscriptDir = (r2.installed && r2.installed[0] && r2.installed[0].dir) || clean;
+        aiSave();
+      }
+      mm_toast(r2 && r2.ok ? '✓ Installed to ' + clean + ' — remembered for next time' : '✗ ' + ((r2 && r2.error) || 'failed'), r2 && r2.ok ? 'success' : 'error', { dur: 4000 });
+    });
+}
+
+async function optsAgentOpen(agent, accountId) {
+  if (!window.NXAPI?.cgOpen) { mm_toast('Web agents need the Electron app', 'warn'); return; }
+  await window.NXAPI.cgOpen(agent, accountId, true);
+  mm_toast('Sign in if asked — the window closes itself once you are in', 'info', { dur: 3500 });
+}
+
+async function optsAgentAddAnother(agent) {
+  const target = agent || ((typeof cgResolveAgent === 'function') ? cgResolveAgent() : 'chatgpt');
+  const list = _aiAccountsFor(target);
+  const name = (await mmPrompt('Name for the new ' + target + ' account (e.g. work, personal):', 'account' + (list.length + 1)) || '').trim();
+  if (!name) return;
+  if (list.includes(name)) { mm_toast('That account name already exists for ' + target, 'warn'); return; }
+  list.push(name);
+  if (target === ((typeof cgResolveAgent === 'function') ? cgResolveAgent() : null)) AI.account = name;
+  aiSave();
+  await optsAgentOpen(target, name);   // straight to its login window
+  optsRenderAgentAccounts();
+}
+
+async function optsAgentSignOut(agent, accountId) {
+  if (!(await mmConfirm('Sign out of ' + agent + ' / ' + accountId + '? Only this account\u2019s session is cleared.'))) return;
+  const r = await window.NXAPI.cgSignOut(agent, accountId);
+  mm_toast(r && r.ok ? 'Signed out' : 'Sign out failed: ' + ((r && r.error) || '?'), r && r.ok ? 'info' : 'error');
+  optsRenderAgentAccounts();
+}
+
+// Per-agent/account connection test — the global Test Connection only
+// ever exercised the active provider, which is useless for verifying
+// an account you just added.
+async function optsTestAgent(agent, accountId) {
+  if (!window.NXAPI?.cgAsk) { mm_toast('Web agents need the Electron app', 'warn'); return; }
+  const sid = typeof aiStatusStart === 'function' ? aiStatusStart('Connection test', { agent, account: accountId }) : null;
+  try {
+    const res = await window.NXAPI.cgAsk(agent, accountId, 'Reply only with the single word: CONNECTED', 60000, true);
+    if (sid) aiStatusEnd(sid, !!(res && res.ok), res && res.error);
+    if (res && res.ok) {
+      const ok = /CONNECTED/i.test(res.text || '');
+      const preview = (res.text || '').trim().slice(0, 80);
+      mm_toast(ok ? '✓ ' + agent + '/' + accountId + ' connected — replied: "' + preview + '"' : '⚠ replied but not as expected: "' + preview + '"', ok ? 'success' : 'warn', { dur: 5000 });
+    } else {
+      mm_toast('✗ ' + ((res && res.error) || 'no result'), 'error', { dur: 6000 });
+    }
+  } catch (e) {
+    if (sid) aiStatusEnd(sid, false, e.message);
+    mm_toast('Test failed: ' + e.message, 'error', { dur: 6000 });
+  }
+  optsRenderAgentAccounts();
+}
+
+// The main process hides the window itself the moment sign-in lands;
+// this just refreshes the panel and confirms it.
+if (window.NXAPI?.onSignedIn) {
+  window.NXAPI.onSignedIn((d) => {
+    mm_toast('✓ Signed in to ' + d.agent + (d.accountId && d.accountId !== 'default' ? ' / ' + d.accountId : '') + ' — window closed', 'success', { dur: 3500 });
+    optsRenderAgentAccounts();
+  });
+}
+
+// Previously silent: the main-process sign-in watcher used to just stop
+// after ~10 minutes with no signal at all, so a stalled sign-in looked
+// identical to one still in progress. Now it tells us, and we tell you.
+if (window.NXAPI?.onSignInTimeout) {
+  window.NXAPI.onSignInTimeout((d) => {
+    mm_toast('Sign-in to ' + d.agent + (d.accountId && d.accountId !== 'default' ? ' / ' + d.accountId : '') + ' timed out after 10 minutes — open it again if you still need to sign in', 'warn', { dur: 7000 });
+    optsRenderAgentAccounts();
+  });
 }
 
 function optsUpdateAIModel() {
@@ -4356,10 +6721,8 @@ function optsUpdateAIModel() {
   const modelSel = document.getElementById('opt-ai-model');
   if (!modelSel) return;
   const models = {
-    anthropic: ['claude-sonnet-4-20250514','claude-opus-4-20250514','claude-haiku-4-5-20251001','claude-3-5-sonnet-20241022'],
-    openai:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo'],
-    ollama:    AI.ollamaModels.length ? AI.ollamaModels : ['(run DETECT MODELS first)'],
-    lmstudio:  ['local-model'],
+    ollama:     AI.ollamaModels.length ? AI.ollamaModels : ['(run DETECT MODELS first)'],
+    clearglass: ['(model selection lives in ClearGlass, not here)'],
   };
   const list = models[AI.provider] || [];
   modelSel.innerHTML = list.map(m => `<option value="${m}" ${m === AI.model ? 'selected' : ''}>${m}</option>`).join('');
@@ -4434,9 +6797,9 @@ function optsCreateSnapshot() {
   }
 }
 
-function optsRestoreSnapshot(id) {
+async function optsRestoreSnapshot(id) {
   if (typeof MMVault === 'undefined') return;
-  if (!confirm('Restore this snapshot? Current canvas will be replaced.')) return;
+  if (!(await mmConfirm('Restore this snapshot? Current canvas will be replaced.'))) return;
   const appState = MMVault.restoreSnapshot(id);
   if (appState) {
     CANVAS.clearCanvas();
@@ -4482,9 +6845,9 @@ function optsImportBackup() {
   input.onchange = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       if (typeof MMVault === 'undefined') { toast('Foundation not loaded'); return; }
-      if (!confirm('Import this backup? It will replace your current vault data.')) return;
+      if (!(await mmConfirm('Import this backup? It will replace your current vault data.'))) return;
       const appState = MMVault.importBackup(ev.target.result);
       if (appState) {
         CANVAS.clearCanvas();
@@ -4591,6 +6954,43 @@ function optsRefreshLog() {
       <span style="color:var(--bright);font-size:7px;flex:1">${escH(e.msg)}</span>
     </div>`
   ).join('') : '<div style="color:var(--dim);font-size:7.5px;padding:12px;font-family:var(--f-mono);text-align:center">No log entries</div>';
+}
+
+function optsCopyFullLog() {
+  if (typeof MMLog === 'undefined') { mm_toast('Logger not loaded', 'error'); return; }
+  // Full export, not the 80-entry/truncated display view — includes
+  // stack traces for uncaught errors, which the on-screen list doesn't
+  // show at all (no room for them in a one-line row).
+  const entries = MMLog.export();
+  const text = entries.map(e => {
+    const stack = e.data?.stack ? `\n    ${e.data.stack.replace(/\n/g, '\n    ')}` : '';
+    const dataStr = e.data && !e.data.stack ? ' ' + JSON.stringify(e.data) : '';
+    return `[${e.iso}] ${e.level.toUpperCase().padEnd(8)} [${e.module}] ${e.msg}${dataStr}${stack}`;
+  }).join('\n');
+
+  const header = `MASTERMIND Application Log — ${entries.length} entries — exported ${new Date().toISOString()}\n${'='.repeat(60)}\n\n`;
+  const fullText = header + text;
+
+  navigator.clipboard.writeText(fullText).then(() => {
+    mm_toast(`✓ Copied ${entries.length} log entries to clipboard`, 'success');
+  }).catch(() => {
+    // Clipboard access can be blocked depending on Electron/OS focus
+    // state — fall back to a visible, selectable textarea so the text
+    // is still recoverable by hand (select all, copy) instead of the
+    // export silently failing.
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:40px';
+    modal.innerHTML = `
+      <div style="background:var(--void);border:1px solid var(--wire2);width:100%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;padding:16px">
+        <div style="font-family:var(--f-mono);font-size:9px;color:var(--o);margin-bottom:8px">
+          Clipboard access was blocked — select all the text below and copy manually (Ctrl+A, Ctrl+C)
+        </div>
+        <textarea readonly style="flex:1;min-height:400px;background:#000;color:var(--bright);font-family:var(--f-mono);font-size:8px;border:1px solid var(--wire2);padding:10px">${fullText}</textarea>
+        <button class="opts-action-btn" style="margin-top:8px;align-self:flex-end" onclick="this.closest('div[style*=fixed]').remove()">Close</button>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('textarea').select();
+  });
 }
 
 let _busMonitorActive = false;
@@ -4821,34 +7221,25 @@ const DOMAIN_STATE = {
   selectedDomains: new Set(),
   selectedSubs: new Set(),
   customDomains: [],            // user-added custom domains
-  intelligenceRatings: {},       // { [intelligence_type]: 0-100 }
+  intelligenceRatings: {},       // { [intelligence_type]: 0-100 } — automatic by default, see intelligenceOverrides
+  intelligenceOverrides: {},     // { [intelligence_type]: true } — keys a person deliberately hand-set; the automatic sync skips these instead of silently overwriting a real choice
   populatedNodes: [],            // ids of nodes added via populate
 };
 const DOMAIN_KEY = 'nexus_domain_state';
 
 function domainStateLoad() {
-  try {
-    const s = JSON.parse(localStorage.getItem(DOMAIN_KEY) || '{}');
-    if (s.intelligenceRatings) DOMAIN_STATE.intelligenceRatings = s.intelligenceRatings;
-    if (s.customDomains) DOMAIN_STATE.customDomains = s.customDomains;
-    if (s.selectedMeta) DOMAIN_STATE.selectedMeta = new Set(s.selectedMeta);
-    if (s.selectedDomains) DOMAIN_STATE.selectedDomains = new Set(s.selectedDomains);
-    if (s.selectedSubs) DOMAIN_STATE.selectedSubs = new Set(s.selectedSubs);
-    if (s.populatedNodes) DOMAIN_STATE.populatedNodes = s.populatedNodes;
-  } catch(e) {}
+  // SECURITY FIX: this read localStorage['nexus_domain_state'] and could
+  // clobber correctly-decrypted vault state with a stale plaintext copy
+  // — vaultDeserialize() (mastermind-vault.js, modules.domain) already
+  // covers DOMAIN_STATE in full. Vault-only now; see _ORPHAN_KEYS for
+  // recovering any pre-fix copy.
+  DOMAIN_STATE._loaded = true;
 }
 
 function domainStateSave() {
-  try {
-    localStorage.setItem(DOMAIN_KEY, JSON.stringify({
-      intelligenceRatings: DOMAIN_STATE.intelligenceRatings,
-      customDomains: DOMAIN_STATE.customDomains,
-      selectedMeta: [...DOMAIN_STATE.selectedMeta],
-      selectedDomains: [...DOMAIN_STATE.selectedDomains],
-      selectedSubs: [...DOMAIN_STATE.selectedSubs],
-      populatedNodes: DOMAIN_STATE.populatedNodes,
-    }));
-  } catch(e) {}
+  // SECURITY FIX: this used to ALSO write localStorage['nexus_domain_state']
+  // in plaintext, in parallel with the vault, on every change. The vault
+  // is the only store now (modules.domain already covers it in full).
   if (typeof vaultDirtySave === 'function') vaultDirtySave(5000);
 }
 
@@ -4865,8 +7256,10 @@ function openBrainMap() {
   overlay.style.opacity = '1';
   // Show mode selector, hide full map
   const sel = document.getElementById('brain-mode-selector');
+  const sub = document.getElementById('brain-relsys-selector');
   const full = document.getElementById('brain-full-view');
   if (sel) sel.style.display = 'flex';
+  if (sub) sub.style.display = 'none';
   if (full) { full.style.display = 'none'; full.classList.remove('active'); }
   // Pre-populate sidebar so domains show immediately when full map opens
   requestAnimationFrame(() => {
@@ -4875,31 +7268,31 @@ function openBrainMap() {
 }
 
 function brainEnterMode(modeKey) {
-  // Hide selector, show full map
-  const sel = document.getElementById('brain-mode-selector');
-  const full = document.getElementById('brain-full-view');
-  if (sel) sel.style.display = 'none';
-  if (full) { full.style.display = 'flex'; full.classList.add('active'); }
-
-  // Update header colors per mode
+  // These take you to the real canvas now, not the abstract domain-map
+  // globe — the globe is still there, just reachable separately via
+  // "OPEN FULL MAP" (brainSkipModeSelect) instead of being where every
+  // mode card dead-ends.
   const MODE_META = {
-    cognitive:     { label: 'BRAIN MAP — COGNITIVE',     sub: 'Metacognition · Frameworks · Signal/Noise · Intelligence', color: '#00c8ff' },
-    relationships: { label: 'BRAIN MAP — RELATIONSHIPS',  sub: 'Bridge Building · Co-creation · Gap Mapping · Meaning',   color: '#00ff88' },
-    emotions:      { label: 'BRAIN MAP — EMOTIONS',       sub: 'Understanding · Regulation · Channeling · Alchemy',        color: '#ff66aa' },
+    cognitive:     { label: 'Cognitive',          color: '#00c8ff' },
+    systems:       { label: 'Systems',             color: '#11ddcc' },
+    ecosystems:    { label: 'Ecosystems',          color: '#00ff88' },
+    emotions:      { label: 'Emotions',            color: '#ff66aa' },
   };
-  const m = MODE_META[modeKey] || { label: 'BRAIN MAP', sub: 'Master index', color: 'var(--c)' };
-  const titleEl = document.getElementById('brain-mode-title');
-  const subEl   = document.getElementById('brain-mode-sub');
-  if (titleEl) { titleEl.textContent = m.label; titleEl.style.color = m.color; }
-  if (subEl)   subEl.textContent = m.sub;
+  const m = MODE_META[modeKey] || { label: 'Brain Map', color: 'var(--c)' };
 
-  // Seed canvas with mode-relevant nodes, then init brain map
-  _brainModeSeedCanvas(modeKey);
+  // Seed canvas with mode-relevant nodes, at the current viewport center —
+  // so they're already on-screen the moment the canvas shows. If this
+  // mode was already entered before, seeding is skipped and we get the
+  // existing hub back instead, so we can still focus on it either way.
+  const hub = _brainModeSeedCanvas(modeKey);
 
-  // Expand the matching meta-domain in the brain map automatically
+  // Still expand the matching meta-domain in BMV2 state, so if/when the
+  // user opens the full domain-map later, this mode's content is already
+  // expanded there too — continuity between the two views, not a reset.
   const modeToMeta = {
     cognitive:     'MIND & COGNITION',
-    relationships: 'SOCIAL & RELATIONAL',
+    systems:       'SCIENCE & SYSTEMS',
+    ecosystems:    'SOCIAL & RELATIONAL',
     emotions:      'SPIRIT & MEANING',
   };
   const autoExpand = modeToMeta[modeKey];
@@ -4908,27 +7301,58 @@ function brainEnterMode(modeKey) {
     if (typeof _bmCacheInvalidate === 'function') _bmCacheInvalidate();
   }
 
-  setTimeout(() => {
-    initBrainMap();
-    // Fire sidebar update after map initialises
-    requestAnimationFrame(() => {
-      if (typeof _bmUpdateSidebar === 'function') _bmUpdateSidebar();
-      if (typeof _bmRenderIntelStats === 'function') _bmRenderIntelStats();
-      if (typeof _bmBuildCrossdomainPanel === 'function') _bmBuildCrossdomainPanel();
-      if (typeof _bmBuildManagePanel === 'function') _bmBuildManagePanel();
-    });
-  }, 80);
+  // Close the brain overlay and drop straight into the real canvas,
+  // centered on this mode's hub node so a repeat visit doesn't land you
+  // on an empty patch of canvas the content happens not to be on.
+  //
+  // Hiding this synchronously (not via closeBrainMap's animated fade) is
+  // deliberate: closeBrainMap() only fades opacity and leaves the overlay
+  // at display:flex, full-screen, z-index:3000 for 350ms — fine when
+  // you're closing back to the same screen, but here we're jumping
+  // straight to the canvas, so for that whole 350ms the invisible overlay
+  // was still sitting on top catching every click before it could reach
+  // a node underneath. That's almost certainly what "can't interact with
+  // anything" was actually seeing.
+  const overlay = document.getElementById('brain-overlay');
+  if (overlay) { overlay.classList.remove('open'); overlay.style.display = ''; overlay.style.opacity = ''; }
+  if (typeof _brainRAF !== 'undefined' && _brainRAF) { cancelAnimationFrame(_brainRAF); _brainRAF = null; }
+  if (typeof BMV2 !== 'undefined' && BMV2._raf) { cancelAnimationFrame(BMV2._raf); BMV2._raf = null; }
+  enterCanvas();
+  if (hub) {
+    const el = document.getElementById('n_' + hub.id);
+    const w = el ? el.offsetWidth : 220, h = el ? el.offsetHeight : 120;
+    CANVAS.NX.zoom = 1;
+    CANVAS.NX.panX = window.innerWidth / 2 - (hub.x + w / 2);
+    CANVAS.NX.panY = (window.innerHeight - 38) / 2 - (hub.y + h / 2);
+    CANVAS.applyT();
+    CANVAS.selectNode(hub.id);
+  }
 
-  // Log + toast
   MMLog?.info('brain', `Mode entered: ${modeKey}`);
-  if (typeof T !== 'undefined') T.brainModeEntered(m.label.replace('BRAIN MAP — ', ''));
+  if (typeof T !== 'undefined') T.brainModeEntered(m.label);
+}
+
+function brainOpenRelSysSelector() {
+  const sel = document.getElementById('brain-mode-selector');
+  const sub = document.getElementById('brain-relsys-selector');
+  if (sel) sel.style.display = 'none';
+  if (sub) sub.style.display = 'flex';
+}
+
+function brainRelSysBack() {
+  const sel = document.getElementById('brain-mode-selector');
+  const sub = document.getElementById('brain-relsys-selector');
+  if (sub) sub.style.display = 'none';
+  if (sel) sel.style.display = 'flex';
 }
 
 function brainSkipModeSelect() {
   // Open full map without mode seeding
   const sel = document.getElementById('brain-mode-selector');
+  const sub = document.getElementById('brain-relsys-selector');
   const full = document.getElementById('brain-full-view');
   if (sel) sel.style.display = 'none';
+  if (sub) sub.style.display = 'none';
   if (full) { full.style.display = 'flex'; full.classList.add('active'); }
   const titleEl = document.getElementById('brain-mode-title');
   if (titleEl) { titleEl.textContent = 'BRAIN MAP — MASTER INDEX'; titleEl.style.color = ''; }
@@ -4945,8 +7369,10 @@ function brainSkipModeSelect() {
 function brainBackToModeSelect() {
   // Return to mode selector from full map
   const sel = document.getElementById('brain-mode-selector');
+  const sub = document.getElementById('brain-relsys-selector');
   const full = document.getElementById('brain-full-view');
   if (full) { full.style.display = 'none'; full.classList.remove('active'); }
+  if (sub) sub.style.display = 'none';
   if (sel) sel.style.display = 'flex';
 }
 
@@ -5224,59 +7650,15 @@ function closeDomainSelector() {
   document.getElementById('brain-select-overlay').style.display = 'none';
 }
 
-/* ── Intelligence type ratings ───────────────────────────────── */
-// setIntelligenceRating — see full version with brain map sync below
-
-function renderIntelligenceStats() {
-  const el = document.getElementById('brain-intel-stats'); if (!el) return;
-  el.innerHTML = '';
-  Object.entries(INTELLIGENCE_TYPES).forEach(([key, intel]) => {
-    const rating = DOMAIN_STATE.intelligenceRatings[key] || 0;
-    const row = document.createElement('div');
-    row.className = 'intel-stat-row';
-    row.innerHTML =
-      '<div class="intel-stat-head">' +
-        '<span class="intel-stat-icon" style="color:'+intel.color+'">'+intel.icon+'</span>' +
-        '<span class="intel-stat-label">'+intel.label+'</span>' +
-        '<span class="intel-stat-val" id="intel-val-'+key+'">'+rating+'%</span>' +
-      '</div>' +
-      '<div class="intel-stat-track">' +
-        '<div class="intel-stat-fill" style="width:'+rating+'%;background:'+intel.color+'"></div>' +
-      '</div>' +
-      '<input type="range" class="intel-stat-slider" min="0" max="100" value="'+rating+'" ' +
-        'oninput="setIntelligenceRating(\''+key+'\',this.value)" ' +
-        'style="accent-color:'+intel.color+'">' +
-      '<div class="intel-stat-desc">'+intel.desc+'</div>';
-    el.appendChild(row);
-  });
-}
-
-function renderCrossDomainMatrix() {
-  const el = document.getElementById('brain-crossdomain-panel'); if (!el) return;
-  const topIntel = Object.entries(DOMAIN_STATE.intelligenceRatings)
-    .sort(([,a],[,b]) => b-a).slice(0, 5);
-  if (!topIntel.length) {
-    el.innerHTML = '<div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);padding:12px">Rate your intelligence types to see cross-domain synthesis opportunities.</div>';
-    return;
-  }
-  // Find domains that match top intelligences
-  const matches = [];
-  topIntel.forEach(([type]) => {
-    Object.entries(DOMAIN_TAXONOMY).forEach(([metaKey, meta]) => {
-      if (meta.intelligences.includes(type)) {
-        matches.push({ meta: metaKey, type, color: meta.color });
-      }
-    });
-  });
-  el.innerHTML = '<div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-bottom:8px;letter-spacing:2px">YOUR HIGHEST-LEVERAGE DOMAINS</div>' +
-    [...new Map(matches.map(m=>[m.meta,m])).values()].slice(0,8).map(m =>
-      '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--wire)">' +
-        '<div style="width:6px;height:6px;border-radius:50%;background:'+m.color+';flex-shrink:0"></div>' +
-        '<span style="font-family:var(--f-body);font-size:10px;color:var(--bright)">'+m.meta+'</span>' +
-        '<span style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-left:auto">via '+INTELLIGENCE_TYPES[m.type]?.label+'</span>' +
-      '</div>'
-    ).join('');
-}
+// Intelligence-type ratings + cross-domain synthesis now live in ALM's
+// own Intelligence tab (modules/alm/ui.js: renderIntelligenceStats,
+// setIntelligenceRating, resetIntelligenceRatingToAuto,
+// renderCrossDomainMatrix) — moved there, not duplicated. This spot
+// used to hold a second, dead copy of the same functions, shadowed by
+// a THIRD copy (_bmRenderIntelStats/bmv2SetIntel/_bmBuildCrossdomainPanel,
+// also removed) that was the one the live Brain Map UI actually called.
+// Three places the same rating could silently disagree is exactly the
+// bug consolidating this was meant to fix.
 
 // Init domain state on load
 domainStateLoad();
@@ -5322,19 +7704,36 @@ const BRAIN_MODES = {
     ],
     layout: 'cluster',
   },
-  relationships: {
-    label: 'Relationships',
+  systems: {
+    label: 'Systems',
+    icon: '∿',
+    color: '#11ddcc',
+    tagline: 'Model minds, relationships, and complex dynamics as interacting systems.',
+    domains: ['Causal Loop','Feedback Structure','Stocks & Flows','Leverage','Simulation','Emergence'],
+    seedNodes: [
+      { type: 'feedback',  title: 'Causal Loop Map',       body: 'Map the reinforcing and balancing loops between two people, ideas, or systems.', tags: ['causal-loop','systems'] },
+      { type: 'framework', title: 'Feedback Structure',    body: 'Where does output become input? Model the stock, the flow, and the delay.', tags: ['feedback-structure','systems'] },
+      { type: 'causal',    title: 'Leverage Points',       body: 'Where is the highest leverage for positive change in this dynamic?', tags: ['leverage','change','systems'] },
+      { type: 'synthesis', title: 'What-If Engine',        body: 'Simulate the system forward. What happens if this one variable moves?', tags: ['simulation','what-if'] },
+    ],
+    layout: 'force',
+  },
+  ecosystems: {
+    label: 'Ecosystems',
     icon: '⬡',
     color: '#00ff88',
-    tagline: 'Building bridges, co-creating, mapping gaps between all things.',
-    domains: ['Bridge','Gap','Connection','Co-Creation','Intimacy','Conflict','Meaning','Leverage','Understanding'],
+    tagline: 'People and real relationships. Living nodes, moments as truth — bridges, co-creation, attachment, and gaps between people.',
+    domains: ['Bridge','Gap','Connection','Co-Creation','Intimacy','Conflict','Meaning','Understanding','Attachment','Co-Regulation','Communication','Moments','People-as-Nodes'],
     seedNodes: [
       { type: 'concept',   title: 'Bridge Map',            body: 'What gaps exist between you and this person/idea? Name them.',      tags: ['bridge','gap','relationship'] },
       { type: 'friction',  title: 'Current Tension',       body: 'Where is the friction? Tension is information, not damage.',        tags: ['tension','conflict','relationship'] },
       { type: 'synthesis', title: 'Co-Creation Space',     body: 'What can you build together that neither could build alone?',       tags: ['co-creation','collaboration'] },
       { type: 'insight',   title: 'Meaning Mapping',       body: 'What does this relationship mean? What is it for?',                 tags: ['meaning','purpose','relationship'] },
       { type: 'framework', title: 'Intimacy Architecture', body: 'How does closeness work here? Vulnerability, trust, history.',      tags: ['intimacy','trust','depth'] },
-      { type: 'causal',    title: 'Leverage Points',       body: 'Where is the highest leverage for positive change in this dynamic?', tags: ['leverage','change','relationship'] },
+      { type: 'concept',   title: 'People as Nodes',        body: 'Every person in your life as a living, evolving node — not a static entry.', tags: ['people','relational'] },
+      { type: 'friction',  title: 'Attachment Signal',      body: 'What attachment pattern is active right now? Co-regulation starts with naming it.', tags: ['attachment','co-regulation'] },
+      { type: 'insight',   title: 'Moments as Truth',       body: 'The moment is the unit of record — not the summary of the relationship.', tags: ['moments','truth'] },
+      { type: 'framework', title: 'Communication Threads',  body: 'Every thread traced back to its need. What was actually being asked for?', tags: ['communication','need'] },
     ],
     layout: 'force',
   },
@@ -5394,10 +7793,12 @@ function enterBrainMode(modeKey) {
 
 function _brainModeSeedCanvas(modeKey) {
   const mode = BRAIN_MODES[modeKey];
-  if (!mode || !mode.seedNodes) return;
-  // Don't re-seed if mode nodes already exist
+  if (!mode || !mode.seedNodes) return null;
+  // Don't re-seed if mode nodes already exist — but still return the
+  // existing hub so the caller can focus the canvas on it.
   const modeTag = modeKey + '-seed';
-  if (CANVAS.NX.nodes.some(n => (n.tags||[]).includes(modeTag))) return;
+  const existingHub = CANVAS.NX.nodes.find(n => (n.tags||[]).includes(modeTag) && (n.tags||[]).includes('hub'));
+  if (existingHub) return existingHub;
 
   const CX = (-CANVAS.NX.panX / CANVAS.NX.zoom) + window.innerWidth / (2 * CANVAS.NX.zoom);
   const CY = (-CANVAS.NX.panY / CANVAS.NX.zoom) + (window.innerHeight - 38) / (2 * CANVAS.NX.zoom);
@@ -5425,6 +7826,7 @@ function _brainModeSeedCanvas(modeKey) {
   });
 
   autosaveJAA();
+  return hub;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -5441,38 +7843,62 @@ const HORIZON_STATE = {
 };
 
 const HORIZON_TIMEFRAMES = ['1 Week', '1 Month', '3 Months', '6 Months', '1 Year', '3 Years', '5 Years', '10 Years'];
+
+// Life-domain taxonomy — ported from the old prototype's Horizon Plan
+// spec (section 14), needed for the "Who I Am" identity view: who you're
+// becoming, viewed across the actual domains of a life, not just a flat
+// list of plans.
+const HORIZON_DOMAINS = {
+  being:      { label: 'Who I Am Becoming',       color: '#ffe04a', icon: '◉' },
+  relational: { label: 'Relational',              color: '#7744ff', icon: '⬡' },
+  financial:  { label: 'Financial / Material',    color: '#00ff88', icon: '◆' },
+  cognitive:  { label: 'Cognitive / Intellectual',color: '#00c8ff', icon: '◈' },
+  health:     { label: 'Physical / Health',       color: '#ff66aa', icon: '♥' },
+  creative:   { label: 'Creative / Expression',   color: '#ff8c22', icon: '✦' },
+  social:     { label: 'Social / Impact',         color: '#11ddcc', icon: '◎' },
+  custom:     { label: 'Custom Domain',           color: '#888899', icon: '○' },
+};
 const HORIZON_RESOURCE_TYPES = ['Time (hrs/wk)', 'Money ($/mo)', 'Energy (0-10)', 'Attention (0-10)', 'Social Capital', 'Skills Required'];
 
 function horizonLoad() {
-  try {
-    const raw = localStorage.getItem(HORIZON_KEY);
-    if (raw) {
-      const d = JSON.parse(raw);
-      if (d.plans) HORIZON_STATE.plans = d.plans;
-    }
-    HORIZON_STATE._loaded = true;
-  } catch(e) {}
+  // SECURITY FIX: this read localStorage['mm_horizon_state'] and could
+  // clobber correctly-decrypted vault state with a stale plaintext copy
+  // — vaultDeserialize() (mastermind-vault.js, modules.horizon) already
+  // populates HORIZON_STATE.plans by the time this runs in the normal
+  // login flow, and this ran unconditionally at boot too, before that.
+  // Vault-only now; see _ORPHAN_KEYS for recovering any pre-fix copy.
+  HORIZON_STATE._loaded = true;
 }
 
 function horizonSave() {
-  try { localStorage.setItem(HORIZON_KEY, JSON.stringify({ plans: HORIZON_STATE.plans })); } catch(e) {}
+  // SECURITY FIX: this used to ALSO write localStorage['mm_horizon_state']
+  // in plaintext, in parallel with the vault, on every change. The vault
+  // is the only store now (modules.horizon already covers it in full).
   if (typeof vaultDirtySave === 'function') vaultDirtySave(5000); else autosaveJAA();
 }
 
-function horizonNewPlan(title, endState, timeframe) {
+function horizonNewPlan(title, endState, timeframe, domain) {
   const id = typeof uuid === 'function' ? uuid() : (Date.now().toString(36));
   const plan = {
     id,
     title: title || 'New Horizon Plan',
     endState: endState || '',
     timeframe: timeframe || '1 Year',
+    domain: domain && HORIZON_DOMAINS[domain] ? domain : 'being',
     conditions: [],      // reverse-causal conditions
     constraints: [],     // current + future constraints
-    failureModes: [],    // how this could fail
+    failureModes: [],    // how this could fail — preemptive problem solving
     resources: {},       // resource estimates
     milestones: [],      // { id, label, timeframe, done }
     slopes: [],          // { id, domain, current, target, rate, note }
     deltas: [],          // tracked progress deltas
+    // Seeds — small, concrete markers planted now because they point at
+    // this plan's end-state. Real implementation of the concept spec'd
+    // in NEXUS-SPEC.md Part 3.1, never built until now.
+    seeds: [],           // { id, text, plantedAt, sproutedAt }
+    // If-then commitments — the explicit ask: turn a speculative "what if"
+    // into a real, actionable "if X, then I will do Y."
+    commitments: [],     // { id, ifCondition, thenAction, done, ts }
     created: Date.now(),
     modified: Date.now(),
   };
@@ -5487,7 +7913,15 @@ function horizonNewPlan(title, endState, timeframe) {
 }
 
 function horizonGetPlan(id) {
-  return HORIZON_STATE.plans.find(p => p.id === id) || null;
+  const p = HORIZON_STATE.plans.find(p => p.id === id) || null;
+  // Backfill fields for plans saved before this session's additions —
+  // same defensive pattern used for ALM's feedbackLoops field.
+  if (p) {
+    if (!p.domain) p.domain = 'being';
+    if (!p.seeds) p.seeds = [];
+    if (!p.commitments) p.commitments = [];
+  }
+  return p;
 }
 
 function horizonUpdatePlan(id, changes) {
@@ -5514,6 +7948,122 @@ function horizonAddMilestone(planId, label, timeframe) {
   p.milestones.push({ id, label, timeframe: timeframe || '1 Month', done: false, created: Date.now() });
   p.modified = Date.now();
   horizonSave();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AI END-STATE GENERATION & BACKWARD CONDITION-MAPPING
+// Spec: docs/NEXUS-SPEC.md Part 3.1b. Same aiCall funnel every other
+// AI feature uses (Void: voidExpandWhatifAI/voidBridgeAI) — no new
+// transport, no new data shape beyond fields Horizon already has.
+// ─────────────────────────────────────────────────────────────────
+
+function _horizonAIContext() {
+  const plans = HORIZON_STATE.plans.slice(-6)
+    .map(p => `- [${p.domain}] ${p.title}: ${p.endState || '(no end-state yet)'}`).join('\n');
+  let deltas = '';
+  try {
+    if (typeof ALM_STATE !== 'undefined' && ALM_STATE.deltas) {
+      deltas = ALM_STATE.deltas.slice(-8).map(d => `- ${d.type}: ${d.text}`).join('\n');
+    }
+  } catch (e) {}
+  return `EXISTING PLANS:\n${plans || '(none yet)'}\n\nRECENT SIGNAL:\n${deltas || '(none)'}`;
+}
+
+async function horizonGenerateEndStates(seedContext) {
+  const detail = document.getElementById('hz-detail');
+  if (!detail) return;
+  if (typeof T !== 'undefined' && T.aiThinking) T.aiThinking();
+  const sys = 'You are a strategic foresight generator for a personal Horizon Planning tool. ' +
+    'Generate speculative end-states — concrete future conditions, not tasks or wishes. ' +
+    'Deliberately varied across life domains. Provocative and non-obvious over safe and generic.';
+  const ctx = _horizonAIContext();
+  const ask = seedContext
+    ? `Generate 5 speculative end-states related to: "${seedContext}".`
+    : `Generate 5 speculative end-states, deliberately varied across different life domains, ` +
+      `informed by (but not repeating) this context:\n\n${ctx}`;
+  try {
+    const result = await aiCall(sys, ask +
+      '\n\nReturn ONLY valid JSON array: [{"title":"short label","endState":"1-2 sentence concrete future condition"}]');
+    if (typeof T !== 'undefined' && T.aiDone) T.aiDone();
+    if (!result) return;
+    const clean = result.replace(/```json|```/g, '').trim();
+    const list = JSON.parse(clean);
+    _renderEndStatePicker(detail, Array.isArray(list) ? list : []);
+  } catch (e) {
+    if (typeof T !== 'undefined' && T.aiDone) T.aiDone();
+    mm_toast('AI end-state generation failed: ' + e.message, 'error');
+  }
+}
+
+function _renderEndStatePicker(detail, list) {
+  window._hzGenerated = list;
+  detail.innerHTML = `
+    <div style="max-width:640px">
+      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+        letter-spacing:4px;color:#d4a820;margin-bottom:6px">AI-GENERATED END-STATES</div>
+      <div style="font-family:var(--f-mono);font-size:7.5px;color:var(--dim);
+        margin-bottom:18px;letter-spacing:1px">PICK ONE TO ADOPT AS A DRAFT PLAN — CONDITIONS BACKWARD-MAP AUTOMATICALLY</div>
+      ${list.length ? list.map((es, i) => `
+        <div onclick="horizonAdoptGeneratedEndState(${i})"
+          style="padding:14px 16px;margin-bottom:10px;border:1px solid rgba(212,168,32,.3);
+            background:rgba(212,168,32,.04);cursor:pointer;transition:all .15s"
+          onmouseenter="this.style.background='rgba(212,168,32,.12)';this.style.borderColor='#d4a820'"
+          onmouseleave="this.style.background='rgba(212,168,32,.04)';this.style.borderColor='rgba(212,168,32,.3)'">
+          <div style="font-family:var(--f-body);font-size:11px;font-weight:700;
+            color:var(--bright);margin-bottom:5px">${escH(es.title || 'Untitled')}</div>
+          <div style="font-family:var(--f-body);font-size:10px;color:var(--c);
+            line-height:1.6">${escH(es.endState || '')}</div>
+        </div>
+      `).join('') : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);padding:20px 0">
+        No end-states generated — try again.</div>`}
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button onclick="horizonGenerateEndStates()" style="padding:10px 16px;border:1px solid var(--wire2);
+          background:transparent;color:var(--dim);font-family:var(--f-mono);font-size:8px;
+          letter-spacing:1px;cursor:pointer">↻ REGENERATE</button>
+        <button onclick="openHorizon()" style="padding:10px 16px;border:1px solid var(--wire2);
+          background:transparent;color:var(--dim);font-family:var(--f-mono);font-size:8px;
+          letter-spacing:1px;cursor:pointer">CANCEL</button>
+      </div>
+    </div>
+  `;
+}
+
+async function horizonAdoptGeneratedEndState(index) {
+  const es = (window._hzGenerated || [])[index];
+  if (!es) return;
+  const plan = horizonNewPlan(es.title || 'New Horizon Plan', es.endState || '',
+    window._hzNewTf || '1 Year', window._hzNewDomain || 'being');
+  window._hzSelected = plan.id;
+  const overlay = document.getElementById('mm-horizon-overlay');
+  if (overlay) _renderHorizonUI(overlay);
+  horizonSelectPlan(plan.id);
+  await horizonBackmapConditions(plan.id);
+}
+
+async function horizonBackmapConditions(planId) {
+  const p = horizonGetPlan(planId); if (!p) return;
+  if (typeof T !== 'undefined' && T.aiThinking) T.aiThinking();
+  const sys = 'You are a strategic planning assistant. Given a plan end-state, backward-map what ' +
+    'would have to be true to reach it — reverse-causal conditions and concrete near-term milestones. ' +
+    'Be specific, not motivational.';
+  const ask = `PLAN: "${p.title}"\nEND-STATE: "${p.endState}"\nTIMEFRAME: ${p.timeframe}\n\n` +
+    `Return ONLY valid JSON: {"conditions":["reverse-causal condition", ...3-5 items], ` +
+    `"milestones":[{"label":"concrete near-term milestone","timeframe":"e.g. 1 Month"}] (2-4 items)}`;
+  try {
+    const result = await aiCall(sys, ask);
+    if (typeof T !== 'undefined' && T.aiDone) T.aiDone();
+    if (!result) return;
+    const clean = result.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(clean);
+    (data.conditions || []).forEach(c => horizonAddCondition(planId, c));
+    (data.milestones || []).forEach(m => horizonAddMilestone(planId, m.label, m.timeframe));
+    horizonSelectPlan(planId);
+    mm_toast('Backward-mapped ' + ((data.conditions || []).length) + ' conditions, ' +
+      ((data.milestones || []).length) + ' milestones', 'success');
+  } catch (e) {
+    if (typeof T !== 'undefined' && T.aiDone) T.aiDone();
+    mm_toast('Backward-mapping failed: ' + e.message, 'error');
+  }
 }
 
 function horizonExportToCanvas(planId) {
@@ -5592,12 +8142,13 @@ function openHorizon() {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
   _renderHorizonUI(overlay);
 }
 
 function closeHorizon() {
   const el = document.getElementById('mm-horizon-overlay');
-  if (el) el.style.display = 'none';
+  if (el) { el.style.display = 'none'; el.style.pointerEvents = 'none'; }
 }
 
 function _renderHorizonUI(container) {
@@ -5618,6 +8169,17 @@ function _renderHorizonUI(container) {
           padding:8px 18px;border:1px solid #d4a820;color:#d4a820;background:rgba(212,168,32,.08);
           cursor:pointer;transition:all .18s" onmouseenter="this.style.background='rgba(212,168,32,.16)'"
           onmouseleave="this.style.background='rgba(212,168,32,.08)'">⊞ NEW PLAN</button>
+        <button onclick="horizonGenerateEndStates()" style="
+          font-family:var(--f-display);font-size:9px;font-weight:700;letter-spacing:2px;
+          padding:8px 18px;border:1px solid #d4a820;color:#d4a820;background:rgba(212,168,32,.08);
+          cursor:pointer;transition:all .18s" onmouseenter="this.style.background='rgba(212,168,32,.16)'"
+          onmouseleave="this.style.background='rgba(212,168,32,.08)'"
+          title="AI generates speculative end-states — pick one, conditions backward-map automatically">✦ AI END-STATES</button>
+        <button onclick="horizonShowIdentityView()" style="
+          font-family:var(--f-display);font-size:9px;font-weight:700;letter-spacing:2px;
+          padding:8px 18px;border:1px solid #ffe04a;color:#ffe04a;background:rgba(255,224,74,.08);
+          cursor:pointer;transition:all .18s" onmouseenter="this.style.background='rgba(255,224,74,.16)'"
+          onmouseleave="this.style.background='rgba(255,224,74,.08)'" title="Who you're becoming, across every plan and domain">◉ WHO I AM</button>
         <button onclick="showModuleHelp('horizon')" style="
           font-family:var(--f-mono);font-size:8px;letter-spacing:1px;
           padding:8px 14px;border:1px solid #d4a82055;color:#d4a820;
@@ -5707,6 +8269,20 @@ function horizonNewPlanPrompt() {
           onfocus="this.style.borderColor='#d4a820'" onblur="this.style.borderColor=''"></textarea>
       </div>
 
+      <div style="margin-bottom:14px">
+        <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;
+          color:var(--dim);text-transform:uppercase;margin-bottom:5px">Life Domain — which part of who you're becoming is this?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${Object.entries(HORIZON_DOMAINS).map(([key, d]) => `
+            <button onclick="document.querySelectorAll('.hz-dom-btn').forEach(b=>{b.classList.remove('sel');b.style.background='transparent';});this.classList.add('sel');this.style.background='${d.color}22';window._hzNewDomain='${key}'"
+              class="hz-dom-btn${key === 'being' ? ' sel' : ''}" data-domain="${key}"
+              style="font-family:var(--f-mono);font-size:7px;letter-spacing:.5px;
+                padding:5px 10px;border:1px solid ${d.color}44;background:${key === 'being' ? d.color + '22' : 'transparent'};
+                color:${d.color};cursor:pointer;transition:all .15s">${d.icon} ${d.label}</button>
+          `).join('')}
+        </div>
+      </div>
+
       <div style="margin-bottom:20px">
         <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;
           color:var(--dim);text-transform:uppercase;margin-bottom:5px">Timeframe</div>
@@ -5738,14 +8314,16 @@ function horizonNewPlanPrompt() {
     </div>
   `;
   window._hzNewTf = '1 Year';
+  window._hzNewDomain = 'being';
 }
 
 function horizonCreateFromForm() {
   const title = document.getElementById('hz-new-title')?.value.trim();
   const endState = document.getElementById('hz-new-endstate')?.value.trim();
   const tf = window._hzNewTf || '1 Year';
+  const domain = window._hzNewDomain || 'being';
   if (!title) { MMToast?.warn('Plan title required') || toast('Plan title required'); return; }
-  const plan = horizonNewPlan(title, endState, tf);
+  const plan = horizonNewPlan(title, endState, tf, domain);
   window._hzSelected = plan.id;
   const overlay = document.getElementById('mm-horizon-overlay');
   if (overlay) _renderHorizonUI(overlay);
@@ -5952,6 +8530,224 @@ function horizonSelectPlan(id) {
               background:transparent;cursor:pointer;font-family:var(--f-mono);font-size:7px">+ ADD</button>
         </div>
       </div>
+
+      <!-- Seeds — small markers planted now because they point at the end-state -->
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;
+          color:#00ff88;text-transform:uppercase;margin-bottom:8px;
+          border-bottom:1px solid rgba(0,255,136,.2);padding-bottom:5px">
+          ✦ SEEDS
+          <span style="font-size:6px;color:var(--dim);letter-spacing:0;text-transform:none;margin-left:6px">
+            Knowledge or practice to plant now for later — not a task, a seed
+          </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+          ${p.seeds.map(s => `
+            <div style="display:flex;align-items:center;gap:8px;
+              padding:8px 12px;background:var(--abyss);border:1px solid var(--wire);
+              border-left:2px solid ${s.sproutedAt ? '#00ff88' : 'var(--wire2)'}">
+              <span style="font-size:11px">${s.sproutedAt ? '🌱' : '·'}</span>
+              <span style="flex:1;font-family:var(--f-mono);font-size:8.5px;color:var(--muted)">${escH(s.text)}</span>
+              <span style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim)">
+                ${s.sproutedAt ? 'sprouted ' + _hzTimeAgo(s.sproutedAt) : 'planted ' + _hzTimeAgo(s.plantedAt)}</span>
+              ${!s.sproutedAt ? `<button onclick="horizonSproutSeed('${p.id}','${s.id}')" title="Mark as sprouted — this showed up as real behavior"
+                style="background:none;border:none;color:#00ff88;cursor:pointer;font-size:11px">🌱</button>` : ''}
+              <button onclick="horizonDeleteSeed('${p.id}','${s.id}')" style="background:none;border:none;color:var(--wire2);cursor:pointer;font-size:12px">×</button>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:6px">
+          <input id="hz-seed-input-${p.id}" type="text" placeholder="A belief, practice, or skill to plant now..."
+            style="flex:1;background:var(--deep);border:1px solid var(--wire2);
+              color:var(--white);font-family:var(--f-mono);font-size:9px;padding:7px 10px;outline:none"
+            onkeydown="if(event.key==='Enter')horizonAddSeed('${p.id}')"
+            onfocus="this.style.borderColor='#00ff88'" onblur="this.style.borderColor=''">
+          <button onclick="horizonAddSeed('${p.id}')"
+            style="padding:7px 14px;border:1px solid rgba(0,255,136,.4);color:#00ff88;
+              background:transparent;cursor:pointer;font-family:var(--f-mono);font-size:7px">+ PLANT</button>
+        </div>
+      </div>
+
+      <!-- If-Then Commitments — turn a speculative "what if" into a real, actionable "if X then I will do Y" -->
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;
+          color:#ff8c22;text-transform:uppercase;margin-bottom:8px;
+          border-bottom:1px solid rgba(255,140,34,.2);padding-bottom:5px">
+          ⚡ IF-THEN COMMITMENTS
+          <span style="font-size:6px;color:var(--dim);letter-spacing:0;text-transform:none;margin-left:6px">
+            Not "what if" — a specific trigger and a specific action, decided now
+          </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+          ${p.commitments.map(c => `
+            <div style="display:flex;align-items:center;gap:8px;
+              padding:8px 12px;background:var(--abyss);border:1px solid var(--wire);
+              border-left:2px solid ${c.done ? '#00ff88' : '#ff8c22'}">
+              <input type="checkbox" ${c.done ? 'checked' : ''}
+                onchange="horizonToggleCommitment('${p.id}','${c.id}',this.checked)"
+                style="cursor:pointer;accent-color:#ff8c22">
+              <span style="flex:1;font-family:var(--f-mono);font-size:8.5px;
+                color:${c.done ? 'var(--dim)' : 'var(--muted)'};${c.done ? 'text-decoration:line-through' : ''}">
+                <span style="color:#ff8c22">IF</span> ${escH(c.ifCondition)}
+                <span style="color:#ff8c22;margin:0 4px">→ THEN</span> ${escH(c.thenAction)}</span>
+              <button onclick="horizonDeleteCommitment('${p.id}','${c.id}')" style="background:none;border:none;color:var(--wire2);cursor:pointer;font-size:12px">×</button>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input id="hz-commit-if-${p.id}" type="text" placeholder="If this happens..."
+            style="flex:1;min-width:180px;background:var(--deep);border:1px solid var(--wire2);
+              color:var(--white);font-family:var(--f-mono);font-size:9px;padding:7px 10px;outline:none"
+            onfocus="this.style.borderColor='#ff8c22'" onblur="this.style.borderColor=''">
+          <input id="hz-commit-then-${p.id}" type="text" placeholder="...then I will do this"
+            style="flex:1;min-width:180px;background:var(--deep);border:1px solid var(--wire2);
+              color:var(--white);font-family:var(--f-mono);font-size:9px;padding:7px 10px;outline:none"
+            onkeydown="if(event.key==='Enter')horizonAddCommitment('${p.id}')"
+            onfocus="this.style.borderColor='#ff8c22'" onblur="this.style.borderColor=''">
+          <button onclick="horizonAddCommitment('${p.id}')"
+            style="padding:7px 14px;border:1px solid rgba(255,140,34,.4);color:#ff8c22;
+              background:transparent;cursor:pointer;font-family:var(--f-mono);font-size:7px">+ COMMIT</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _hzTimeAgo(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+function horizonAddSeed(planId) {
+  const inp = document.getElementById('hz-seed-input-' + planId);
+  const text = inp?.value.trim();
+  if (!text) return;
+  const p = horizonGetPlan(planId); if (!p) return;
+  const _seedId = uuid();
+  p.seeds.push({ id: _seedId, text, plantedAt: Date.now(), sproutedAt: null });
+  if (typeof latticeIngest === 'function') {
+    try { latticeIngest('horizon.seed', _seedId, text, { extra: { planId, planTitle: p.title, domain: p.domain } }); } catch (e) {}
+  }
+  p.modified = Date.now();
+  horizonSave();
+  if (typeof almEmit === 'function') almEmit('alm.delta.logged', { id: planId, type: 'horizon-seed', ts: Date.now() });
+  horizonSelectPlan(planId);
+}
+function horizonSproutSeed(planId, seedId) {
+  const p = horizonGetPlan(planId); if (!p) return;
+  const s = p.seeds.find(s => s.id === seedId); if (!s) return;
+  s.sproutedAt = Date.now();
+  p.modified = Date.now();
+  horizonSave();
+  // The actual interconnection: a seed sprouting is real growth signal,
+  // not just a Horizon-local checkbox. Logged through ALM's shared delta
+  // substrate so it's visible wherever growth is tracked — this is the
+  // 'horizon' delta type that sat unused in the type-color map for
+  // months before it had anything real to log.
+  if (typeof almWriteDelta === 'function') {
+    almWriteDelta('horizon', `Seed sprouted: "${s.text}" (${p.title})`, { planId, seedId, kind: 'seed-sprout' });
+  }
+  horizonSelectPlan(planId);
+}
+function horizonDeleteSeed(planId, seedId) {
+  const p = horizonGetPlan(planId); if (!p) return;
+  p.seeds = p.seeds.filter(s => s.id !== seedId);
+  p.modified = Date.now();
+  horizonSave();
+  horizonSelectPlan(planId);
+}
+
+function horizonAddCommitment(planId) {
+  const ifInp = document.getElementById('hz-commit-if-' + planId);
+  const thenInp = document.getElementById('hz-commit-then-' + planId);
+  const ifCondition = ifInp?.value.trim();
+  const thenAction = thenInp?.value.trim();
+  if (!ifCondition || !thenAction) { mm_toast('Both the IF and THEN need to be filled in', 'warn'); return; }
+  const p = horizonGetPlan(planId); if (!p) return;
+  const _commitId = uuid();
+  p.commitments.push({ id: _commitId, ifCondition, thenAction, done: false, ts: Date.now() });
+  if (typeof latticeIngest === 'function') {
+    try { latticeIngest('horizon.commit', _commitId, 'If ' + ifCondition + ' then ' + thenAction, { extra: { planId, planTitle: p.title } }); } catch (e) {}
+  }
+  p.modified = Date.now();
+  horizonSave();
+  horizonSelectPlan(planId);
+}
+function horizonToggleCommitment(planId, commitId, done) {
+  const p = horizonGetPlan(planId); if (!p) return;
+  const c = p.commitments.find(c => c.id === commitId); if (!c) return;
+  c.done = done;
+  p.modified = Date.now();
+  horizonSave();
+  // Same wire as seed-sprouting — completing a real if-then commitment is
+  // growth signal, logged only on the transition TO done, not on undo.
+  if (done && typeof almWriteDelta === 'function') {
+    almWriteDelta('horizon', `Commitment kept: if ${c.ifCondition} → ${c.thenAction} (${p.title})`, { planId, commitId, kind: 'commitment-kept' });
+  }
+  horizonSelectPlan(planId);
+}
+function horizonDeleteCommitment(planId, commitId) {
+  const p = horizonGetPlan(planId); if (!p) return;
+  p.commitments = p.commitments.filter(c => c.id !== commitId);
+  p.modified = Date.now();
+  horizonSave();
+  horizonSelectPlan(planId);
+}
+
+function horizonShowIdentityView() {
+  window._hzSelected = null;
+  document.querySelectorAll('[id^="hz-plan-item-"]').forEach(el => { el.style.borderLeftColor = 'transparent'; el.style.background = ''; });
+  const detail = document.getElementById('hz-detail'); if (!detail) return;
+  const plans = HORIZON_STATE.plans;
+
+  if (!plans.length) {
+    detail.innerHTML = `<div style="color:var(--dim);font-family:var(--f-mono);font-size:8px;
+      padding:20px;text-align:center">No plans yet — Who I Am maps what already exists.</div>`;
+    return;
+  }
+
+  detail.innerHTML = `
+    <div style="max-width:900px">
+      <div style="margin-bottom:6px;font-family:var(--f-display);font-size:15px;font-weight:800;
+        letter-spacing:4px;color:#ffe04a">WHO I AM BECOMING</div>
+      <div style="margin-bottom:24px;font-family:var(--f-mono);font-size:8px;color:var(--dim);
+        line-height:1.8">Every end-state you've written, by domain — not what you're doing, who you're
+        becoming while you do it.</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+        ${Object.entries(HORIZON_DOMAINS).map(([key, d]) => {
+          const domainPlans = plans.filter(p => (p.domain || 'being') === key);
+          if (!domainPlans.length) return '';
+          return `
+            <div style="padding:16px;background:${d.color}0a;border:1px solid ${d.color}33;border-left:3px solid ${d.color}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-size:16px;color:${d.color}">${d.icon}</span>
+                <span style="font-family:var(--f-display);font-size:10px;font-weight:800;
+                  letter-spacing:2px;color:${d.color}">${d.label.toUpperCase()}</span>
+              </div>
+              ${domainPlans.map(p => {
+                const pct = p.milestones.length ? Math.round(p.milestones.filter(m=>m.done).length / p.milestones.length * 100) : 0;
+                return `
+                <div onclick="horizonSelectPlan('${p.id}')" style="margin-bottom:10px;padding:10px;
+                  background:rgba(0,0,0,.25);cursor:pointer;transition:background .15s"
+                  onmouseenter="this.style.background='rgba(0,0,0,.4)'" onmouseleave="this.style.background='rgba(0,0,0,.25)'">
+                  <div style="font-family:var(--f-body);font-size:10px;font-weight:600;
+                    color:var(--bright);margin-bottom:4px">${escH(p.title)}</div>
+                  <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+                    line-height:1.6">${escH(p.endState) || '<span style="color:var(--dim);font-style:italic">No end-state written yet</span>'}</div>
+                  ${p.milestones.length ? `<div style="margin-top:6px;height:2px;background:var(--wire)">
+                    <div style="height:100%;width:${pct}%;background:${d.color}"></div></div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>`;
+        }).join('') || `<div style="color:var(--dim);font-family:var(--f-mono);font-size:8px;
+          grid-column:1/-1;text-align:center;padding:20px">No domains assigned yet.</div>`}
+      </div>
     </div>
   `;
 }
@@ -6023,8 +8819,8 @@ function horizonToggleMilestone(planId, msId, done) {
   if (bar) bar.style.width = pct + '%';
 }
 
-function horizonDeletePlan(planId) {
-  if (!confirm('Delete this horizon plan? This cannot be undone.')) return;
+async function horizonDeletePlan(planId) {
+  if (!(await mmConfirm('Delete this horizon plan? This cannot be undone.'))) return;
   HORIZON_STATE.plans = HORIZON_STATE.plans.filter(p => p.id !== planId);
   window._hzSelected = null;
   MMRegistry?.remove(planId);
@@ -6144,7 +8940,8 @@ function dismissWelcomeScreen() {
   if (!el) return;
   el.style.transition = 'opacity .5s';
   el.style.opacity = '0';
-  setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 520);
+  el.style.pointerEvents = 'none'; // stop catching clicks immediately, not 520ms from now
+  setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; el.style.pointerEvents = ''; }, 520);
   // Mark as seen
   localStorage.setItem('mm_welcome_seen', '1');
   MMLog?.info('core', 'Welcome screen dismissed');
@@ -6186,6 +8983,17 @@ function _initWelcomeBg(cvs) {
 function maybeShowWelcome() {
   const seen = localStorage.getItem('mm_welcome_seen');
   const firstTime = localStorage.getItem('mm_first_welcome_done');
+  // localStorage doesn't survive an uninstall/reinstall; the vault does.
+  // A vault with real save history is unambiguously not a first-time
+  // identity regardless of what this machine's localStorage remembers —
+  // without this, every reinstall replays the first-run splash on top of
+  // years of real data.
+  const returningVault = typeof VAULT !== 'undefined' && (VAULT.saveCount || 0) > 1;
+  if (returningVault) {
+    localStorage.setItem('mm_welcome_seen', '1');
+    localStorage.setItem('mm_first_welcome_done', '1');
+    return;
+  }
   if (!seen && !firstTime) {
     localStorage.setItem('mm_first_welcome_done', '1');
     setTimeout(() => showWelcomeScreen(), 300);
@@ -6270,7 +9078,7 @@ const FEATURE_GATES = {
   cloud:         { label: 'Cloud Sync',           reason: 'Backend not yet configured',                      status: 'planned'  },
   update:        { label: 'Auto-Update',          reason: 'Update server not connected in this build',       status: 'partial'  },
   emotions_full: { label: 'Emotions Module',      reason: 'Full toolkit under construction — use Brain Map → Emotions for now', status: 'partial' },
-  relationships: { label: 'Relationships Module', reason: 'Module under construction — use Brain Map → Relationships for now', status: 'partial' },
+  relationships: { label: 'Relational Systems Module', reason: 'Module under construction — use Brain Map → Relational Systems for now', status: 'partial' },
   alm_full:      { label: 'ALM Full Suite',       reason: 'Some ALM sections are stubs — core features work', status: 'partial' },
   export_png:    { label: 'PNG Export',           reason: 'Canvas-to-image export not yet implemented',      status: 'planned'  },
   multi_vault:   { label: 'Multiple Vaults',      reason: 'Single vault per user — multi-vault in v4',       status: 'planned'  },
@@ -6610,7 +9418,16 @@ const BMV2 = {
   _selectedNode: null,
   _raf: null,
   _dirty: true,
+  _zoomLevel: 0,                // 0 = 13 meta-domains only · 1 = + subdomains of expanded metas · 2 = + canvas nodes & custom domains
+  // _camAz, _camEl: orbit camera azimuth/elevation (radians). Left undefined
+  // here on purpose — every read site falls back to BMV2_DEFAULT_ELEVATION
+  // (top-down), which is declared further down near _bmProjectNodes.
 };
+const BMV2_ZOOM_LEVELS = [
+  { key: 0, label: 'META',   icon: '◉', hint: '13 meta-domains' },
+  { key: 1, label: 'DOMAINS', icon: '◎', hint: 'expanded sub-domains' },
+  { key: 2, label: 'DETAIL', icon: '◈', hint: '+ canvas nodes' },
+];
 const BMV2_STORAGE_KEY = 'mm_brain_map_v2';
 
 // ── Lazy-load + cache helper ──────────────────────────────────────
@@ -6646,7 +9463,8 @@ function bmv2Load() {
 
 // ── Build node graph: central hub → 13 meta → domains → subs ─────
 function _bmBuildGraph(expandedSet) {
-  const cacheKey = 'graph_' + [...expandedSet].sort().join(',') + '_' + CANVAS.NX.nodes.length;
+  const zoomLevel = BMV2._zoomLevel || 0;
+  const cacheKey = 'graph_z' + zoomLevel + '_' + [...expandedSet].sort().join(',') + '_' + CANVAS.NX.nodes.length;
   const cached = _bmCacheGet(cacheKey);
   if (cached) return cached;
 
@@ -6684,6 +9502,9 @@ function _bmBuildGraph(expandedSet) {
     };
     nodes.push(metaNode);
     links.push({ from: '__hub__', to: metaNode.id, color: meta.color + '44', width: 1.5 });
+
+    // Zoom level 0 — meta-domains only. Stop here regardless of expand state.
+    if (zoomLevel === 0) return;
 
     if (!expandedSet.has(metaKey)) return; // lazy — don't build sub-nodes until expanded
 
@@ -6740,6 +9561,9 @@ function _bmBuildGraph(expandedSet) {
       });
     });
 
+    // Zoom level 1 stops before canvas nodes / custom domains — those are level 2 only.
+    if (zoomLevel < 2) return;
+
     // Also add any canvas nodes that match this meta domain
     CANVAS.NX.nodes.forEach(n => {
       const nt = CANVAS.NT[n.type] || NT.concept;
@@ -6786,6 +9610,53 @@ function _bmBuildGraph(expandedSet) {
 }
 
 // ── Render brain map v2 ───────────────────────────────────────────
+// ── Shared orbit-camera projection — used by both bmv2Render (drawing)
+// and _bmHitTest (click detection), so the two can never drift out of sync.
+//
+// This is a real 3D map camera, not the old single-axis "sphere" trick:
+// each node's (x, y) from _bmBuildGraph's radial layout becomes its actual
+// ground-plane (X, Z) position — hub at the center, meta/domain/sub rings
+// expanding outward exactly as laid out — plus a small per-type height for
+// visual stratification. The camera orbits that plane on two real axes:
+// azimuth (spin around the vertical) and elevation (tilt from straight-down
+// top-down at 90° toward a near-horizon view at low angles). This also
+// fixes a real bug in the old projection: it only used each node's angle
+// and a fixed per-type "latitude," completely ignoring the actual radius
+// _bmBuildGraph computed — so the rings it worked hard to lay out never
+// actually showed up as rings.
+const BMV2_TYPE_HEIGHT = { hub: 0, meta: 14, domain: 7, sub: 2, canvas: 4, 'custom-domain': 9 };
+const BMV2_MIN_ELEVATION = 8   * Math.PI / 180;
+const BMV2_MAX_ELEVATION = 90  * Math.PI / 180;
+const BMV2_DEFAULT_ELEVATION = 88 * Math.PI / 180; // starts top-down, per spec
+const BMV2_REF_RADIUS = 220; // world units the meta ring should read as ~baseR on screen
+
+function _bmProjectNodes(nodes, cx, cy, baseR) {
+  const az = BMV2._camAz || 0;
+  const el = BMV2._camEl !== undefined ? BMV2._camEl : BMV2_DEFAULT_ELEVATION;
+  const scale = baseR / BMV2_REF_RADIUS;
+  const cosAz = Math.cos(az), sinAz = Math.sin(az);
+  const cosEl = Math.cos(el), sinEl = Math.sin(el);
+
+  return nodes.map(n => {
+    const wx = n.x, wz = n.y; // ground-plane position, exactly as laid out
+    const wy = BMV2_TYPE_HEIGHT[n.type] || 0;
+
+    // Yaw (azimuth) — spin the map around the vertical axis
+    const rx = wx * cosAz - wz * sinAz;
+    const rz = wx * sinAz + wz * cosAz;
+
+    // Elevation tilt — at el=90° (top-down) screen Y tracks rz (map depth)
+    // and height has zero effect (correct: looking straight down, height
+    // doesn't move screen position). At low el (near-horizon) screen Y
+    // tracks height instead and rz collapses into pure depth.
+    const px = cx + rx * scale;
+    const py = cy - (wy * cosEl - rz * sinEl) * scale;
+    const depth = wy * sinEl + rz * cosEl; // for back-to-front sort + depth cue
+
+    return { n, px, py, depth, scale };
+  });
+}
+
 function bmv2Render() {
   const cvs = document.getElementById('brain-cvs');
   if (!cvs) return;
@@ -6833,86 +9704,61 @@ function bmv2Render() {
   const cy = H / 2 + BMV2._pan.y;
   const baseR = Math.min(W, H) * 0.38 * BMV2._pan.zoom;
 
-  // Auto-rotate speed (stops when user is interacting)
-  const rotY = BMV2._rotY !== undefined ? BMV2._rotY : 0;
+  // Idle auto-spin — orbits azimuth only, elevation stays wherever the
+  // user left it (or the top-down default if they haven't touched it).
   if (!BMV2._userInteracting) {
-    BMV2._rotY = (BMV2._rotY || 0) + 0.002;
+    BMV2._camAz = (BMV2._camAz || 0) + 0.002;
   }
 
-  // Map each node's (x,y) from the flat 2D graph onto a sphere
-  // using the node's angle (theta) as longitude and type-based latitude
-  const typeLatitude = { hub:-0, meta:.6, domain:.75, sub:.88, canvas:.5, 'custom-domain':.7 };
-
-  // Pre-project all nodes to get z-depth for sorting
-  const projected = nodes.map(n => {
-    // Longitude from node's angle; latitude from type
-    const lon = (n.angle !== undefined ? n.angle : Math.atan2(n.y, n.x)) + (BMV2._rotY || 0);
-    const latFrac = typeLatitude[n.type] || 0.6;
-    const lat = (latFrac - 0.5) * Math.PI; // -π/2 to π/2
-
-    // Spherical to 3D Cartesian
-    const sx = Math.cos(lat) * Math.cos(lon);
-    const sy = Math.sin(lat);
-    const sz = Math.cos(lat) * Math.sin(lon);
-
-    // Simple perspective projection
-    const perspective = 2.2;
-    const scale = perspective / (perspective - sz);
-    const px3 = cx + sx * baseR * scale;
-    const py3 = cy - sy * baseR * scale;
-    const visible = sz < 0.95; // cull back-facing nodes
-    const alpha = visible ? Math.max(0.08, (1 - sz) * 0.9) : 0;
-
-    return { n, px: px3, py: py3, sz, scale, alpha, visible };
-  });
+  // Pre-project all nodes. Shared with _bmHitTest() below so clicking
+  // always matches what's drawn.
+  const projected = _bmProjectNodes(nodes, cx, cy, baseR);
 
   // Sort back-to-front for correct overdraw
-  projected.sort((a, b) => a.sz - b.sz);
+  projected.sort((a, b) => a.depth - b.depth);
 
   // ── Build O(1) projection index (replaces O(n²) projected.find) ──
   const projIndex = new Map();
   projected.forEach(p => projIndex.set(p.n.id, p));
 
-  // ── Draw connections (great-circle arcs approximated as lines) ──
+  // ── Draw connections ───────────────────────────────────────────
   links.forEach(lk => {
     const fp = projIndex.get(lk.from);
     const tp = projIndex.get(lk.to);
-    if (!fp || !tp || !fp.visible || !tp.visible) return;
-    const alpha = Math.min(fp.alpha, tp.alpha) * 0.6;
-    if (alpha < 0.04) return;
+    if (!fp || !tp) return;
 
     const col = lk.color || 'rgba(0,200,255,.15)';
-    // Parse existing color and apply alpha
-    const baseAlpha = lk.dashed ? alpha * 0.4 : alpha * 0.7;
+    const baseAlpha = lk.dashed ? 0.28 : 0.5;
     ctx.beginPath();
     ctx.moveTo(fp.px, fp.py);
-    // Slight arc through sphere surface midpoint
     const mpx = (fp.px + tp.px) / 2 + (tp.py - fp.py) * 0.1;
     const mpy = (fp.py + tp.py) / 2 - (tp.px - fp.px) * 0.1;
     ctx.quadraticCurveTo(mpx, mpy, tp.px, tp.py);
     ctx.strokeStyle = col.replace(/[\d.]+\)$/, `${baseAlpha})`).replace(/var\(--c\)/, `rgba(0,200,255,${baseAlpha})`);
-    ctx.lineWidth = (lk.width || 1) * fp.scale * 0.7;
+    ctx.lineWidth = lk.width || 1;
     if (lk.dashed) ctx.setLineDash([3, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
   });
 
-  // ── Draw nodes as glowing spherical dots ──────────────────────
-  projected.forEach(({ n, px: px3, py: py3, sz, scale, alpha, visible }) => {
-    if (!visible || alpha < 0.04) return;
-
+  // ── Draw nodes as glowing dots on the map plane ────────────────
+  // A map should stay legible regardless of depth, so unlike the old
+  // sphere renderer this doesn't fade or shrink nodes by distance —
+  // every node draws at full strength, position/order is what carries
+  // the 3D read now, not fake depth-of-field.
+  const alpha = 1;
+  projected.forEach(({ n, px: px3, py: py3 }) => {
     const isSelected = BMV2._selectedNode === n.id;
     const col = (n.color || '#00c8ff').replace('var(--c)', '#00c8ff');
 
-    // Dot radius — perspective-scaled
-    let r = n.r * scale * (BMV2._pan.zoom || 1);
+    let r = n.r * (BMV2._pan.zoom || 1);
     r = Math.max(1.5, Math.min(r, 28));
 
     // Glow halo (for meta/hub nodes)
     if (n.type === 'hub' || n.type === 'meta' || isSelected) {
       const glowR = r * (n.type === 'hub' ? 3.5 : 2.5);
       const grd = ctx.createRadialGradient(px3, py3, 0, px3, py3, glowR);
-      grd.addColorStop(0, (col.startsWith('#') ? `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},${alpha * 0.4})` : col.replace(/[\d.]+\)$/, `${alpha * 0.5})`).replace(/var\(--c\)/, `rgba(0,200,255,${alpha * 0.4})`)));
+      grd.addColorStop(0, (col.startsWith('#') ? `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.4)` : col.replace(/[\d.]+\)$/, '0.5)').replace(/var\(--c\)/, 'rgba(0,200,255,0.4)')));
       grd.addColorStop(1, 'transparent');
       ctx.beginPath();
       ctx.arc(px3, py3, glowR, 0, Math.PI * 2);
@@ -6920,27 +9766,34 @@ function bmv2Render() {
       ctx.fill();
     }
 
-    // Inner 3D sphere shading — radial gradient for depth illusion
-    const sphereGrd = ctx.createRadialGradient(
-      px3 - r * 0.3, py3 - r * 0.3, r * 0.05,
-      px3, py3, r
-    );
-    const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0');
-    sphereGrd.addColorStop(0, col + 'ff');
-    sphereGrd.addColorStop(0.4, _hexAlpha(col, alpha));
-    sphereGrd.addColorStop(1, '#000000' + '00');
-
-    ctx.beginPath();
-    ctx.arc(px3, py3, r, 0, Math.PI * 2);
-    ctx.fillStyle = sphereGrd;
-    ctx.fill();
+    // Inner shading — radial gradient for a subtle 3D-dot look.
+    // Skipped for small nodes (imperceptible at that size, and this is
+    // the single biggest per-frame canvas cost on a busy map).
+    if (r >= 5) {
+      const sphereGrd = ctx.createRadialGradient(
+        px3 - r * 0.3, py3 - r * 0.3, r * 0.05,
+        px3, py3, r
+      );
+      sphereGrd.addColorStop(0, col + 'ff');
+      sphereGrd.addColorStop(0.4, _hexAlpha(col, alpha));
+      sphereGrd.addColorStop(1, '#000000' + '00');
+      ctx.beginPath();
+      ctx.arc(px3, py3, r, 0, Math.PI * 2);
+      ctx.fillStyle = sphereGrd;
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(px3, py3, r, 0, Math.PI * 2);
+      ctx.fillStyle = _hexAlpha(col, alpha);
+      ctx.fill();
+    }
 
     // Rim highlight
     if (n.type === 'hub' || n.type === 'meta') {
       ctx.beginPath();
       ctx.arc(px3, py3, r, 0, Math.PI * 2);
       ctx.strokeStyle = _hexAlpha(col, alpha);
-      ctx.lineWidth = isSelected ? 2 * scale : 1 * scale;
+      ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
     }
 
@@ -6949,34 +9802,61 @@ function bmv2Render() {
       const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
       ctx.beginPath();
       ctx.arc(px3, py3, r * (1.8 + pulse * 0.7), 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(0,200,255,${0.15 * pulse * alpha})`;
+      ctx.strokeStyle = `rgba(0,200,255,${0.15 * pulse})`;
       ctx.lineWidth = 1;
       ctx.stroke();
     }
+  });
 
-    // Label — only when close enough (alpha > 0.4) or selected
-    if ((alpha > 0.38 || isSelected) && (n.type !== 'sub' || scale > 0.9)) {
-      const maxLen = n.type === 'hub' ? 10 : n.type === 'meta' ? 12 : 14;
-      const lbl = n.label.length > maxLen ? n.label.slice(0, maxLen - 1) + '…' : n.label;
-      const fontSize = Math.max(7, Math.min(12, r * 1.4));
-      ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
+  // ── Labels — separate pass with collision avoidance ────────────────
+  // Drawing labels inline with the dots (previous approach) meant every
+  // qualifying node drew its label regardless of neighbors, which turns
+  // into unreadable overlapping text the moment a cluster of sub-domain
+  // nodes are close together on the map. This pass sorts candidates by
+  // importance (hub > meta > domain > canvas/custom > sub) and skips any
+  // label whose box would overlap one already placed — important labels
+  // always win the space.
+  const labelPriority = { hub: 0, meta: 1, domain: 2, canvas: 3, 'custom-domain': 3, sub: 4 };
+  const labelCandidates = projected
+    .map(p => {
+      let r = p.n.r * (BMV2._pan.zoom || 1);
+      r = Math.max(1.5, Math.min(r, 28));
+      return { p, r };
+    })
+    .filter(({ p }) => p.n.type !== 'sub' || (BMV2._camEl !== undefined ? BMV2._camEl : BMV2_DEFAULT_ELEVATION) > 40 * Math.PI / 180)
+    .sort((a, b) => {
+      const pa = labelPriority[a.p.n.type] ?? 5, pb = labelPriority[b.p.n.type] ?? 5;
+      if (pa !== pb) return pa - pb;
+      return a.p.depth - b.p.depth; // nearer wins ties within a tier
+    });
 
-      // Text shadow for readability over the sphere
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(lbl, px3 + 0.5, py3 + r + 2.5);
-      ctx.fillStyle = n.type === 'hub'
-        ? '#00c8ff'
-        : n.type === 'meta' ? col : `rgba(192,218,240,${alpha * 0.9})`;
-      ctx.fillText(lbl, px3, py3 + r + 2);
+  const drawnLabelBoxes = [];
+  labelCandidates.forEach(({ p, r }) => {
+    const { n, px: px3, py: py3 } = p;
+    const isSelected = BMV2._selectedNode === n.id;
+    const col = (n.color || '#00c8ff').replace('var(--c)', '#00c8ff');
+    const maxLen = n.type === 'hub' ? 10 : n.type === 'meta' ? 12 : 14;
+    const lbl = n.label.length > maxLen ? n.label.slice(0, maxLen - 1) + '…' : n.label;
+    const fontSize = Math.max(7, Math.min(12, r * 1.4));
+    ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+    const textW = ctx.measureText(lbl).width;
+    const box = { x1: px3 - textW / 2 - 2, y1: py3 + r + 1, x2: px3 + textW / 2 + 2, y2: py3 + r + fontSize + 5 };
 
-      // Expand indicator
-      if ((n.type === 'meta' || n.type === 'domain') && !n.expanded) {
-        ctx.font = `${Math.max(7, r * 0.8)}px monospace`;
-        ctx.fillStyle = col + 'bb';
-        ctx.fillText('+', px3 + r + 3, py3 - r * 0.3);
-      }
+    const overlaps = drawnLabelBoxes.some(b => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1);
+    if (overlaps && !isSelected) return; // selected node's label always wins
+    drawnLabelBoxes.push(box);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(lbl, px3 + 0.5, py3 + r + 2.5);
+    ctx.fillStyle = n.type === 'hub' ? '#00c8ff' : n.type === 'meta' ? col : 'rgba(192,218,240,0.9)';
+    ctx.fillText(lbl, px3, py3 + r + 2);
+
+    if ((n.type === 'meta' || n.type === 'domain') && !n.expanded) {
+      ctx.font = `${Math.max(7, r * 0.8)}px monospace`;
+      ctx.fillStyle = col + 'bb';
+      ctx.fillText('+', px3 + r + 3, py3 - r * 0.3);
     }
   });
 
@@ -6991,6 +9871,17 @@ function bmv2Render() {
   if (bcC) bcC.textContent = domN  + ' DOMAINS';
   if (bcU) bcU.textContent = uuidN + ' UUIDS';
 
+  // Keep the globe auto-rotating, but at a lower cadence than the main
+  // 40fps cap. Continuously re-dirtying every frame (previous fix) made
+  // every visible node's canvas gradient get recreated ~40x/sec forever,
+  // which is genuinely expensive and was the real cause of the reported
+  // freeze — not a hang, just sustained high per-frame cost. Spinning
+  // doesn't need full frame rate to read as smooth.
+  if (!BMV2._userInteracting) {
+    BMV2._idleFrameCount = (BMV2._idleFrameCount || 0) + 1;
+    if (BMV2._idleFrameCount % 3 === 0) BMV2._dirty = true;
+  }
+
   BMV2._raf = requestAnimationFrame(bmv2Render);
 }
 
@@ -7000,19 +9891,27 @@ function _bmHitTest(clientX, clientY) {
   if (!cvs) return null;
   const rect = cvs.getBoundingClientRect();
   const W = cvs.width, H = cvs.height;
-  const { x: px, y: py, zoom: z } = BMV2._pan;
-  const wx = (clientX - rect.left - W / 2 - px) / z;
-  const wy = (clientY - rect.top  - H / 2 - py) / z;
+  const mx = clientX - rect.left;
+  const my = clientY - rect.top;
+
+  const cx = W / 2 + BMV2._pan.x;
+  const cy = H / 2 + BMV2._pan.y;
+  const baseR = Math.min(W, H) * 0.38 * BMV2._pan.zoom;
+
+  const projected = _bmProjectNodes(BMV2._nodes, cx, cy, baseR);
+
   let best = null, bestD = Infinity;
-  BMV2._nodes.forEach(n => {
-    const d = Math.hypot(wx - n.x, wy - n.y);
-    if (d < n.r * 2.2 && d < bestD) { bestD = d; best = n; }
+  projected.forEach(p => {
+    const r = Math.max(1.5, Math.min(p.n.r * (BMV2._pan.zoom || 1), 28));
+    const d = Math.hypot(mx - p.px, my - p.py);
+    if (d < r * 2.2 && d < bestD) { bestD = d; best = p.n; }
   });
   return best;
 }
 
 function bmv2Click(e) {
   e.stopPropagation();
+  if (BMV2._justDragged) { BMV2._justDragged = false; return; }
   const n = _bmHitTest(e.clientX, e.clientY);
   if (!n) { BMV2._selectedNode = null; BMV2._dirty = true; return; }
   BMV2._selectedNode = n.id;
@@ -7037,6 +9936,17 @@ function bmv2GoToCanvas() {
   T.info('Returning to canvas');
 }
 
+function bmv2SetZoomLevel(level) {
+  if (level === BMV2._zoomLevel) return;
+  BMV2._zoomLevel = level;
+  _bmCacheInvalidate();
+  BMV2._dirty = true;
+  BMV2_ZOOM_LEVELS.forEach(z => {
+    const btn = document.getElementById('bv-zoom-' + z.key);
+    if (btn) btn.classList.toggle('act', z.key === level);
+  });
+}
+
 function bmv2ToggleMeta(n) {
   const key = n.meta || n.label;
   if (BMV2._expanded.has(key)) {
@@ -7046,6 +9956,9 @@ function bmv2ToggleMeta(n) {
   } else {
     BMV2._expanded.add(key);
     T.brainModeEntered(key);
+    // Expanding from the meta-only overview should visibly drill in —
+    // bump to level 1 so the sub-domains this just expanded are shown.
+    if (BMV2._zoomLevel === 0) bmv2SetZoomLevel(1);
   }
   _bmCacheInvalidate(); // invalidate full cache on expand toggle
   BMV2._dirty = true;
@@ -7145,45 +10058,23 @@ function bmv2ToggleMetaFromSidebar(key) {
   bmv2ToggleMeta(fakeNode);
 }
 
-// ── Intelligence stats sidebar ────────────────────────────────────
+// ── Intelligence stats — redirects into ALM's Intelligence tab ─────
+// This used to be a full second manual-slider implementation, live and
+// reachable (unlike the one that used to sit in nexus-engine.js proper,
+// which was dead code) but with zero awareness of the automatic
+// coherence-engine sync or the AUTO/MANUAL override tracking. Ratings
+// are edited in exactly one place now — kept this function's NAME so
+// the existing Brain Map render pipeline call sites don't need to
+// change, but it renders a link instead of a duplicate control surface.
 function _bmRenderIntelStats() {
   const el = document.getElementById('brain-intel-stats'); if (!el) return;
-  el.innerHTML = Object.entries(MM_INTEL_TAGS).map(([key, def]) => {
-    const score = DOMAIN_STATE.intelligenceRatings[key] || 0;
-    return `
-      <div style="padding:7px 0;border-bottom:1px solid rgba(24,40,64,.4)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-size:10px;color:${def.color}">${def.icon}</span>
-          <span style="font-family:var(--f-body);font-size:9px;font-weight:600;color:var(--bright);flex:1">${INTELLIGENCE_TYPES[key]?.label || key}</span>
-          <span style="font-family:var(--f-mono);font-size:8px;font-weight:700;color:${def.color};min-width:28px;text-align:right">${score}</span>
-        </div>
-        <div style="height:3px;background:var(--wire);overflow:hidden;margin-bottom:3px">
-          <div style="height:100%;width:${score}%;background:${def.color};transition:width .4s"></div>
-        </div>
-        <input type="range" min="0" max="100" value="${score}"
-          oninput="bmv2SetIntel('${key}',+this.value,this.previousElementSibling.firstChild,this.parentElement.querySelector('[font-weight]'))"
-          style="width:100%;height:3px;appearance:none;background:transparent;cursor:pointer"
-          onchange="bmv2SetIntel('${key}',+this.value)">
-      </div>`;
-  }).join('');
-}
-
-function bmv2SetIntel(key, val) {
-  DOMAIN_STATE.intelligenceRatings[key] = val;
-  bmv2Save();
-  const el = document.getElementById('brain-intel-stats');
-  if (el) {
-    // Update bar and score display without full re-render
-    const allInputs = el.querySelectorAll('input[type=range]');
-    const allBars = el.querySelectorAll('[style*="height:100%"]');
-    Object.entries(MM_INTEL_TAGS).forEach(([k, def], i) => {
-      if (k === key) {
-        if (allBars[i]) allBars[i].style.width = val + '%';
-      }
-    });
-  }
-  _bmCacheInvalidate();
-  BMV2._dirty = true;
+  el.innerHTML =
+    '<div style="padding:14px 4px;font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">' +
+    'Intelligence ratings moved to ALM — computed automatically from what you speak or write, one place instead of three.' +
+    '</div>' +
+    '<button onclick="MM_WARP.navigateCard(\'alm\');ALM_STATE.activeTab=\'intelligence\'" style="' +
+    'padding:8px 14px;border:1px solid rgba(0,255,136,.4);color:#00ff88;background:rgba(0,255,136,.06);' +
+    'cursor:pointer;font-family:var(--f-mono);font-size:8px;letter-spacing:1px">◉ OPEN IN ALM</button>';
 }
 
 // ── Export functions ──────────────────────────────────────────────
@@ -7337,8 +10228,18 @@ function bmv2RemoveCustomDomain(id) {
 }
 
 // ── Overridden initBrainMap — now uses bmv2 ───────────────────────
-function initBrainMap() {
+function initBrainMap(startZoom) {
   bmv2Load();
+  // Master-index / skip entry starts at the meta-domain overview.
+  // A specific mode entry passes startZoom=2 (DETAIL) so the content it
+  // just seeded and the meta-domain it just auto-expanded are actually
+  // visible on arrival, instead of being hidden behind the overview.
+  // Zoom level is intentionally not persisted across sessions either way.
+  BMV2._zoomLevel = startZoom !== undefined ? startZoom : 0;
+  // Camera also resets to top-down on every fresh load, same lifecycle
+  // as zoom level — you always arrive at the same starting view.
+  BMV2._camAz = 0;
+  BMV2._camEl = BMV2_DEFAULT_ELEVATION;
   BMV2._dirty = true;
   if (BMV2._raf) cancelAnimationFrame(BMV2._raf);
   BMV2._raf = requestAnimationFrame(bmv2Render);
@@ -7346,6 +10247,10 @@ function initBrainMap() {
   _bmRenderIntelStats();
   _bmBuildCrossdomainPanel();
   _bmSetupBrainInteraction();
+  BMV2_ZOOM_LEVELS.forEach(z => {
+    const btn = document.getElementById('bv-zoom-' + z.key);
+    if (btn) btn.classList.toggle('act', z.key === BMV2._zoomLevel);
+  });
 
   // Update UUID counter from MM
   const uuidCount = typeof MMRegistry !== 'undefined' ? MMRegistry.count() : (typeof JAA !== 'undefined' ? JAA.ledger.size : 0);
@@ -7364,8 +10269,13 @@ function _bmSetupBrainInteraction() {
   cvs.addEventListener('click', bmv2Click);
   cvs.addEventListener('dblclick', bmv2DblClick);
 
-  // Mouse drag — LEFT drag = rotate globe, RIGHT/MIDDLE = pan
-  let dragStart = null, panStart = null, rotStart = null;
+  // Block the native right-click context menu — without this, right-click
+  // pan gets interrupted by the OS/browser context menu popping up mid-drag.
+  cvs.addEventListener('contextmenu', e => e.preventDefault());
+
+  // Mouse drag — LEFT drag = orbit the map (azimuth + elevation),
+  // RIGHT/MIDDLE = pan
+  let dragStart = null, panStart = null, camStart = null;
   let _interactTimer = null;
 
   const startInteract = () => {
@@ -7375,13 +10285,18 @@ function _bmSetupBrainInteraction() {
   };
 
   cvs.addEventListener('mousedown', e => {
+    cvs.focus();
     startInteract();
     dragStart = { x: e.clientX, y: e.clientY };
     if (e.button === 0) {
-      // Left drag = rotate sphere
-      rotStart = { rotY: BMV2._rotY || 0 };
+      // Left drag = orbit (yaw from horizontal movement, tilt from vertical)
+      camStart = {
+        az: BMV2._camAz || 0,
+        el: BMV2._camEl !== undefined ? BMV2._camEl : BMV2_DEFAULT_ELEVATION,
+      };
     } else {
       // Middle/right drag = pan
+      e.preventDefault();
       panStart = { x: BMV2._pan.x, y: BMV2._pan.y };
     }
     cvs.style.cursor = 'grabbing';
@@ -7391,12 +10306,14 @@ function _bmSetupBrainInteraction() {
     if (!dragStart) return;
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
-    if (e.buttons === 1 && rotStart !== null) {
-      // Rotate globe
-      BMV2._rotY = rotStart.rotY + dx * 0.008;
+    if (camStart !== null && (e.buttons & 1)) {
+      // Orbit (left button held) — horizontal drag spins azimuth,
+      // vertical drag tilts elevation from top-down toward horizon.
+      BMV2._camAz = camStart.az + dx * 0.008;
+      BMV2._camEl = Math.max(BMV2_MIN_ELEVATION, Math.min(BMV2_MAX_ELEVATION, camStart.el - dy * 0.006));
       BMV2._dirty = true;
-    } else if (panStart) {
-      // Pan
+    } else if (panStart && (e.buttons & 2 || e.buttons & 4)) {
+      // Pan (right or middle button held)
       BMV2._pan.x = panStart.x + dx;
       BMV2._pan.y = panStart.y + dy;
       BMV2._dirty = true;
@@ -7405,12 +10322,42 @@ function _bmSetupBrainInteraction() {
 
   cvs.addEventListener('mouseup', e => {
     const moved = dragStart && (Math.abs(e.clientX - dragStart.x) + Math.abs(e.clientY - dragStart.y)) > 5;
-    dragStart = null; panStart = null; rotStart = null;
+    // A real drag still fires a native 'click' event on release — suppress
+    // the click handler's hit-test/navigation for that one event so
+    // rotating/panning doesn't accidentally trigger whatever node you
+    // happened to release over.
+    BMV2._justDragged = moved;
+    dragStart = null; panStart = null; camStart = null;
     cvs.style.cursor = 'grab';
     if (moved) BMV2._dirty = true;
   });
 
-  cvs.addEventListener('mouseleave', () => { dragStart = null; panStart = null; rotStart = null; cvs.style.cursor = 'default'; });
+  cvs.addEventListener('mouseleave', () => { dragStart = null; panStart = null; camStart = null; cvs.style.cursor = 'default'; });
+
+  // Delete/Backspace — remove the selected node, if it's something that
+  // can actually be deleted (a real canvas node or a custom domain).
+  // Meta/domain/sub nodes are fixed taxonomy, not data — nothing to
+  // delete there, so we say so instead of silently doing nothing.
+  cvs.addEventListener('keydown', e => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    e.preventDefault();
+    const id = BMV2._selectedNode;
+    if (!id) return;
+    const n = BMV2._nodes.find(x => x.id === id);
+    if (!n) return;
+
+    if (n.type === 'canvas' && n.canvasId) {
+      if (typeof _delNode === 'function') _delNode(n.canvasId);
+      BMV2._selectedNode = null;
+      _bmCacheInvalidate();
+      BMV2._dirty = true;
+    } else if (n.type === 'custom-domain' && n.customId) {
+      bmv2RemoveCustomDomain(n.customId);
+      BMV2._selectedNode = null;
+    } else {
+      T.warn('That\'s a structural domain node, not data — nothing to delete here.');
+    }
+  });
 
   // Scroll = zoom
   cvs.addEventListener('wheel', e => {
@@ -7421,16 +10368,19 @@ function _bmSetupBrainInteraction() {
     BMV2._dirty = true;
   }, { passive: false });
 
-  // Touch pinch/pan/rotate
+  // Touch pinch/pan/orbit
   let touches = null;
   cvs.addEventListener('touchstart', e => { touches = [...e.touches]; startInteract(); }, { passive: true });
   cvs.addEventListener('touchmove', e => {
     if (!touches) return;
     startInteract();
     if (e.touches.length === 1 && touches.length === 1) {
-      // Single finger = rotate
+      // Single finger = orbit
       const dx = e.touches[0].clientX - touches[0].clientX;
-      BMV2._rotY = (BMV2._rotY || 0) + dx * 0.008;
+      const dy = e.touches[0].clientY - touches[0].clientY;
+      BMV2._camAz = (BMV2._camAz || 0) + dx * 0.008;
+      const curEl = BMV2._camEl !== undefined ? BMV2._camEl : BMV2_DEFAULT_ELEVATION;
+      BMV2._camEl = Math.max(BMV2_MIN_ELEVATION, Math.min(BMV2_MAX_ELEVATION, curEl - dy * 0.006));
       BMV2._dirty = true;
     } else if (e.touches.length === 2 && touches.length >= 2) {
       // Pinch = zoom
@@ -7443,66 +10393,27 @@ function _bmSetupBrainInteraction() {
   }, { passive: true });
   cvs.addEventListener('touchend', () => { touches = null; }, { passive: true });
 
-  // Initialize rotation
-  if (BMV2._rotY === undefined) BMV2._rotY = 0;
+  // Initialize camera — starts top-down per spec
+  if (BMV2._camAz === undefined) BMV2._camAz = 0;
+  if (BMV2._camEl === undefined) BMV2._camEl = BMV2_DEFAULT_ELEVATION;
   cvs.style.cursor = 'grab';
 }
 
+// ── Cross-domain synthesis — redirects into ALM's Intelligence tab ──
+// Kept the function name for the same reason as _bmRenderIntelStats
+// above. The export buttons that used to live in this panel
+// (bmv2ExportJSON etc.) are unrelated to intelligence ratings and are
+// also reachable from the Manage panel — confirmed before removing
+// them from here, not assumed.
 function _bmBuildCrossdomainPanel() {
   const el = document.getElementById('brain-crossdomain-panel'); if (!el) return;
-  // Find intelligence types with high scores for cross-domain recommendations
-  const topIntel = Object.entries(DOMAIN_STATE.intelligenceRatings)
-    .sort((a,b) => b[1]-a[1]).slice(0,4);
-  const matches = [];
-  topIntel.forEach(([type]) => {
-    Object.entries(MM_META_DOMAINS).forEach(([metaKey, meta]) => {
-      if (meta.intelligences.includes(type)) {
-        matches.push({ meta: metaKey, type, color: meta.color, icon: meta.icon });
-      }
-    });
-  });
-  // Find cross-domain synthesis opportunities
-  const synthPairs = [];
-  const metaKeys = Object.keys(MM_META_DOMAINS);
-  for (let i = 0; i < metaKeys.length - 1; i++) {
-    for (let j = i + 1; j < metaKeys.length; j++) {
-      const a = MM_META_DOMAINS[metaKeys[i]];
-      const b = MM_META_DOMAINS[metaKeys[j]];
-      const sharedIntel = a.intelligences.filter(x => b.intelligences.includes(x));
-      if (sharedIntel.length > 0) {
-        synthPairs.push({ a: metaKeys[i], b: metaKeys[j], shared: sharedIntel, strength: sharedIntel.length });
-      }
-    }
-  }
-  synthPairs.sort((a,b) => b.strength - a.strength);
-
-  el.innerHTML = `
-    <div style="font-family:var(--f-mono);font-size:7px;color:var(--v);letter-spacing:1.5px;margin-bottom:10px">YOUR SYNTHESIS OPPORTUNITIES</div>
-    ${synthPairs.slice(0,6).map(p => {
-      const ma = MM_META_DOMAINS[p.a], mb = MM_META_DOMAINS[p.b];
-      return `<div onclick="bmv2SpawnSynthesis('${escH(p.a)}','${escH(p.b)}')"
-        style="display:flex;align-items:center;gap:7px;padding:7px 0;border-bottom:1px solid var(--wire);cursor:pointer;transition:opacity .15s"
-        onmouseenter="this.style.opacity='.7'" onmouseleave="this.style.opacity='1'">
-        <span style="color:${ma.color};font-size:11px">${ma.icon}</span>
-        <div style="flex:1">
-          <div style="font-family:var(--f-display);font-size:8px;font-weight:700;color:var(--bright)">
-            ${escH(p.a.split(' ')[0])} × ${escH(p.b.split(' ')[0])}
-          </div>
-          <div style="font-family:var(--f-mono);font-size:6px;color:var(--dim)">
-            Shared: ${p.shared.slice(0,2).map(i=>MM_INTEL_TAGS[i]?.shortLabel||i).join(', ')}
-          </div>
-        </div>
-        <span style="color:${mb.color};font-size:11px">${mb.icon}</span>
-      </div>`;
-    }).join('')}
-    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-      <button onclick="bmv2ExportJSON()" style="font-family:var(--f-mono);font-size:7px;padding:5px 10px;border:1px solid var(--gold)44;color:var(--gold);background:transparent;cursor:pointer;letter-spacing:1px">↓ JSON</button>
-      <button onclick="bmv2ExportNotion()" style="font-family:var(--f-mono);font-size:7px;padding:5px 10px;border:1px solid var(--c)44;color:var(--c);background:transparent;cursor:pointer;letter-spacing:1px">↓ NOTION</button>
-      <button onclick="bmv2ExportObsidian()" style="font-family:var(--f-mono);font-size:7px;padding:5px 10px;border:1px solid var(--v)44;color:var(--v);background:transparent;cursor:pointer;letter-spacing:1px">↓ OBSIDIAN</button>
-      <button onclick="bmv2ExportCSV()" style="font-family:var(--f-mono);font-size:7px;padding:5px 10px;border:1px solid var(--g)44;color:var(--g);background:transparent;cursor:pointer;letter-spacing:1px">↓ CSV</button>
-      <button onclick="bmv2ImportDomains()" style="font-family:var(--f-mono);font-size:7px;padding:5px 10px;border:1px solid var(--o)44;color:var(--o);background:transparent;cursor:pointer;letter-spacing:1px">↑ IMPORT</button>
-    </div>
-  `;
+  el.innerHTML =
+    '<div style="padding:14px 4px;font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">' +
+    'Cross-domain synthesis moved to ALM, next to the intelligence ratings it\'s computed from.' +
+    '</div>' +
+    '<button onclick="MM_WARP.navigateCard(\'alm\');ALM_STATE.activeTab=\'intelligence\'" style="' +
+    'padding:8px 14px;border:1px solid rgba(0,255,136,.4);color:#00ff88;background:rgba(0,255,136,.06);' +
+    'cursor:pointer;font-family:var(--f-mono);font-size:8px;letter-spacing:1px">◉ OPEN IN ALM</button>';
 }
 
 function bmv2SpawnSynthesis(metaA, metaB) {
@@ -7628,21 +10539,9 @@ function _bmRenderStats() {
     </div>`;
 }
 
-// setIntelligenceRating alias — called by old intel sliders + new system
-function setIntelligenceRating(key, val) {
-  DOMAIN_STATE.intelligenceRatings[key] = +val;
-  // Update display
-  const valEl = document.getElementById('intel-val-' + key);
-  if (valEl) valEl.textContent = val + '%';
-  const fills = document.querySelectorAll('.intel-stat-fill');
-  const intelKeys = Object.keys(INTELLIGENCE_TYPES || MM_INTEL_TAGS);
-  const idx = intelKeys.indexOf(key);
-  if (idx >= 0 && fills[idx]) fills[idx].style.width = val + '%';
-  domainStateSave();
-  bmv2Save();
-  _bmCacheInvalidate();
-  BMV2._dirty = true;
-}
+// setIntelligenceRating / resetIntelligenceRatingToAuto now live in
+// modules/alm/ui.js (ALM's Intelligence tab) — see the comment near
+// domainStateLoad() above for why this used to be three places.
 
 
 // On brain map close, stop render loop
@@ -7664,1413 +10563,13 @@ console.log('[MASTERMIND] Brain Map v2 · 13 meta-domains · lazy load · synthe
 
 /* ═══════════════════════════════════════════════════════════════════
    MODULE: alm — Accelerated Learning Module
-   Stub — full implementation in next iteration.
-   Intelligence types, intuition training, delta tracking, sleep
-   integration, cognitive piggybacking, feedback loops.
+   Extracted to modules/alm/{engine.js, ui.js, events.js} — see
+   modules/alm/README.md. Loaded via separate <script> tags now,
+   not embedded here. This comment is the only trace left in this
+   file on purpose, so anyone grepping nexus-engine.js for ALM finds
+   a pointer instead of nothing.
 ═══════════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════════════════════════════════════════════════════
-   ALM — ACCELERATED LEARNING MODULE  v2.0
-   
-   The cognitive OS for self-understanding and deliberate growth.
-   
-   8 Human System Models:
-     Biological · Cognitive · Affective · Behavioral
-     Relational · Systems · Phenomenological · Developmental
-   
-   Cognitive Functions (Jung/MBTI extended):
-     Ni · Ne · Ti · Te · Si · Se · Fi · Fe
-   
-   Architecture: tabs, not grids. State persists across sessions.
-   Everything is a feedback loop — input, processing, output, record.
-   
-   "You are not static — you are a trajectory."
-═══════════════════════════════════════════════════════════════════ */
-
-// ── Cognitive Function definitions ────────────────────────────────
-const COGNITIVE_FUNCTIONS = {
-  Ni: { label:'Introverted Intuition', color:'#00c8ff', icon:'◎',
-    desc:'Convergent · depth · future vision · the pattern beneath the pattern',
-    domain:'Cognition', loop:'input',
-    trainPrompt:'What is the deeper structure? What will this become?',
-    feedback:'Does the convergence feel certain or forced?',
-    experiment:'Sit with one question for 10 min without Google. What emerges?' },
-  Ne: { label:'Extraverted Intuition', color:'#cc44ff', icon:'✦',
-    desc:'Divergent · possibilities · lateral connections · what could be',
-    domain:'Cognition', loop:'processing',
-    trainPrompt:'What are all the angles? What connects this to something unrelated?',
-    feedback:'How many genuine novel connections appeared in 5 minutes?',
-    experiment:'Take any object. List 20 uses. Notice when it gets hard.' },
-  Ti: { label:'Introverted Thinking', color:'#7744ff', icon:'◈',
-    desc:'Internal logical framework · precision · structural coherence',
-    domain:'Cognition', loop:'processing',
-    trainPrompt:'Does this actually hold together? Where is the hidden assumption?',
-    feedback:'Can you reduce this to its simplest coherent form?',
-    experiment:'Pick a belief. Try to break it from the inside.' },
-  Te: { label:'Extraverted Thinking', color:'#ffe04a', icon:'→',
-    desc:'External organization · efficiency · measurable results',
-    domain:'Cognition', loop:'output',
-    trainPrompt:'What is the most efficient path to the outcome?',
-    feedback:'Did the system produce measurable results?',
-    experiment:'Build a simple decision matrix for something you\'ve been avoiding.' },
-  Si: { label:'Introverted Sensing', color:'#ff8c22', icon:'◆',
-    desc:'Memory · comparison · stored experience · what was',
-    domain:'Cognition', loop:'input',
-    trainPrompt:'What does this remind me of? What stored pattern applies?',
-    feedback:'How reliable is this pattern recognition? Recent or stale?',
-    experiment:'Detail a vivid memory. Notice what your body holds from it.' },
-  Se: { label:'Extraverted Sensing', color:'#00ff88', icon:'◉',
-    desc:'Present moment · sensory detail · immediate reality · what is',
-    domain:'Cognition', loop:'input',
-    trainPrompt:'What is actually here right now? What does the body report?',
-    feedback:'How fully was I present vs. in my head?',
-    experiment:'5 minutes: describe only what you can directly sense. No interpretation.' },
-  Fi: { label:'Introverted Feeling', color:'#ff66aa', icon:'♥',
-    desc:'Internal values · authenticity · felt rightness · identity',
-    domain:'Affective', loop:'processing',
-    trainPrompt:'Does this align with who I actually am? What does my core say?',
-    feedback:'Is this my value or an inherited one?',
-    experiment:'List 5 things you believe are wrong. Why? Where did each one come from?' },
-  Fe: { label:'Extraverted Feeling', color:'#11ddcc', icon:'⬡',
-    desc:'Relational attunement · group harmony · others\' emotional state',
-    domain:'Relational', loop:'processing',
-    trainPrompt:'What is the emotional field in this room/relationship?',
-    feedback:'Did attending to their needs help or compromise my own clarity?',
-    experiment:'In next conversation: say nothing for first 2 min. Just read the field.' },
-};
-
-// ── 8 Human System Models ────────────────────────────────────────
-const HUMAN_MODELS = {
-  biological: {
-    label:'Biological', icon:'⬡', color:'#22ddaa',
-    subtitle:'The Hardware',
-    source:'Neuroscience + Biology',
-    core:'Behavior = output of physical processes. If this layer is off, everything else distorts.',
-    tracks:['Sleep quality','Stress level','Nervous system state','Hormonal signals','Energy level'],
-    bridge:'Maps to Polyvagal states. Body data gates cognitive function availability.',
-    loopType:'input',
-  },
-  cognitive: {
-    label:'Cognitive', icon:'◈', color:'#00c8ff',
-    subtitle:'The Processor',
-    source:'Cognitive Psychology',
-    core:'The mind interprets reality — it doesn\'t mirror it.',
-    tracks:['Dominant function active','Cognitive biases active','Processing mode','Clarity level','Mental load'],
-    bridge:'Cognitive functions (Ni/Ne/Ti/Te/Si/Se/Fi/Fe) are the processing architecture.',
-    loopType:'processing',
-  },
-  affective: {
-    label:'Affective', icon:'♥', color:'#ff66aa',
-    subtitle:'The Value Engine',
-    source:'Affective Neuroscience',
-    core:'You don\'t act on logic — you act on what feels meaningful.',
-    tracks:['Current emotion (named)','Motivation source','Meaning level','Emotional blocks','Affect-action bridge'],
-    bridge:'Emotions are information about value alignment, not noise to suppress.',
-    loopType:'processing',
-  },
-  behavioral: {
-    label:'Behavioral', icon:'→', color:'#ff8c22',
-    subtitle:'The Observable Output',
-    source:'Behaviorism + Habit Science',
-    core:'What you repeatedly do becomes what you are.',
-    tracks:['Active habits','Conditioning patterns','Behavioral anchors','Pattern clusters','Output consistency'],
-    bridge:'The behavioral layer is the visible output of all other layers combined.',
-    loopType:'output',
-  },
-  relational: {
-    label:'Relational', icon:'⬡', color:'#ff8c22',
-    subtitle:'The Social System',
-    source:'Attachment Theory',
-    core:'You are shaped in relationship, not isolation.',
-    tracks:['Attachment orientation','Co-regulation state','Communication patterns','Relational needs','Connection quality'],
-    bridge:'Co-regulation changes nervous system state, which changes cognitive availability.',
-    loopType:'input',
-  },
-  systems: {
-    label:'Systems', icon:'∿', color:'#11ddcc',
-    subtitle:'The Meta-Layer',
-    source:'Systems Theory',
-    core:'Patterns repeat because structures produce them.',
-    tracks:['Active feedback loops','Leverage points','Structural patterns','Adaptation speed','Emergent behaviors'],
-    bridge:'Systems view reveals why individual effort fails against structural forces.',
-    loopType:'meta',
-  },
-  phenomenological: {
-    label:'Phenomenological', icon:'◎', color:'#cc44ff',
-    subtitle:'The Lived Experience',
-    source:'Phenomenology',
-    core:'Reality is filtered through experience, not just facts.',
-    tracks:['Inner narrative','Meaning perception','Lived texture','Attention quality','Presence depth'],
-    bridge:'The bridge between cognitive and experiential: "opening your chakras" = increasing body awareness + reducing internal resistance + attention shifting mind→body.',
-    loopType:'meta',
-  },
-  developmental: {
-    label:'Developmental', icon:'▲', color:'#cc44ff',
-    subtitle:'Change Over Time',
-    source:'Developmental Psychology',
-    core:'You are not static — you are a trajectory.',
-    tracks:['Current developmental theme','Growth edge','Historical pattern','Trajectory direction','Integration level'],
-    bridge:'Connects to Horizon module. Where are you in the arc?',
-    loopType:'output',
-  },
-};
-
-// ── ALM State ─────────────────────────────────────────────────────
-const ALM_STATE = {
-  _loaded: false,
-  activeTab: 'functions',      // 'functions' | 'models' | 'log' | 'frameworks' | 'experiment'
-  activeFunction: 'Ni',        // selected cognitive function
-  activeModel: 'cognitive',    // selected human model
-
-  // Function training log: { fnKey, note, quality, ts }
-  functionLog: [],
-
-  // Model observations: { modelKey, field, value, ts }
-  modelLog: [],
-
-  // Experiment sessions: { id, fnKey, prompt, observation, ts }
-  experiments: [],
-
-  // Heuristics (named, personal rules of thumb)
-  heuristics: [],
-  // { id, text, domain, reliability, tags[], ts }
-
-  // Frameworks user is working with
-  frameworks: [],
-  // { id, name, description, source, tags[], ts }
-
-  // Externalized thought stream
-  externalizations: [],
-  // { id, text, type:'question'|'observation'|'hypothesis'|'pattern', fnKey, ts }
-};
-const ALM_STATE_KEY = 'mm_alm_state_v2';
-
-function almLoad() {
-  try {
-    const raw = localStorage.getItem(ALM_STATE_KEY);
-    if (raw) Object.assign(ALM_STATE, JSON.parse(raw));
-    ALM_STATE._loaded = true;
-  } catch(e) {}
-  ALM_STATE._loaded = true;
-}
-
-function almSave() {
-  try {
-    const { _loaded, ...data } = ALM_STATE;
-    localStorage.setItem(ALM_STATE_KEY, JSON.stringify(data));
-  } catch(e) {}
-  if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
-}
-
-// ── Open / close ──────────────────────────────────────────────────
-function openALM() {
-  if (!_assertAuth()) return;
-  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'alm' });
-  if (!ALM_STATE._loaded) almLoad();
-
-  let overlay = document.getElementById('mm-alm-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'mm-alm-overlay';
-    overlay.style.cssText = [
-      'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800',
-      'background:rgba(0,2,6,.98);backdrop-filter:blur(8px)',
-      'display:flex;flex-direction:column;overflow:hidden',
-    ].join(';');
-    document.body.appendChild(overlay);
-  }
-  overlay.style.display = 'flex';
-  _renderALM(overlay);
-  if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.5, window.innerHeight * 0.4, 0.85);
-}
-
-function closeALM() {
-  const el = document.getElementById('mm-alm-overlay');
-  if (el) el.style.display = 'none';
-  almSave();
-}
-
-// ── Main render ───────────────────────────────────────────────────
-function _renderALM(overlay) {
-  overlay.innerHTML = '';
-  const C = '#00ff88';
-
-  // Header
-  const hdr = document.createElement('div');
-  hdr.style.cssText = [
-    'display:flex;align-items:center;gap:14px;padding:11px 22px',
-    'border-bottom:1px solid rgba(0,255,136,.18)',
-    'background:rgba(0,255,136,.03);flex-shrink:0',
-  ].join(';');
-  hdr.innerHTML = `
-    <span style="font-size:18px;filter:drop-shadow(0 0 10px #00ff88)">∞</span>
-    <div>
-      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
-        letter-spacing:5px;color:#00ff88">ALM</div>
-      <div style="font-family:var(--f-mono);font-size:7px;
-        color:rgba(0,255,136,.45);letter-spacing:2px;margin-top:1px">
-        ACCELERATED LEARNING · COGNITIVE FUNCTIONS · HUMAN MODELS · FEEDBACK
-      </div>
-    </div>
-    <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
-      <button onclick="almExportToCanvas()" style="
-        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
-        border:1px solid rgba(0,255,136,.3);color:#00ff88;background:transparent;cursor:pointer"
-        onmouseenter="this.style.background='rgba(0,255,136,.1)'"
-        onmouseleave="this.style.background='transparent'">→ CANVAS</button>
-      <button onclick="closeALM();goHome()" style="
-        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
-        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
-        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
-        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
-    </div>
-  `;
-  overlay.appendChild(hdr);
-
-  // Tab bar
-  const TABS = [
-    { id:'functions',    label:'COGNITIVE FUNCTIONS', icon:'◈' },
-    { id:'models',       label:'8 MODELS',            icon:'⬡' },
-    { id:'experiment',   label:'EXPERIMENT',          icon:'◎' },
-    { id:'externalize',  label:'EXTERNALIZE',         icon:'✦' },
-    { id:'heuristics',   label:'HEURISTICS',          icon:'◆' },
-    { id:'frameworks',   label:'FRAMEWORKS',          icon:'⊞' },
-    { id:'log',          label:'LOG',                 icon:'Δ' },
-  ];
-  const tabBar = document.createElement('div');
-  tabBar.style.cssText = [
-    'display:flex;gap:0;border-bottom:1px solid rgba(0,255,136,.1)',
-    'background:rgba(0,0,0,.4);flex-shrink:0;overflow-x:auto',
-  ].join(';');
-  TABS.forEach(tab => {
-    const btn = document.createElement('button');
-    const isActive = ALM_STATE.activeTab === tab.id;
-    btn.style.cssText = [
-      'padding:9px 16px;cursor:pointer;white-space:nowrap',
-      `font-family:var(--f-mono);font-size:7.5px;letter-spacing:1.5px`,
-      `border:none;border-bottom:2px solid ${isActive ? '#00ff88' : 'transparent'}`,
-      `color:${isActive ? '#00ff88' : 'var(--dim)'}`,
-      `background:${isActive ? 'rgba(0,255,136,.06)' : 'transparent'}`,
-      'transition:all .15s',
-    ].join(';');
-    btn.textContent = tab.icon + ' ' + tab.label;
-    btn.addEventListener('click', () => {
-      ALM_STATE.activeTab = tab.id;
-      _renderALM(overlay);
-    });
-    btn.addEventListener('mouseenter', () => { if (!isActive) { btn.style.color='var(--muted)'; btn.style.background='rgba(255,255,255,.03)'; } });
-    btn.addEventListener('mouseleave', () => { if (!isActive) { btn.style.color='var(--dim)'; btn.style.background='transparent'; } });
-    tabBar.appendChild(btn);
-  });
-  overlay.appendChild(tabBar);
-
-  // Content area
-  const content = document.createElement('div');
-  content.style.cssText = 'flex:1;overflow:hidden;display:flex';
-  overlay.appendChild(content);
-
-  switch (ALM_STATE.activeTab) {
-    case 'functions':   _almTabFunctions(content);   break;
-    case 'models':      _almTabModels(content);      break;
-    case 'experiment':  _almTabExperiment(content);  break;
-    case 'externalize': _almTabExternalize(content); break;
-    case 'heuristics':  _almTabHeuristics(content);  break;
-    case 'frameworks':  _almTabFrameworks(content);  break;
-    case 'log':         _almTabLog(content);         break;
-  }
-}
-
-// ── TAB: Cognitive Functions ──────────────────────────────────────
-function _almTabFunctions(container) {
-  container.style.flexDirection = 'row';
-
-  // Left: function list
-  const left = document.createElement('div');
-  left.style.cssText = [
-    'width:220px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
-    'overflow-y:auto;padding:14px 0',
-  ].join(';');
-
-  // Loop type legend
-  left.innerHTML = `
-    <div style="padding:0 14px 12px;border-bottom:1px solid rgba(0,255,136,.08);margin-bottom:10px">
-      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:6px">INPUT → PROCESSING → OUTPUT</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${['input','processing','output','meta'].map(t => {
-          const c = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[t];
-          return `<span style="font-family:var(--f-mono);font-size:7px;color:${c};
-            border:1px solid ${c}44;padding:2px 6px">${t}</span>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
-
-  Object.entries(COGNITIVE_FUNCTIONS).forEach(([key, fn]) => {
-    const isActive = ALM_STATE.activeFunction === key;
-    const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[fn.loop];
-    const log = ALM_STATE.functionLog.filter(l => l.fnKey === key);
-    const avgQ = log.length ? (log.slice(-5).reduce((s,l)=>s+(l.quality||0),0)/Math.min(5,log.length)).toFixed(1) : '—';
-
-    const row = document.createElement('div');
-    row.style.cssText = [
-      'padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:9px',
-      `border-left:3px solid ${isActive ? fn.color : 'transparent'}`,
-      `background:${isActive ? fn.color+'10' : 'transparent'}`,
-      'transition:all .12s',
-    ].join(';');
-    row.innerHTML = `
-      <span style="font-size:14px;color:${fn.color};flex-shrink:0">${fn.icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--f-display);font-size:9px;font-weight:700;
-          color:${isActive ? fn.color : 'var(--bright)'}">${key}</div>
-        <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
-          white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fn.label}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
-        <span style="font-family:var(--f-mono);font-size:6.5px;color:${loopColor};
-          border:1px solid ${loopColor}44;padding:1px 4px">${fn.loop}</span>
-        ${log.length ? `<span style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim)">${log.length}×</span>` : ''}
-      </div>
-    `;
-    row.addEventListener('click', () => { ALM_STATE.activeFunction = key; _almTabFunctions(container.parentElement.querySelector('div[style*="overflow:hidden"]') || container); });
-    row.addEventListener('mouseenter', () => { if (!isActive) row.style.background = fn.color+'08'; });
-    row.addEventListener('mouseleave', () => { if (!isActive) row.style.background = 'transparent'; });
-    left.appendChild(row);
-  });
-  container.appendChild(left);
-
-  // Right: function detail
-  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
-  if (!fn) return;
-  const right = document.createElement('div');
-  right.style.cssText = 'flex:1;overflow-y:auto;padding:24px 30px;display:flex;flex-direction:column;gap:22px';
-
-  const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[fn.loop];
-  const log = ALM_STATE.functionLog.filter(l => l.fnKey === ALM_STATE.activeFunction);
-  const recent = [...log].sort((a,b) => b.ts - a.ts).slice(0, 8);
-
-  // Header
-  right.innerHTML = `
-    <div>
-      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px">
-        <span style="font-family:var(--f-display);font-size:32px;font-weight:900;
-          color:${fn.color};letter-spacing:4px">${ALM_STATE.activeFunction}</span>
-        <span style="font-family:var(--f-mono);font-size:10px;color:${loopColor};
-          border:1px solid ${loopColor}44;padding:3px 9px">${fn.loop.toUpperCase()}</span>
-      </div>
-      <div style="font-family:var(--f-display);font-size:13px;font-weight:700;
-        letter-spacing:2px;color:var(--bright);margin-bottom:6px">${fn.label}</div>
-      <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);line-height:1.8">
-        ${fn.desc}</div>
-    </div>
-
-    <!-- Feedback loop diagram for this function -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      ${['INPUT','PROCESSING','OUTPUT'].map(stage => {
-        const isActive = (stage==='INPUT'&&fn.loop==='input')||(stage==='PROCESSING'&&fn.loop==='processing')||(stage==='OUTPUT'&&fn.loop==='output');
-        return `<div style="padding:12px;text-align:center;
-          border:1px solid ${isActive ? fn.color+'66' : 'rgba(255,255,255,.06)'};
-          background:${isActive ? fn.color+'0d' : 'transparent'}">
-          <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:2px;
-            color:${isActive ? fn.color : 'var(--dim)'}">${stage}</div>
-          ${isActive ? `<div style="font-family:var(--f-mono);font-size:7px;
-            color:var(--muted);margin-top:4px;line-height:1.5">${ALM_STATE.activeFunction}</div>` : ''}
-        </div>`;
-      }).join(`<div style="display:flex;align-items:center;justify-content:center;
-        color:var(--dim);font-size:14px">→</div>`)}
-    </div>
-
-    <!-- Train prompt + experiment -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div style="padding:14px;background:${fn.color}08;border:1px solid ${fn.color}22">
-        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-          color:${fn.color};margin-bottom:8px">ACTIVATION PROMPT</div>
-        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
-          line-height:1.7;font-style:italic">"${fn.trainPrompt}"</div>
-      </div>
-      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07)">
-        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-          color:var(--dim);margin-bottom:8px">FEEDBACK SIGNAL</div>
-        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
-          line-height:1.7">${fn.feedback}</div>
-      </div>
-    </div>
-
-    <!-- Quick log -->
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">LOG OBSERVATION</div>
-      <textarea id="alm-fn-note" placeholder="What did you notice when using ${ALM_STATE.activeFunction}?
-Quality of the signal? What triggered it? What came out?" style="
-        width:100%;box-sizing:border-box;height:72px;resize:none;
-        font-family:var(--f-mono);font-size:8px;color:var(--bright);
-        background:rgba(0,0,0,.4);border:1px solid rgba(0,255,136,.2);
-        padding:9px;line-height:1.6;outline:none"
-        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-        onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <div style="display:flex;gap:4px;align-items:center">
-          <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">quality</span>
-          ${[1,2,3,4,5].map(n => `<button id="alm-fn-q-${n}" onclick="almFnSetQuality(${n})" style="
-            width:24px;height:24px;cursor:pointer;border:1px solid rgba(0,255,136,.2);
-            background:transparent;color:var(--wire2);font-family:var(--f-mono);
-            font-size:9px;transition:all .1s"
-            onmouseenter="this.style.background='rgba(0,255,136,.15)'"
-            onmouseleave="almFnQualityHover(${n})">${n}</button>`).join('')}
-        </div>
-        <button onclick="almLogFunction()" style="
-          margin-left:auto;padding:8px 18px;border:1px solid rgba(0,255,136,.4);
-          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
-          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG</button>
-        <button onclick="almRunExperiment('${ALM_STATE.activeFunction}')" style="
-          padding:8px 18px;border:1px solid rgba(204,68,255,.35);
-          color:#cc44ff;background:transparent;cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(204,68,255,.1)'"
-          onmouseleave="this.style.background='transparent'">◎ EXPERIMENT</button>
-      </div>
-    </div>
-
-    <!-- Recent log -->
-    ${recent.length ? `
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">RECENT OBSERVATIONS</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${recent.map(l => {
-          const qc = ['','#ff3355','#ff8c22','#ffe04a','#00c8ff','#00ff88'][l.quality||0] || 'var(--dim)';
-          return `<div style="padding:8px 12px;background:rgba(0,0,0,.3);
-            border-left:2px solid ${fn.color}44;display:flex;gap:10px">
-            <span style="font-family:var(--f-mono);font-size:9px;color:${qc};
-              flex-shrink:0">Q${l.quality||'?'}</span>
-            <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
-              flex:1;line-height:1.5">${escH(l.note)}</span>
-            <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
-              flex-shrink:0">${_almTimeAgo(l.ts)}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : ''}
-  `;
-  container.appendChild(right);
-  // Init quality selection
-  window._almFnQuality = window._almFnQuality || 3;
-  almFnSetQuality(window._almFnQuality);
-}
-
-let _almFnQuality = 3;
-function almFnSetQuality(n) {
-  _almFnQuality = n;
-  [1,2,3,4,5].forEach(i => {
-    const btn = document.getElementById('alm-fn-q-' + i);
-    if (!btn) return;
-    const active = i <= n;
-    btn.style.background = active ? 'rgba(0,255,136,.2)' : 'transparent';
-    btn.style.color = active ? '#00ff88' : 'var(--wire2)';
-    btn.style.borderColor = active ? 'rgba(0,255,136,.5)' : 'rgba(0,255,136,.2)';
-  });
-}
-function almFnQualityHover(n) { almFnSetQuality(_almFnQuality); }
-
-function almLogFunction() {
-  const note = document.getElementById('alm-fn-note')?.value?.trim();
-  if (!note) { mm_toast('Add an observation first', 'warn'); return; }
-  ALM_STATE.functionLog.push({
-    fnKey: ALM_STATE.activeFunction,
-    note, quality: _almFnQuality,
-    ts: Date.now(),
-  });
-  almSave();
-  mm_toast('Logged ' + ALM_STATE.activeFunction, 'success', { dur: 1600 });
-  const ta = document.getElementById('alm-fn-note');
-  if (ta) ta.value = '';
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-// ── TAB: 8 Human Models ───────────────────────────────────────────
-function _almTabModels(container) {
-  container.style.flexDirection = 'row';
-
-  // Left: model list
-  const left = document.createElement('div');
-  left.style.cssText = [
-    'width:200px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
-    'overflow-y:auto;padding:12px 0',
-  ].join(';');
-
-  // Loop type header
-  left.innerHTML = `
-    <div style="padding:6px 14px 10px;border-bottom:1px solid rgba(0,255,136,.06);
-      margin-bottom:8px;font-family:var(--f-mono);font-size:7px;color:var(--dim)">
-      INPUT → PROCESSING → OUTPUT → META
-    </div>
-  `;
-
-  Object.entries(HUMAN_MODELS).forEach(([key, model]) => {
-    const isActive = ALM_STATE.activeModel === key;
-    const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[model.loopType];
-    const obs = ALM_STATE.modelLog.filter(l => l.modelKey === key).length;
-
-    const row = document.createElement('div');
-    row.style.cssText = [
-      'padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px',
-      `border-left:3px solid ${isActive ? model.color : 'transparent'}`,
-      `background:${isActive ? model.color+'0d' : 'transparent'}`,
-      'transition:all .12s',
-    ].join(';');
-    row.innerHTML = `
-      <span style="font-size:13px;color:${model.color};flex-shrink:0">${model.icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--f-display);font-size:8.5px;font-weight:700;
-          color:${isActive ? model.color : 'var(--bright)'}">${model.label}</div>
-        <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim)">${model.subtitle}</div>
-      </div>
-      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-        <span style="font-family:var(--f-mono);font-size:6px;color:${loopColor};
-          border:1px solid ${loopColor}33;padding:1px 3px">${model.loopType}</span>
-        ${obs ? `<span style="font-family:var(--f-mono);font-size:6px;color:var(--dim)">${obs}×</span>` : ''}
-      </div>
-    `;
-    row.addEventListener('click', () => { ALM_STATE.activeModel = key; _almTabModels(container.parentElement.querySelector('div[style*="overflow:hidden"]') || container); });
-    row.addEventListener('mouseenter', () => { if (!isActive) row.style.background = model.color+'08'; });
-    row.addEventListener('mouseleave', () => { if (!isActive) row.style.background = 'transparent'; });
-    left.appendChild(row);
-  });
-  container.appendChild(left);
-
-  // Right: model detail
-  const model = HUMAN_MODELS[ALM_STATE.activeModel];
-  if (!model) return;
-  const right = document.createElement('div');
-  right.style.cssText = 'flex:1;overflow-y:auto;padding:24px 30px;display:flex;flex-direction:column;gap:20px';
-  const loopColor = {input:'#00c8ff',processing:'#cc44ff',output:'#ff8c22',meta:'#11ddcc'}[model.loopType];
-  const obs = ALM_STATE.modelLog.filter(l => l.modelKey === ALM_STATE.activeModel);
-  const recent = [...obs].sort((a,b) => b.ts-a.ts).slice(0,6);
-
-  right.innerHTML = `
-    <div>
-      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:6px">
-        <span style="font-size:28px;color:${model.color}">${model.icon}</span>
-        <span style="font-family:var(--f-display);font-size:18px;font-weight:800;
-          letter-spacing:3px;color:${model.color}">${model.label.toUpperCase()}</span>
-        <span style="font-family:var(--f-mono);font-size:8px;color:${loopColor};
-          border:1px solid ${loopColor}44;padding:2px 8px">${model.loopType}</span>
-      </div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
-        letter-spacing:1px;margin-bottom:10px">${model.source}</div>
-      <div style="font-family:var(--f-mono);font-size:10px;color:var(--bright);
-        line-height:1.7;border-left:3px solid ${model.color};padding-left:14px;
-        font-style:italic">"${model.core}"</div>
-    </div>
-
-    <!-- What this model tracks -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div style="padding:14px;background:${model.color}08;border:1px solid ${model.color}22">
-        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-          color:${model.color};margin-bottom:9px">WHAT TO TRACK</div>
-        ${model.tracks.map(t => `
-          <div style="display:flex;align-items:center;gap:7px;padding:4px 0;
-            border-bottom:1px solid ${model.color}18">
-            <div style="width:5px;height:5px;border-radius:50%;
-              background:${model.color};flex-shrink:0"></div>
-            <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted)">${t}</div>
-          </div>`).join('')}
-      </div>
-      <div style="padding:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07)">
-        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-          color:var(--dim);margin-bottom:9px">BRIDGE TO OTHER MODELS</div>
-        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
-          line-height:1.8">${model.bridge}</div>
-      </div>
-    </div>
-
-    <!-- Quick observation log -->
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">LOG OBSERVATION</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
-        ${model.tracks.map(t => `
-          <button onclick="almModelFieldPrompt('${t.replace(/'/g,"\'")}')" style="
-            padding:4px 9px;cursor:pointer;border:1px solid ${model.color}33;
-            color:${model.color};background:transparent;font-family:var(--f-mono);
-            font-size:7px;transition:all .12s"
-            onmouseenter="this.style.background='${model.color}11'"
-            onmouseleave="this.style.background='transparent'">${t}</button>
-        `).join('')}
-      </div>
-      <textarea id="alm-model-obs" placeholder="What are you noticing in the ${model.label} layer right now?" style="
-        width:100%;box-sizing:border-box;height:60px;resize:none;
-        font-family:var(--f-mono);font-size:8px;color:var(--bright);
-        background:rgba(0,0,0,.4);border:1px solid ${model.color}22;
-        padding:8px;line-height:1.6;outline:none"
-        onfocus="this.style.borderColor='${model.color}55'"
-        onblur="this.style.borderColor='${model.color}22'"></textarea>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:7px">
-        <button onclick="almLogModel()" style="
-          padding:7px 18px;border:1px solid rgba(0,255,136,.35);
-          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
-          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG</button>
-        <button onclick="almModelToCanvas('${ALM_STATE.activeModel}')" style="
-          padding:7px 14px;border:1px solid rgba(255,255,255,.1);
-          color:var(--dim);background:transparent;cursor:pointer;
-          font-family:var(--f-mono);font-size:8px"
-          onmouseenter="this.style.background='rgba(255,255,255,.05)'"
-          onmouseleave="this.style.background='transparent'">→ CANVAS</button>
-      </div>
-    </div>
-
-    <!-- Recent observations -->
-    ${recent.length ? `
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">RECENT OBSERVATIONS</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${recent.map(l => `
-          <div style="padding:8px 12px;background:rgba(0,0,0,.3);
-            border-left:2px solid ${model.color}44;display:flex;gap:10px;align-items:flex-start">
-            ${l.field ? `<span style="font-family:var(--f-mono);font-size:7px;
-              color:${model.color};flex-shrink:0;padding:1px 6px;
-              border:1px solid ${model.color}33">${escH(l.field)}</span>` : ''}
-            <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
-              flex:1;line-height:1.5">${escH(l.value)}</span>
-            <span style="font-family:var(--f-mono);font-size:7px;
-              color:var(--wire2);flex-shrink:0">${_almTimeAgo(l.ts)}</span>
-          </div>`).join('')}
-      </div>
-    </div>` : ''}
-  `;
-  container.appendChild(right);
-}
-
-function almModelFieldPrompt(field) {
-  const ta = document.getElementById('alm-model-obs');
-  if (ta) { ta.placeholder = field + ': '; ta.focus(); }
-  window._almModelField = field;
-}
-
-function almLogModel() {
-  const val = document.getElementById('alm-model-obs')?.value?.trim();
-  if (!val) { mm_toast('Add an observation', 'warn'); return; }
-  ALM_STATE.modelLog.push({
-    modelKey: ALM_STATE.activeModel,
-    field: window._almModelField || null,
-    value: val,
-    ts: Date.now(),
-  });
-  window._almModelField = null;
-  almSave();
-  mm_toast('Observation logged', 'success', { dur: 1500 });
-  document.getElementById('alm-model-obs').value = '';
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-// ── TAB: Experiment ───────────────────────────────────────────────
-function _almTabExperiment(container) {
-  container.style.flexDirection = 'column';
-  container.style.overflowY = 'auto';
-  container.style.padding = '24px 30px';
-  container.style.gap = '22px';
-
-  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
-
-  container.innerHTML = `
-    <div>
-      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
-        letter-spacing:4px;color:#00ff88;margin-bottom:4px">EXPERIMENT</div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
-        Deliberately use a function. Record what happens.
-        The loop: trigger → observe → log → adjust → repeat.
-      </div>
-    </div>
-
-    <!-- Function selector for experiment -->
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:9px">SELECT FUNCTION TO EXPERIMENT WITH</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-        ${Object.entries(COGNITIVE_FUNCTIONS).map(([key, f]) => `
-          <button onclick="almSelectExperimentFn('${key}')" style="
-            padding:7px 13px;cursor:pointer;
-            border:1px solid ${ALM_STATE.activeFunction===key ? f.color : f.color+'44'};
-            background:${ALM_STATE.activeFunction===key ? f.color+'15' : 'transparent'};
-            color:${f.color};font-family:var(--f-display);font-size:8.5px;
-            font-weight:700;transition:all .12s"
-            onmouseenter="this.style.background='${f.color}10'"
-            onmouseleave="this.style.background='${ALM_STATE.activeFunction===key ? f.color+'15' : 'transparent'}'"
-          >${f.icon} ${key}</button>
-        `).join('')}
-      </div>
-      ${fn ? `
-        <div style="padding:14px;background:${fn.color}08;border:1px solid ${fn.color}22">
-          <div style="font-family:var(--f-mono);font-size:7.5px;color:${fn.color};
-            letter-spacing:1.5px;margin-bottom:8px">EXPERIMENT PROTOCOL</div>
-          <div style="font-family:var(--f-mono);font-size:9px;color:var(--bright);
-            line-height:1.8;margin-bottom:8px">${fn.experiment}</div>
-          <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
-            font-style:italic">${fn.feedback}</div>
-        </div>` : ''}
-    </div>
-
-    <!-- Log experiment result -->
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:9px">WHAT HAPPENED?</div>
-      <textarea id="alm-exp-obs" placeholder="What did you notice?
-Did the function activate cleanly or with resistance?
-What was the quality of the output?
-What surprised you?" style="
-        width:100%;box-sizing:border-box;height:90px;resize:none;
-        font-family:var(--f-mono);font-size:8px;color:var(--bright);
-        background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.2);
-        padding:10px;line-height:1.7;outline:none"
-        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-        onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-        <button onclick="almLogExperiment()" style="
-          padding:8px 20px;border:1px solid rgba(0,255,136,.4);
-          color:#00ff88;background:rgba(0,255,136,.06);cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(0,255,136,.14)'"
-          onmouseleave="this.style.background='rgba(0,255,136,.06)'">+ LOG EXPERIMENT</button>
-      </div>
-    </div>
-
-    <!-- Past experiments -->
-    ${ALM_STATE.experiments.length ? `
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">EXPERIMENT LOG (${ALM_STATE.experiments.length})</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${[...ALM_STATE.experiments].reverse().slice(0,10).map(e => {
-          const f = COGNITIVE_FUNCTIONS[e.fnKey];
-          return `<div style="padding:10px 14px;background:rgba(0,0,0,.35);
-            border-left:3px solid ${f?.color||'#00ff88'}44">
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
-              <span style="font-family:var(--f-display);font-size:9px;font-weight:700;
-                color:${f?.color||'#00ff88'}">${e.fnKey}</span>
-              <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">
-                ${_almTimeAgo(e.ts)}</span>
-            </div>
-            <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
-              line-height:1.6">${escH(e.observation)}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>` : ''}
-  `;
-}
-
-function almSelectExperimentFn(key) {
-  ALM_STATE.activeFunction = key;
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almRunExperiment(fnKey) {
-  ALM_STATE.activeFunction = fnKey;
-  ALM_STATE.activeTab = 'experiment';
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almLogExperiment() {
-  const obs = document.getElementById('alm-exp-obs')?.value?.trim();
-  if (!obs) { mm_toast('Record your observation first', 'warn'); return; }
-  const fn = COGNITIVE_FUNCTIONS[ALM_STATE.activeFunction];
-  ALM_STATE.experiments.push({
-    id: uuid(), fnKey: ALM_STATE.activeFunction,
-    prompt: fn?.experiment || '',
-    observation: obs, ts: Date.now(),
-  });
-  almSave();
-  mm_toast('Experiment logged', 'success', { dur: 1800 });
-  document.getElementById('alm-exp-obs').value = '';
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-// ── TAB: Externalize ──────────────────────────────────────────────
-function _almTabExternalize(container) {
-  container.style.flexDirection = 'row';
-
-  // Left: input
-  const left = document.createElement('div');
-  left.style.cssText = [
-    'width:360px;flex-shrink:0;border-right:1px solid rgba(0,255,136,.1)',
-    'padding:22px 20px;display:flex;flex-direction:column;gap:14px',
-  ].join(';');
-
-  left.innerHTML = `
-    <div>
-      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
-        letter-spacing:4px;color:#00ff88;margin-bottom:5px">EXTERNALIZE THOUGHT</div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
-        Get it out of your head. The act of externalizing is processing.
-        Label the type to route it.
-      </div>
-    </div>
-    <textarea id="alm-ext-text" placeholder="What's in your head right now?
-A question you keep circling?
-A half-formed observation?
-A hypothesis that needs testing?
-A pattern you keep seeing?
-Anything — just get it out." style="
-      flex:1;resize:none;
-      font-family:var(--f-mono);font-size:9px;color:var(--bright);
-      background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.2);
-      padding:12px;line-height:1.8;outline:none;min-height:160px"
-      onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-      onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
-    <div>
-      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:7px">TYPE</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
-        ${['question','observation','hypothesis','pattern','friction','insight'].map(t => {
-          const tc = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
-                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'}[t];
-          return `<button id="alm-ext-type-${t}" onclick="almExtSelectType('${t}')" style="
-            padding:5px 11px;cursor:pointer;
-            border:1px solid ${tc}44;color:${tc};
-            background:transparent;font-family:var(--f-mono);
-            font-size:7.5px;transition:all .12s"
-            onmouseenter="this.style.background='${tc}11'"
-            onmouseleave="almExtTypeHover('${t}')">${t}</button>`;
-        }).join('')}
-      </div>
-      <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:7px">WHICH FUNCTION IS ACTIVE?</div>
-      <select id="alm-ext-fn" style="
-        width:100%;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-        color:var(--muted);padding:7px 9px;font-family:var(--f-mono);
-        font-size:8px;margin-bottom:12px">
-        <option value="">— function (optional)</option>
-        ${Object.entries(COGNITIVE_FUNCTIONS).map(([k,f]) =>
-          `<option value="${k}">${k} — ${f.label}</option>`).join('')}
-      </select>
-      <button onclick="almExternalizeLog()" style="
-        width:100%;padding:10px;border:1px solid rgba(0,255,136,.4);
-        color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
-        font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px"
-        onmouseenter="this.style.background='rgba(0,255,136,.15)'"
-        onmouseleave="this.style.background='rgba(0,255,136,.07)'">✦ EXTERNALIZE</button>
-    </div>
-  `;
-  container.appendChild(left);
-
-  // Right: stream
-  const right = document.createElement('div');
-  right.style.cssText = 'flex:1;overflow-y:auto;padding:22px 24px';
-  const stream = [...ALM_STATE.externalizations].reverse();
-  const typeColors = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
-                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'};
-
-  right.innerHTML = `
-    <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-      color:var(--dim);margin-bottom:14px">THOUGHT STREAM (${stream.length})</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${stream.slice(0,40).map(e => {
-        const col = typeColors[e.type] || '#00ff88';
-        const fn = e.fnKey ? COGNITIVE_FUNCTIONS[e.fnKey] : null;
-        return `<div style="padding:11px 14px;background:rgba(0,0,0,.35);
-          border-left:2px solid ${col};display:flex;gap:11px;align-items:flex-start">
-          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:72px">
-            <span style="font-family:var(--f-mono);font-size:7px;color:${col};
-              border:1px solid ${col}44;padding:1px 5px">${e.type}</span>
-            ${fn ? `<span style="font-family:var(--f-mono);font-size:7px;
-              color:${fn.color}">${e.fnKey}</span>` : ''}
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
-              line-height:1.7;word-break:break-word">${escH(e.text)}</div>
-            <div style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
-              margin-top:4px">${_almTimeAgo(e.ts)}</div>
-          </div>
-          <div style="flex-shrink:0;display:flex;flex-direction:column;gap:4px">
-            <button onclick="almExtToCanvas('${e.id}')" style="
-              padding:3px 7px;border:1px solid rgba(255,255,255,.1);
-              color:var(--dim);background:transparent;cursor:pointer;
-              font-family:var(--f-mono);font-size:7px">→</button>
-            <button onclick="almExtDelete('${e.id}')" style="
-              padding:3px 7px;border:none;background:none;cursor:pointer;
-              color:var(--wire2);font-size:11px"
-              onmouseenter="this.style.color='var(--r)'"
-              onmouseleave="this.style.color='var(--wire2)'">×</button>
-          </div>
-        </div>`;
-      }).join('')}
-      ${!stream.length ? `<div style="font-family:var(--f-mono);font-size:8px;
-        color:var(--dim);padding:20px 0;line-height:2">
-        Nothing externalized yet.<br>
-        <span style="color:var(--wire2)">The stream captures thinking-in-progress.<br>
-        Not for polished thoughts — for raw ones.</span>
-      </div>` : ''}
-    </div>
-  `;
-  container.appendChild(right);
-
-  // Init type selection
-  window._almExtType = window._almExtType || 'observation';
-  setTimeout(() => almExtSelectType(window._almExtType), 50);
-}
-
-let _almExtType = 'observation';
-function almExtSelectType(t) {
-  _almExtType = t;
-  const typeColors = {question:'#00c8ff',observation:'#00ff88',hypothesis:'#cc44ff',
-                      pattern:'#ff8c22',friction:'#ff3355',insight:'#ffe04a'};
-  ['question','observation','hypothesis','pattern','friction','insight'].forEach(type => {
-    const btn = document.getElementById('alm-ext-type-' + type);
-    if (!btn) return;
-    const col = typeColors[type];
-    const isActive = type === t;
-    btn.style.background = isActive ? col + '18' : 'transparent';
-    btn.style.borderColor = isActive ? col : col + '44';
-  });
-}
-function almExtTypeHover(t) { almExtSelectType(_almExtType); }
-
-function almExternalizeLog() {
-  const text = document.getElementById('alm-ext-text')?.value?.trim();
-  if (!text) { mm_toast('Write something first', 'warn'); return; }
-  const fnKey = document.getElementById('alm-ext-fn')?.value || null;
-  ALM_STATE.externalizations.push({
-    id: uuid(), text, type: _almExtType, fnKey: fnKey || null, ts: Date.now(),
-  });
-  almSave();
-  document.getElementById('alm-ext-text').value = '';
-  mm_toast('Externalized', 'success', { dur: 1400 });
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almExtToCanvas(id) {
-  const e = ALM_STATE.externalizations.find(x => x.id === id);
-  if (!e) return;
-  const fn = e.fnKey ? COGNITIVE_FUNCTIONS[e.fnKey] : null;
-  const typeMap = {question:'question',observation:'insight',
-                   hypothesis:'seed',pattern:'pattern',friction:'friction',insight:'insight'};
-  CANVAS.spawnNode(typeMap[e.type]||'concept', undefined, undefined, {
-    title: e.text.slice(0,60),
-    body: e.text.length > 60 ? e.text : '',
-    color: fn?.color,
-    tags: [e.type.toUpperCase(), ...(e.fnKey ? [e.fnKey] : [])],
-  });
-  mm_toast('→ canvas', 'export', { dur: 1200 });
-}
-
-function almExtDelete(id) {
-  ALM_STATE.externalizations = ALM_STATE.externalizations.filter(x => x.id !== id);
-  almSave();
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-// ── TAB: Heuristics ───────────────────────────────────────────────
-function _almTabHeuristics(container) {
-  container.style.flexDirection = 'column';
-  container.style.overflowY = 'auto';
-  container.style.padding = '24px 30px';
-  container.style.gap = '18px';
-  container.style.maxWidth = '820px';
-
-  const domainColors = {Cognition:'#00c8ff',Affective:'#ff66aa',Behavioral:'#ff8c22',
-    Relational:'#11ddcc',Systems:'#ffe04a',Meta:'#cc44ff'};
-
-  container.innerHTML = `
-    <div>
-      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
-        letter-spacing:4px;color:#00ff88;margin-bottom:5px">HEURISTICS</div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
-        Named rules of thumb for your mind. A heuristic is a pattern you've earned through
-        experience, distilled into a form you can apply without re-deriving it every time.
-      </div>
-    </div>
-
-    <!-- Add heuristic -->
-    <div style="padding:16px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15)">
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:#00ff88;margin-bottom:10px">+ NEW HEURISTIC</div>
-      <input id="alm-h-text" placeholder="When X, do Y. / If I notice Z, it usually means... / My best work happens when..." style="
-        width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:9px;
-        color:var(--bright);background:rgba(0,0,0,.5);
-        border:1px solid rgba(0,255,136,.2);padding:9px 12px;outline:none;margin-bottom:8px"
-        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-        onblur="this.style.borderColor='rgba(0,255,136,.2)'"
-        onkeydown="if(event.key==='Enter')almAddHeuristic()"/>
-      <div style="display:flex;gap:8px">
-        <select id="alm-h-domain" style="
-          flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-          color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
-          <option value="">Domain (optional)</option>
-          ${Object.keys(domainColors).map(d => `<option value="${d}">${d}</option>`).join('')}
-        </select>
-        <select id="alm-h-rel" style="
-          flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-          color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
-          <option value="">Reliability</option>
-          <option value="high">High — trust by default</option>
-          <option value="medium">Medium — verify first</option>
-          <option value="low">Low — provisional</option>
-        </select>
-        <button onclick="almAddHeuristic()" style="
-          padding:7px 18px;border:1px solid rgba(0,255,136,.4);
-          color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(0,255,136,.15)'"
-          onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ ADD</button>
-      </div>
-    </div>
-
-    <!-- Heuristics list -->
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${ALM_STATE.heuristics.length ? ALM_STATE.heuristics.map(h => {
-        const dc = domainColors[h.domain] || '#00ff88';
-        const rc = {high:'#00ff88',medium:'#ff8c22',low:'#ff3355'}[h.reliability] || 'var(--dim)';
-        return `<div style="padding:12px 16px;background:rgba(0,0,0,.35);
-          border:1px solid rgba(255,255,255,.06);border-left:3px solid ${dc};
-          display:flex;align-items:flex-start;gap:12px">
-          <div style="flex:1">
-            <div style="font-family:var(--f-mono);font-size:9.5px;color:var(--bright);
-              line-height:1.7;margin-bottom:6px">${escH(h.text)}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              ${h.domain ? `<span style="font-family:var(--f-mono);font-size:7px;
-                color:${dc};border:1px solid ${dc}44;padding:1px 6px">${h.domain}</span>` : ''}
-              ${h.reliability ? `<span style="font-family:var(--f-mono);font-size:7px;
-                color:${rc}">${h.reliability} reliability</span>` : ''}
-              <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2)">
-                ${_almTimeAgo(h.ts)}</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:5px;flex-shrink:0">
-            <button onclick="almHeuristicToCanvas('${h.id}')" style="
-              padding:4px 9px;border:1px solid rgba(255,255,255,.1);
-              color:var(--dim);background:transparent;cursor:pointer;
-              font-family:var(--f-mono);font-size:7px"
-              onmouseenter="this.style.color='var(--c)'"
-              onmouseleave="this.style.color='var(--dim)'">→</button>
-            <button onclick="almDeleteHeuristic('${h.id}')" style="
-              padding:4px 7px;border:none;background:none;cursor:pointer;
-              color:var(--wire2);font-size:12px"
-              onmouseenter="this.style.color='var(--r)'"
-              onmouseleave="this.style.color='var(--wire2)'">×</button>
-          </div>
-        </div>`;
-      }).join('') : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
-        padding:20px 0;line-height:2">
-        No heuristics yet.<br>
-        <span style="color:var(--wire2)">A heuristic is experience distilled.
-        "When I'm tired, Ti gets unreliable."<br>
-        "My Ni converges fastest in the hour after waking."<br>
-        "When I feel friction, it's often Si flagging a pattern mismatch."</span>
-      </div>`}
-    </div>
-  `;
-}
-
-function almAddHeuristic() {
-  const text = document.getElementById('alm-h-text')?.value?.trim();
-  if (!text) { mm_toast('Write the heuristic', 'warn'); return; }
-  ALM_STATE.heuristics.push({
-    id: uuid(), text,
-    domain: document.getElementById('alm-h-domain')?.value || '',
-    reliability: document.getElementById('alm-h-rel')?.value || 'medium',
-    ts: Date.now(),
-  });
-  almSave();
-  document.getElementById('alm-h-text').value = '';
-  mm_toast('Heuristic added', 'success', { dur: 1400 });
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almDeleteHeuristic(id) {
-  ALM_STATE.heuristics = ALM_STATE.heuristics.filter(h => h.id !== id);
-  almSave();
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almHeuristicToCanvas(id) {
-  const h = ALM_STATE.heuristics.find(x => x.id === id);
-  if (!h) return;
-  CANVAS.spawnNode('heuristic', undefined, undefined, {
-    title: h.text.slice(0,60),
-    tags: ['HEURISTIC', ...(h.domain ? [h.domain.toUpperCase()] : [])],
-  });
-  mm_toast('Heuristic → canvas', 'export', { dur: 1200 });
-}
-
-// ── TAB: Frameworks ───────────────────────────────────────────────
-function _almTabFrameworks(container) {
-  container.style.flexDirection = 'column';
-  container.style.overflowY = 'auto';
-  container.style.padding = '24px 30px';
-  container.style.gap = '18px';
-
-  // Built-in framework suggestions
-  const SUGGESTED = [
-    { name:'Polyvagal Theory', source:'Stephen Porges', desc:'Three nervous system states shape all behavior and cognition.' },
-    { name:'IFS — Internal Family Systems', source:'Richard Schwartz', desc:'Parts, Self, managers, firefighters, exiles.' },
-    { name:'NVC — Nonviolent Communication', source:'Marshall Rosenberg', desc:'Observation → Feeling → Need → Request.' },
-    { name:'Cynefin', source:'Dave Snowden', desc:'Obvious, Complicated, Complex, Chaotic domains require different action.' },
-    { name:'Double-Loop Learning', source:'Argyris', desc:'Change not just behavior but the governing variables that produce behavior.' },
-    { name:'Theory of Constraints', source:'Eli Goldratt', desc:'Every system has one constraint. Find it. Exploit it. Subordinate everything else.' },
-    { name:'OODA Loop', source:'Boyd', desc:'Observe → Orient → Decide → Act. Speed through the loop wins.' },
-  ];
-
-  container.innerHTML = `
-    <div>
-      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
-        letter-spacing:4px;color:#00ff88;margin-bottom:5px">FRAMEWORKS</div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
-        Mental structures you actively use. Not a library — an active toolkit.
-        Add frameworks you're working with. Tag how you're applying them.
-      </div>
-    </div>
-
-    <!-- Add custom -->
-    <div style="padding:14px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.12)">
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:#00ff88;margin-bottom:9px">+ ADD FRAMEWORK</div>
-      <div style="display:flex;gap:7px;margin-bottom:7px">
-        <input id="alm-fw-name" placeholder="Framework name…" style="
-          flex:2;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
-          background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-          padding:7px 10px;outline:none"
-          onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-          onblur="this.style.borderColor='rgba(0,255,136,.2)'"/>
-        <input id="alm-fw-source" placeholder="Source / author" style="
-          flex:1;font-family:var(--f-mono);font-size:8px;color:var(--muted);
-          background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.15);
-          padding:7px 9px;outline:none"/>
-      </div>
-      <textarea id="alm-fw-desc" placeholder="What does this framework do? How are you using it?" style="
-        width:100%;box-sizing:border-box;height:52px;resize:none;
-        font-family:var(--f-mono);font-size:8px;color:var(--bright);
-        background:rgba(0,0,0,.45);border:1px solid rgba(0,255,136,.15);
-        padding:7px;line-height:1.6;outline:none;margin-bottom:7px"></textarea>
-      <div style="text-align:right">
-        <button onclick="almAddFramework()" style="
-          padding:7px 18px;border:1px solid rgba(0,255,136,.4);
-          color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
-          font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
-          onmouseenter="this.style.background='rgba(0,255,136,.15)'"
-          onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ ADD</button>
-      </div>
-    </div>
-
-    <!-- Active frameworks -->
-    ${ALM_STATE.frameworks.length ? `
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">ACTIVE (${ALM_STATE.frameworks.length})</div>
-      ${ALM_STATE.frameworks.map(f => `
-        <div style="padding:12px 16px;background:rgba(0,0,0,.35);
-          border:1px solid rgba(255,255,255,.06);margin-bottom:7px;
-          display:flex;align-items:flex-start;gap:11px">
-          <div style="flex:1">
-            <div style="font-family:var(--f-display);font-size:10px;font-weight:700;
-              letter-spacing:1px;color:#00ff88;margin-bottom:3px">${escH(f.name)}</div>
-            ${f.source ? `<div style="font-family:var(--f-mono);font-size:7px;
-              color:var(--dim);margin-bottom:5px">${escH(f.source)}</div>` : ''}
-            ${f.desc ? `<div style="font-family:var(--f-mono);font-size:8px;
-              color:var(--muted);line-height:1.6">${escH(f.desc)}</div>` : ''}
-          </div>
-          <button onclick="almDeleteFramework('${f.id}')" style="
-            padding:4px 7px;border:none;background:none;cursor:pointer;
-            color:var(--wire2);font-size:12px;flex-shrink:0"
-            onmouseenter="this.style.color='var(--r)'"
-            onmouseleave="this.style.color='var(--wire2)'">×</button>
-        </div>`).join('')}
-    </div>` : ''}
-
-    <!-- Suggested -->
-    <div>
-      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
-        color:var(--dim);margin-bottom:10px">SUGGESTED FRAMEWORKS</div>
-      ${SUGGESTED.map(s => `
-        <div style="padding:10px 14px;background:transparent;
-          border:1px solid rgba(255,255,255,.05);margin-bottom:6px;
-          display:flex;align-items:flex-start;gap:11px">
-          <div style="flex:1">
-            <div style="font-family:var(--f-display);font-size:9px;font-weight:700;
-              color:var(--bright);margin-bottom:2px">${s.name}</div>
-            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);
-              margin-bottom:4px">${s.source}</div>
-            <div style="font-family:var(--f-mono);font-size:8px;
-              color:var(--muted)">${s.desc}</div>
-          </div>
-          <button onclick="almAddSuggestedFramework('${s.name.replace(/'/g,"\'")}','${s.source.replace(/'/g,"\'")}','${s.desc.replace(/'/g,"\'")}')" style="
-            padding:5px 11px;border:1px solid rgba(0,255,136,.3);
-            color:#00ff88;background:transparent;cursor:pointer;
-            font-family:var(--f-mono);font-size:7.5px;flex-shrink:0"
-            onmouseenter="this.style.background='rgba(0,255,136,.08)'"
-            onmouseleave="this.style.background='transparent'">+ ADD</button>
-        </div>`).join('')}
-    </div>
-  `;
-}
-
-function almAddFramework() {
-  const name = document.getElementById('alm-fw-name')?.value?.trim();
-  if (!name) { mm_toast('Name required', 'warn'); return; }
-  ALM_STATE.frameworks.push({
-    id: uuid(), name,
-    source: document.getElementById('alm-fw-source')?.value?.trim() || '',
-    desc: document.getElementById('alm-fw-desc')?.value?.trim() || '',
-    ts: Date.now(),
-  });
-  almSave();
-  mm_toast('Framework added', 'success', { dur: 1400 });
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almAddSuggestedFramework(name, source, desc) {
-  if (ALM_STATE.frameworks.some(f => f.name === name)) { mm_toast('Already in your toolkit', 'info'); return; }
-  ALM_STATE.frameworks.push({ id: uuid(), name, source, desc, ts: Date.now() });
-  almSave();
-  mm_toast(name + ' added', 'success', { dur: 1400 });
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-function almDeleteFramework(id) {
-  ALM_STATE.frameworks = ALM_STATE.frameworks.filter(f => f.id !== id);
-  almSave();
-  const overlay = document.getElementById('mm-alm-overlay');
-  if (overlay) _renderALM(overlay);
-}
-
-// ── TAB: Log (delta + legacy) ─────────────────────────────────────
-function _almTabLog(container) {
-  container.style.flexDirection = 'column';
-  container.style.overflowY = 'auto';
-  container.style.padding = '24px 30px';
-  container.style.gap = '16px';
-
-  const deltas = JSON.parse(localStorage.getItem(ALM_DELTAS_KEY) || '[]');
-  const typeColors = { insight:'#ff8c22',skill:'#00c8ff',pattern:'#cc44ff',
-    intuition:'#ff66aa','inner-work':'#7744ff',horizon:'#d4a820' };
-
-  container.innerHTML = `
-    <div>
-      <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
-        letter-spacing:4px;color:#00ff88;margin-bottom:5px">DELTA LOG</div>
-      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
-        Log improvements, insights, skill gains. Track the trajectory of change.
-      </div>
-    </div>
-    <div style="display:flex;gap:7px">
-      <input id="alm-delta-input" placeholder="What improved, shifted, or landed today…" style="
-        flex:1;font-family:var(--f-mono);font-size:9px;color:var(--bright);
-        background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-        padding:8px 12px;outline:none"
-        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
-        onblur="this.style.borderColor='rgba(0,255,136,.2)'"
-        onkeydown="if(event.key==='Enter')almLogDelta()"/>
-      <select id="alm-delta-type" style="
-        background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
-        color:var(--muted);padding:7px 10px;font-family:var(--f-mono);font-size:8px">
-        <option value="insight">Insight</option>
-        <option value="skill">Skill</option>
-        <option value="pattern">Pattern</option>
-        <option value="intuition">Intuition</option>
-        <option value="inner-work">Inner Work</option>
-        <option value="horizon">Horizon</option>
-      </select>
-      <button onclick="almLogDelta()" style="
-        padding:8px 16px;border:1px solid rgba(0,255,136,.4);
-        color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
-        font-family:var(--f-mono);font-size:8px"
-        onmouseenter="this.style.background='rgba(0,255,136,.15)'"
-        onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ LOG</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      ${deltas.slice(0,50).map(d => {
-        const col = typeColors[d.type] || '#00ff88';
-        return `<div style="padding:8px 12px;background:rgba(0,0,0,.3);
-          border-left:2px solid ${col};display:flex;align-items:center;gap:10px">
-          <span style="font-family:var(--f-mono);font-size:7px;color:${col};
-            border:1px solid ${col}44;padding:1px 6px;flex-shrink:0">${d.type}</span>
-          <span style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);flex:1">
-            ${escH(d.text)}</span>
-          <span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);flex-shrink:0">
-            ${d.ts ? new Date(d.ts).toLocaleDateString() : ''}</span>
-        </div>`;
-      }).join('')}
-      ${!deltas.length ? `<div style="font-family:var(--f-mono);font-size:8px;
-        color:var(--dim);padding:16px 0">No deltas yet.</div>` : ''}
-    </div>
-  `;
-}
-
-// ── Canvas export ─────────────────────────────────────────────────
-function almModelToCanvas(modelKey) {
-  const model = HUMAN_MODELS[modelKey];
-  if (!model) return;
-  closeALM();
-  CANVAS.enterCanvas();
-  setTimeout(() => {
-    const hub = CANVAS.spawnNode('framework', undefined, undefined, {
-      title: model.label + ' MODEL',
-      body: model.core, color: model.color,
-      tags: ['HUMAN-MODEL', model.loopType.toUpperCase()],
-    });
-    const obs = ALM_STATE.modelLog.filter(l => l.modelKey === modelKey).slice(-5);
-    obs.forEach(o => {
-      const n = CANVAS.spawnNode('insight', undefined, undefined, {
-        title: (o.field ? '[' + o.field + '] ' : '') + o.value.slice(0,50),
-        color: model.color, tags: [model.label.toUpperCase(), 'OBSERVATION'],
-      });
-      if (hub && n) CANVAS.addConn(hub.id, n.id, 'observed');
-    });
-    mm_toast(model.label + ' → canvas', 'export');
-  }, 200);
-}
-
-function almExportToCanvas() {
-  closeALM();
-  CANVAS.enterCanvas();
-  setTimeout(() => {
-    const cx = window.innerWidth/2, cy = window.innerHeight/2;
-    const models = Object.entries(HUMAN_MODELS);
-    const hub = CANVAS.spawnNode('synthesis', cx, cy, {
-      title: 'HUMAN SYSTEM', color: '#00ff88', tags: ['ALM', 'SYNTHESIS'],
-    });
-    models.forEach(([key, model], i) => {
-      const angle = (i / models.length) * Math.PI * 2 - Math.PI/2;
-      const r = 300;
-      const n = CANVAS.spawnNode('framework', cx + Math.cos(angle)*r, cy + Math.sin(angle)*r, {
-        title: model.label, color: model.color,
-        body: model.core, tags: ['MODEL', model.loopType.toUpperCase()],
-      });
-      if (hub && n) CANVAS.addConn(hub.id, n.id, model.loopType);
-    });
-    mm_toast('All 8 models → canvas', 'export');
-  }, 200);
-}
-
-// ── Utilities ─────────────────────────────────────────────────────
-function _almTimeAgo(ts) {
-  if (!ts) return '';
-  const diff = Date.now() - ts;
-  if (diff < 60000) return 'just now';
-  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
-  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
-  if (diff < 604800000) return Math.floor(diff/86400000) + 'd ago';
-  return new Date(ts).toLocaleDateString();
-}
-
-
-console.log('[MASTERMIND] ALM module loaded');
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -9541,18 +11040,18 @@ const SYSTEMS = {
 const SYSTEMS_KEY = 'nexus_systems_state';
 
 function systemsLoad() {
-  try {
-    const raw = localStorage.getItem(SYSTEMS_KEY);
-    if (raw) Object.assign(SYSTEMS, JSON.parse(raw));
-  } catch(e) {}
+  // SECURITY FIX: this read localStorage['nexus_systems_state'] as its
+  // ONLY source — this data had no vault path at all before this fix,
+  // unlike body/horizon/domain/mirror/relational above. Vault-only now
+  // (mastermind-vault.js, modules.systems); see _ORPHAN_KEYS for
+  // recovering any pre-fix copy.
+  SYSTEMS._loaded = true;
 }
 
 function systemsSave() {
-  try { localStorage.setItem(SYSTEMS_KEY, JSON.stringify({
-    variables: SYSTEMS.variables,
-    links: SYSTEMS.links,
-    loops: SYSTEMS.loops,
-  })); } catch(e) {}
+  // SECURITY FIX: this used to ALSO write localStorage['nexus_systems_state']
+  // in plaintext, in parallel with — well, nothing, before this fix; the
+  // vault now actually covers it (modules.systems).
   if (typeof vaultDirtySave === 'function') vaultDirtySave(5000);
 }
 
@@ -9848,12 +11347,13 @@ function openSystems() {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
   _renderSystemsUI(overlay);
 }
 
 function closeSystems() {
   const el = document.getElementById('mm-systems-overlay');
-  if (el) el.style.display = 'none';
+  if (el) { el.style.display = 'none'; el.style.pointerEvents = 'none'; }
 }
 
 function _renderSystemsUI(container) {
@@ -9955,11 +11455,17 @@ function _renderSystemsUI(container) {
   const right = _buildSystemsRight();
   body.appendChild(right);
 
-  // Init CLD after DOM settles
-  requestAnimationFrame(() => {
+  // Init CLD after DOM settles — use ResizeObserver to get real dimensions
+  // requestAnimationFrame alone fires before layout, giving offsetWidth=0
+  const _cldInitObserver = new ResizeObserver(entries => {
+    _cldInitObserver.disconnect();
     _initCLD(cldCanvas);
-    _renderCLD();
   });
+  _cldInitObserver.observe(center);
+  // Fallback: also try after 100ms in case ResizeObserver fires too early
+  setTimeout(() => {
+    if (_CLD.W === 0) _initCLD(cldCanvas);
+  }, 120);
 }
 
 // ── Left panel builder ────────────────────────────────────────────
@@ -10671,8 +12177,8 @@ function systemsResetSim() {
   mm_toast('Simulation reset', 'info');
 }
 
-function systemsClearAll() {
-  if (!confirm('Clear all variables and links? This cannot be undone.')) return;
+async function systemsClearAll() {
+  if (!(await mmConfirm('Clear all variables and links? This cannot be undone.'))) return;
   SYSTEMS.variables = [];
   SYSTEMS.links = [];
   SYSTEMS.loops = [];
@@ -10776,22 +12282,23 @@ const RELATIONAL_STATE = {
 const RELATIONAL_KEY = 'mm_relational_state';
 
 function relationalLoad() {
-  try {
-    const raw = localStorage.getItem(RELATIONAL_KEY);
-    if (raw) {
-      const d = JSON.parse(raw);
-      Object.assign(RELATIONAL_STATE, d);
-      RELATIONAL_STATE._loaded = true;
-    }
-  } catch(e) {}
+  // SECURITY FIX: this read localStorage['mm_relational_state'] — people,
+  // moments, needs, patterns about the people in your life — and could
+  // clobber correctly-decrypted vault state with a stale plaintext copy,
+  // only firing the first time the module opened in a session, i.e.
+  // AFTER vaultDeserialize() (mastermind-vault.js, modules.relational)
+  // had already restored the real thing. Vault-only now; see
+  // _ORPHAN_KEYS for recovering any pre-fix copy.
   RELATIONAL_STATE._loaded = true;
 }
 
 function relationalSave() {
-  try {
-    const { _loaded, ...data } = RELATIONAL_STATE;
-    localStorage.setItem(RELATIONAL_KEY, JSON.stringify(data));
-  } catch(e) {}
+  // SECURITY FIX: this used to ALSO write localStorage['mm_relational_state']
+  // in plaintext, in parallel with the vault, on every change — the
+  // single most sensitive category of data in this app (people, moments,
+  // needs) sitting unencrypted on disk regardless of whether vault
+  // encryption was on. The vault is the only store now (modules.relational
+  // already covers it in full).
   if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
 }
 
@@ -10843,13 +12350,14 @@ function openRelational() {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
   _renderRelationalUI(overlay);
   if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.4, window.innerHeight * 0.5, 0.9);
 }
 
 function closeRelational() {
   const el = document.getElementById('mm-relational-overlay');
-  if (el) el.style.display = 'none';
+  if (el) { el.style.display = 'none'; el.style.pointerEvents = 'none'; }
   relationalSave();
 }
 
@@ -11450,8 +12958,8 @@ function relationalQuickLog(quality) {
   if (overlay) _renderRelationalUI(overlay);
 }
 
-function relationalAddNeed() {
-  const text = prompt('What do you need in your relationships right now?');
+async function relationalAddNeed() {
+  const text = await mmPrompt('What do you need in your relationships right now?');
   if (!text?.trim()) return;
   const personId = window._relSelectedPerson || null;
   RELATIONAL_STATE.needs.push({
@@ -11528,12 +13036,12 @@ function relationalSaveCoRegNotes(personId, notes) {
   relationalSave();
 }
 
-function relationalEditPerson(id) {
+async function relationalEditPerson(id) {
   const p = RELATIONAL_STATE.people.find(x => x.id === id);
   if (!p) return;
-  const name = prompt('Name:', p.name);
+  const name = await mmPrompt('Name:', p.name);
   if (!name?.trim()) return;
-  const role = prompt('Role (partner, friend, parent…):', p.role);
+  const role = await mmPrompt('Role (partner, friend, parent…):', p.role);
   p.name = name.trim();
   p.role = (role || '').trim();
   relationalSave();
@@ -11648,17 +13156,7 @@ async function relationalAISurface() {
 
   try {
     const prompt = `You're looking at a person's relational moment log. Surface 2-3 patterns — not categories, not diagnoses. What's actually moving? What keeps appearing? What's the shape of this person's relational life right now?\n\nMoments:\n${context}\n\nReturn a JSON array of pattern strings. Each one should be one honest sentence about what you notice. No bullet points, no headers.`;
-    const res = await fetch(AI.apiBase || 'https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': AI.apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: AI.model || 'claude-opus-4-20250514',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    const data = await res.json();
-    const text = data.content?.[0]?.text || '';
+    const text = await aiCall(prompt) || '';
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
       const patterns = JSON.parse(match[0]);
@@ -11692,3 +13190,2843 @@ function _relTimeAgo(ts) {
   return new Date(ts).toLocaleDateString();
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   MIRROR MODULE — v1.0.0
+   
+   "I needed the mastermind because notion wasn't enough."
+   
+   This is not a profile page.
+   It's a living map of how you process reality —
+   built from your own architecture, legible to yourself,
+   cross-linked to every other module.
+   
+   The document you gave me is the seed.
+   The mirror is what lets you consult it, update it,
+   and use it to navigate when you're drowning.
+   
+   Architecture: flat, fast, searchable. No hierarchy for the sake of
+   hierarchy. Sections that map to how you actually think, not to
+   someone else's taxonomy.
+   
+   Sections:
+   - SIGNATURE SYSTEMS  — your named cognitive tools
+   - COGNITIVE MODES    — how you process in different states
+   - FEEDBACK LOOPS     — Ni/Ne and the named loops you've built
+   - PROCESSING STYLE   — how your mind moves
+   - WARNINGS           — prediction engines, failure modes
+   - SELF-WORK          — integration, council, shadow
+   - ACTIVE NOW         — what's live, what's in play today
+   
+   Everything can be spawned to canvas. Everything is searchable.
+   AI can read the mirror to calibrate how it talks to you.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Mirror state ──────────────────────────────────────────────────
+const MIRROR_STATE = {
+  _loaded: false,
+  activeSection: 'signature',
+
+  // User-maintained systems — can add, edit, annotate
+  // Each is: { id, name, desc, tags[], notes, active, pinned, canvasNodeId, ts }
+  systems: [],
+
+  // Named cognitive modes — states James moves through
+  modes: [],
+
+  // Active loops — what's running right now
+  activeLoops: [],
+  // { id, name, type:'reinforcing'|'balancing'|'open', desc, started, ts }
+
+  // Warnings — prediction engines and failure modes in play
+  warnings: [],
+  // { id, text, active, ts }
+
+  // Self-work log — council, shadow, integration observations
+  selfWork: [],
+  // { id, text, type:'council'|'shadow'|'integration'|'observation', ts }
+
+  // Active Now — what is live today
+  activeNow: {
+    nervousSystemNote: '',
+    dominantFunction: 'Ni',
+    processingMode: '',   // e.g. "spiral", "chessmatch", "pattern-engineer"
+    openLoopCount: 0,
+    note: '',
+    ts: null,
+  },
+
+  // Search query
+  _search: '',
+};
+
+const MIRROR_KEY = 'mm_mirror_state';
+
+// ── Seed data — James's actual systems from the document ──────────
+// Pre-loaded on first open. User can edit, delete, add.
+const MIRROR_SEED_SYSTEMS = [
+  // Meta-frameworks
+  { name: 'Engineers Approach', tags: ['meta','subconscious'],
+    desc: 'Always optimizing, fixing, improving. Sees bottlenecks from obsession with efficiency. Gaps from fear of uncertainty. Almost entirely subconscious.',
+    section: 'signature' },
+  { name: 'Meta Compression Framework', tags: ['meta','synthesis'],
+    desc: 'High-level metasystem for filtering, prioritizing, and synthesizing all inputs from mental, emotional, relational, and creative domains. Compresses complexity into actionable, high-impact insights while optimizing energy allocation.',
+    section: 'signature' },
+  { name: 'End-State First Reasoning', tags: ['planning','simulation'],
+    desc: 'Start from the end-state and work backwards. Reverse causal cognition. See where things land before deciding where to step.',
+    section: 'signature' },
+  { name: 'Non-linear Horizon Planning', tags: ['planning'],
+    desc: 'Plan by orientation, not timelines. Watch for patterns, openings, and constraints instead of fixed outcomes. State boundaries, act in good faith, release expectation. Let the next shape emerge through interaction rather than force.',
+    section: 'signature' },
+  { name: 'The Six Eyes', tags: ['meta','perception'],
+    desc: 'The mind\'s perception engine. A radar for seeing all. Tool for curiosity and exploring. Maps constellations not threat detection. Can perceive patterns, waves, signal, entropy — but doesn\'t always see things clearly. (Crystal ball.)',
+    section: 'signature' },
+  { name: 'Meaning-Making Web + Mesh Network', tags: ['meta','uncertainty'],
+    desc: 'Inherent web-based system for meaning combined with a mesh for handling uncertainty and ambiguity. Running simulations/scenarios without attaching. More fluidity. Less anxiety, more presence.',
+    section: 'signature' },
+  { name: 'Dense Network of Significance', tags: ['motivation','meaning'],
+    desc: 'Motivation engine. Pile on meaning using the meaning-making engine. Reframe using CBT, Self-sovereignty, dialectic thinking, pattern recognition. Stack meaning across domains. Any failure is data. Pain is teacher.',
+    section: 'signature' },
+  { name: 'Relational Oscillation Theory', tags: ['relational'],
+    desc: 'Relationships oscillate. Pendulum swing. A point of alternating entropy, instability or misattunement. The relational field is entropy. The signal is the radar dish. The pendulum is the oscillation.',
+    section: 'signature' },
+  { name: 'Sandbox OS', tags: ['variables','filtering'],
+    desc: 'New variables run through a filter — weather, regulation, risk. Strongest/healthiest → good box. Least sturdy → bad box. Both copy to meta box for stress-testing and domain synthesis. Keeps contamination contained.',
+    section: 'signature' },
+  { name: 'Airlock Failsafe', tags: ['variables','survival'],
+    desc: 'When survival mode activates, the sandbox routes through the airlock to prevent contamination from the main system.',
+    section: 'signature' },
+  { name: 'Multidirectional Zooming', tags: ['analysis'],
+    desc: 'Take a variable or pattern. Zoom all the way in, then zoom out one level at a time. Map and fill blanks with research or highest-resolution probable assumption.',
+    section: 'signature' },
+  { name: 'Incremental Variable Engine', tags: ['analysis'],
+    desc: 'Think about a pattern or variable — what\'s 1% more? 1% less? Increase in larger and larger increments. Find the leverage zones.',
+    section: 'signature' },
+  { name: 'Meaning-Making Variable Engine', tags: ['synthesis'],
+    desc: 'Harvests every variable from all methods. Cross-analyzes and synthesizes across domains to generate insight and direction.',
+    section: 'signature' },
+  // Emotional systems
+  { name: 'IV Bag', tags: ['emotional'],
+    desc: 'Letting emotion back in slowly, dripping like an IV bag. Visualize emotions like a drip — controlled, measured, not flooded.',
+    section: 'emotional' },
+  { name: 'Channeling', tags: ['emotional','flow'],
+    desc: 'A flow state where ideas and patterns move through you, not from you. Acting as conduit. Synthesizing and filtering raw inputs from experience, observation, and intuition into usable concepts.',
+    section: 'emotional' },
+  { name: 'Alchemizing', tags: ['emotional','innovation'],
+    desc: 'Transforming raw ideas, contradictions, or chaos into refined, actionable innovation. Blends patterns, experiments, and feedback. Converts uncertainty into insight. Conceptual lead into conceptual gold.',
+    section: 'emotional' },
+  { name: 'Emotional Signal Filtering', tags: ['emotional'],
+    desc: 'Distinguish between emotional input and informational input even when they arrive together. Challenge: prevent emotional noise from masquerading as new data.',
+    section: 'emotional' },
+  { name: 'Tension Harvesting', tags: ['emotional','analysis'],
+    desc: 'Extract insight from discomfort instead of fleeing it. Emotional charge is signal, not noise. Anger reveals violated expectations. Grief reveals attachment depth. Confusion reveals hidden assumptions.',
+    section: 'emotional' },
+  { name: 'Radio Knob', tags: ['regulation'],
+    desc: 'Adjusting the intensity of somatic, sensory, or emotional input like turning a volume dial. Manages focus, clarity, and overwhelm.',
+    section: 'emotional' },
+  // Processing
+  { name: 'Constraint-Driven Creativity', tags: ['creativity','innovation'],
+    desc: 'Best ideas come from pressure. Bottlenecks, limits, friction, emotional tension. Given this constraint, what still moves? Engineering thinking applied to meaning.',
+    section: 'processing' },
+  { name: 'Coherence-or-Collapse Gate', tags: ['filtering'],
+    desc: 'Do not tolerate half-formed ideas. They must either stabilize into a coherent structure or be abandoned. Protects from building on weak foundations.',
+    section: 'processing' },
+  { name: 'Meaning-First Evaluation', tags: ['filtering'],
+    desc: 'Don\'t ask "does this work?" first. Ask: "is this true, coherent, alive?" Utility comes second. Low semantic density = low integrity. System rejects lossy compression.',
+    section: 'processing' },
+  { name: 'Delayed Synthesis', tags: ['processing'],
+    desc: 'Don\'t learn in real time. Buffer. Information passes through somatic, emotional, symbolic subsystems before it clicks. Insight arrives the next day, mid-shower, walking. Not slowness — quality control. Waiting for convergence.',
+    section: 'processing' },
+  { name: 'Symbolic Compression', tags: ['processing','memory'],
+    desc: 'Convert large, messy data into images, metaphors, constellations. Not poetic garnish — bandwidth management. Symbols are high-density storage. Meaning arrives as a felt shape before words show up.',
+    section: 'processing' },
+  { name: 'Bidirectional Inversion', tags: ['reasoning'],
+    desc: 'Simultaneously flips patterns or assumptions inside out and traces them both forward and backward across contexts. Explores hidden variables, detects false premises, stress-tests outcomes.',
+    section: 'reasoning' },
+  { name: 'Bayesian Reasoning', tags: ['reasoning','epistemic'],
+    desc: 'Treat beliefs as probabilities, never as identities. New evidence adjusts confidence rather than flips certainty. Practice Bayesian unlearning — lower confidence when outcomes don\'t match predictions.',
+    section: 'reasoning' },
+  { name: 'Root Cause Tracing', tags: ['reasoning'],
+    desc: 'Track cause and effect backward until hitting the deepest stable root. Not just "what happened" — what made it inevitable. First conditions, hidden assumptions, emotional triggers, system constraints.',
+    section: 'reasoning' },
+  // Self-work
+  { name: 'The Council Method', tags: ['self-work','IFS'],
+    desc: 'Used parts of IFS to find parts broken off after trauma. Found them in locked boxes, compartmentalized. Freed them. Smashed the compartments. Assembled a council. Made cards, names, symbols, roles. Integrated. All have voice and respect.',
+    section: 'self-work' },
+  { name: 'Shadow Integration', tags: ['self-work'],
+    desc: 'Stopped looking at shadow as enemy — more a part that needed to be seen and held. Accept him. Don\'t fear him. Don\'t use the failsafe anymore. Integrating.',
+    section: 'self-work' },
+  { name: 'Inner Sanctuary Construction', tags: ['self-work'],
+    desc: 'Building a refuge inside — self-love, patience, boundaries, forgiveness, protection of inner child. Long-term architecture project, not a mood. When finished it becomes a home that cannot be taken.',
+    section: 'self-work' },
+  { name: 'Pain-as-Teacher Model', tags: ['self-work'],
+    desc: 'Mine suffering for information instead of merely enduring it. Treat darkness as signal, not just noise.',
+    section: 'self-work' },
+];
+
+const MIRROR_SEED_MODES = [
+  { name: 'Pattern-Engineer Mode', color: '#11ddcc',
+    desc: 'Take emotional experience and convert it into systems. Don\'t just feel dynamics — model them. Systems thinking: finding hidden variables, imagining equations, checking for symmetry. Treat relationships like complex ecosystems.' },
+  { name: 'Spiral Thinking', color: '#cc44ff',
+    desc: 'Primary mode. Orbit ideas instead of marching from premise to conclusion. Revisit from new angles. Build constellations. Cross-domain synthesis: attachment theory meets thermodynamics meets philosophy meets lived experience.' },
+  { name: 'Chessboard Mind', color: '#ffe04a',
+    desc: 'Strategic cognition. Forecast multiple moves ahead. Track power dynamics, motives, likely outcomes. When stressed, this mode takes over because it promises control. Anticipatory modeling.' },
+  { name: 'Intensity-Metric Mind', color: '#ff8c22',
+    desc: 'Quantify feelings: temperature, entropy, momentum, oscillation. Measure what most people only vaguely gesture at. Not running from emotion — trying to understand its mechanics so it doesn\'t run you.' },
+  { name: 'Narrative Mind', color: '#ff66aa',
+    desc: 'Think in stories about identity. Self-construction. Humans build meaning through myth, and you\'re aware you\'re doing it. Writing the story of "the one who refuses the default path."' },
+  { name: 'Emotional Mind', color: '#ff3355',
+    desc: 'The one that just hurts, loves, fears, responds. Sometimes distant, sometimes overwhelming. When feelings get too intense, mind retreats into modeling modes. Not broken — prefers control through understanding over raw surrender.' },
+  { name: 'Philosopher-Skeptic Mind', color: '#7744ff',
+    desc: 'Question norms. Masculinity scripts, stoicism distortions, expectations. Interrogate assumptions, poke at cultural nonsense, inspect language. Self-examination without sentimentality.' },
+  { name: 'INFJ Flow State (Ni→Fe→Ti→Se)', color: '#00c8ff',
+    desc: 'Intuition and empathy dominant. Insight and connection flow naturally. Logic supports understanding. Sensory input enriches awareness.' },
+  { name: 'INFJ Chessmatch (Ni→Ti Loop)', color: '#00ff88',
+    desc: 'Internal vision and analysis dominant. Ideas refine and strategize. Emotional awareness may retreat. Sensory engagement diminishes. Maximum precision, minimum presence.' },
+];
+
+const MIRROR_SEED_WARNINGS = [
+  'Prediction engines running — may be manufacturing certainty from fear, not data.',
+  'Rumination loop active — repetition is not evidence.',
+  'Emotional time travel — living in past pain or future catastrophe instead of now.',
+  'Identity fusion — prediction has become self-definition. Losing flexibility.',
+  'Coherence-or-collapse gate offline — building on weak foundations.',
+  'Hyper-responsibility schema activated — carrying what isn\'t yours.',
+  'Emotional over-analysis loop — trying to solve a wound like a puzzle.',
+  'Chessmatch mode dominant — stress has activated control mode.',
+];
+
+// ── Seed on first load ────────────────────────────────────────────
+function _mirrorSeedIfEmpty() {
+  if (MIRROR_STATE.systems.length > 0) return;
+  MIRROR_SEED_SYSTEMS.forEach(s => {
+    MIRROR_STATE.systems.push({
+      id: uuid(), name: s.name, desc: s.desc,
+      tags: s.tags || [], section: s.section || 'signature',
+      notes: '', active: false, pinned: false, ts: Date.now(),
+    });
+  });
+  MIRROR_SEED_MODES.forEach(m => {
+    MIRROR_STATE.modes.push({
+      id: uuid(), name: m.name, color: m.color,
+      desc: m.desc, active: false, ts: Date.now(),
+    });
+  });
+  mirrorSave();
+}
+
+function mirrorLoad() {
+  // SECURITY FIX: this read localStorage['mm_mirror_state'] — cognitive
+  // architecture, modes, warnings, self-work — and could clobber
+  // correctly-decrypted vault state with a stale plaintext copy, only
+  // firing the first time the module opened in a session, i.e. AFTER
+  // vaultDeserialize() (mastermind-vault.js, modules.mirror) had
+  // already restored the real thing. Vault-only now; see _ORPHAN_KEYS
+  // for recovering any pre-fix copy.
+  MIRROR_STATE._loaded = true;
+  _mirrorSeedIfEmpty();
+}
+
+function mirrorSave() {
+  // SECURITY FIX: this used to ALSO write localStorage['mm_mirror_state']
+  // in plaintext, in parallel with the vault, on every change — self-work
+  // and cognitive-architecture notes sitting unencrypted on disk
+  // regardless of whether vault encryption was on. The vault is the
+  // only store now (modules.mirror already covers it in full).
+  if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
+}
+
+// ── Open / close ──────────────────────────────────────────────────
+function openMirror() {
+  if (!_assertAuth()) return;
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'mirror' });
+  if (!MIRROR_STATE._loaded) mirrorLoad();
+
+  let overlay = document.getElementById('mm-mirror-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'mm-mirror-overlay';
+    overlay.style.cssText = [
+      'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800',
+      'background:rgba(1,2,8,.98);backdrop-filter:blur(8px)',
+      'display:flex;flex-direction:column;overflow:hidden',
+    ].join(';');
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
+  _renderMirror(overlay);
+  if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.5, window.innerHeight * 0.3, 1.0);
+}
+
+function closeMirror() {
+  const el = document.getElementById('mm-mirror-overlay');
+  if (el) { el.style.display = 'none'; el.style.pointerEvents = 'none'; }
+  mirrorSave();
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function _renderMirror(overlay) {
+  overlay.innerHTML = '';
+  const ACCENT = '#d4a820'; // gold — different from every other module
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'display:flex;align-items:center;gap:14px;padding:11px 22px',
+    'border-bottom:1px solid rgba(212,168,32,.2)',
+    'background:rgba(212,168,32,.03);flex-shrink:0',
+  ].join(';');
+  hdr.innerHTML = `
+    <span style="font-size:20px;filter:drop-shadow(0 0 12px #d4a820)">◎</span>
+    <div style="flex:1">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:6px;color:#d4a820">MIRROR</div>
+      <div style="font-family:var(--f-mono);font-size:7px;
+        color:rgba(212,168,32,.45);letter-spacing:2px;margin-top:1px">
+        YOUR COGNITIVE ARCHITECTURE · LIVE · SEARCHABLE · CROSS-LINKED
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input id="mirror-search" placeholder="Search systems, modes, tags…" style="
+        font-family:var(--f-mono);font-size:8px;padding:6px 12px;
+        background:rgba(0,0,0,.6);border:1px solid rgba(212,168,32,.2);
+        color:var(--bright);outline:none;width:220px"
+        onfocus="this.style.borderColor='rgba(212,168,32,.5)'"
+        onblur="this.style.borderColor='rgba(212,168,32,.2)'"
+        oninput="mirrorSearch(this.value)"
+        value="${escH(MIRROR_STATE._search || '')}"/>
+      <button onclick="mirrorExportCanvas()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid rgba(212,168,32,.3);color:#d4a820;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(212,168,32,.1)'"
+        onmouseleave="this.style.background='transparent'">→ CANVAS</button>
+      <button onclick="mirrorAIRead()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid rgba(204,68,255,.3);color:#cc44ff;background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(204,68,255,.1)'"
+        onmouseleave="this.style.background='transparent'">✦ AI REFLECT</button>
+      <button onclick="closeMirror();goHome()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
+    </div>
+  `;
+  overlay.appendChild(hdr);
+
+  // Active Now bar — always visible, minimal
+  const activeBar = _buildActiveNowBar();
+  overlay.appendChild(activeBar);
+
+  // Body
+  const body = document.createElement('div');
+  body.style.cssText = 'display:flex;flex:1;overflow:hidden';
+  overlay.appendChild(body);
+
+  // Section nav
+  const nav = _buildMirrorNav();
+  body.appendChild(nav);
+
+  // Main content
+  const main = document.createElement('div');
+  main.id = 'mirror-main';
+  main.style.cssText = 'flex:1;overflow-y:auto;padding:22px 28px;';
+  body.appendChild(main);
+
+  _renderMirrorSection(main);
+
+  // Auto-focus search if query active
+  if (MIRROR_STATE._search) {
+    setTimeout(() => document.getElementById('mirror-search')?.focus(), 50);
+  }
+}
+
+// ── Active Now bar ─────────────────────────────────────────────────
+function _buildActiveNowBar() {
+  const an = MIRROR_STATE.activeNow;
+  const cfn = COGNITIVE_FUNCTIONS[an.dominantFunction];
+  const bar = document.createElement('div');
+  bar.style.cssText = [
+    'display:flex;align-items:center;gap:16px;padding:7px 22px',
+    'border-bottom:1px solid rgba(212,168,32,.1)',
+    'background:rgba(0,0,0,.4);flex-shrink:0',
+  ].join(';');
+
+  bar.innerHTML = `
+    <span style="font-family:var(--f-mono);font-size:7px;color:rgba(212,168,32,.5);
+      letter-spacing:2px;flex-shrink:0">ACTIVE NOW</span>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">function</span>
+      <select id="mirror-active-fn" onchange="mirrorSetActiveFn(this.value)" style="
+        background:rgba(0,0,0,.6);border:1px solid rgba(212,168,32,.2);
+        color:${cfn ? cfn.color : '#d4a820'};padding:3px 7px;
+        font-family:var(--f-mono);font-size:7.5px">
+        ${Object.entries(COGNITIVE_FUNCTIONS).map(([k,f]) =>
+          `<option value="${k}" ${k === an.dominantFunction ? 'selected' : ''} style="color:${f.color}">${k}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">mode</span>
+      <select id="mirror-active-mode" onchange="mirrorSetActiveMode(this.value)" style="
+        background:rgba(0,0,0,.6);border:1px solid rgba(212,168,32,.2);
+        color:var(--muted);padding:3px 7px;font-family:var(--f-mono);font-size:7.5px">
+        <option value="">—</option>
+        ${MIRROR_STATE.modes.map(m =>
+          `<option value="${m.id}" ${m.active ? 'selected' : ''}>${m.name}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div style="flex:1">
+      <input id="mirror-active-note" placeholder="What's happening right now? What's in play?" style="
+        width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:8px;
+        color:var(--bright);background:transparent;border:none;
+        border-bottom:1px solid rgba(212,168,32,.15);padding:2px 0;outline:none"
+        value="${escH(an.note || '')}"
+        onblur="mirrorSaveActiveNote(this.value)"
+        onfocus="this.style.borderBottomColor='rgba(212,168,32,.5)'"
+        onblur2="this.style.borderBottomColor='rgba(212,168,32,.15)'"/>
+    </div>
+    ${MIRROR_STATE.warnings.filter(w => w.active).length ? `
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <span style="color:#ff3355;font-size:11px">⚠</span>
+        <span style="font-family:var(--f-mono);font-size:7px;color:#ff3355">
+          ${MIRROR_STATE.warnings.filter(w => w.active).length} warning${MIRROR_STATE.warnings.filter(w=>w.active).length>1?'s':''}
+        </span>
+      </div>` : ''}
+    <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim);flex-shrink:0">
+      ${an.ts ? _mirrorTimeAgo(an.ts) : 'not set'}
+    </span>
+  `;
+  return bar;
+}
+
+// ── Section nav ───────────────────────────────────────────────────
+function _buildMirrorNav() {
+  const SECTIONS = [
+    { id: 'active',     label: 'ACTIVE NOW',     icon: '◉', color: '#d4a820' },
+    { id: 'signature',  label: 'SIGNATURE',      icon: '◈', color: '#d4a820' },
+    { id: 'modes',      label: 'MODES',          icon: '∿', color: '#11ddcc' },
+    { id: 'emotional',  label: 'EMOTIONAL',      icon: '♥', color: '#ff66aa' },
+    { id: 'processing', label: 'PROCESSING',     icon: '→', color: '#cc44ff' },
+    { id: 'reasoning',  label: 'REASONING',      icon: '◆', color: '#00c8ff' },
+    { id: 'self-work',  label: 'SELF-WORK',      icon: '◎', color: '#00ff88' },
+    { id: 'warnings',   label: 'WARNINGS',       icon: '⚠', color: '#ff3355' },
+    { id: 'loops',      label: 'ACTIVE LOOPS',   icon: '↺', color: '#ff8c22' },
+    { id: 'add',        label: 'ADD SYSTEM',     icon: '+', color: 'var(--dim)' },
+  ];
+
+  const nav = document.createElement('div');
+  nav.style.cssText = [
+    'width:180px;flex-shrink:0;border-right:1px solid rgba(212,168,32,.12)',
+    'padding:10px 0;overflow-y:auto',
+  ].join(';');
+
+  SECTIONS.forEach(sec => {
+    const isActive = MIRROR_STATE.activeSection === sec.id;
+    const count = _mirrorSectionCount(sec.id);
+
+    const btn = document.createElement('div');
+    btn.style.cssText = [
+      'padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px',
+      `border-left:3px solid ${isActive ? sec.color : 'transparent'}`,
+      `background:${isActive ? sec.color.replace(')', ',.08)').replace('#', 'rgba(').replace(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/, (_,r,g,b) => `${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`) : 'transparent'}`,
+      'transition:all .12s',
+    ].join(';');
+
+    btn.innerHTML = `
+      <span style="font-size:11px;color:${isActive ? sec.color : 'var(--dim)'};flex-shrink:0">${sec.icon}</span>
+      <span style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;
+        color:${isActive ? sec.color : 'var(--dim)'};flex:1">${sec.label}</span>
+      ${count ? `<span style="font-family:var(--f-mono);font-size:7px;color:var(--wire2)">${count}</span>` : ''}
+    `;
+    btn.addEventListener('click', () => {
+      MIRROR_STATE.activeSection = sec.id;
+      const overlay = document.getElementById('mm-mirror-overlay');
+      if (overlay) _renderMirror(overlay);
+    });
+    btn.addEventListener('mouseenter', () => { if (!isActive) { btn.style.background = 'rgba(255,255,255,.03)'; btn.style.borderLeftColor = sec.color + '44'; } });
+    btn.addEventListener('mouseleave', () => { if (!isActive) { btn.style.background = 'transparent'; btn.style.borderLeftColor = 'transparent'; } });
+    nav.appendChild(btn);
+  });
+
+  return nav;
+}
+
+function _mirrorSectionCount(id) {
+  if (id === 'warnings') return MIRROR_STATE.warnings.filter(w => w.active).length || '';
+  if (id === 'loops') return MIRROR_STATE.activeLoops.length || '';
+  if (id === 'self-work') return MIRROR_STATE.selfWork.length || '';
+  const systems = MIRROR_STATE.systems.filter(s => s.section === id);
+  return systems.length || '';
+}
+
+// ── Section renderer ───────────────────────────────────────────────
+function _renderMirrorSection(main) {
+  main.innerHTML = '';
+  const query = MIRROR_STATE._search?.toLowerCase() || '';
+
+  switch (MIRROR_STATE.activeSection) {
+    case 'active':    _mirrorActiveSection(main); break;
+    case 'modes':     _mirrorModesSection(main); break;
+    case 'warnings':  _mirrorWarningsSection(main); break;
+    case 'loops':     _mirrorLoopsSection(main); break;
+    case 'self-work': _mirrorSelfWorkSection(main); break;
+    case 'add':       _mirrorAddSection(main); break;
+    default:
+      _mirrorSystemsSection(main, MIRROR_STATE.activeSection, query);
+  }
+}
+
+// ── Systems section (signature / emotional / processing / reasoning) ──
+function _mirrorSystemsSection(main, section, query) {
+  const sectionMeta = {
+    signature:  { label: 'SIGNATURE SYSTEMS',  color: '#d4a820', desc: 'Your named cognitive tools. Built from your own architecture.' },
+    emotional:  { label: 'EMOTIONAL SYSTEMS',  color: '#ff66aa', desc: 'How you process and move through emotion.' },
+    processing: { label: 'PROCESSING STYLE',   color: '#cc44ff', desc: 'How your mind moves through complexity.' },
+    reasoning:  { label: 'REASONING TOOLS',    color: '#00c8ff', desc: 'How you test what\'s true.' },
+  };
+  const meta = sectionMeta[section] || { label: section.toUpperCase(), color: '#d4a820', desc: '' };
+
+  let systems = MIRROR_STATE.systems.filter(s => s.section === section || (section === 'signature' && !s.section));
+
+  if (query) {
+    systems = MIRROR_STATE.systems.filter(s => {
+      const hay = [s.name, s.desc, s.notes, ...(s.tags||[])].join(' ').toLowerCase();
+      return hay.includes(query);
+    });
+  }
+
+  // Pinned first
+  const pinned = systems.filter(s => s.pinned);
+  const rest = systems.filter(s => !s.pinned);
+
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:${meta.color};margin-bottom:4px">${meta.label}</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">${meta.desc}</div>
+    </div>
+  `;
+
+  if (!systems.length) {
+    main.innerHTML += `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+      padding:20px 0">${query ? 'No matches for "' + escH(query) + '"' : 'No systems yet.'}</div>`;
+    return;
+  }
+
+  const renderSystems = (list) => list.map(s => {
+    const isActive = s.active;
+    return `
+      <div id="mirror-sys-${s.id}" style="
+        padding:13px 16px;margin-bottom:8px;
+        border:1px solid ${isActive ? meta.color + '55' : 'rgba(255,255,255,.06)'};
+        background:${isActive ? meta.color.replace('#','rgba(').replace(/([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/,(_, r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`) + ',.06)' : 'rgba(0,0,0,.3)'};
+        border-left:3px solid ${s.pinned ? meta.color : isActive ? meta.color + '88' : 'transparent'};
+        transition:all .15s">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-family:var(--f-display);font-size:10px;font-weight:700;
+                letter-spacing:1.5px;color:${isActive ? meta.color : 'var(--bright)'}">${escH(s.name)}</span>
+              ${(s.tags||[]).map(t => `<span style="font-family:var(--f-mono);font-size:6.5px;
+                color:${meta.color};border:1px solid ${meta.color}33;padding:1px 5px">${t}</span>`).join('')}
+              ${isActive ? `<span style="font-family:var(--f-mono);font-size:6.5px;
+                color:${meta.color};border:1px solid ${meta.color};padding:1px 5px">ACTIVE</span>` : ''}
+            </div>
+            <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+              line-height:1.7">${escH(s.desc)}</div>
+            ${s.notes ? `<div style="font-family:var(--f-mono);font-size:7.5px;
+              color:var(--dim);margin-top:6px;border-top:1px solid rgba(255,255,255,.05);
+              padding-top:6px;font-style:italic">${escH(s.notes)}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+            <button onclick="mirrorToggleActive('${s.id}')" style="
+              padding:3px 8px;border:1px solid ${isActive ? meta.color+'66' : 'rgba(255,255,255,.08)'};
+              color:${isActive ? meta.color : 'var(--wire2)'};background:transparent;
+              cursor:pointer;font-family:var(--f-mono);font-size:7px"
+              title="${isActive ? 'Deactivate' : 'Mark as active now'}"
+              onmouseenter="this.style.borderColor='${meta.color}88'"
+              onmouseleave="this.style.borderColor='${isActive ? meta.color+'66' : 'rgba(255,255,255,.08)'}'">
+              ${isActive ? '● ON' : '○ OFF'}</button>
+            <button onclick="mirrorSystemToCanvas('${s.id}')" style="
+              padding:3px 8px;border:1px solid rgba(255,255,255,.06);
+              color:var(--dim);background:transparent;cursor:pointer;
+              font-family:var(--f-mono);font-size:7px"
+              onmouseenter="this.style.color='var(--c)'"
+              onmouseleave="this.style.color='var(--dim)'">→</button>
+            <button onclick="mirrorTogglePin('${s.id}')" style="
+              padding:3px 8px;border:none;background:none;cursor:pointer;
+              color:${s.pinned ? meta.color : 'var(--wire2)'};font-size:10px"
+              title="${s.pinned ? 'Unpin' : 'Pin'}"
+              onmouseenter="this.style.color='${meta.color}'"
+              onmouseleave="this.style.color='${s.pinned ? meta.color : 'var(--wire2)'}'">◆</button>
+          </div>
+        </div>
+        <div>
+          <input placeholder="Add note…" value="${escH(s.notes || '')}"
+            onblur="mirrorSaveNote('${s.id}',this.value)" style="
+            width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:7.5px;
+            color:var(--dim);background:transparent;border:none;
+            border-bottom:1px solid rgba(255,255,255,.06);padding:3px 0;outline:none"
+            onfocus="this.style.borderBottomColor='${meta.color}44'"
+            onblur2="this.style.borderBottomColor='rgba(255,255,255,.06)'"/>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (pinned.length) {
+    main.innerHTML += `<div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;
+      color:${meta.color};margin-bottom:10px">◆ PINNED</div>`;
+    main.innerHTML += renderSystems(pinned);
+    main.innerHTML += `<div style="height:1px;background:rgba(255,255,255,.04);
+      margin:14px 0 12px"></div>`;
+  }
+  main.innerHTML += renderSystems(rest);
+}
+
+// ── Modes section ─────────────────────────────────────────────────
+function _mirrorModesSection(main) {
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#11ddcc;margin-bottom:4px">COGNITIVE MODES</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        States you move through. Mark what\'s active. One click to reflect on.
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:9px">
+      ${MIRROR_STATE.modes.map(m => `
+        <div style="padding:13px 16px;
+          border:1px solid ${m.active ? m.color+'55' : 'rgba(255,255,255,.06)'};
+          background:${m.active ? m.color.replace('#d4','rgba(212,') + ',.05)' : 'rgba(0,0,0,.3)'};
+          border-left:3px solid ${m.active ? m.color : 'transparent'};
+          transition:all .15s">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="width:10px;height:10px;border-radius:50%;
+              background:${m.active ? m.color : 'transparent'};
+              border:2px solid ${m.color};flex-shrink:0;
+              box-shadow:${m.active ? '0 0 8px ' + m.color : 'none'}"></div>
+            <span style="font-family:var(--f-display);font-size:10px;font-weight:700;
+              letter-spacing:1.5px;color:${m.active ? m.color : 'var(--bright)'}">
+              ${escH(m.name)}</span>
+            <span style="margin-left:auto;font-family:var(--f-mono);font-size:7.5px;
+              color:${m.active ? m.color : 'var(--dim)'}">${m.active ? '● ACTIVE' : '○'}</span>
+          </div>
+          <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+            line-height:1.7;margin-bottom:8px">${escH(m.desc)}</div>
+          <div style="display:flex;gap:7px">
+            <button onclick="mirrorToggleMode('${m.id}')" style="
+              padding:5px 12px;border:1px solid ${m.color}44;
+              color:${m.color};background:${m.active ? m.color+'12' : 'transparent'};
+              cursor:pointer;font-family:var(--f-mono);font-size:7.5px"
+              onmouseenter="this.style.background='${m.color}18'"
+              onmouseleave="this.style.background='${m.active ? m.color+'12' : 'transparent'}'">
+              ${m.active ? '● DEACTIVATE' : '○ ACTIVATE'}</button>
+            <button onclick="mirrorModeToCanvas('${m.id}')" style="
+              padding:5px 10px;border:1px solid rgba(255,255,255,.06);
+              color:var(--dim);background:transparent;cursor:pointer;
+              font-family:var(--f-mono);font-size:7.5px"
+              onmouseenter="this.style.color='var(--c)'"
+              onmouseleave="this.style.color='var(--dim)'">→ CANVAS</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ── Warnings section ──────────────────────────────────────────────
+function _mirrorWarningsSection(main) {
+  // First-time seed warnings if empty
+  if (!MIRROR_STATE.warnings.length) {
+    MIRROR_SEED_WARNINGS.forEach(w => {
+      MIRROR_STATE.warnings.push({ id: uuid(), text: w, active: false, ts: Date.now() });
+    });
+    mirrorSave();
+  }
+
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#ff3355;margin-bottom:4px">WARNINGS</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        Prediction engines and failure modes. Mark what\'s currently active.
+        Awareness is the counter-strategy.
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="mirror-warning-input" placeholder="Add a warning you\'re noticing right now…" style="
+        flex:1;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,51,85,.2);
+        padding:8px 12px;outline:none"
+        onfocus="this.style.borderColor='rgba(255,51,85,.5)'"
+        onblur="this.style.borderColor='rgba(255,51,85,.2)'"
+        onkeydown="if(event.key==='Enter')mirrorAddWarning()"/>
+      <button onclick="mirrorAddWarning()" style="
+        padding:8px 16px;border:1px solid rgba(255,51,85,.35);
+        color:#ff3355;background:transparent;cursor:pointer;
+        font-family:var(--f-mono);font-size:8px"
+        onmouseenter="this.style.background='rgba(255,51,85,.08)'"
+        onmouseleave="this.style.background='transparent'">+ ADD</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${MIRROR_STATE.warnings.map(w => `
+        <div style="padding:10px 14px;
+          border:1px solid ${w.active ? 'rgba(255,51,85,.5)' : 'rgba(255,255,255,.05)'};
+          background:${w.active ? 'rgba(255,51,85,.06)' : 'rgba(0,0,0,.3)'};
+          border-left:3px solid ${w.active ? '#ff3355' : 'transparent'};
+          display:flex;align-items:center;gap:10px">
+          <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+            background:${w.active ? '#ff3355' : 'transparent'};
+            border:2px solid ${w.active ? '#ff3355' : 'rgba(255,51,85,.3)'}"></div>
+          <span style="font-family:var(--f-mono);font-size:8.5px;flex:1;
+            color:${w.active ? 'var(--bright)' : 'var(--muted)'};line-height:1.6">
+            ${escH(w.text)}</span>
+          <button onclick="mirrorToggleWarning('${w.id}')" style="
+            padding:3px 9px;border:1px solid ${w.active ? '#ff335555' : 'rgba(255,255,255,.06)'};
+            color:${w.active ? '#ff3355' : 'var(--wire2)'};background:transparent;
+            cursor:pointer;font-family:var(--f-mono);font-size:7px;flex-shrink:0">
+            ${w.active ? '● ON' : '○'}</button>
+          <button onclick="mirrorDeleteWarning('${w.id}')" style="
+            background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px"
+            onmouseenter="this.style.color='var(--r)'"
+            onmouseleave="this.style.color='var(--wire2)'">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ── Active Loops section ──────────────────────────────────────────
+function _mirrorLoopsSection(main) {
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#ff8c22;margin-bottom:4px">ACTIVE LOOPS</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        What feedback loops are running right now?
+        Reinforcing: amplifying. Balancing: stabilizing. Open: unresolved.
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <input id="mirror-loop-name" placeholder="Loop name…" style="
+        flex:2;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+        background:rgba(0,0,0,.5);border:1px solid rgba(255,140,34,.2);
+        padding:7px 10px;outline:none"/>
+      <select id="mirror-loop-type" style="
+        flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(255,140,34,.2);
+        color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
+        <option value="open">Open / Unresolved</option>
+        <option value="reinforcing">Reinforcing ⊕</option>
+        <option value="balancing">Balancing ⊝</option>
+      </select>
+      <button onclick="mirrorAddLoop()" style="
+        padding:7px 16px;border:1px solid rgba(255,140,34,.35);
+        color:#ff8c22;background:transparent;cursor:pointer;
+        font-family:var(--f-mono);font-size:8px"
+        onmouseenter="this.style.background='rgba(255,140,34,.08)'"
+        onmouseleave="this.style.background='transparent'">+ ADD</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px" id="mirror-loops-list">
+      ${MIRROR_STATE.activeLoops.map(loop => {
+        const tc = {reinforcing:'#ff8c22',balancing:'#00ff88',open:'#00c8ff'}[loop.type];
+        const icon = {reinforcing:'⊕',balancing:'⊝',open:'○'}[loop.type];
+        return `
+          <div style="padding:12px 16px;background:rgba(0,0,0,.35);
+            border-left:3px solid ${tc};border:1px solid ${tc}28;border-left:3px solid ${tc}">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
+              <span style="font-size:14px;color:${tc}">${icon}</span>
+              <span style="font-family:var(--f-display);font-size:10px;font-weight:700;
+                color:${tc}">${escH(loop.name)}</span>
+              <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">
+                ${_mirrorTimeAgo(loop.ts)}</span>
+              <button onclick="mirrorLoopToCanvas('${loop.id}')" style="
+                margin-left:auto;padding:3px 8px;border:1px solid ${tc}44;
+                color:${tc};background:transparent;cursor:pointer;
+                font-family:var(--f-mono);font-size:7px">→ CANVAS</button>
+              <button onclick="mirrorDeleteLoop('${loop.id}')" style="
+                background:none;border:none;cursor:pointer;color:var(--wire2);font-size:12px"
+                onmouseenter="this.style.color='var(--r)'"
+                onmouseleave="this.style.color='var(--wire2)'">×</button>
+            </div>
+            ${loop.desc ? `<div style="font-family:var(--f-mono);font-size:8px;
+              color:var(--muted);line-height:1.6">${escH(loop.desc)}</div>` : ''}
+          </div>`;
+      }).join('')}
+      ${!MIRROR_STATE.activeLoops.length ? `<div style="font-family:var(--f-mono);
+        font-size:8px;color:var(--dim);padding:16px 0;line-height:2">
+        No active loops.<br>
+        <span style="color:var(--wire2)">What\'s amplifying right now?
+        What\'s trying to stabilize? What\'s unresolved?</span>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+// ── Self-Work section ─────────────────────────────────────────────
+function _mirrorSelfWorkSection(main) {
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#00ff88;margin-bottom:4px">SELF-WORK</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        Council, shadow, integration. What\'s been processed. What\'s still moving.
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:14px">
+      <textarea id="mirror-sw-input" placeholder="What are you noticing?
+Council: what part is speaking?
+Shadow: what came up?
+Integration: what landed?" style="
+        flex:1;height:60px;resize:none;font-family:var(--f-mono);font-size:8.5px;
+        color:var(--bright);background:rgba(0,0,0,.5);
+        border:1px solid rgba(0,255,136,.2);padding:8px 10px;outline:none;line-height:1.6"
+        onfocus="this.style.borderColor='rgba(0,255,136,.5)'"
+        onblur="this.style.borderColor='rgba(0,255,136,.2)'"></textarea>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        ${['council','shadow','integration','observation'].map(t => `
+          <button onclick="mirrorAddSelfWork('${t}')" style="
+            padding:5px 10px;border:1px solid rgba(0,255,136,.25);
+            color:#00ff88;background:transparent;cursor:pointer;
+            font-family:var(--f-mono);font-size:7px"
+            onmouseenter="this.style.background='rgba(0,255,136,.08)'"
+            onmouseleave="this.style.background='transparent'">${t}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${[...MIRROR_STATE.selfWork].reverse().slice(0,20).map(sw => {
+        const tc = {council:'#00c8ff',shadow:'#cc44ff',integration:'#00ff88',observation:'#d4a820'}[sw.type]||'#00ff88';
+        return `
+          <div style="padding:10px 14px;background:rgba(0,0,0,.3);
+            border-left:2px solid ${tc};display:flex;gap:10px;align-items:flex-start">
+            <span style="font-family:var(--f-mono);font-size:7px;color:${tc};
+              border:1px solid ${tc}33;padding:1px 6px;flex-shrink:0">${sw.type}</span>
+            <span style="font-family:var(--f-mono);font-size:8.5px;color:var(--muted);
+              flex:1;line-height:1.6">${escH(sw.text)}</span>
+            <span style="font-family:var(--f-mono);font-size:7px;
+              color:var(--wire2);flex-shrink:0">${_mirrorTimeAgo(sw.ts)}</span>
+          </div>`;
+      }).join('')}
+      ${!MIRROR_STATE.selfWork.length ? `<div style="font-family:var(--f-mono);
+        font-size:8px;color:var(--dim);padding:16px 0">Nothing logged yet.</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Active section ────────────────────────────────────────────────
+function _mirrorActiveSection(main) {
+  const activeSystems = MIRROR_STATE.systems.filter(s => s.active);
+  const activeModes = MIRROR_STATE.modes.filter(m => m.active);
+  const activeWarnings = MIRROR_STATE.warnings.filter(w => w.active);
+  const fn = COGNITIVE_FUNCTIONS[MIRROR_STATE.activeNow.dominantFunction];
+
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#d4a820;margin-bottom:4px">ACTIVE NOW</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        Your current cognitive configuration. What\'s live. What\'s running.
+      </div>
+    </div>
+
+    ${fn ? `
+    <div style="padding:16px;background:${fn.color}0a;border:1px solid ${fn.color}33;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="font-family:var(--f-display);font-size:20px;font-weight:900;
+          color:${fn.color}">${MIRROR_STATE.activeNow.dominantFunction}</span>
+        <div>
+          <div style="font-family:var(--f-display);font-size:9px;
+            color:${fn.color};letter-spacing:1px">${fn.label}</div>
+          <div style="font-family:var(--f-mono);font-size:7.5px;
+            color:var(--muted)">${fn.desc}</div>
+        </div>
+      </div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+        font-style:italic">"${fn.trainPrompt}"</div>
+    </div>` : ''}
+
+    ${activeSystems.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:#d4a820;margin-bottom:8px">ACTIVE SYSTEMS (${activeSystems.length})</div>
+      ${activeSystems.map(s => `
+        <div style="padding:8px 12px;background:rgba(0,0,0,.3);
+          border-left:2px solid #d4a820;margin-bottom:5px;
+          display:flex;align-items:flex-start;gap:9px">
+          <span style="font-family:var(--f-display);font-size:9px;font-weight:700;
+            color:#d4a820;flex:1">${escH(s.name)}</span>
+          <button onclick="mirrorToggleActive('${s.id}')" style="
+            background:none;border:none;cursor:pointer;color:#d4a820;
+            font-family:var(--f-mono);font-size:7px">deactivate</button>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${activeModes.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:#11ddcc;margin-bottom:8px">ACTIVE MODES (${activeModes.length})</div>
+      ${activeModes.map(m => `
+        <div style="padding:8px 12px;border-left:2px solid ${m.color};
+          margin-bottom:5px;display:flex;align-items:center;gap:9px">
+          <div style="width:7px;height:7px;border-radius:50%;
+            background:${m.color};flex-shrink:0"></div>
+          <span style="font-family:var(--f-display);font-size:9px;font-weight:700;
+            color:${m.color};flex:1">${escH(m.name)}</span>
+          <button onclick="mirrorToggleMode('${m.id}')" style="
+            background:none;border:none;cursor:pointer;color:${m.color};
+            font-family:var(--f-mono);font-size:7px">deactivate</button>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${activeWarnings.length ? `
+    <div style="padding:14px;background:rgba(255,51,85,.05);
+      border:1px solid rgba(255,51,85,.2);margin-bottom:16px">
+      <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+        color:#ff3355;margin-bottom:8px">⚠ ACTIVE WARNINGS (${activeWarnings.length})</div>
+      ${activeWarnings.map(w => `
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+          padding:4px 0;border-bottom:1px solid rgba(255,51,85,.1)">
+          ${escH(w.text)}</div>`).join('')}
+    </div>` : ''}
+
+    ${MIRROR_STATE.activeNow.note ? `
+    <div style="padding:14px;background:rgba(212,168,32,.04);
+      border-left:3px solid rgba(212,168,32,.3)">
+      <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:1.5px;
+        color:rgba(212,168,32,.5);margin-bottom:5px">NOTE</div>
+      <div style="font-family:var(--f-mono);font-size:9px;color:var(--bright);
+        line-height:1.7">${escH(MIRROR_STATE.activeNow.note)}</div>
+    </div>` : ''}
+
+    ${!activeSystems.length && !activeModes.length && !activeWarnings.length ? `
+    <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+      padding:20px 0;line-height:2">
+      Nothing marked active yet.<br>
+      <span style="color:var(--wire2)">Go to SIGNATURE, MODES, or WARNINGS and mark
+      what\'s running right now.</span>
+    </div>` : ''}
+  `;
+}
+
+// ── Add System section ────────────────────────────────────────────
+function _mirrorAddSection(main) {
+  main.innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:4px;color:#d4a820;margin-bottom:4px">ADD SYSTEM</div>
+      <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        Name and describe a cognitive tool, pattern, or system you use.
+        It doesn\'t have to be fully formed yet.
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:600px">
+      <input id="mirror-add-name" placeholder="Name of the system or tool…" style="
+        font-family:var(--f-mono);font-size:9px;color:var(--bright);
+        background:rgba(0,0,0,.5);border:1px solid rgba(212,168,32,.25);
+        padding:9px 12px;outline:none;width:100%;box-sizing:border-box"
+        onfocus="this.style.borderColor='rgba(212,168,32,.6)'"
+        onblur="this.style.borderColor='rgba(212,168,32,.25)'"/>
+      <textarea id="mirror-add-desc" placeholder="Describe what it does. How you use it. When it activates. What it produces." style="
+        height:90px;resize:none;font-family:var(--f-mono);font-size:8.5px;
+        color:var(--bright);background:rgba(0,0,0,.5);
+        border:1px solid rgba(212,168,32,.2);padding:9px 12px;
+        outline:none;line-height:1.7;width:100%;box-sizing:border-box"
+        onfocus="this.style.borderColor='rgba(212,168,32,.5)'"
+        onblur="this.style.borderColor='rgba(212,168,32,.2)'"></textarea>
+      <div style="display:flex;gap:9px">
+        <select id="mirror-add-section" style="
+          flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(212,168,32,.2);
+          color:var(--muted);padding:8px;font-family:var(--f-mono);font-size:8px">
+          <option value="signature">Signature</option>
+          <option value="emotional">Emotional</option>
+          <option value="processing">Processing</option>
+          <option value="reasoning">Reasoning</option>
+        </select>
+        <input id="mirror-add-tags" placeholder="tags (comma-separated)" style="
+          flex:2;font-family:var(--f-mono);font-size:8px;color:var(--muted);
+          background:rgba(0,0,0,.5);border:1px solid rgba(212,168,32,.15);
+          padding:8px 10px;outline:none"/>
+      </div>
+      <button onclick="mirrorAddSystem()" style="
+        padding:10px;border:1px solid rgba(212,168,32,.4);
+        color:#d4a820;background:rgba(212,168,32,.06);cursor:pointer;
+        font-family:var(--f-mono);font-size:9px;letter-spacing:1.5px"
+        onmouseenter="this.style.background='rgba(212,168,32,.14)'"
+        onmouseleave="this.style.background='rgba(212,168,32,.06)'">◎ ADD TO MIRROR</button>
+    </div>
+  `;
+}
+
+// ── Action handlers ───────────────────────────────────────────────
+function mirrorSearch(q) {
+  MIRROR_STATE._search = q;
+  if (q) MIRROR_STATE.activeSection = 'signature'; // show all results in signature view
+  const main = document.getElementById('mirror-main');
+  if (main) _renderMirrorSection(main);
+}
+
+function mirrorSetActiveFn(key) {
+  MIRROR_STATE.activeNow.dominantFunction = key;
+  MIRROR_STATE.activeNow.ts = Date.now();
+  mirrorSave();
+}
+
+function mirrorSetActiveMode(modeId) {
+  MIRROR_STATE.modes.forEach(m => m.active = false);
+  if (modeId) {
+    const m = MIRROR_STATE.modes.find(x => x.id === modeId);
+    if (m) m.active = true;
+  }
+  MIRROR_STATE.activeNow.ts = Date.now();
+  mirrorSave();
+}
+
+function mirrorSaveActiveNote(val) {
+  MIRROR_STATE.activeNow.note = val;
+  MIRROR_STATE.activeNow.ts = Date.now();
+  mirrorSave();
+}
+
+function mirrorToggleActive(id) {
+  const s = MIRROR_STATE.systems.find(x => x.id === id);
+  if (s) { s.active = !s.active; mirrorSave(); }
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorTogglePin(id) {
+  const s = MIRROR_STATE.systems.find(x => x.id === id);
+  if (s) { s.pinned = !s.pinned; mirrorSave(); }
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorSaveNote(id, val) {
+  const s = MIRROR_STATE.systems.find(x => x.id === id);
+  if (s) { s.notes = val; mirrorSave(); }
+}
+
+function mirrorToggleMode(id) {
+  const m = MIRROR_STATE.modes.find(x => x.id === id);
+  if (m) { m.active = !m.active; mirrorSave(); }
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorToggleWarning(id) {
+  const w = MIRROR_STATE.warnings.find(x => x.id === id);
+  if (w) { w.active = !w.active; mirrorSave(); }
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorDeleteWarning(id) {
+  MIRROR_STATE.warnings = MIRROR_STATE.warnings.filter(x => x.id !== id);
+  mirrorSave();
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorAddWarning() {
+  const text = document.getElementById('mirror-warning-input')?.value?.trim();
+  if (!text) return;
+  MIRROR_STATE.warnings.push({ id: uuid(), text, active: true, ts: Date.now() });
+  mirrorSave();
+  document.getElementById('mirror-warning-input').value = '';
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorAddLoop() {
+  const name = document.getElementById('mirror-loop-name')?.value?.trim();
+  if (!name) { mm_toast('Name the loop', 'warn'); return; }
+  const type = document.getElementById('mirror-loop-type')?.value || 'open';
+  MIRROR_STATE.activeLoops.push({ id: uuid(), name, type, desc: '', ts: Date.now() });
+  mirrorSave();
+  document.getElementById('mirror-loop-name').value = '';
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorDeleteLoop(id) {
+  MIRROR_STATE.activeLoops = MIRROR_STATE.activeLoops.filter(x => x.id !== id);
+  mirrorSave();
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorAddSelfWork(type) {
+  const text = document.getElementById('mirror-sw-input')?.value?.trim();
+  if (!text) { mm_toast('Write something first', 'warn'); return; }
+  MIRROR_STATE.selfWork.push({ id: uuid(), text, type, ts: Date.now() });
+  mirrorSave();
+  document.getElementById('mirror-sw-input').value = '';
+  mm_toast(type + ' logged', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+function mirrorAddSystem() {
+  const name = document.getElementById('mirror-add-name')?.value?.trim();
+  if (!name) { mm_toast('Name required', 'warn'); return; }
+  const desc    = document.getElementById('mirror-add-desc')?.value?.trim() || '';
+  const section = document.getElementById('mirror-add-section')?.value || 'signature';
+  const tagsRaw = document.getElementById('mirror-add-tags')?.value || '';
+  const tags    = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+  MIRROR_STATE.systems.push({
+    id: uuid(), name, desc, section, tags,
+    notes: '', active: false, pinned: false, ts: Date.now(),
+  });
+  mirrorSave();
+  mm_toast('System added to mirror', 'success', { dur: 1500 });
+  MIRROR_STATE.activeSection = section;
+  const overlay = document.getElementById('mm-mirror-overlay');
+  if (overlay) _renderMirror(overlay);
+}
+
+// ── Canvas export ─────────────────────────────────────────────────
+function mirrorSystemToCanvas(id) {
+  const s = MIRROR_STATE.systems.find(x => x.id === id);
+  if (!s) return;
+  CANVAS.spawnNode('heuristic', undefined, undefined, {
+    title: s.name, body: s.desc,
+    tags: ['MIRROR', 'SYSTEM', ...(s.tags||[]).map(t => t.toUpperCase())],
+    color: '#d4a820',
+  });
+  mm_toast(s.name + ' → canvas', 'export', { dur: 1300 });
+}
+
+function mirrorModeToCanvas(id) {
+  const m = MIRROR_STATE.modes.find(x => x.id === id);
+  if (!m) return;
+  CANVAS.spawnNode('pattern', undefined, undefined, {
+    title: m.name, body: m.desc,
+    color: m.color, tags: ['MODE', 'MIRROR'],
+  });
+  mm_toast(m.name + ' → canvas', 'export', { dur: 1300 });
+}
+
+function mirrorLoopToCanvas(id) {
+  const loop = MIRROR_STATE.activeLoops.find(x => x.id === id);
+  if (!loop) return;
+  const typeMap = { reinforcing: 'feedback', balancing: 'friction', open: 'gap' };
+  const col = { reinforcing: '#ff8c22', balancing: '#00ff88', open: '#00c8ff' }[loop.type];
+  CANVAS.spawnNode(typeMap[loop.type] || 'causal', undefined, undefined, {
+    title: loop.name, color: col,
+    tags: ['LOOP', loop.type.toUpperCase(), 'MIRROR'],
+  });
+  mm_toast(loop.name + ' → canvas', 'export', { dur: 1300 });
+}
+
+function mirrorExportCanvas() {
+  const active = MIRROR_STATE.systems.filter(s => s.active);
+  const modes  = MIRROR_STATE.modes.filter(m => m.active);
+  const warns  = MIRROR_STATE.warnings.filter(w => w.active);
+  if (!active.length && !modes.length && !warns.length) {
+    mm_toast('Mark some systems/modes active first', 'info'); return;
+  }
+  closeMirror();
+  CANVAS.enterCanvas();
+  setTimeout(() => {
+    const hub = CANVAS.spawnNode('synthesis', undefined, undefined, {
+      title: 'CURRENT COGNITIVE STATE', color: '#d4a820',
+      tags: ['MIRROR', 'SNAPSHOT', new Date().toLocaleDateString()],
+    });
+    const fn = COGNITIVE_FUNCTIONS[MIRROR_STATE.activeNow.dominantFunction];
+    if (fn && hub) {
+      const fnNode = CANVAS.spawnNode('concept', undefined, undefined, {
+        title: MIRROR_STATE.activeNow.dominantFunction + ' — ' + fn.label,
+        color: fn.color, tags: ['FUNCTION', 'ACTIVE'],
+      });
+      if (fnNode) CANVAS.addConn(hub.id, fnNode.id, 'dominant function');
+    }
+    active.forEach(s => {
+      const n = CANVAS.spawnNode('heuristic', undefined, undefined, {
+        title: s.name, color: '#d4a820', tags: ['SYSTEM', 'ACTIVE'],
+      });
+      if (n && hub) CANVAS.addConn(hub.id, n.id, 'active system');
+    });
+    modes.forEach(m => {
+      const n = CANVAS.spawnNode('pattern', undefined, undefined, {
+        title: m.name, color: m.color, tags: ['MODE', 'ACTIVE'],
+      });
+      if (n && hub) CANVAS.addConn(hub.id, n.id, 'active mode');
+    });
+    warns.forEach(w => {
+      const n = CANVAS.spawnNode('friction', undefined, undefined, {
+        title: w.text.slice(0,60), color: '#ff3355', tags: ['WARNING', 'ACTIVE'],
+      });
+      if (n && hub) CANVAS.addConn(hub.id, n.id, 'warning');
+    });
+    mm_toast('Mirror snapshot → canvas', 'export');
+  }, 200);
+}
+
+// ── AI Reflect — reads mirror, returns honest observation ─────────
+async function mirrorAIRead() {
+  if (!AI?.enabled || !AI?.apiKey) {
+    mm_toast('Enable AI in settings first', 'warn'); return;
+  }
+  mm_toast('Reading your mirror…', 'loading');
+
+  const activeSystems = MIRROR_STATE.systems.filter(s => s.active).map(s => s.name).join(', ') || 'none';
+  const activeModes   = MIRROR_STATE.modes.filter(m => m.active).map(m => m.name).join(', ') || 'none';
+  const activeWarnings= MIRROR_STATE.warnings.filter(w => w.active).map(w => w.text).join('\n') || 'none';
+  const activeNote    = MIRROR_STATE.activeNow.note || 'none';
+  const dominantFn    = MIRROR_STATE.activeNow.dominantFunction;
+  const recentSW      = MIRROR_STATE.selfWork.slice(-3).map(s => `[${s.type}] ${s.text}`).join('\n') || 'none';
+  const activeLoops   = MIRROR_STATE.activeLoops.map(l => `${l.type}: ${l.name}`).join('\n') || 'none';
+
+  const context = [
+    `Dominant cognitive function: ${dominantFn}`,
+    `Active systems: ${activeSystems}`,
+    `Active modes: ${activeModes}`,
+    `Active warnings: ${activeWarnings}`,
+    `Current note: ${activeNote}`,
+    `Recent self-work: ${recentSW}`,
+    `Active feedback loops: ${activeLoops}`,
+  ].join('\n');
+
+  try {
+    const prompt = `You are reading someone's cognitive mirror — a live map of their active mental state. Be honest. Not cheerful. Not therapeutic. Read the configuration and reflect what you actually observe.\n\nCurrent configuration:\n${context}\n\nIn 3-5 sentences: What do you notice? What might they not be seeing? What's the tension in this configuration? Don't give advice unless asked.`;
+    const text = await aiCall(prompt) || '';
+    if (!text) { mm_toast('No reflection returned', 'warn'); return; }
+
+    // Show reflection as a toast + spawn to void seeds
+    mm_toast(text.slice(0, 120) + (text.length > 120 ? '…' : ''), 'info', { dur: 8000 });
+    VOID_STATE.seeds.push({
+      id: uuid(), text: 'AI REFLECTION: ' + text,
+      created: Date.now(), ai: true, source: 'mirror',
+    });
+    saveVoidState();
+    mm_toast('Full reflection → Void seeds', 'success', { dur: 2000 });
+  } catch(e) {
+    mm_toast('AI error: ' + e.message, 'error');
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────
+function _mirrorTimeAgo(ts) {
+  if (!ts) return '';
+  const d = Date.now() - ts;
+  if (d < 60000) return 'just now';
+  if (d < 3600000) return Math.floor(d/60000) + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  if (d < 604800000) return Math.floor(d/86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+console.log('[MASTERMIND] Mirror module loaded — cognitive architecture live');
+
+/* ═══════════════════════════════════════════════════════════════════
+   VOICE LATTICE + COMPREHENSION ENGINE — v2.0
+   
+   "Every voice note. Every update. Every shift.
+    Timestamped, compared, visualized.
+    The empirical proof of progress for a mind that only believes
+    what it can see."
+   
+   Architecture:
+   - Capture: text/voice input → nodes on the lattice
+   - Comprehend: intent detection → route to the right system  
+   - Track: delta logging → growth timeline
+   - Library: heuristics store → pattern-fire detection
+   - Connect: every node tagged → linked to canvas/modules
+   
+   Tabs: CAPTURE · LATTICE · HEURISTICS · GROWTH · COHERENCE
+═══════════════════════════════════════════════════════════════════ */
+
+// ── VCE Intent Patterns ───────────────────────────────────────────
+const VCE_PATTERNS = {
+  philosophy_update: ['i believe', 'my philosophy', "i'm updating", 'differently now', 'i think about', 'my view on'],
+  value_update:      ['my values', 'what matters', 'i care about', 'non-negotiable', 'i stand by', 'matters to me'],
+  framework_mutation:['adding to', 'updating the', 'new phase', 'new maxim', 'framework needs', 'i realized', 'new version'],
+  identity_update:   ['i am becoming', 'who i am', "i'm learning", "i don't do that", "i've changed", 'i used to be', 'i no longer'],
+  horizon_progress:  ['i did', 'i completed', 'i finished', 'i made progress', 'milestone', 'moved forward', 'got it done'],
+  shadow_observation:['i noticed i', 'i caught myself', 'pattern i keep', 'shadow work', 'keep doing this', 'again i'],
+  growth_marker:     ['i used to', "i don't do that anymore", 'months ago', "i've changed", 'different now', 'i grew'],
+  epistemic_claim:   ['i believe', 'evidence', 'confident', 'contradicts', 'because of', 'i think x%', 'probability'],
+  emotional_data:    ['i feel', "i'm feeling", 'body feels', 'somatic', 'in my chest', 'tension in', 'my body'],
+  heuristic_fire:    ['that pattern', 'classic', 'there it is', 'this is the', 'heuristic', 'rule of thumb'],
+  capture:           [], // fallback
+};
+
+// ── VL / VCE State ────────────────────────────────────────────────
+const VL_STATE = {
+  _loaded: false,
+  activeTab: 'capture',
+
+  // Lattice nodes — what was captured
+  nodes: [],
+  // { id, content, tags[], intent, routedTo, ts, domain, processed }
+
+  // Heuristics library
+  heuristics: [],
+  // { id, name, desc, triggerPhrases[], domain, fireCount, lastFired, ts }
+
+  // Growth log — before/after deltas
+  growthLog: [],
+  // { id, domain, before, after, magnitude, ts }
+
+  // Philosophy / value / framework deltas
+  philosophyLog:  [],
+  valueLog:       [],
+  frameworkDeltas:[],
+  shadowLog:      [],
+  emotionalLog:   [],
+
+  // Coherence alerts
+  coherenceAlerts:[],
+  // { id, type:'contradiction'|'alignment', message, relatedIds[], ts }
+
+  // Word bank for lattice visualization
+  wordBank: {},
+
+  // Session history — one entry per capture session (CaptureBridge
+  // begin/endSession), summarizing which nodes it produced. This is
+  // the browsable "what did I say in session X" record. Full node
+  // content lives here because this is inside VL_STATE, which is
+  // vault-encrypted (voiceLattice, mastermind-vault.js) — it is NOT
+  // duplicated into the audit ledger, which is plaintext-by-design
+  // (see vault-ledger.js's own "must not carry vault content" rule).
+  // The ledger gets a matching session.end entry with counts only —
+  // proof a session happened and wasn't quietly deleted, never what
+  // was said in it.
+  sessionHistory: [],
+  // { id, kind, startedAt, endedAt, nodeIds[], nodeCount, tagSummary:{tag:count} }
+
+  // Search
+  _search: '',
+};
+
+const VL_STATE_KEY = 'mm_vl_state_v2';
+
+// ── Intent detection ──────────────────────────────────────────────
+function vceDetectIntent(content) {
+  const lower = content.toLowerCase();
+  const scores = {};
+  for (const [intent, patterns] of Object.entries(VCE_PATTERNS)) {
+    if (!patterns.length) continue;
+    scores[intent] = patterns.filter(p => lower.includes(p)).length;
+  }
+
+  // Check heuristic fires
+  const hFires = VL_STATE.heuristics.filter(h =>
+    h.triggerPhrases.some(tp => lower.includes(tp.toLowerCase())) ||
+    lower.includes(h.name.toLowerCase())
+  );
+  if (hFires.length) {
+    scores.heuristic_fire = (scores.heuristic_fire || 0) + hFires.length * 2;
+  }
+
+  const best = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  if (!best || best[1] < 1) return { intent: 'capture', heuristics: hFires };
+  return { intent: best[0], heuristics: hFires, score: best[1] };
+}
+
+// ── Route based on intent ─────────────────────────────────────────
+function vceRoute(intent, node) {
+  const routed = [];
+
+  switch (intent) {
+    case 'philosophy_update':
+      VL_STATE.philosophyLog.push({ id: uuid(), content: node.content, ts: node.ts, domain: node.domain });
+      routed.push('Philosophy Log');
+      break;
+    case 'value_update':
+      VL_STATE.valueLog.push({ id: uuid(), content: node.content, ts: node.ts });
+      routed.push('Value Log');
+      break;
+    case 'growth_marker':
+      VL_STATE.growthLog.push({
+        id: uuid(), before: '', after: node.content,
+        domain: node.domain || 'general', magnitude: 1, ts: node.ts,
+      });
+      routed.push('Growth Timeline');
+      break;
+    case 'shadow_observation':
+      VL_STATE.shadowLog.push({ id: uuid(), content: node.content, ts: node.ts });
+      routed.push('Shadow Log');
+      // Cross-reference mirror self-work
+      if (typeof MIRROR_STATE !== 'undefined') {
+        MIRROR_STATE.selfWork.push({ id: uuid(), text: node.content, type: 'shadow', ts: node.ts });
+        if (typeof mirrorSave === 'function') mirrorSave();
+      }
+      break;
+    case 'emotional_data':
+      VL_STATE.emotionalLog.push({ id: uuid(), content: node.content, ts: node.ts });
+      routed.push('Emotional Log');
+      break;
+    case 'horizon_progress':
+      routed.push('Horizon (check milestones)');
+      mm_toast('Voice: possible milestone progress detected → check Horizon', 'sync', { dur: 4000 });
+      break;
+    case 'identity_update':
+      if (typeof MIRROR_STATE !== 'undefined') {
+        MIRROR_STATE.selfWork.push({ id: uuid(), text: node.content, type: 'integration', ts: node.ts });
+        if (typeof mirrorSave === 'function') mirrorSave();
+      }
+      routed.push('Mirror (identity)');
+      break;
+    case 'heuristic_fire':
+      routed.push('Heuristic fired');
+      break;
+  }
+
+  // Auto-spawn to Void seeds if it's a creative idea
+  if (['capture', 'philosophy_update', 'framework_mutation'].includes(intent)) {
+    if (node.content.length > 15 && typeof VOID_STATE !== 'undefined') {
+      VOID_STATE.seeds.push({ id: uuid(), text: node.content.slice(0, 100), created: node.ts });
+      if (typeof saveVoidState === 'function') saveVoidState();
+      routed.push('Void seeds');
+    }
+  }
+
+  return routed;
+}
+
+// ── Add a node to the lattice ─────────────────────────────────────
+function vlAddNode(content, domain) {
+  if (!content?.trim()) return;
+  const { intent, heuristics: firedH } = vceDetectIntent(content);
+
+  // Fire matched heuristics
+  firedH.forEach(h => {
+    h.fireCount = (h.fireCount || 0) + 1;
+    h.lastFired = Date.now();
+    mm_toast(`Heuristic fired: ${h.name}`, 'sync', { dur: 2500 });
+  });
+
+  // Tag extraction
+  const tags = _vlExtractTags(content);
+
+  // Weak-assumption detection — ASSUMPTION goes FIRST in tags (wins the
+  // lattice-canvas color) because it's the highest-signal find a node
+  // can carry; the load-bearing question rides on the node for the UI
+  // to surface, not just baked into a color.
+  const assumption = _vlDetectAssumption(content);
+  if (assumption) {
+    tags.unshift('ASSUMPTION');
+    if (assumption.confidence !== 'LOW') {
+      mm_toast('⚡ Load-bearing assumption: ' + assumption.question, 'warn', { dur: 6000 });
+    }
+  }
+
+  const node = {
+    id: uuid(),
+    content: content.trim(),
+    tags,
+    assumption: assumption || null,
+    intent,
+    domain: domain || _vlGuessDomain(tags),
+    routedTo: [],
+    ts: Date.now(),
+    processed: false,
+    // Which capture session this landed in, if any (typed/pasted nodes
+    // outside an active orb/recall session get null — not every node
+    // has to belong to one). Session history below is built from this.
+    sessionId: (typeof CaptureBridge !== 'undefined' && CaptureBridge.stats().session)
+      ? CaptureBridge.stats().session.id : null,
+  };
+
+  // Route
+  node.routedTo = vceRoute(intent, node);
+  node.processed = node.routedTo.length > 0;
+
+  // ── Semantic auto-linking (lexicon.documentSimilarity) ────────────
+  // The associative layer above (vleIngest) links on JACCARD word
+  // OVERLAP — same words, literally. This links on the lexicon's PMI
+  // vectors — same MEANING, learned from usage, so "vault" and
+  // "encryption" can link without sharing a single literal word if
+  // your own speech has put them in the same company before. This was
+  // the exact gap flagged earlier: lexicon.neighbours() existed,
+  // nothing called it into anything.
+  //
+  // Deliberately NOT scoped to the current session — same as the
+  // Jaccard engine above it, a thought from three sessions ago is
+  // exactly the kind of link this exists to surface. Capped at the
+  // most recent 300 nodes for cost, not by session boundary.
+  if (typeof MM_LEXICON !== 'undefined' && MM_LEXICON && VL_STATE.nodes.length > 1) {
+    try {
+      const candidates = VL_STATE.nodes.slice(0, 300); // most recent first, node just unshifted is index 0
+      const semEdges = [];
+      for (const other of candidates) {
+        if (other.id === node.id) continue;
+        const sim = MM_LEXICON.documentSimilarity(content, other.content || '');
+        if (sim.confidence > 0 && sim.score >= 0.20) {
+          semEdges.push({ to: other.id, score: sim.score, kind: 'semantic' });
+        }
+      }
+      semEdges.sort((a, b) => b.score - a.score);
+      if (semEdges.length) node.semanticEdges = semEdges.slice(0, 8);
+    } catch (e) { MMLog?.warn('lattice', 'semantic auto-link failed: ' + e.message); }
+  }
+
+  VL_STATE.nodes.unshift(node);
+  if (VL_STATE.nodes.length > 1000) VL_STATE.nodes.pop();
+
+  // ── THE ASSOCIATIVE LAYER — what makes this an Associative Voice
+  // Lattice rather than a capture box. Every thought captured here
+  // flows through the VLE engines (modules/voice-lattice/engine.js):
+  // Jaccard association edges to everything prior, trigram redundancy
+  // ("you've circled this exact phrase before"), invariant themes, and
+  // pattern memory via the bus hook. The association result rides on
+  // the node so the UI can render its lattice neighborhood.
+  if (typeof latticeIngest === 'function') {
+    try { latticeIngest('voice.utterance', node.id, content, { tags: node.tags || [] }); }
+    catch (e) { MMLog?.error('lattice', 'voice ingest: ' + e.message); }
+  }
+  if (typeof vleIngest === 'function') {
+    try {
+      const assoc = vleIngest(content);
+      if (assoc) {
+        node.assocEdges = assoc.edges.map(e => ({ to: e.b, score: e.score, words: e.words }));
+        if (assoc.redundancy?.redundant) {
+          node.redundant = true;
+          mm_toast(`⟲ You've circled this before: "${assoc.redundancy.phrases[0]}"`, 'info', { dur: 3200 });
+        }
+      }
+    } catch (e) { MMLog?.error('voice', 'associative layer failed on capture: ' + e.message); }
+  }
+
+  // Update word bank
+  content.toLowerCase().split(/\W+/).filter(w => w.length > 3).forEach(w => {
+    VL_STATE.wordBank[w] = (VL_STATE.wordBank[w] || 0) + 1;
+  });
+
+  vlSave();
+
+  // Tell the always-on lattice canvas a node arrived. Without this, the
+  // canvas only ever synced when the whole CAPTURE tab was re-rendered
+  // (e.g. after a typed submit) — a spoken utterance recognized mid-
+  // recording never told it anything changed.
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.lattice.node', { id: node.id });
+
+  return node;
+}
+
+function _vlExtractTags(content) {
+  const lower = content.toLowerCase();
+  const tags = [];
+
+  // Semantic-field classification (foundation/ai/pattern-detect.js) —
+  // fires on the VOCABULARY of emotion/cognition/relationship/etc.,
+  // not on someone having literally typed the category name. This is
+  // the primary tag source now; the two checks below are additive.
+  if (typeof MM_PATTERNS !== 'undefined') {
+    try { tags.push(...MM_PATTERNS.classifySemanticFields(content)); }
+    catch (e) { MMLog?.warn('lattice', 'semantic field classify failed: ' + e.message); }
+  }
+
+  // Literal domain/self-work words — kept as a fallback for MASTERMIND's
+  // own vocabulary (SHADOW, GROWTH, HORIZON, SYSTEMS, IDENTITY aren't
+  // semantic-field categories above, so this still adds real coverage).
+  const domains = ['shadow','growth','horizon','systems','identity'];
+  domains.forEach(d => { if (lower.includes(d)) tags.push(d.toUpperCase()); });
+
+  const cogFns = ['ni', 'ne', 'ti', 'te', 'fi', 'fe', 'si', 'se'];
+  cogFns.forEach(fn => { if (lower.includes(' ' + fn + ' ') || lower.includes(' ' + fn + ':')) tags.push(fn.toUpperCase()); });
+
+  return [...new Set(tags)];
+}
+
+// Weak-assumption pattern detection (foundation/ai/pattern-detect.js).
+// Separate from _vlExtractTags because it needs recent history (the
+// "unnamed agent following a claim" axis) and returns more than a tag
+// string — the load-bearing question is worth keeping on the node, not
+// just a colored dot. Called from vlAddNode; ASSUMPTION is prepended to
+// the node's tags when it fires, so it wins the lattice-canvas coloring
+// (VL_TAG_COL ASSUMPTION is the brightest red in the set — deliberately,
+// GapHunter's own taxonomy weights ASSUMPTION as the highest-criticality
+// gap type there is).
+function _vlDetectAssumption(content) {
+  if (typeof MM_PATTERNS === 'undefined') return null;
+  try {
+    const history = (typeof VL_STATE !== 'undefined' ? VL_STATE.nodes : [])
+      .slice(0, 4).map(n => n.content || '');
+    return MM_PATTERNS.detectWeakAssumption(content, history);
+  } catch (e) { MMLog?.warn('lattice', 'assumption detect failed: ' + e.message); return null; }
+}
+
+function _vlGuessDomain(tags) {
+  if (tags.includes('emotional') || tags.includes('somatic')) return 'emotional';
+  if (tags.includes('relational')) return 'relational';
+  if (tags.includes('shadow') || tags.includes('growth')) return 'self-work';
+  if (tags.includes('cognitive')) return 'cognitive';
+  return 'general';
+}
+
+function vlLoad() {
+  // Vault hydration (foundation/vault/mastermind-vault.js, voiceLattice)
+  // already populated VL_STATE by the time this runs — vaultDeserialize()
+  // is called before openVoiceLattice() ever reaches vlLoad(). This used
+  // to ALSO read localStorage['mm_vl_state_v2'] and Object.assign it in,
+  // which — worse than doing nothing — could CLOBBER the correctly
+  // decrypted vault state with a stale plaintext copy. See vlSave() for
+  // the write side of the same bug; the old key is recoverable via
+  // Settings → Storage → Harvest, same as any other pre-vault orphan.
+  VL_STATE._loaded = true;
+  // Seed example heuristics if empty
+  if (!VL_STATE.heuristics.length) _vlSeedHeuristics();
+}
+
+function _vlSeedHeuristics() {
+  const seeds = [
+    { name: 'Relational Oscillation', triggerPhrases: ['pendulum', 'oscillat', 'back and forth', 'that pattern again'],
+      desc: 'Relationships oscillate. Identify the pendulum, the entropy, the attractor.', domain: 'relational' },
+    { name: 'Coherence-or-Collapse Gate', triggerPhrases: ['half-formed', 'weak foundation', 'not holding', 'collapsing'],
+      desc: 'Ideas must stabilize into coherent structure or be abandoned.', domain: 'cognitive' },
+    { name: 'Tension Harvesting', triggerPhrases: ['tension', 'friction', 'discomfort', 'resistance', 'friction signal'],
+      desc: 'Extract signal from discomfort. Tension is information.', domain: 'emotional' },
+    { name: 'Delayed Synthesis', triggerPhrases: ['sleep on it', 'tomorrow', 'next day', 'shower thought', 'just clicked'],
+      desc: 'Insight arrives after buffering. Trust the delay.', domain: 'cognitive' },
+    { name: 'Prediction Engine Warning', triggerPhrases: ['i know how this ends', 'always happens', 'it\'s inevitable', 'no point'],
+      desc: 'Prediction engines manufacture certainty from fear. Label, observe, test.', domain: 'shadow' },
+    { name: 'Meaning-First Evaluation', triggerPhrases: ['does this feel right', 'is this true', 'feels hollow', 'low integrity'],
+      desc: 'Ask: is this coherent and alive? Utility comes second.', domain: 'cognitive' },
+    { name: 'Bidirectional Inversion', triggerPhrases: ['flip it', 'what if opposite', 'invert', 'reverse the assumption'],
+      desc: 'Flip the pattern inside-out. Trace it forward and backward simultaneously.', domain: 'cognitive' },
+    { name: 'Sandbox OS', triggerPhrases: ['filter this', 'run it through', 'stress test', 'good box bad box'],
+      desc: 'New variables → filter → stress-test → synthesize.', domain: 'meta' },
+  ];
+  seeds.forEach(s => VL_STATE.heuristics.push({ id: uuid(), fireCount: 0, lastFired: null, ts: Date.now(), ...s }));
+  vlSave();
+}
+
+function vlSave() {
+  // SECURITY FIX: this used to ALSO write localStorage['mm_vl_state_v2']
+  // in plaintext, in parallel with the vault, on every single node —
+  // meaning the full text of everything spoken sat unencrypted on disk
+  // the whole time regardless of whether vault encryption was on. The
+  // vault is the only store now (voiceLattice in mastermind-vault.js's
+  // serialize/deserialize already covers VL_STATE in full). See
+  // _ORPHAN_KEYS in mastermind-vault.js for recovering any pre-fix copy.
+  if (typeof vaultDirtySave === 'function') vaultDirtySave(4000);
+}
+
+// ── Open / close ──────────────────────────────────────────────────
+function openVoiceLattice() {
+  if (!_assertAuth()) return;
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.module.open', { module: 'voice-lattice' });
+  if (!VL_STATE._loaded) vlLoad();
+
+  let overlay = document.getElementById('mm-vl-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'mm-vl-overlay';
+    overlay.style.cssText = [
+      'position:fixed;top:38px;left:0;right:0;bottom:0;z-index:800',
+      'background:rgba(1,0,8,.98);backdrop-filter:blur(8px)',
+      'display:flex;flex-direction:column;overflow:hidden',
+    ].join(';');
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  overlay.style.pointerEvents = 'all';
+  _renderVL(overlay);
+  if (typeof MMBG !== 'undefined') MMBG.pulse(window.innerWidth * 0.3, window.innerHeight * 0.6, 0.95);
+}
+
+function closeVoiceLattice() {
+  const el = document.getElementById('mm-vl-overlay');
+  if (el) { el.style.display = 'none'; el.style.pointerEvents = 'none'; }
+  vlSave();
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function _renderVL(overlay) {
+  overlay.innerHTML = '';
+  const C = '#7744ff';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = [
+    'display:flex;align-items:center;gap:14px;padding:11px 22px',
+    'border-bottom:1px solid rgba(119,68,255,.2)',
+    'background:rgba(119,68,255,.04);flex-shrink:0',
+  ].join(';');
+
+  const growthCount = VL_STATE.growthLog.length;
+  const recentGrowth = VL_STATE.growthLog.filter(g => Date.now() - g.ts < 604800000).length;
+
+  hdr.innerHTML = `
+    <span style="font-size:20px;filter:drop-shadow(0 0 12px #7744ff)">◉</span>
+    <div style="flex:1">
+      <div style="font-family:var(--f-display);font-size:13px;font-weight:800;
+        letter-spacing:5px;color:#7744ff">VOICE LATTICE</div>
+      <div style="font-family:var(--f-mono);font-size:7px;
+        color:rgba(119,68,255,.5);letter-spacing:2px;margin-top:1px">
+        CAPTURE · COMPREHEND · ROUTE · TRACK · PROVE
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${recentGrowth ? `<div style="font-family:var(--f-mono);font-size:7.5px;color:#00ff88;
+        border:1px solid rgba(0,255,136,.3);padding:3px 9px">
+        ↑ ${recentGrowth} growth marker${recentGrowth>1?'s':''} this week</div>` : ''}
+      <button onclick="closeVoiceLattice();goHome()" style="
+        font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px;padding:6px 12px;
+        border:1px solid var(--wire2);color:var(--dim);background:transparent;cursor:pointer"
+        onmouseenter="this.style.background='rgba(255,255,255,.04)'"
+        onmouseleave="this.style.background='transparent'">⌂ HOME</button>
+    </div>
+  `;
+  overlay.appendChild(hdr);
+
+  // Tabs
+  const TABS = [
+    { id: 'capture',    label: 'CAPTURE',     icon: '◉' },
+    { id: 'sessions',   label: 'SESSIONS',    icon: '▤' },
+    { id: 'lattice',    label: 'LATTICE',      icon: '⬡' },
+    { id: 'heuristics', label: 'HEURISTICS',   icon: '◆' },
+    { id: 'growth',     label: 'GROWTH',       icon: '↑' },
+    { id: 'coherence',  label: 'COHERENCE',    icon: '∿' },
+  ];
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = [
+    'display:flex;border-bottom:1px solid rgba(119,68,255,.12)',
+    'background:rgba(0,0,0,.4);flex-shrink:0',
+  ].join(';');
+  TABS.forEach(tab => {
+    const isActive = VL_STATE.activeTab === tab.id;
+    const btn = document.createElement('button');
+    btn.style.cssText = [
+      'padding:9px 18px;cursor:pointer;white-space:nowrap',
+      'font-family:var(--f-mono);font-size:7.5px;letter-spacing:1.5px',
+      `border:none;border-bottom:2px solid ${isActive ? '#7744ff' : 'transparent'}`,
+      `color:${isActive ? '#7744ff' : 'var(--dim)'}`,
+      `background:${isActive ? 'rgba(119,68,255,.06)' : 'transparent'}`,
+      'transition:all .15s',
+    ].join(';');
+    btn.textContent = tab.icon + ' ' + tab.label;
+    btn.addEventListener('click', () => { VL_STATE.activeTab = tab.id; _renderVL(overlay); });
+    btn.addEventListener('mouseenter', () => { if (!isActive) btn.style.color = 'var(--muted)'; });
+    btn.addEventListener('mouseleave', () => { if (!isActive) btn.style.color = 'var(--dim)'; });
+    tabBar.appendChild(btn);
+  });
+  overlay.appendChild(tabBar);
+
+  // Content
+  const content = document.createElement('div');
+  content.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column';
+  overlay.appendChild(content);
+
+  switch (VL_STATE.activeTab) {
+    case 'capture':    _vlTabCapture(content);    break;
+    case 'sessions':   _vlTabSessions(content);   break;
+    case 'lattice':    _vlTabLattice(content);    break;
+    case 'heuristics': _vlTabHeuristics(content); break;
+    case 'growth':     _vlTabGrowth(content);     break;
+    case 'coherence':  _vlTabCoherence(content);  break;
+  }
+
+  // The lattice canvas only animates while it is on screen. A
+  // requestAnimationFrame loop running behind a hidden tab is a battery
+  // cost with no observer.
+  if (typeof vlLatticeStop === 'function') vlLatticeStop();
+  if (VL_STATE.activeTab === 'capture' && typeof vlLatticeInit === 'function') {
+    requestAnimationFrame(() => vlLatticeInit());
+  }
+}
+
+// ── TAB: Capture ──────────────────────────────────────────────────
+function _vlTabCapture(container) {
+  container.innerHTML = `
+    <div style="flex:1;display:grid;grid-template-columns:300px 1fr 300px;overflow:hidden">
+
+      <!-- ── LEFT: the capture surface ──────────────────────────────
+           An orb, not a notepad. The 800px textarea that used to be here
+           was the overwhelm this module exists to remove: a blank box
+           that large asks you to COMPOSE, and composing is the load.
+           Speaking has no blank page. Typing is still possible, in a
+           two-line field, deliberately secondary. -->
+      <div style="padding:20px 18px;display:flex;flex-direction:column;gap:14px;align-items:center;
+        border-right:1px solid rgba(119,68,255,.1);overflow-y:auto">
+
+        <div id="vl-orb-outer" onclick="vlOrbToggle()" title="Click to capture"
+          style="position:relative;width:132px;height:132px;cursor:pointer;flex-shrink:0;margin-top:6px">
+          <div class="vl-orb-ring" style="animation-delay:0s"></div>
+          <div class="vl-orb-ring" style="animation-delay:.9s"></div>
+          <div class="vl-orb-ring" style="animation-delay:1.8s"></div>
+          <div id="vl-orb-core">
+            <span id="vl-orb-icon">◉</span>
+          </div>
+        </div>
+
+        <div id="vl-orb-label" style="font-family:var(--f-mono);font-size:7.5px;letter-spacing:2px;
+          color:var(--dim);text-align:center">CLICK TO CAPTURE</div>
+
+        <button id="vl-phone-btn" onclick="vlPhoneOpen()" title="Use your phone as a microphone">
+          <span style="font-size:13px;line-height:1">✆</span>
+          <span>PHONE</span>
+        </button>
+        <div id="vl-timer" style="font-family:var(--f-mono);font-size:15px;letter-spacing:3px;
+          color:#7744ff;opacity:.35">00:00</div>
+
+        <canvas id="vl-wave-cvs" width="260" height="42"
+          style="width:100%;height:42px;opacity:.5"></canvas>
+
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">
+          ${(() => {
+            // Short labels for the capture-mode buttons in the (260px-wide)
+            // orb sidebar. Used to be `m.slice(0, 5).toUpperCase()` — a
+            // blind character truncation that turned
+            // 'externalizing'/'introspecting'/'processing' into the
+            // unreadable "EXTER" / "INTRO" / "PROCE" fragments flagged in
+            // review. Declared local to this function (not module-level)
+            // deliberately — tests/run-lattice-ui.test.js renders
+            // _vlTabCapture in isolation and any free variable it
+            // references has to come from inside it or the sandbox.
+            const LABELS = { externalizing: 'OUTPUT', introspecting: 'INWARD', processing: 'WORKING' };
+            const HINTS  = {
+              externalizing: 'getting it out, judgement suspended',
+              introspecting: 'looking inward',
+              processing:    'working a problem',
+            };
+            return ['externalizing','introspecting','processing'].map((m, i) =>
+              `<button class="vl-mode-btn${i === 0 ? ' on' : ''}" data-mode="${m}"
+                title="${m[0].toUpperCase() + m.slice(1)} — ${HINTS[m] || ''}"
+                onclick="vlSetCaptureMode('${m}', this)">${LABELS[m] || m.toUpperCase()}</button>`).join('');
+          })()}
+        </div>
+
+        <div style="width:100%;border-top:1px solid rgba(119,68,255,.1);padding-top:12px;margin-top:2px">
+          <div style="font-family:var(--f-mono);font-size:6.5px;letter-spacing:2px;color:var(--dim);margin-bottom:6px">
+            OR TYPE · CTRL+ENTER
+          </div>
+          <textarea id="vl-capture-input" rows="2" placeholder="a thought, in your own words…" style="
+            width:100%;resize:none;font-family:var(--f-mono);font-size:9px;color:var(--bright);
+            background:rgba(0,0,0,.5);border:1px solid rgba(119,68,255,.2);
+            padding:9px;line-height:1.7;outline:none"
+            onkeydown="if(event.key==='Enter'&&event.ctrlKey)vlCaptureSubmit()"></textarea>
+          <div style="display:flex;gap:6px;margin-top:7px">
+            <select id="vl-domain" style="flex:1;background:rgba(0,0,0,.5);
+              border:1px solid rgba(119,68,255,.2);color:var(--muted);padding:6px 8px;
+              font-family:var(--f-mono);font-size:7.5px">
+              <option value="">— domain (auto)</option>
+              ${['cognitive','emotional','relational','creative','somatic','shadow','growth','systems','identity','meta'].map(d =>
+                `<option value="${d}">${d}</option>`).join('')}
+            </select>
+            <button onclick="vlCaptureSubmit()" style="padding:6px 12px;
+              border:1px solid rgba(119,68,255,.45);color:#7744ff;background:rgba(119,68,255,.08);
+              cursor:pointer;font-family:var(--f-mono);font-size:7.5px;letter-spacing:1px">ADD</button>
+          </div>
+          <div id="vl-intent-preview" style="font-family:var(--f-mono);font-size:7px;
+            color:var(--dim);margin-top:6px;min-height:10px"></div>
+        </div>
+
+        <div id="vl-route-preview" style="display:none;width:100%;padding:9px 11px;
+          background:rgba(119,68,255,.06);border:1px solid rgba(119,68,255,.18)">
+          <div style="font-family:var(--f-mono);font-size:6.5px;letter-spacing:1.5px;
+            color:rgba(119,68,255,.6);margin-bottom:4px">DETECTED INTENT</div>
+          <div id="vl-route-text" style="font-family:var(--f-mono);font-size:8px;color:#7744ff"></div>
+        </div>
+      </div>
+
+      <!-- ── CENTRE: the lattice, always visible ────────────────────
+           Not a destination you navigate to. It is what you are looking
+           at while you speak, so a node appearing and connecting itself
+           is the feedback, and no tab switch is required to see it. -->
+      <div id="vl-lattice-wrap" style="position:relative;overflow:hidden;background:rgba(0,0,0,.25)">
+        <canvas id="vl-lattice-cvs" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+        <div id="vl-lattice-hint" style="position:absolute;inset:0;display:flex;align-items:center;
+          justify-content:center;pointer-events:none;font-family:var(--f-mono);font-size:8px;
+          letter-spacing:2px;color:var(--dim);opacity:.5;text-align:center;line-height:2">
+          ${VL_STATE.nodes.length ? '' : 'THE LATTICE IS EMPTY<br>SPEAK, AND IT FILLS'}
+        </div>
+        <div style="position:absolute;bottom:9px;left:11px;font-family:var(--f-mono);
+          font-size:6.5px;letter-spacing:1.5px;color:var(--dim);opacity:.6">
+          <span id="vl-lat-count">${VL_STATE.nodes.length}</span> NODES ·
+          <span id="vl-lat-edges">0</span> EDGES
+        </div>
+      </div>
+
+      <!-- ── RIGHT: recent, and the detail of what you just said ── -->
+      <div style="overflow-y:auto;padding:16px 14px;border-left:1px solid rgba(119,68,255,.1)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:12px">RECENT (${VL_STATE.nodes.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${VL_STATE.nodes.slice(0, 20).map(node => {
+            const intentColors = {
+              philosophy_update:'#00c8ff', value_update:'#ffe04a',
+              framework_mutation:'#ff8c22', identity_update:'#ff66aa',
+              growth_marker:'#00ff88', shadow_observation:'#cc44ff',
+              emotional_data:'#ff3355', horizon_progress:'#11ddcc',
+              heuristic_fire:'#d4a820', epistemic_claim:'#00c8ff',
+              capture:'rgba(255,255,255,.3)',
+            };
+            const ic = intentColors[node.intent] || 'rgba(255,255,255,.3)';
+            return `
+              <div style="padding:9px 12px;background:rgba(0,0,0,.35);
+                border-left:2px solid ${ic};">
+                <div style="font-family:var(--f-mono);font-size:8px;color:var(--bright);
+                  line-height:1.6;margin-bottom:4px">${escH(node.content.slice(0, 120))}${node.content.length > 120 ? '…' : ''}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  ${node.intent !== 'capture' ? `<span style="font-family:var(--f-mono);font-size:6.5px;
+                    color:${ic};border:1px solid ${ic}44;padding:1px 5px">
+                    ${node.intent.replace(/_/g,' ')}</span>` : ''}
+                  ${(node.tags||[]).slice(0,3).map(t => `<span style="font-family:var(--f-mono);
+                    font-size:6.5px;color:var(--dim);border:1px solid rgba(255,255,255,.06);
+                    padding:1px 5px">${t}</span>`).join('')}
+                  ${node.routedTo?.length ? `<span style="font-family:var(--f-mono);font-size:6.5px;
+                    color:var(--wire2)">→ ${node.routedTo.join(', ')}</span>` : ''}
+                  <span style="margin-left:auto;font-family:var(--f-mono);font-size:6.5px;
+                    color:var(--wire2)">${_vlTimeAgo(node.ts)}</span>
+                </div>
+              </div>`;
+          }).join('')}
+          ${!VL_STATE.nodes.length ? `<div style="font-family:var(--f-mono);font-size:8px;
+            color:var(--dim);padding:16px 0">Nothing captured yet.</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Live intent detection as user types
+  const ta = document.getElementById('vl-capture-input');
+  const preview = document.getElementById('vl-route-preview');
+  const routeText = document.getElementById('vl-route-text');
+  if (ta) {
+    ta.addEventListener('input', () => {
+      const val = ta.value;
+      if (val.length < 10) { preview.style.display = 'none'; return; }
+      const { intent, heuristics: fh } = vceDetectIntent(val);
+      if (intent !== 'capture') {
+        preview.style.display = '';
+        const intentLabel = intent.replace(/_/g, ' ').toUpperCase();
+        const routes = _vlPreviewRoute(intent);
+        routeText.innerHTML = `<span style="color:#7744ff">${intentLabel}</span>` +
+          (routes.length ? ` → <span style="color:var(--dim)">${routes.join(', ')}</span>` : '') +
+          (fh.length ? ` · <span style="color:#d4a820">heuristic: ${fh[0].name}</span>` : '');
+      } else {
+        preview.style.display = 'none';
+      }
+    });
+  }
+}
+
+function _vlPreviewRoute(intent) {
+  const map = {
+    philosophy_update: ['Philosophy Log'],
+    value_update: ['Value Log'],
+    growth_marker: ['Growth Timeline'],
+    shadow_observation: ['Shadow Log', 'Mirror'],
+    emotional_data: ['Emotional Log'],
+    horizon_progress: ['Horizon (check milestones)'],
+    identity_update: ['Mirror (identity)'],
+    framework_mutation: ['Framework Deltas', 'Void Seeds'],
+    capture: ['Void Seeds'],
+  };
+  return map[intent] || [];
+}
+
+function vlCaptureSubmit() {
+  const ta = document.getElementById('vl-capture-input');
+  const domEl = document.getElementById('vl-domain');
+  const text = ta?.value?.trim();
+  if (!text) { mm_toast('Write something first', 'warn'); return; }
+  const node = vlAddNode(text, domEl?.value || null);
+  ta.value = '';
+  document.getElementById('vl-route-preview').style.display = 'none';
+  mm_toast('Captured' + (node.routedTo?.length ? ' → ' + node.routedTo.join(', ') : ''), 'success', { dur: 2000 });
+  const overlay = document.getElementById('mm-vl-overlay');
+  if (overlay) _renderVL(overlay);
+}
+
+// ── TAB: Sessions ─────────────────────────────────────────────────
+// Was its own module (modules/lattice/ui.js, openLattice/closeLattice)
+// with a single SESSIONS tab of its own. The associative lattice it
+// reads from (modules/lattice/lattice.js) is fed by every module —
+// canvas, ALM, Horizon, patterns, and this one — grouped by whichever
+// recording session a node arrived in, voice or not. That belongs
+// alongside Capture and the word-lattice view rather than behind a
+// second "open lattice" entry point, so it lives here as a tab now.
+// Reads latticeSessions() / latticeNodesForSession() / LAT_KINDS from
+// modules/lattice/lattice.js, and _latFmtWhen / _latFmtDuration from
+// modules/lattice/ui.js — both already loaded alongside nexus-engine.js.
+
+let _vlSessOpenId = null;
+
+function _vlTabSessions(container) {
+  container.style.cssText = 'flex:1;display:flex;overflow:hidden';
+  const sessions = typeof latticeSessions === 'function' ? latticeSessions() : [];
+  const totalNodes = (typeof LATTICE !== 'undefined' && LATTICE.nodes) ? LATTICE.nodes.length : 0;
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;width:100%;overflow:hidden">
+      <div style="padding:8px 18px;border-bottom:1px solid rgba(119,68,255,.1);flex-shrink:0">
+        <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:1.5px;color:var(--dim)">
+          ${totalNodes} node${totalNodes === 1 ? '' : 's'} across ${sessions.length} session${sessions.length === 1 ? '' : 's'} · every module feeds this, not just voice
+        </div>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden">
+        <div id="vl-session-list" style="width:320px;border-right:1px solid rgba(119,68,255,.1);overflow-y:auto;flex-shrink:0"></div>
+        <div id="vl-session-detail" style="flex:1;overflow-y:auto;padding:18px"></div>
+      </div>
+    </div>
+  `;
+  _vlRenderSessionList();
+  _vlRenderSessionDetail(_vlSessOpenId);
+}
+
+function _vlRenderSessionList() {
+  const list = document.getElementById('vl-session-list');
+  if (!list) return;
+  const sessions = typeof latticeSessions === 'function' ? latticeSessions() : [];
+
+  if (!sessions.length) {
+    list.innerHTML = `<div style="padding:18px;font-family:var(--f-mono);font-size:8px;color:var(--wire2);line-height:1.7">
+      No sessions yet. A session starts when you begin recording — nothing
+      arrives in the lattice with no source to point to.</div>`;
+    return;
+  }
+
+  list.innerHTML = sessions.map(s => {
+    const active = _vlSessOpenId === s.id;
+    const label = s.synthetic ? 'UNSESSIONED' : (s.kind || 'live').toUpperCase();
+    const color = s.synthetic ? 'var(--dim)' : '#7744ff';
+    const fmtWhen = typeof _latFmtWhen === 'function' ? _latFmtWhen : (iso => iso ? new Date(iso).toLocaleString() : '—');
+    const fmtDur = typeof _latFmtDuration === 'function' ? _latFmtDuration : (() => '—');
+    return `
+      <div onclick="_vlSessOpen('${s.id}')" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);
+        background:${active ? 'rgba(119,68,255,.08)' : 'transparent'};border-left:2px solid ${active ? color : 'transparent'}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+          <span style="font-family:var(--f-mono);font-size:6.5px;letter-spacing:1px;color:${color};border:1px solid ${color}44;padding:1px 4px">${label}</span>
+          ${!s.endedAt && !s.synthetic ? '<span style="font-family:var(--f-mono);font-size:6.5px;color:#ff3355">● LIVE</span>' : ''}
+        </div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright,#eaf6ff)">${s.synthetic ? 'No active session' : fmtWhen(s.startedAt)}</div>
+        <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim);margin-top:2px">
+          ${s.nodeCount || 0} node${(s.nodeCount || 0) === 1 ? '' : 's'}${s.synthetic ? '' : ' · ' + fmtDur(s.startedAt, s.endedAt)}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function _vlSessOpen(id) {
+  _vlSessOpenId = id;
+  _vlRenderSessionList();
+  _vlRenderSessionDetail(id);
+}
+
+function _vlRenderSessionDetail(id) {
+  const detail = document.getElementById('vl-session-detail');
+  if (!detail) return;
+
+  if (!id) {
+    detail.innerHTML = `<div style="font-family:var(--f-mono);font-size:8.5px;color:var(--wire2)">Select a session to see what came in during it.</div>`;
+    return;
+  }
+
+  const nodes = typeof latticeNodesForSession === 'function' ? latticeNodesForSession(id) : [];
+  const sessions = typeof latticeSessions === 'function' ? latticeSessions() : [];
+  const sess = sessions.find(s => s.id === id);
+  const fmtWhen = typeof _latFmtWhen === 'function' ? _latFmtWhen : (iso => iso ? new Date(iso).toLocaleString() : '—');
+  const fmtDur = typeof _latFmtDuration === 'function' ? _latFmtDuration : (() => '—');
+
+  const header = sess && !sess.synthetic ? `
+    <div style="display:flex;gap:18px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap">
+      <div><div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);letter-spacing:1px">STARTED</div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright,#eaf6ff)">${fmtWhen(sess.startedAt)}</div></div>
+      <div><div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);letter-spacing:1px">DURATION</div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright,#eaf6ff)">${fmtDur(sess.startedAt, sess.endedAt)}</div></div>
+      <div><div style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);letter-spacing:1px">KIND</div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright,#eaf6ff)">${escH(sess.kind || 'live')}</div></div>
+    </div>` : `
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.06);font-family:var(--f-mono);
+      font-size:7.5px;color:var(--dim);line-height:1.7">
+      Nodes that arrived with no active recording session — spawned on the
+      canvas, externalized in ALM, seeded in Horizon, or otherwise entered
+      the lattice outside a capture window.
+    </div>`;
+
+  if (!nodes.length) {
+    detail.innerHTML = header + `<div style="font-family:var(--f-mono);font-size:8px;color:var(--wire2)">No nodes in this session.</div>`;
+    return;
+  }
+
+  const kinds = (typeof LAT_KINDS !== 'undefined') ? LAT_KINDS : {};
+  const rows = nodes.map(n => {
+    const k = kinds[n.kind] || { label: n.kind, color: '#7744ff' };
+    const tags = (n.tags || []).slice(0, 5).map(t =>
+      `<span style="font-family:var(--f-mono);font-size:6.5px;color:${k.color};border:1px solid ${k.color}33;padding:1px 4px;margin-right:3px">${escH(t)}</span>`
+    ).join('');
+    return `
+      <div style="padding:10px 12px;margin-bottom:6px;background:rgba(255,255,255,.02);border-left:2px solid ${k.color}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-family:var(--f-mono);font-size:6.5px;letter-spacing:1px;color:${k.color}">${escH(k.label)}</span>
+          <span style="font-family:var(--f-mono);font-size:6.5px;color:var(--dim);margin-left:auto">${fmtWhen(new Date(n.ts).toISOString())}</span>
+        </div>
+        <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright,#eaf6ff);line-height:1.5;margin-bottom:4px">${escH(n.text.length > 220 ? n.text.slice(0, 218) + '…' : n.text)}</div>
+        ${tags ? `<div>${tags}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  detail.innerHTML = header + `
+    <div style="font-family:var(--f-mono);font-size:7px;letter-spacing:2px;color:var(--dim);margin-bottom:10px">${nodes.length} NODE${nodes.length === 1 ? '' : 'S'}</div>
+    ${rows}
+  `;
+}
+
+if (typeof window !== 'undefined') {
+  window._vlSessOpen = _vlSessOpen;
+}
+
+// ── TAB: Lattice (visualization) ──────────────────────────────────
+
+// Shared across the Lattice tab's rendering functions so a click on a
+// word, a domain chip, or a node all agree on what's currently shown.
+const VL_DOMAIN_COLORS = {
+  cognitive:'#00c8ff', emotional:'#ff66aa', relational:'#11ddcc',
+  creative:'#cc44ff', somatic:'#88ffcc', shadow:'#7744ff',
+  growth:'#00ff88', systems:'#ffe04a', identity:'#ff8c22', general:'rgba(255,255,255,.4)',
+};
+const VL_LATTICE_FILTERS = { q: '', domain: '', word: '' };
+let _vlDetailNodeId = null;
+
+function _vlLatticeFilteredNodes() {
+  const f = VL_LATTICE_FILTERS;
+  let nodes = VL_STATE.nodes;
+  if (f.domain) nodes = nodes.filter(n => n.domain === f.domain);
+  if (f.word)   nodes = nodes.filter(n => (n.content || '').toLowerCase().includes(f.word.toLowerCase()));
+  if (f.q)      nodes = nodes.filter(n => (n.content || '').toLowerCase().includes(f.q.toLowerCase()));
+  return nodes.slice(0, 50);
+}
+
+function _vlTabLattice(container) {
+  // Word frequency cloud + node list with search
+  const topWords = Object.entries(VL_STATE.wordBank)
+    .filter(([w]) => !['that','this','with','have','from','they','what','your','when','will','been','into','some','also','than','more','very','just','like','only','then','over','most','even','back','well','such','here','these','does','both','same','each','many','much','make','give','take','come','know','find','need','feel','look','work','call','time','life','year','week','days'].includes(w))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 40);
+
+  container.innerHTML = `
+    <div style="flex:1;display:grid;grid-template-columns:1fr 340px;overflow:hidden">
+      <!-- Left: word cloud / frequency map -->
+      <div style="padding:20px 24px;overflow-y:auto;border-right:1px solid rgba(119,68,255,.1)">
+        <div style="font-family:var(--f-display);font-size:9px;letter-spacing:3px;
+          color:#7744ff;margin-bottom:16px">WORD LATTICE (${Object.keys(VL_STATE.wordBank).length} unique)</div>
+        ${topWords.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
+          ${topWords.map(([w, count]) => {
+            const size = Math.max(9, Math.min(18, 8 + count * 1.5));
+            const active = VL_LATTICE_FILTERS.word === w;
+            const opacity = active ? 1 : Math.max(0.35, Math.min(1, count / 10));
+            return `<span onclick="vlLatticeFilterWord('${escH(w)}')" style="font-family:var(--f-mono);font-size:${size}px;
+              color:rgba(119,68,255,${opacity});cursor:pointer;padding:2px 3px;
+              ${active ? 'border-bottom:1px solid #7744ff' : ''}"
+              title="${count} occurrence${count>1?'s':''} \u2014 click to filter the list"
+              >${escH(w)}</span>`;
+          }).join('')}
+        </div>` : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);
+          padding:20px 0">Capture nodes to build the lattice.</div>`}
+
+        <!-- Domain distribution -->
+        ${VL_STATE.nodes.length ? `
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">DOMAIN DISTRIBUTION</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${Object.entries(VL_DOMAIN_COLORS).map(([domain, color]) => {
+            const count = VL_STATE.nodes.filter(n => n.domain === domain).length;
+            if (!count) return '';
+            const pct = Math.round((count / VL_STATE.nodes.length) * 100);
+            return `
+              <div onclick="vlLatticeFilterDomain('${domain}')" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <span style="font-family:var(--f-mono);font-size:7.5px;color:${color};
+                  min-width:80px;${VL_LATTICE_FILTERS.domain === domain ? 'text-decoration:underline' : ''}">${domain}</span>
+                <div style="flex:1;height:4px;background:rgba(255,255,255,.06);overflow:hidden">
+                  <div style="height:100%;width:${pct}%;background:${color};transition:width .3s"></div>
+                </div>
+                <span style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">${count}</span>
+              </div>`;
+          }).join('')}
+        </div>` : ''}
+      </div>
+
+      <!-- Right: filters + search + node list, or a node's detail -->
+      <div id="vl-lattice-right" style="display:flex;flex-direction:column;overflow:hidden"></div>
+    </div>
+  `;
+  _vlRenderLatticeRight('list');
+}
+
+// Everything on the right side of the Lattice tab funnels through here,
+// so a click on a word/domain/node and the search box all agree on
+// what's on screen — there is exactly one place that decides.
+function _vlRenderLatticeRight(mode) {
+  const el = document.getElementById('vl-lattice-right');
+  if (!el) return;
+  if (mode === 'detail' && _vlDetailNodeId) {
+    const node = VL_STATE.nodes.find(n => n.id === _vlDetailNodeId);
+    if (node) { el.innerHTML = _vlRenderNodeDetail(node); return; }
+    _vlDetailNodeId = null; // node vanished (e.g. deleted from elsewhere) — fall through to list
+  }
+  el.innerHTML = _vlRenderLatticeListHtml();
+}
+
+function _vlRenderLatticeListHtml() {
+  const f = VL_LATTICE_FILTERS;
+  const activeFilters = !!(f.domain || f.word);
+  return `
+    <div style="padding:10px 14px;border-bottom:1px solid rgba(119,68,255,.1);flex-shrink:0">
+      <input placeholder="Search nodes\u2026" id="vl-lattice-search" value="${escH(f.q)}" style="
+        width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:8.5px;
+        color:var(--bright);background:rgba(0,0,0,.5);
+        border:1px solid rgba(119,68,255,.2);padding:7px 10px;outline:none;margin-bottom:${activeFilters ? '8' : '0'}px"
+        onfocus="this.style.borderColor='rgba(119,68,255,.5)'"
+        onblur="this.style.borderColor='rgba(119,68,255,.2)'"
+        oninput="vlLatticeSearch(this.value)"/>
+      ${activeFilters ? `
+      <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+        ${f.domain ? `<span onclick="vlLatticeFilterDomain('')" style="cursor:pointer;font-family:var(--f-mono);font-size:7px;color:${VL_DOMAIN_COLORS[f.domain]||'#7744ff'};
+          border:1px solid rgba(119,68,255,.3);padding:2px 7px">${f.domain} \u2715</span>` : ''}
+        ${f.word ? `<span onclick="vlLatticeFilterWord('${escH(f.word)}')" style="cursor:pointer;font-family:var(--f-mono);font-size:7px;color:#7744ff;
+          border:1px solid rgba(119,68,255,.3);padding:2px 7px">"${escH(f.word)}" \u2715</span>` : ''}
+      </div>` : ''}
+    </div>
+    <div id="vl-lat-count-line" style="padding:6px 14px 0;font-family:var(--f-mono);font-size:6.5px;color:var(--wire2)">
+      ${_vlLatticeFilteredNodes().length} of ${VL_STATE.nodes.length} nodes
+    </div>
+    <div id="vl-node-list" style="flex:1;overflow-y:auto;padding:8px 12px">
+      ${_vlRenderNodeList(_vlLatticeFilteredNodes(), VL_DOMAIN_COLORS)}
+    </div>
+  `;
+}
+
+function _vlRenderNodeList(nodes, domainColors) {
+  if (!nodes.length) {
+    const filtered = !!(VL_LATTICE_FILTERS.domain || VL_LATTICE_FILTERS.word || VL_LATTICE_FILTERS.q);
+    return `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);padding:16px 0">
+      ${filtered ? 'Nothing matches the current filters.' : 'No nodes.'}</div>`;
+  }
+  return nodes.map(n => {
+    const dc = domainColors[n.domain] || 'rgba(255,255,255,.3)';
+    return `
+      <div onclick="vlOpenNodeDetail('${n.id}')" style="padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.04);
+        display:flex;gap:8px;align-items:flex-start;cursor:pointer"
+        onmouseenter="this.style.background='rgba(119,68,255,.05)'"
+        onmouseleave="this.style.background='transparent'">
+        <div style="width:6px;height:6px;border-radius:50%;background:${dc};
+          flex-shrink:0;margin-top:4px"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+            line-height:1.5;word-break:break-word">${escH(n.content.slice(0,80))}${n.content.length>80?'…':''}</div>
+          <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--wire2);margin-top:2px">
+            ${_vlTimeAgo(n.ts)} · ${n.domain}${n.redundant ? ' · <span style="color:var(--o)">⟲ circled before</span>' : ''}</div>
+        </div>
+        <button onclick="event.stopPropagation();vlNodeToCanvas('${n.id}')" style="
+          background:none;border:none;cursor:pointer;color:var(--wire2);
+          font-family:var(--f-mono);font-size:7px;flex-shrink:0"
+          onmouseenter="this.style.color='var(--c)'"
+          onmouseleave="this.style.color='var(--wire2)'">→</button>
+      </div>`;
+  }).join('');
+}
+
+// Detail panel — the piece that was missing entirely. A node in the
+// list was previously a dead end (read the first 80 characters, or
+// send it to the canvas; nothing in between). This shows the whole
+// thought, why it was tagged the way it was, what it's redundant
+// against, and what it's actually connected to.
+function _vlRenderNodeDetail(node) {
+  const dc = VL_DOMAIN_COLORS[node.domain] || 'rgba(255,255,255,.4)';
+  const related = (node.assocEdges || [])
+    .slice().sort((a, b) => (b.score||0) - (a.score||0)).slice(0, 8)
+    .map(e => {
+      const other = VL_STATE.nodes.find(x => x.id === e.to);
+      if (!other) return '';
+      return `
+        <div onclick="vlOpenNodeDetail('${other.id}')" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);
+          cursor:pointer;display:flex;gap:8px;align-items:baseline"
+          onmouseenter="this.style.color='var(--bright)'" onmouseleave="this.style.color=''">
+          <span style="font-family:var(--f-mono);font-size:7px;color:#7744ff;flex-shrink:0">${Math.round((e.score||0)*100)}%</span>
+          <span style="font-family:var(--f-mono);font-size:8px;color:var(--muted);line-height:1.5">${escH(other.content.slice(0,90))}${other.content.length>90?'…':''}</span>
+        </div>`;
+    }).join('');
+
+  return `
+    <div style="display:flex;flex-direction:column;height:100%">
+      <div style="padding:10px 14px;border-bottom:1px solid rgba(119,68,255,.1);display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <button onclick="vlOpenNodeDetail(null)" style="
+          background:none;border:none;cursor:pointer;color:var(--dim);font-family:var(--f-mono);font-size:8px"
+          onmouseenter="this.style.color='var(--bright)'" onmouseleave="this.style.color='var(--dim)'">\u2190 BACK</button>
+        <div style="flex:1"></div>
+        <button onclick="vlNodeToCanvas('${node.id}')" style="
+          padding:4px 9px;border:1px solid rgba(255,255,255,.1);color:var(--dim);background:transparent;
+          cursor:pointer;font-family:var(--f-mono);font-size:7px"
+          onmouseenter="this.style.color='var(--c)'" onmouseleave="this.style.color='var(--dim)'">→ CANVAS</button>
+        <button onclick="vlDeleteNodeConfirm('${node.id}')" style="
+          padding:4px 9px;border:1px solid rgba(255,51,85,.25);color:var(--r);background:transparent;
+          cursor:pointer;font-family:var(--f-mono);font-size:7px"
+          onmouseenter="this.style.background='rgba(255,51,85,.08)'" onmouseleave="this.style.background='transparent'">DELETE</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px">
+        <div style="font-family:var(--f-mono);font-size:7px;color:${dc};letter-spacing:1.5px;margin-bottom:10px">
+          ${(node.domain || 'general').toUpperCase()} · ${(node.intent || 'capture').replace(/_/g,' ').toUpperCase()}
+        </div>
+        <div style="font-family:var(--f-mono);font-size:10.5px;color:var(--bright);line-height:1.9;
+          margin-bottom:16px;white-space:pre-wrap">${escH(node.content)}</div>
+
+        ${node.redundant ? `<div style="font-family:var(--f-mono);font-size:7.5px;color:var(--o);
+          padding:7px 10px;background:rgba(255,140,34,.05);margin-bottom:14px">
+          ⟲ Flagged as circling back to a thought you\u2019ve had before.</div>` : ''}
+
+        ${node.tags?.length ? `
+        <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;color:var(--dim);margin-bottom:6px">TAGS</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px">
+          ${node.tags.map(t => `<span style="font-family:var(--f-mono);font-size:7px;color:var(--muted);
+            border:1px solid rgba(255,255,255,.08);padding:2px 7px">${escH(t)}</span>`).join('')}
+        </div>` : ''}
+
+        ${node.routedTo?.length ? `
+        <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;color:var(--dim);margin-bottom:6px">ROUTED TO</div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);margin-bottom:16px">${node.routedTo.map(escH).join(' · ')}</div>` : ''}
+
+        <div style="font-family:var(--f-mono);font-size:6.5px;color:var(--wire2);margin-bottom:16px">
+          CAPTURED ${new Date(node.ts).toLocaleString()}</div>
+
+        <div style="font-family:var(--f-display);font-size:7px;letter-spacing:2px;color:var(--dim);margin-bottom:4px">
+          ASSOCIATED (${(node.assocEdges || []).length})</div>
+        ${related || `<div style="font-family:var(--f-mono);font-size:7.5px;color:var(--wire2);padding:8px 0">
+          Nothing else shares enough vocabulary with this yet.</div>`}
+      </div>
+    </div>`;
+}
+
+function vlOpenNodeDetail(id) {
+  _vlDetailNodeId = id;
+  _vlRenderLatticeRight(id ? 'detail' : 'list');
+}
+
+async function vlDeleteNodeConfirm(id) {
+  const ok = await mmConfirm(
+    'Delete this node?\n\nIt is removed from the lattice permanently. Anything associated with it will simply stop pointing here.'
+  );
+  if (!ok) return;
+  VL_STATE.nodes = VL_STATE.nodes.filter(n => n.id !== id);
+  VL_STATE.nodes.forEach(n => {
+    if (Array.isArray(n.assocEdges)) n.assocEdges = n.assocEdges.filter(e => e.to !== id);
+  });
+  vlSave();
+  _vlDetailNodeId = null;
+  _vlRenderLatticeRight('list');
+  mm_toast('Node deleted', 'info', { dur: 1500 });
+}
+
+function vlLatticeFilterDomain(domain) {
+  VL_LATTICE_FILTERS.domain = domain;
+  _vlRenderLatticeRight('list');
+}
+
+function vlLatticeFilterWord(word) {
+  VL_LATTICE_FILTERS.word = VL_LATTICE_FILTERS.word === word ? '' : word;
+  _vlRenderLatticeRight('list');
+}
+
+function vlLatticeSearch(q) {
+  VL_LATTICE_FILTERS.q = q;
+  const list = document.getElementById('vl-node-list');
+  if (list) list.innerHTML = _vlRenderNodeList(_vlLatticeFilteredNodes(), VL_DOMAIN_COLORS);
+  const countLine = document.getElementById('vl-lat-count-line');
+  if (countLine) countLine.textContent = _vlLatticeFilteredNodes().length + ' of ' + VL_STATE.nodes.length + ' nodes';
+}
+
+function vlNodeToCanvas(id) {
+  const node = VL_STATE.nodes.find(n => n.id === id);
+  if (!node) return;
+  const intentTypeMap = {
+    philosophy_update:'framework', value_update:'invariant', growth_marker:'delta',
+    shadow_observation:'pattern', emotional_data:'signal', identity_update:'heuristic',
+    framework_mutation:'framework', capture:'concept',
+  };
+  CANVAS.spawnNode(intentTypeMap[node.intent]||'concept', undefined, undefined, {
+    title: node.content.slice(0, 60),
+    tags: [...(node.tags||[]), 'LATTICE', node.intent.replace(/_/g,'-').toUpperCase()],
+  });
+  mm_toast('Node → canvas', 'export', { dur: 1200 });
+}
+
+// ── TAB: Heuristics ───────────────────────────────────────────────
+function _vlTabHeuristics(container) {
+  container.style.overflowY = 'auto';
+  container.innerHTML = `
+    <div style="padding:22px 28px;max-width:900px;display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+          letter-spacing:4px;color:#7744ff;margin-bottom:4px">HEURISTICS LIBRARY</div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+          Named rules of thumb. The system detects when they fire from your voice notes.
+          Each heuristic is a pattern you've earned — stored, triggered, tracked.
+        </div>
+      </div>
+
+      <!-- Add heuristic -->
+      <div style="padding:16px;background:rgba(119,68,255,.05);border:1px solid rgba(119,68,255,.18)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:#7744ff;margin-bottom:10px">+ NEW HEURISTIC</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="vl-h-name" placeholder="Name…" style="
+            flex:1;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+            background:rgba(0,0,0,.5);border:1px solid rgba(119,68,255,.2);
+            padding:7px 10px;outline:none"
+            onfocus="this.style.borderColor='rgba(119,68,255,.5)'"
+            onblur="this.style.borderColor='rgba(119,68,255,.2)'"/>
+          <select id="vl-h-domain" style="
+            background:rgba(0,0,0,.5);border:1px solid rgba(119,68,255,.2);
+            color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
+            <option value="">Domain</option>
+            ${['cognitive','emotional','relational','creative','somatic','shadow','meta'].map(d =>
+              `<option value="${d}">${d}</option>`).join('')}
+          </select>
+        </div>
+        <textarea id="vl-h-desc" placeholder="What does this heuristic do? When does it apply?" style="
+          width:100%;box-sizing:border-box;height:52px;resize:none;
+          font-family:var(--f-mono);font-size:8px;color:var(--bright);
+          background:rgba(0,0,0,.45);border:1px solid rgba(119,68,255,.15);
+          padding:7px;line-height:1.6;outline:none;margin-bottom:8px"></textarea>
+        <input id="vl-h-triggers" placeholder="Trigger phrases (comma-separated): 'that pattern again, oscillating, pendulum'" style="
+          width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:8px;
+          color:var(--muted);background:rgba(0,0,0,.5);border:1px solid rgba(119,68,255,.15);
+          padding:7px 10px;outline:none;margin-bottom:8px"/>
+        <div style="text-align:right">
+          <button onclick="vlAddHeuristic()" style="
+            padding:8px 20px;border:1px solid rgba(119,68,255,.4);
+            color:#7744ff;background:rgba(119,68,255,.08);cursor:pointer;
+            font-family:var(--f-mono);font-size:8px;letter-spacing:1px"
+            onmouseenter="this.style.background='rgba(119,68,255,.18)'"
+            onmouseleave="this.style.background='rgba(119,68,255,.08)'">+ ADD</button>
+        </div>
+      </div>
+
+      <!-- Test a phrase — see firing happen, rather than only finding out
+           about it after the fact from a toast during real capture. Uses
+           the exact same matcher vceDetectIntent() runs on live speech;
+           this is a dry run, so it never touches fireCount/lastFired. -->
+      <div style="padding:16px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.06)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">TEST A PHRASE</div>
+        <div style="display:flex;gap:8px">
+          <input id="vl-h-test-input" placeholder="Type something you might say…" style="
+            flex:1;font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+            background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);
+            padding:7px 10px;outline:none"
+            onfocus="this.style.borderColor='rgba(119,68,255,.5)'"
+            onblur="this.style.borderColor='rgba(255,255,255,.1)'"
+            onkeydown="if(event.key==='Enter')vlHeuristicTest()"/>
+          <button onclick="vlHeuristicTest()" style="
+            padding:7px 16px;border:1px solid rgba(119,68,255,.4);color:#7744ff;
+            background:rgba(119,68,255,.08);cursor:pointer;font-family:var(--f-mono);font-size:8px"
+            onmouseenter="this.style.background='rgba(119,68,255,.18)'"
+            onmouseleave="this.style.background='rgba(119,68,255,.08)'">TEST</button>
+        </div>
+        <div id="vl-h-test-result" style="font-family:var(--f-mono);font-size:7.5px;
+          color:var(--wire2);margin-top:8px;min-height:11px"></div>
+      </div>
+
+      <!-- Library -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        ${VL_STATE.heuristics.map(h => {
+          const dc = {cognitive:'#00c8ff',emotional:'#ff66aa',relational:'#11ddcc',
+            creative:'#cc44ff',somatic:'#88ffcc',shadow:'#7744ff',meta:'#d4a820'}[h.domain]||'#7744ff';
+          return `
+            <div id="vl-h-card-${h.id}" style="padding:13px 16px;background:rgba(0,0,0,.35);
+              border:1px solid rgba(255,255,255,.06);border-left:3px solid ${dc}44;transition:box-shadow .2s">
+              <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:7px">
+                <div style="flex:1">
+                  <div style="font-family:var(--f-display);font-size:10px;font-weight:700;
+                    letter-spacing:1.5px;color:${dc};margin-bottom:3px">${escH(h.name)}</div>
+                  <div style="font-family:var(--f-mono);font-size:8px;color:var(--muted);
+                    line-height:1.7">${escH(h.desc)}</div>
+                </div>
+                <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+                  ${h.fireCount ? `<span style="font-family:var(--f-mono);font-size:7px;
+                    color:${dc};border:1px solid ${dc}44;padding:2px 7px">
+                    fired ${h.fireCount}×</span>` : ''}
+                  ${h.lastFired ? `<span style="font-family:var(--f-mono);font-size:6.5px;
+                    color:var(--wire2)">${_vlTimeAgo(h.lastFired)}</span>` : ''}
+                </div>
+              </div>
+              ${h.triggerPhrases?.length ? `
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px">
+                  ${h.triggerPhrases.map(tp => `<span style="font-family:var(--f-mono);font-size:7px;
+                    color:var(--dim);border:1px solid rgba(255,255,255,.07);
+                    padding:1px 6px">"${escH(tp)}"</span>`).join('')}
+                </div>` : ''}
+              <div style="display:flex;gap:7px">
+                <button onclick="vlHeuristicToCanvas('${h.id}')" style="
+                  padding:3px 9px;border:1px solid rgba(255,255,255,.08);
+                  color:var(--dim);background:transparent;cursor:pointer;
+                  font-family:var(--f-mono);font-size:7px"
+                  onmouseenter="this.style.color='var(--c)'"
+                  onmouseleave="this.style.color='var(--dim)'">→ CANVAS</button>
+                <button onclick="vlDeleteHeuristic('${h.id}')" style="
+                  padding:3px 7px;border:none;background:none;cursor:pointer;
+                  color:var(--wire2);font-size:11px;margin-left:auto"
+                  onmouseenter="this.style.color='var(--r)'"
+                  onmouseleave="this.style.color='var(--wire2)'">×</button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function vlAddHeuristic() {
+  const name = document.getElementById('vl-h-name')?.value?.trim();
+  if (!name) { mm_toast('Name required', 'warn'); return; }
+  const triggerRaw = document.getElementById('vl-h-triggers')?.value || '';
+  VL_STATE.heuristics.push({
+    id: uuid(), name,
+    desc:          document.getElementById('vl-h-desc')?.value?.trim() || '',
+    domain:        document.getElementById('vl-h-domain')?.value || '',
+    triggerPhrases: triggerRaw.split(',').map(t => t.trim()).filter(Boolean),
+    fireCount: 0, lastFired: null, ts: Date.now(),
+  });
+  vlSave();
+  mm_toast('Heuristic added', 'success', { dur: 1400 });
+  const overlay = document.getElementById('mm-vl-overlay');
+  if (overlay) _renderVL(overlay);
+}
+
+function vlDeleteHeuristic(id) {
+  VL_STATE.heuristics = VL_STATE.heuristics.filter(h => h.id !== id);
+  vlSave();
+  const overlay = document.getElementById('mm-vl-overlay');
+  if (overlay) _renderVL(overlay);
+}
+
+function vlHeuristicToCanvas(id) {
+  const h = VL_STATE.heuristics.find(x => x.id === id);
+  if (!h) return;
+  CANVAS.spawnNode('heuristic', undefined, undefined, {
+    title: h.name, body: h.desc, tags: ['HEURISTIC', 'LATTICE', (h.domain||'').toUpperCase()],
+  });
+  mm_toast(h.name + ' → canvas', 'export', { dur: 1200 });
+}
+
+// Runs a typed phrase through the exact matcher real capture uses
+// (vceDetectIntent), without creating a node or touching fireCount —
+// a dry run, so someone can see whether a heuristic actually catches
+// what they think it catches before it matters.
+function vlHeuristicTest() {
+  const input = document.getElementById('vl-h-test-input');
+  const resultEl = document.getElementById('vl-h-test-result');
+  const text = input?.value?.trim();
+
+  // Clear any highlight from a previous test first, always.
+  VL_STATE.heuristics.forEach(h => {
+    const card = document.getElementById('vl-h-card-' + h.id);
+    if (card) card.style.boxShadow = 'none';
+  });
+
+  if (!text) { if (resultEl) resultEl.textContent = 'Type something first.'; return; }
+  if (!resultEl) return;
+
+  const { heuristics: fired } = vceDetectIntent(text);
+  if (!fired.length) {
+    resultEl.innerHTML = '<span style="color:var(--dim)">No heuristics fire on this phrase.</span>';
+    return;
+  }
+  fired.forEach(h => {
+    const card = document.getElementById('vl-h-card-' + h.id);
+    if (card) card.style.boxShadow = '0 0 0 1px #7744ff, 0 0 16px rgba(119,68,255,.25)';
+  });
+  resultEl.innerHTML = '<span style="color:#7744ff">\u25c6 fires: ' +
+    fired.map(h => escH(h.name)).join(', ') + '</span>';
+}
+
+// ── TAB: Growth ───────────────────────────────────────────────────
+function _vlTabGrowth(container) {
+  container.style.overflowY = 'auto';
+
+  const domainColors = {
+    cognitive:'#00c8ff', emotional:'#ff66aa', relational:'#11ddcc',
+    creative:'#cc44ff', somatic:'#88ffcc', shadow:'#7744ff',
+    growth:'#00ff88', systems:'#ffe04a', identity:'#ff8c22', general:'rgba(255,255,255,.3)',
+  };
+
+  // Compute growth score
+  const totalGrowth = VL_STATE.growthLog.length + VL_STATE.philosophyLog.length +
+    VL_STATE.valueLog.length + VL_STATE.shadowLog.length;
+  const recentGrowth = [...VL_STATE.growthLog, ...VL_STATE.philosophyLog,
+    ...VL_STATE.valueLog, ...VL_STATE.shadowLog]
+    .filter(g => Date.now() - g.ts < 2592000000).length; // 30 days
+
+  // Top recurring words across growth markers
+  const growthWords = {};
+  VL_STATE.growthLog.forEach(g => {
+    (g.after||'').toLowerCase().split(/\W+/).filter(w => w.length > 4).forEach(w => {
+      growthWords[w] = (growthWords[w] || 0) + 1;
+    });
+  });
+  const topGrowthWords = Object.entries(growthWords).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  container.innerHTML = `
+    <div style="padding:22px 28px;display:flex;flex-direction:column;gap:22px">
+
+      <!-- Growth score header -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px">
+        ${[
+          { label: 'Growth Markers',   count: VL_STATE.growthLog.length,    color: '#00ff88' },
+          { label: 'Philosophy Updates', count: VL_STATE.philosophyLog.length, color: '#00c8ff' },
+          { label: 'Value Updates',    count: VL_STATE.valueLog.length,     color: '#ffe04a' },
+          { label: 'Shadow Work',      count: VL_STATE.shadowLog.length,    color: '#7744ff' },
+        ].map(stat => `
+          <div style="padding:14px;background:rgba(0,0,0,.4);
+            border:1px solid ${stat.color}22;text-align:center">
+            <div style="font-family:var(--f-display);font-size:24px;font-weight:900;
+              color:${stat.color};margin-bottom:4px">${stat.count}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--dim)">${stat.label}</div>
+          </div>`).join('')}
+      </div>
+
+      ${totalGrowth ? `
+      <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--dim)">
+        <span style="color:#00ff88">${recentGrowth}</span> updates in the last 30 days.
+        You have made <span style="color:#7744ff">${totalGrowth}</span> significant updates to your framework.
+      </div>` : ''}
+
+      ${topGrowthWords.length ? `
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:8px">RECURRING THEMES IN GROWTH</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          ${topGrowthWords.map(([w, c]) => `<span style="font-family:var(--f-mono);
+            font-size:${8 + c}px;color:rgba(119,68,255,${Math.min(1, 0.3+c*0.15)})">${w}</span>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Add growth marker manually -->
+      <div style="padding:14px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:#00ff88;margin-bottom:9px">+ MARK GROWTH</div>
+        <input id="vl-growth-before" placeholder="Before: I used to… / I was…" style="
+          width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:8.5px;
+          color:var(--bright);background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.15);
+          padding:7px 10px;outline:none;margin-bottom:7px"/>
+        <input id="vl-growth-after" placeholder="After: Now I… / I no longer… / I'm learning…" style="
+          width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:8.5px;
+          color:var(--bright);background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.2);
+          padding:7px 10px;outline:none;margin-bottom:7px"
+          onkeydown="if(event.key==='Enter')vlAddGrowthMarker()"/>
+        <div style="display:flex;gap:8px">
+          <select id="vl-growth-domain" style="
+            flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(0,255,136,.15);
+            color:var(--muted);padding:7px;font-family:var(--f-mono);font-size:8px">
+            <option value="general">Domain</option>
+            ${Object.keys(domainColors).map(d => `<option value="${d}">${d}</option>`).join('')}
+          </select>
+          <button onclick="vlAddGrowthMarker()" style="
+            padding:7px 18px;border:1px solid rgba(0,255,136,.4);
+            color:#00ff88;background:rgba(0,255,136,.07);cursor:pointer;
+            font-family:var(--f-mono);font-size:8px"
+            onmouseenter="this.style.background='rgba(0,255,136,.15)'"
+            onmouseleave="this.style.background='rgba(0,255,136,.07)'">+ MARK</button>
+        </div>
+      </div>
+
+      <!-- Growth timeline -->
+      ${[...VL_STATE.growthLog].reverse().length ? `
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:12px">GROWTH TIMELINE</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${[...VL_STATE.growthLog].reverse().slice(0,20).map(g => {
+            const dc = domainColors[g.domain] || 'rgba(255,255,255,.3)';
+            return `
+              <div style="padding:12px 16px;background:rgba(0,0,0,.35);
+                border-left:3px solid ${dc}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-family:var(--f-mono);font-size:7px;color:${dc};
+                    border:1px solid ${dc}44;padding:1px 6px">${g.domain}</span>
+                  <span style="font-family:var(--f-mono);font-size:7px;
+                    color:var(--wire2);margin-left:auto">${_vlTimeAgo(g.ts)}</span>
+                </div>
+                ${g.before ? `<div style="font-family:var(--f-mono);font-size:8px;
+                  color:var(--wire2);text-decoration:line-through;margin-bottom:4px">
+                  ${escH(g.before)}</div>` : ''}
+                <div style="font-family:var(--f-mono);font-size:9px;color:var(--bright);
+                  line-height:1.6">${escH(g.after)}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>` : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        No growth markers yet. Use Capture to say "I used to…" or "I've changed…"
+        or mark growth manually above.</div>`}
+    </div>
+  `;
+}
+
+function vlAddGrowthMarker() {
+  const after = document.getElementById('vl-growth-after')?.value?.trim();
+  if (!after) { mm_toast('Describe the growth', 'warn'); return; }
+  const before = document.getElementById('vl-growth-before')?.value?.trim() || '';
+  const domain = document.getElementById('vl-growth-domain')?.value || 'general';
+  VL_STATE.growthLog.push({ id: uuid(), before, after, domain, magnitude: 1, ts: Date.now() });
+  vlSave();
+  mm_toast('Growth marked', 'success', { dur: 1400 });
+  document.getElementById('vl-growth-before').value = '';
+  document.getElementById('vl-growth-after').value = '';
+  const overlay = document.getElementById('mm-vl-overlay');
+  if (overlay) _renderVL(overlay);
+}
+
+// ── TAB: Coherence ────────────────────────────────────────────────
+function _vlTabCoherence(container) {
+  container.style.overflowY = 'auto';
+
+  // Run a basic coherence check: find potential contradictions in philosophy log
+  const alerts = [...VL_STATE.coherenceAlerts];
+
+  container.innerHTML = `
+    <div style="padding:22px 28px;display:flex;flex-direction:column;gap:20px">
+      <div>
+        <div style="font-family:var(--f-display);font-size:11px;font-weight:800;
+          letter-spacing:4px;color:#7744ff;margin-bottom:4px">COHERENCE</div>
+        <div style="font-family:var(--f-mono);font-size:8px;color:var(--dim);line-height:1.8">
+          Contradiction detection. Alignment scoring. Does what you're capturing
+          cohere with what you believe? Or is there a gap worth examining?
+        </div>
+      </div>
+
+      <!-- Manual check -->
+      <div style="padding:14px;background:rgba(119,68,255,.05);border:1px solid rgba(119,68,255,.18)">
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:#7744ff;margin-bottom:9px">CHECK FOR CONTRADICTION</div>
+        <textarea id="vl-coherence-input" placeholder="Enter a belief, claim, or observation to check against your existing captures…" style="
+          width:100%;box-sizing:border-box;height:60px;resize:none;
+          font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+          background:rgba(0,0,0,.5);border:1px solid rgba(119,68,255,.2);
+          padding:8px 10px;outline:none;line-height:1.6"></textarea>
+        <div style="text-align:right;margin-top:7px">
+          <button onclick="vlCheckCoherence()" style="
+            padding:7px 18px;border:1px solid rgba(119,68,255,.4);
+            color:#7744ff;background:rgba(119,68,255,.08);cursor:pointer;
+            font-family:var(--f-mono);font-size:8px"
+            onmouseenter="this.style.background='rgba(119,68,255,.18)'"
+            onmouseleave="this.style.background='rgba(119,68,255,.08)'">∿ CHECK</button>
+        </div>
+      </div>
+      <div id="vl-coherence-result"></div>
+
+      <!-- Existing alerts -->
+      ${alerts.length ? `
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">COHERENCE ALERTS (${alerts.length})</div>
+        ${alerts.map(a => {
+          const ac = a.type === 'contradiction' ? '#ff3355' : '#00ff88';
+          return `
+            <div style="padding:10px 14px;margin-bottom:7px;
+              border-left:3px solid ${ac};background:${ac}0a">
+              <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:1.5px;
+                color:${ac};margin-bottom:5px">${a.type.toUpperCase()}</div>
+              <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+                line-height:1.6">${escH(a.message)}</div>
+              <div style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
+                margin-top:4px">${_vlTimeAgo(a.ts)}</div>
+            </div>`;
+        }).join('')}
+      </div>` : `<div style="font-family:var(--f-mono);font-size:8px;color:var(--dim)">
+        No coherence alerts. Use the checker above or capture more nodes
+        — the system will flag contradictions automatically.</div>`}
+
+      <!-- Philosophy log summary -->
+      ${VL_STATE.philosophyLog.length ? `
+      <div>
+        <div style="font-family:var(--f-display);font-size:8px;letter-spacing:2px;
+          color:var(--dim);margin-bottom:10px">PHILOSOPHY LOG (${VL_STATE.philosophyLog.length})</div>
+        ${VL_STATE.philosophyLog.slice(-8).reverse().map(p => `
+          <div style="padding:9px 12px;margin-bottom:6px;background:rgba(0,0,0,.3);
+            border-left:2px solid rgba(0,200,255,.3)">
+            <div style="font-family:var(--f-mono);font-size:8.5px;color:var(--bright);
+              line-height:1.6">${escH(p.content)}</div>
+            <div style="font-family:var(--f-mono);font-size:7px;color:var(--wire2);
+              margin-top:3px">${_vlTimeAgo(p.ts)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+    </div>
+  `;
+}
+
+function vlCheckCoherence() {
+  const input = document.getElementById('vl-coherence-input')?.value?.trim();
+  if (!input) { mm_toast('Enter something to check', 'warn'); return; }
+  const result = document.getElementById('vl-coherence-result');
+  if (!result) return;
+
+  // Simple keyword overlap check against philosophy log and existing nodes
+  const inputWords = new Set(input.toLowerCase().split(/\W+/).filter(w => w.length > 4));
+  let contradictions = [];
+  let alignments = [];
+
+  VL_STATE.nodes.slice(0, 100).forEach(n => {
+    const nodeWords = new Set(n.content.toLowerCase().split(/\W+/).filter(w => w.length > 4));
+    const overlap = [...inputWords].filter(w => nodeWords.has(w)).length;
+    if (overlap >= 2) {
+      // Check for negation patterns
+      const negated = ['not', "don't", "won't", 'never', 'no longer', 'stopped'].some(neg =>
+        input.toLowerCase().includes(neg) !== n.content.toLowerCase().includes(neg)
+      );
+      if (negated) contradictions.push(n);
+      else alignments.push(n);
+    }
+  });
+
+  if (!contradictions.length && !alignments.length) {
+    result.innerHTML = `<div style="font-family:var(--f-mono);font-size:8px;
+      color:var(--dim);padding:10px">No strong overlaps found in existing nodes.</div>`;
+    return;
+  }
+
+  result.innerHTML = `
+    ${contradictions.length ? `
+    <div style="padding:12px 14px;margin-bottom:8px;background:rgba(255,51,85,.06);
+      border:1px solid rgba(255,51,85,.3);border-left:3px solid #ff3355">
+      <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:1.5px;
+        color:#ff3355;margin-bottom:7px">⚠ POSSIBLE CONTRADICTIONS (${contradictions.length})</div>
+      ${contradictions.slice(0,3).map(n => `<div style="font-family:var(--f-mono);font-size:8px;
+        color:var(--muted);margin-bottom:5px;padding:5px 0;border-bottom:1px solid rgba(255,51,85,.1)">
+        "${escH(n.content.slice(0,80))}"
+        <span style="color:var(--wire2);font-size:7px"> — ${_vlTimeAgo(n.ts)}</span>
+      </div>`).join('')}
+    </div>` : ''}
+    ${alignments.length ? `
+    <div style="padding:12px 14px;background:rgba(0,255,136,.04);
+      border:1px solid rgba(0,255,136,.2);border-left:3px solid #00ff88">
+      <div style="font-family:var(--f-display);font-size:7.5px;letter-spacing:1.5px;
+        color:#00ff88;margin-bottom:7px">✓ ALIGNMENTS (${alignments.length})</div>
+      ${alignments.slice(0,3).map(n => `<div style="font-family:var(--f-mono);font-size:8px;
+        color:var(--muted);margin-bottom:5px">"${escH(n.content.slice(0,80))}"</div>`).join('')}
+    </div>` : ''}
+  `;
+
+  // Log alert
+  if (contradictions.length) {
+    VL_STATE.coherenceAlerts.push({
+      id: uuid(), type: 'contradiction',
+      message: `"${input.slice(0, 60)}" may contradict ${contradictions.length} existing node(s)`,
+      relatedIds: contradictions.slice(0, 3).map(n => n.id),
+      ts: Date.now(),
+    });
+    vlSave();
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────
+function _vlTimeAgo(ts) {
+  if (!ts) return '';
+  const d = Date.now() - ts;
+  if (d < 60000) return 'just now';
+  if (d < 3600000) return Math.floor(d/60000) + 'm ago';
+  if (d < 86400000) return Math.floor(d/3600000) + 'h ago';
+  if (d < 604800000) return Math.floor(d/86400000) + 'd ago';
+  return new Date(ts).toLocaleDateString();
+}
+
+console.log('[MASTERMIND] Voice Lattice + VCE loaded — capture, comprehend, route, track');

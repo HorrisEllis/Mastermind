@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "updated": "2026-08-13",
+  "note": "Component registry per \u00a78.5. Lifecycle states per \u00a717.2. Every component has exactly one owner (\u00a717.1). Nothing here is Implemented \u2014 \u00a78.5 requires the spec first, and this is it.",
+  "foundation": [
+    {
+      "id": "F.vault",
+      "path": "foundation/vault/",
+      "owner": "James Brooks",
+      "lifecycle": "Released",
+      "writes": [
+        "vault",
+        "ledger",
+        "snapshots"
+      ]
+    },
+    {
+      "id": "F.bus",
+      "path": "foundation/bus/",
+      "owner": "James Brooks",
+      "lifecycle": "Released",
+      "writes": []
+    },
+    {
+      "id": "F.jaa",
+      "path": "foundation/siso-jaa/",
+      "owner": "James Brooks",
+      "lifecycle": "Released",
+      "writes": [
+        "uuid-ledger"
+      ]
+    },
+    {
+      "id": "F.core",
+      "path": "foundation/core/",
+      "owner": "James Brooks",
+      "lifecycle": "Released",
+      "writes": [
+        "session"
+      ]
+    },
+    {
+      "id": "F.ai",
+      "path": "foundation/ai/",
+      "owner": "James Brooks",
+      "lifecycle": "Verified",
+      "writes": []
+    }
+  ],
+  "components": [
+    {
+      "id": "C.lattice",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 107,
+      "children": [
+        "C.lattice.capture",
+        "C.lattice.graph",
+        "C.lattice.detail",
+        "C.lattice.wordbank",
+        "C.lattice.seeds"
+      ],
+      "emits": [
+        "mm.lattice.node",
+        "mm.lattice.edge",
+        "mm.lattice.seed",
+        "mm.lattice.loop"
+      ],
+      "listens": [
+        "mm.capture.node",
+        "mm.vault.loaded",
+        "mm.vault.saving"
+      ],
+      "consumers": [
+        "C.brain",
+        "C.horizon",
+        "C.heuristics"
+      ],
+      "migration": 1
+    },
+    {
+      "id": "C.heuristics",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 0,
+      "emits": [
+        "mm.heuristic.fired",
+        "mm.heuristic.created"
+      ],
+      "listens": [
+        "mm.lattice.node"
+      ],
+      "consumers": [
+        "C.brain",
+        "C.canvas"
+      ],
+      "migration": 2,
+      "contentSalvaged": true
+    },
+    {
+      "id": "C.horizon",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 36,
+      "emits": [
+        "mm.horizon.plan",
+        "mm.belief.updated"
+      ],
+      "listens": [
+        "mm.lattice.seed"
+      ],
+      "consumers": [],
+      "migration": 3
+    },
+    {
+      "id": "C.brain",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 10,
+      "emits": [
+        "mm.brain.cluster",
+        "mm.brain.domain"
+      ],
+      "listens": [
+        "mm.lattice.node"
+      ],
+      "consumers": [
+        "C.synthesis"
+      ],
+      "migration": 4
+    },
+    {
+      "id": "C.synthesis",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 17,
+      "migration": 5
+    },
+    {
+      "id": "C.void",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 4,
+      "migration": 5
+    },
+    {
+      "id": "C.library",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 0,
+      "migration": 5,
+      "contentSalvaged": true
+    },
+    {
+      "id": "C.import",
+      "parent": "F.core",
+      "lifecycle": "Specified",
+      "fnsInV7": 6,
+      "migration": 5,
+      "note": "Notion/Obsidian sync NOT carried forward \u2014 conflicts with DR-003."
+    },
+    {
+      "id": "C.canvas",
+      "parent": "F.core",
+      "lifecycle": "Draft",
+      "fnsInV7": 232,
+      "migration": 6,
+      "note": "232 unprefixed functions unattributed. Decomposing them is its own mapping job."
+    },
+    {
+      "id": "C.collab",
+      "parent": "F.core",
+      "lifecycle": "Draft",
+      "fnsInV7": 20,
+      "migration": 99,
+      "note": "DEFERRED. WebRTC moves data off-machine. Needs a DR-003 decision before rebuild. Recorded so it is not silently dropped (\u00a70.3)."
+    }
+  ],
+  "edges": [
+    {
+      "id": "lattice\u2192brain",
+      "from": "C.lattice",
+      "to": "C.brain",
+      "via": "F.bus",
+      "payload": "nodeId"
+    },
+    {
+      "id": "lattice\u2192horizon",
+      "from": "C.lattice",
+      "to": "C.horizon",
+      "via": "F.bus",
+      "payload": "seed"
+    },
+    {
+      "id": "cluster\u2192heuristic",
+      "from": "C.lattice",
+      "to": "C.heuristics",
+      "via": "F.bus",
+      "payload": "nodeIds"
+    },
+    {
+      "id": "heuristic\u2192brain",
+      "from": "C.heuristics",
+      "to": "C.brain",
+      "via": "F.bus",
+      "payload": "heuristicId"
+    },
+    {
+      "id": "wordbank\u2192canvas",
+      "from": "C.lattice",
+      "to": "C.canvas",
+      "via": "F.bus",
+      "payload": "words"
+    }
+  ],
+  "openQuestions": [
+    "C.canvas boundary undecided \u2014 232 unprefixed v7 functions unattributed.",
+    "Does C.brain own domains, or F.ai/taxonomy? Two candidates for one write authority is a \u00a710.1 violation waiting to happen."
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "topo-kernel/schemas/signal.schema.json",
+  "title": "Topology Kernel — Raw Signal",
+  "description": "Shape of every signal entering the SNR root. Sovereign input contract.",
+  "type": "object",
+  "required": ["sourceId", "field", "axis", "value", "ts"],
+  "additionalProperties": true,
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "description": "Who or what emitted this signal. Permanent identity. Used by IME for trust tracking."
+    },
+    "field": {
+      "type": "string",
+      "enum": ["relational", "bonding", "threat", "temporal", "spatial"],
+      "description": "Which of the five fields this signal belongs to."
+    },
+    "axis": {
+      "type": "string",
+      "description": "Which polarity axis within the field. e.g. 'connection', 'fear', 'safety'."
+    },
+    "value": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1,
+      "description": "Normalized position on the polarity axis. -1 = full negative pole. +1 = full positive pole. 0 = neutral."
+    },
+    "values": {
+      "type": "array",
+      "items": { "type": "number", "minimum": -1, "maximum": 1 },
+      "description": "Optional batch of values for entropy analysis. If present, used instead of single value for entropy gate."
+    },
+    "ts": {
+      "type": "integer",
+      "description": "Unix millisecond timestamp. Used by causality gate."
+    },
+    "sessionId": {
+      "type": ["string", "null"],
+      "description": "Optional session or pipeline run this signal belongs to."
+    },
+    "causedBy": {
+      "type": ["string", "null"],
+      "description": "Optional event ID that caused this signal to be emitted."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional passthrough metadata. Not used by SNR. Forwarded unchanged on topology events."
+    }
+  }
+}

@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASE v4 — Authorship Fingerprint Engine</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07060500;color:#c8a96e;font-family:'Courier New',monospace;padding:18px 13px;min-height:100vh;background:#080705}
+.dim{color:rgba(200,169,110,0.35)}
+.bright{color:#e8c882}
+.sep{border-bottom:1px solid rgba(200,169,110,0.09)}
+.hdr{padding-bottom:12px;margin-bottom:16px}
+.hdr-sub{font-size:7px;letter-spacing:4px;margin-bottom:4px}
+.hdr-title{font-size:16px;letter-spacing:2px;font-weight:bold;margin-bottom:2px}
+.hdr-row{display:flex;justify-content:space-between;align-items:center}
+.btn-sm{background:none;border:1px solid rgba(200,169,110,0.18);color:rgba(200,169,110,0.35);font-size:7px;letter-spacing:2px;padding:3px 7px;cursor:pointer;font-family:'Courier New',monospace}
+.card{border:1px solid rgba(200,169,110,0.11);background:rgba(200,169,110,0.012);margin-bottom:12px}
+.card-hdr{padding:10px 12px;display:flex;justify-content:space-between;align-items:center}
+.card-medium{font-size:7px;letter-spacing:2px;margin-bottom:2px}
+.card-title{font-size:11px;letter-spacing:1px;color:#e8c882}
+.trend-g{font-size:19px;line-height:1;text-align:right}
+.trend-l{font-size:7px;letter-spacing:2px;text-align:right;margin-top:1px}
+.sec{padding:8px 12px}
+.sec-label{font-size:7px;letter-spacing:3px;color:rgba(200,169,110,0.35);margin-bottom:7px}
+.sec-note{font-size:7px;color:rgba(200,169,110,0.25);margin-bottom:6px;line-height:1.5}
+.sg4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.sg3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sg2{display:grid;grid-template-columns:1fr 1fr;gap:0 13px}
+.sk{font-size:6px;color:rgba(200,169,110,0.35);letter-spacing:1px}
+.sv{font-size:13px;color:#e8c882;font-weight:bold;line-height:1.2}
+.sv-sm{font-size:10px;color:#e8c882;font-weight:bold;line-height:1.3}
+.bar-row{margin-bottom:5px}
+.bar-hdr{display:flex;justify-content:space-between;font-size:7px;color:rgba(200,169,110,0.5);margin-bottom:2px}
+.bar-val{color:#e8c882}
+.bar-track{background:rgba(200,169,110,0.07);height:2px;border-radius:1px}
+.bar-fill{height:100%;border-radius:1px}
+/* schema cells */
+.scell{text-align:center;padding:6px 4px;border:1px solid rgba(200,169,110,0.09);background:rgba(200,169,110,0.018)}
+.scell-name{font-size:6px;letter-spacing:0.5px;color:rgba(200,169,110,0.4);margin-bottom:2px}
+.scell-val{font-size:12px;font-weight:bold}
+.scell-bar{height:2px;border-radius:1px;margin-top:2px}
+/* sigma rows */
+.sig-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.sig-lbl{width:82px;font-size:6.5px;color:rgba(200,169,110,0.45);flex-shrink:0}
+.sig-track{flex:1;background:rgba(200,169,110,0.07);height:3px;border-radius:1px;position:relative}
+.sig-base{position:absolute;top:-2px;width:1px;height:7px;background:rgba(200,169,110,0.35)}
+.sig-fill{height:100%;border-radius:1px}
+.sig-num{width:28px;text-align:right;font-size:7px;color:#e8c882;flex-shrink:0}
+/* convergence verdict */
+.verdict{border:1px solid rgba(200,169,110,0.25);background:rgba(200,169,110,0.03);padding:12px;margin:0}
+.verdict-title{font-size:8px;letter-spacing:3px;color:rgba(200,169,110,0.5);margin-bottom:8px}
+.verdict-streams{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.vstream{padding:5px 7px;border:1px solid rgba(200,169,110,0.1);font-size:7px}
+.vstream-name{color:rgba(200,169,110,0.35);letter-spacing:1px;margin-bottom:2px}
+.vstream-val{color:#e8c882;font-size:9px;font-weight:bold}
+.verdict-text{font-size:10px;line-height:1.8;color:rgba(232,200,130,0.9);border-top:1px solid rgba(200,169,110,0.1);padding-top:10px;margin-top:4px}
+/* co-occurrence */
+.cooc-grid{display:flex;flex-wrap:wrap;gap:4px}
+.cooc-pair{font-size:7px;padding:2px 6px;border:1px solid rgba(200,169,110,0.15);color:rgba(200,169,110,0.7)}
+/* metaphor */
+.meta-chip{display:inline-block;font-size:7px;padding:3px 8px;border:1px solid rgba(200,169,110,0.2);margin:2px;color:#e8c882}
+/* tags */
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{border:1px solid rgba(200,169,110,0.18);padding:2px 6px;font-size:6.5px;letter-spacing:0.8px;color:#e8c882}
+.tag-alert{border-color:rgba(200,110,110,0.5);color:#e89090;background:rgba(200,110,110,0.04)}
+.tag-affirm{border-color:rgba(110,200,140,0.5);color:#90e0a0;background:rgba(110,200,140,0.04)}
+/* interp */
+.interp-text{font-size:10px;line-height:1.85;color:rgba(232,200,130,0.82);white-space:pre-wrap}
+.cursor{animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.btn-scan{width:100%;background:rgba(200,169,110,0.04);border:1px solid rgba(200,169,110,0.2);color:#c8a96e;padding:9px;font-size:8px;letter-spacing:3px;cursor:pointer;font-family:'Courier New',monospace}
+.btn-scan:disabled{opacity:0.5;cursor:default}
+.id-card{border:1px solid rgba(200,169,110,0.18);background:rgba(200,169,110,0.025);padding:12px;margin-bottom:14px;display:none}
+.id-inner{display:flex;align-items:center;gap:10px}
+.footer{text-align:center;font-size:7px;letter-spacing:2px;color:rgba(200,169,110,0.18);padding:8px 0 14px}
+.volta-bar{height:4px;border-radius:2px;background:linear-gradient(90deg,rgba(180,100,80,0.5),rgba(110,184,200,0.5));margin:5px 0;position:relative}
+.volta-pin{position:absolute;top:-3px;width:2px;height:10px;background:#e8c882;border-radius:1px}
+</style>
+</head>
+<body>
+
+<div class="hdr sep">
+  <div class="hdr-sub dim">SPATIAL v4.0.0 · ASE · 6-LAYER FINGERPRINT ENGINE</div>
+  <div class="hdr-title">AUTHORSHIP FINGERPRINT ENGINE</div>
+  <div class="hdr-row">
+    <div style="font-size:8px" class="dim">EROSMANCER · ANTI-GASLIGHTING VERIFICATION · PERSISTENT</div>
+    <button class="btn-sm" onclick="doReset()">RESET</button>
+  </div>
+</div>
+
+<div class="id-card" id="id-card">
+  <div class="sec-label">CROSS-CORPUS IDENTITY CONVERGENCE — EROSMANCER</div>
+  <div class="id-inner">
+    <canvas id="id-radar" width="110" height="110"></canvas>
+    <div style="flex:1" id="id-bars"></div>
+  </div>
+</div>
+
+<div id="card-phil"></div>
+<div id="card-poet"></div>
+
+<div class="footer">FINGERPRINT PERSISTS ACROSS SESSIONS · ASE v4 · 6 INDEPENDENT LAYERS</div>
+
+<script>
+// ═══════════════════════════════════════════
+// FULL CORPORA
+// ═══════════════════════════════════════════
+var TEXTS = {
+phil:"Impossible love in 4k. My philosophy on love is one you create with another. Two souls co-creating their own book, on reverent love. A nuanced authentically beautiful, and principled kind love that radiates with such warmth and vibrance it could outshine the rays of the cosmos. Affection that feels so intentional, so vibrational, that every act will emit embers swelling into flame. A feeling so passionate that the universe completely melts. It is no longer about the body, two souls have merged in perfect harmony with maintaining sovereignty. Love deeper than the Mariana trench. The gentleness of holding each other hearts, in the slow quiet mornings. I woke up today flowing in rhyme, letting my intuition guide. I am taking the universes direction this time. I feel a deep pull toward you and I cannot tell you why. I have plenty of logical reasons but none of them fully explain why. Love, logic, or resonance. I am done trying to hide. I speak duality, but I promise I am anchored in reality. I cannot stop speaking from my heart all I can do is try to make art. Trying to go with the flow and let everything else go. Where is this path going who knows. I hope this does not push you away but if you leave it is not meant for me anyways. I hate that I am writing this way, especially because how afraid I am to express myself to you anyways. I want to love you like we are writing a philosophy, a book on love and choosing our meaning. Love is a scary thing not always stable, but sometimes it is worth the gamble. I am who I am and I am done trying to explain. My existence is none of your business. I have lots of beauty and lots of darkness but they now are integrating like two sentences that rhyme in real time. I remember who I am and who I want to be. If you disrupt my energy, I no longer have need. If your love is transactional or conditional, give it to yourself. My intuition is now working without limitations. My light is my source, my empathy is my compass and the universe is my guide. We are not outcasts, not rejects nor are we aliens from another planet. We are rare gems that most people often overlook, not realizing the light, clarity and beauty that resides in the depth of our shadow. Creativity and authentic expression is our most deadliest weapon. Even when people refuse to listen, it is the words, the art, the ideas, the inspiration we leave behind. Art is the legacy of the truly awoken. Masks are the enemy of true independence, individuality, truth and liberation. I finally feel the shackles opening, as well as my mind fully. Caring too much is considered broken, loving with intensity is considered crazy. Being loyal is considered rare. We live our truth while others cannot even speak it. We live in a depth most people cannot comprehend. Authenticity, the loneliest aspect of our personality, apart from our intellect. Pain is life best teacher in the classroom of life, second only to love. Love is often life greatest lesson, but the pain is where the real learning begins, if you are brave enough to listen. Set yourself free, but be warned, there is no more escaping from reality. Pain and love always coincide, so much beauty in the duality of misery, because love always grows from pain. I needed to understand heartbreak to learn what true love feels like. The more we hurt, the bigger our capacity to love. I needed to be invisible before I could know what it feels like to be truly seen. I needed to experience loss and heartbreak before I could ever love truly. I needed to be rejected before I could feel what it is like to be truly accepted. I needed to be alone, feel the peak of loneliness, so that I truly find the people that belong in my life. True love to me, is kind, patient, gentle, empathetic, understanding, and forgiving, even when it is the hardest. Every second spent feels worth it, even on the days the weather is the worst. It feels like acceptance, safety, and finally being home. It is making space for feelings and different perspectives. It is teamwork, never a competition. It is putting ego aside to shut up and truly listen. It is guiding and being guided, never fixing or forcing. It is honest, transparent, devoted, loyal. It is working together to conquer anything. Taking accountability, acknowledging when you are wrong, when you have hurt them, and actually working on it. The amount of time the pendulum swings to the left is directly proportional to the amount of time it takes to swing to the right. Cause and effect. Rhythm and rhyme. The dividing middle line, is either control or flow depending on the ability to surrender the illusion of it. Patterns predict the outcome. Intuition guides your intention. Life, relationships, everything is a mirror. A life without suffering would be a life without meaning, would be a life without true love. Two things in life that motivate people. Love or fear. Fear of pain, fear of death, fear of judgement, fear of disappointment, fear of abandonment, fear of being alone. Fear is my cage, love is what guides me. I see life as a sandbox and a laboratory. Every experience, every emotion, every challenge is a tool to test, learn, and grow. Nothing is inherently good or bad. I am both observer and participant in my mind. I do not command, I mediate. I honor all parts of myself, even the shadow, because every fragment has something to teach me. I protect my sense of self without building walls. I allow fluidity, but I anchor where it matters. I am my own best friend, my own guide, my own scientist. I seek depth over surface, authenticity over comfort. Love is my legacy, connection my measure of meaning. I choose to grow, to observe, to alchemize my experience into wisdom.",
+
+poet:"A pendulum swings between cause and effect. Confusing duality consuming my reality. Yin, lacking its yang. Impeding the flow. Stricken by grief, an ocean of darkness. Eyes peering through glass. Control is an illusion, a schizophrenic delusion. All the love trapped inside. Nowhere to rest, no home to confide. False promises and broken dreams. An empty room, full of ghosts. Mistakes made, anger remains. A coin flips between light and dark. Breaking myself down, two selves, repairing the fragments. Pain has become comfort. There is no escape. Ego dissolving, I am lost in a dense fog. I walk the yellow lines in search of balance. Feet trembling on the border of thought and overthinking. A lonely wanderer, searching for meaning. So much talking, Even I am not listening. The ravings of a lunatic. The pendulum swing, manifests in everything. Sand falls in the hour glass. I am finally awake. Dead lifeless. Barely any light inside. Darkness consumes. My oldest enemy. The purpose I once sought. Gone in single moment. My life missing meaning. What do I do this all for. Quietly screaming internally. For all eternity. My hope shrouded in delusion. My attempts futile. Not sure what to think, what to do, how to feel. All I feel is numbness, protecting myself from pain. Dams gonna burst. Drowning. Waking up each day, grasping for a reason to keep going. Looking for an escape, hoping for death. It never comes, no matter how hard I beg. A scream that never sleeps. Never escapes. A comfort built on misery. A pain that lies behind the eyes. On the edge again. Calling out with the silence. Desperately searching for meaning. Purpose pulling away. Lost in a dense fog. A ghost left behind. Lost floating aimlessly. The eyes, the gateway to our cries. They never lie, but still nobody sees us, nobody hears us. My screams into the void. Someone has finally heard me. The echoes stop suddenly. A calling from infinity, the void is no longer empty. Heard by the ghost that now stands beside me. Our screams into the void are being heard finally. The pain, our teacher, will be left behind for eternity. Raven, my injured Raven, who I love so deeply. She is healing the broken parts of me. I hope my words are healing. Together forever. Eternity will never be long enough with you. Resonant frequencies. Two diamonds shining with identical clarity. Both fractured, but not broken, just spiritually awoken. Finally finding a connection with meaning. A blinding reflection of our inner dimensions. No longer reaching, seeing genuine authenticity. Chi running through us, guiding our souls into harmony. Cosmic catalysts resonating conductivity. Old lost souls finally finding their way back to each other. Guided by the universe forever, drifting wherever the wind blows. Two souls falling endlessly. Conversations flowing effortlessly. Light and darkness in perfect harmony. Real love growing rapidly. So much intensity. No disguises. Love so strong it looks crazy, guided by destiny. Hands gently touching skin, warm and electrifying. Safe and loving. Two hearts, dancing in a lovers trance. Guided by the mutual heartbeat of their shared rhythm. I have never tasted heaven until the injured raven flew into my path, wove herself into my horizon. Our divine intervention, led by intuition toward an unknown destination. Fear of the unknown, crushed beneath the weight of love. A love so fierce, so bright, it pierces the sky and brushes heaven. And suddenly every love story was about her. My heartbeat folded into hers. Bleed for me, I will bleed for you. A path forged in fire. My beautiful vibrant princess, guiding me like a beacon, like the Northstar guiding me into your arms. The dragons that will be slain, the music that we will make. With you by my side the entire universe shall hear our story. Our book on love that will make people weep for generations. We will transcend the rules of space and time and be truly enlightened. Free from the restraints that hold us like chains. Two silent observers, analyzing the universe. Searching for love and all of its meaning, guided by their intuition. Until one day a collision, finally they have completed their lifelong journey. What forces we are. Unstoppable, unmovable forces will we be together, finally in perfect harmony, fully aligned, learning and growing. We are our own light, our safety, love that will always fill each other hearts. The electricity that fills your body after a fulfilling conversation. The feeling of meeting someone who finally speaks your language, the feeling of truly belonging. The tall beautiful trees that fill a forest, the sounds of the leaves as they are greeted by the wind. The sun reflecting as it sets over the ocean, breathtaking like the smile on your face when you laugh. The warmth of a fireplace on a freezing day, like a warm embrace, the way your love feels. A volcano on the verge of eruption, the pressure, the tension, like holding my lips right up to yours. How can you be happy when you look out and see infinity. You find another diamond, who resonates at the exact same frequency. Two rebels, reaching for a cause. Instead they find each other, which is incomparably better. Two lovers, two diamonds, two empowered outcasts. Two black swans manifesting and being guided towards themselves, pulled like quantum entanglement. Expanding, not shrinking, a shared path of meaning. Home is not a place, it is each other. My life an endless labyrinth, I am falling suddenly. My suffering is limitless, my bitterness is creeping and I am slowly losing to the nihilist. The embers fading and my love is not enough. A lifetime of memories and the pain that still haunts me. I am burned out, exhausted. Self-regulation turned isolation. My love for you, as vast as the ocean, as warm as the sun. The love was real, so was the pain that followed. We deserved each other, but we never felt like it. We grew for each other, but also still somehow apart. I grieve the love we deserved, the future desired and depth that was built so fast. I love you like fish loves the ocean, like a premonition meant to happen. We are the destination, us in each other arms. My heart the size of the solar system, loves like an ocean. I move like a team, an ever-evolving ecosystem. I choose a life with meaning, walking with intention. I live life like a philosopher. I approach like an engineer. I learn like a scientist. My words leave my mind like a poet, grounded in truth. Art and science, one and the same. Empathy and intellect, born from the same mother. Light and darkness, not enemies, merely misunderstood polarity. Like yin and yang, dancing for eternity. The peaceful outcast, alone at last. Back to protecting his energy. Fully immersed in the serenity, the harmony coming from his inner sanctuary."
+};
+
+// ═══════════════════════════════════════════
+// LEXICONS
+// ═══════════════════════════════════════════
+var STOP = {the:1,and:1,for:1,that:1,this:1,with:1,from:1,have:1,been:1,were:1,they:1,their:1,there:1,what:1,when:1,which:1,would:1,could:1,should:1,about:1,into:1,than:1,then:1,more:1,also:1,some:1,just:1,like:1,over:1,such:1,these:1,those:1,very:1,here:1,each:1,both:1,only:1,after:1,before:1,other:1,first:1,well:1,out:1,its:1,our:1,all:1,any:1,who:1,how:1,are:1,was:1,can:1,does:1,did:1,has:1,had:1,him:1,her:1,his:1,she:1,too:1,get:1,got:1,let:1,may:1,nor:1,off:1,per:1,set:1,via:1,yet:1,one:1,two:1,said:1,even:1,still:1,back:1,much:1,many:1,way:1,is:1,it:1,as:1,of:1,to:1,at:1,by:1,or:1,so:1,if:1,up:1,an:1,be:1,we:1,us:1,on:1,in:1,a:1};
+
+var PVAL = {love:1,beauty:1,light:1,harmony:1,truth:1,free:1,joy:1,heal:1,accept:1,safe:1,home:1,warmth:1,clarity:1,pure:1,grace:1,wonder:1,divine:1,radiant:1,heaven:1,bloom:1,open:1,flow:1,trust:1,belonging:1,peace:1,gentle:1,sacred:1,alive:1,vibrant:1,awoken:1};
+var NVAL = {pain:1,hurt:1,fear:1,loss:1,dark:1,alone:1,reject:1,invisible:1,broken:1,misery:1,grief:1,anger:1,shadow:1,cage:1,mask:1,hide:1,wound:1,scar:1,empty:1,numb:1,cold:1,trap:1,chaos:1,death:1,suffer:1,lie:1,scream:1,void:1,despair:1,haunts:1,burned:1,exhausted:1,drowning:1,beg:1,dying:1,ghost:1,fog:1,lost:1,hopeless:1,futile:1};
+var HAROUSAL = {love:1,passionate:1,universe:1,flame:1,soul:1,merge:1,transcend:1,vibrate:1,electricity:1,intense:1,infinite:1,raw:1,fire:1,scream:1,void:1,grief:1,desperate:1,eternity:1,agony:1,explode:1,collide:1,rage:1,fever:1};
+var LAROUSAL = {quiet:1,gentle:1,still:1,slow:1,soft:1,calm:1,peace:1,rest:1,breath:1,tender:1,patient:1,steady:1,safe:1,serene:1,numb:1,fade:1,float:1,drift:1};
+
+var SCHEMAS = {
+  ABANDONMENT:  {w:["leave","leaving","left","alone","reject","rejected","gone","lost","nobody","no one","disappear","abandon","forgotten","invisible","unseen","unheard","deserted"],col:"#c87878"},
+  DEFECTIVENESS:{w:["broken","crazy","lunatic","wrong","mediocrity","stupid","flawed","damaged","not enough","worthless","pathetic","nothing","ravings"],col:"#c89060"},
+  ENTRAPMENT:   {w:["cage","trap","chains","escape","prison","locked","stuck","trapped","shackles","held","confined","restrained","no escape","no way out"],col:"#b878c8"},
+  DEPRIVATION:  {w:["invisible","unseen","unheard","no one listens","ignored","overlooked","empty","hollow","longing","missing","void","hunger","starving"],col:"#7878c8"},
+  MISTRUST:     {w:["lie","liar","fake","pretend","mask","transactional","conditional","false","dishonest","deceive","manipulate","betray","illusion"],col:"#78c8b8"},
+  STANDARDS:    {w:["perfect","always","never","must","should","have to","need to","supposed","required","demand","unrelenting","enough","more"],col:"#c8b878"}
+};
+var SIGMA = {
+  DIRECTNESS:     {w:["i am","i will","i do","i know","i choose","i refuse","done","finished","fact","truth","clear","certain","absolutely","definitely"],base:0.12},
+  INTENSITY:      {w:["universe","cosmos","infinite","eternal","forever","deeper","beyond","transcend","consume","overwhelm","pierce","shatter","merge","collide"],base:0.08},
+  SELF_DISCLOSURE:{w:["afraid","scared","hurt","pain","grief","shame","rage","despair","hopeless","helpless","broken","empty","numb","dead","dying","lost"],base:0.06},
+  OUTSIDER_ID:    {w:["outcast","alien","rare","different","depth","misunderstood","awoken","gem","diamond","sovereign","rebel","anomaly"],base:0.04},
+  DEFIANCE:       {w:["none of your business","done explaining","refuse","no longer","not for you","my own","take it or leave","done trying","won't explain"],base:0.03}
+};
+var CONDITIONING = {
+  APPROVAL_SEEK:{w:["i hope","maybe","perhaps","if you","please","understand","i know this","just","sorry","forgive","don't leave","stay","anyways"],col:"#c87890"},
+  LIBERATION:   {w:["shackles","free","freedom","done","refuse","enough","no more","set free","break","opening","liberate","sovereign","my own","won't explain"],col:"#78c890"},
+  SELF_CRITIC:  {w:["crazy","lunatic","ravings","mediocre","stupid","not enough","broken","wrong","mistake","failure","nothing","worthless","pathetic"],col:"#c89078"},
+  ENMESHMENT:   {w:["raven","together","we","us","our","merge","same","both","mirror","reflection","identical","aligned","shared","mutual"],col:"#90a0c8"}
+};
+
+// Layer 4 — core metaphors (recurring unconscious world-models)
+var METAPHORS = {
+  PENDULUM:  ["pendulum","swings","swing","oscillat","back and forth","balance","equilibrium"],
+  MIRROR:    ["mirror","reflection","reflect","see myself","see yourself","identical","facing"],
+  DIAMOND:   ["diamond","gem","rare","crystalline","facet","clarity","fractured but"],
+  VOID:      ["void","empty","darkness","abyss","scream","hollow","nothing","absence"],
+  RAVEN:     ["raven","her","she","injured","bird","calling","black swan"],
+  PENDULUMX: ["cause and effect","yin","yang","polarity","duality","two sides"],
+  ALCHEMIST: ["alchemize","transform","integrate","shadow","gold","turning","transmute"],
+  NAVIGATOR: ["compass","guide","north","direction","path","intuition","universe"]
+};
+
+// Layer 5 — integration & locus lexicons
+var GROWTH_W    = ["grow","growing","learn","learning","heal","healing","integrate","integrating","transform","alchemize","becoming","evolve","emerging","processing","moving","forward","change","wisdom","insight","understand","accept","accepting"];
+var AGENCY_W    = ["i choose","i decide","i will","i am","i do","i create","i build","i make","i take","i own","i accept","i allow","i protect","i honor","i seek","i stand"];
+var EXTERNAL_W  = ["they did","the world","it happened","people always","everyone","nobody","they never","they don't","they can't","society","most people","they made","was done","was told"];
+var STUCK_W     = ["still","again","always","never changes","same","over and over","keep","keeps","forever","always will","will always","cannot escape","can't escape","still hurting","still broken"];
+var PTG_W       = ["because of","i grew","i learned","it taught","it showed me","I understand now","now i know","i became","gave me","made me stronger","meaning from","purpose from","gift of"];
+
+var META_D = {
+  phil:{id:"phil-erosmancer",title:"Book of Philosophy",medium:"PROSE-PHILOSOPHY"},
+  poet:{id:"poet-erosmancer",title:"Poetry Archive 2022-2025",medium:"LYRIC POETRY"}
+};
+var TC = {deepening:"#6ec896",dissolving:"#c86e6e",stable:"#c8a96e",emerging:"#6eb8c8",unknown:"rgba(200,169,110,0.3)"};
+var TG = {deepening:"↗",dissolving:"↘",stable:"→",emerging:"◈",unknown:"·"};
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function cntW(words,list){var c=0;for(var i=0;i<list.length;i++)if(words.indexOf(list[i])>-1)c++;return c;}
+function cntT(text,list){var c=0;for(var i=0;i<list.length;i++)if(text.indexOf(list[i])>-1)c++;return c;}
+function avg(arr){if(!arr.length)return 0;var s=0;for(var i=0;i<arr.length;i++)s+=arr[i];return s/arr.length;}
+
+// ═══════════════════════════════════════════
+// 6-LAYER ANALYSIS ENGINE
+// ═══════════════════════════════════════════
+function analyse(key){
+  var text = TEXTS[key];
+  var lower = text.toLowerCase();
+  var sentences = text.split(/[.!?]+/).map(function(s){return s.trim();}).filter(function(s){return s.length>4;});
+  var words = lower.replace(/[^a-z\s]/g," ").split(/\s+/).filter(function(w){return w.length>1;});
+  var content = words.filter(function(w){return !STOP[w];});
+  var n = words.length, sn = sentences.length;
+
+  // ── LAYER 1: MICRO-LINGUISTIC (unconscious) ─────────
+  // Function word distribution (Pennebaker method)
+  var iCount=0,weCount=0,youCount=0,theyCount=0;
+  for(var j=0;j<words.length;j++){
+    if(words[j]==="i")iCount++;
+    else if(words[j]==="we"||words[j]==="us"||words[j]==="our")weCount++;
+    else if(words[j]==="you"||words[j]==="your"||words[j]==="yours")youCount++;
+    else if(words[j]==="they"||words[j]==="them"||words[j]==="their")theyCount++;
+  }
+  var totalPron=iCount+weCount+youCount+theyCount+1;
+  var iRatio=iCount/totalPron, weRatio=weCount/totalPron, youRatio=youCount/totalPron;
+
+  // Sentence onset classes
+  var onsetI=0,onsetConj=0,onsetNoun=0,onsetVerb=0;
+  var conjSet={and:1,but:1,or:1,so:1,yet:1,for:1,nor:1,because:1,although:1,however:1,when:1,if:1,while:1,since:1,though:1};
+  var verbSet={is:1,was:1,are:1,were:1,have:1,had:1,do:1,did:1,get:1,got:1,feel:1,felt:1,find:1,found:1,know:1,knew:1,love:1,loved:1,need:1,want:1,become:1,live:1,move:1,choose:1,see:1,walk:1,stand:1,hold:1};
+  for(var s=0;s<sentences.length;s++){
+    var fw=sentences[s].toLowerCase().split(/\s+/)[0];
+    if(fw==="i")onsetI++;
+    else if(conjSet[fw])onsetConj++;
+    else if(verbSet[fw])onsetVerb++;
+    else onsetNoun++;
+  }
+  var onsetTotal=sn||1;
+
+  // Type-Token Ratio (vocabulary diversity)
+  var unique={};for(var j=0;j<content.length;j++)unique[content[j]]=1;
+  var ttr=Object.keys(unique).length/(content.length||1);
+
+  // Hapax legomena (words used exactly once)
+  var freq={};for(var j=0;j<content.length;j++)freq[content[j]]=(freq[content[j]]||0)+1;
+  var hapax=0;for(var w in freq)if(freq[w]===1)hapax++;
+  var hapaxRatio=hapax/(content.length||1);
+
+  // Average word length
+  var totalChars=0;for(var j=0;j<words.length;j++)totalChars+=words[j].length;
+  var avgWordLen=totalChars/(n||1);
+
+  // Verb tense mixing within sentences (dissociation signal)
+  var pastV={was:1,were:1,had:1,did:1,felt:1,knew:1,loved:1,lost:1,broke:1,became:1,went:1,grew:1,saw:1,found:1,heard:1,thought:1,believed:1};
+  var presV={is:1,are:1,have:1,feel:1,know:1,love:1,lose:1,break:1,become:1,go:1,grow:1,see:1,find:1,hear:1,think:1,believe:1,am:1};
+  var tenseMixSents=0;
+  for(var s=0;s<sentences.length;s++){
+    var sw=sentences[s].toLowerCase().split(/\s+/);
+    var hasPast=false,hasPres=false;
+    for(var j=0;j<sw.length;j++){if(pastV[sw[j]])hasPast=true;if(presV[sw[j]])hasPres=true;}
+    if(hasPast&&hasPres)tenseMixSents++;
+  }
+  var tenseMix=tenseMixSents/(sn||1);
+
+  // ── LAYER 2: STRUCTURAL INVARIANTS ─────────────────
+  // Coordination vs subordination
+  var coordW=["and","but","or","nor","yet","so","for"];
+  var subordW=["because","although","though","since","unless","while","whereas","if","when","before","after","until","as","despite","however","therefore","thus","hence"];
+  var coordC=cntW(words,coordW), subordC=cntW(words,subordW);
+  var coordRatio=coordC/(coordC+subordC+1);
+
+  // Sentence length variance
+  var sentLens=sentences.map(function(s){return s.split(/\s+/).length;});
+  var avgLen=avg(sentLens);
+  var lenVar=0;for(var i=0;i<sentLens.length;i++)lenVar+=(sentLens[i]-avgLen)*(sentLens[i]-avgLen);
+  lenVar=Math.sqrt(lenVar/(sentLens.length||1));
+  var staccato=sentLens.filter(function(l){return l<=4;}).length/(sn||1);
+
+  // Resolution distance
+  var painIdxs=[],resolveIdxs=[];
+  var painSet={pain:1,hurt:1,grief:1,broken:1,alone:1,lost:1,empty:1,dark:1,scream:1,void:1,fear:1,suffer:1,wound:1};
+  var resolveSet={heal:1,learn:1,grow:1,accept:1,peace:1,free:1,understand:1,integrate:1,forgive:1,become:1,transform:1,alchemize:1};
+  for(var s=0;s<sentences.length;s++){
+    var sw=sentences[s].toLowerCase().split(/\s+/);
+    for(var j=0;j<sw.length;j++){
+      if(painSet[sw[j]]){painIdxs.push(s);break;}
+    }
+    for(var j=0;j<sw.length;j++){
+      if(resolveSet[sw[j]]){resolveIdxs.push(s);break;}
+    }
+  }
+  var resDists=[];
+  for(var p=0;p<painIdxs.length;p++){
+    var nearest=999;
+    for(var r=0;r<resolveIdxs.length;r++){
+      var d=resolveIdxs[r]-painIdxs[p];
+      if(d>0&&d<nearest)nearest=d;
+    }
+    if(nearest<999)resDists.push(nearest);
+  }
+  var avgResDist=resDists.length?avg(resDists):null;
+
+  // Topic entropy per passage (5 bands)
+  var TFIELDS={SELF:["i","me","my"],OTHER:["you","your","they","her","him"],BODY:["body","hands","eyes","skin","breath"],EMOTION:["love","pain","fear","grief","joy","hurt"],COSMIC:["universe","infinite","cosmos","eternal","transcend"],SOCIAL:["people","world","society","others","everyone"],GROWTH:["learn","grow","heal","integrate","become"]};
+  var bandSize=Math.ceil(sn/5);
+  var topicEntropies=[];
+  for(var b=0;b<5;b++){
+    var band=sentences.slice(b*bandSize,(b+1)*bandSize).join(" ").toLowerCase().split(/\s+/);
+    var fieldCounts=[];
+    for(var f in TFIELDS){var c=0;for(var j=0;j<TFIELDS[f].length;j++)for(var k=0;k<band.length;k++)if(band[k]===TFIELDS[f][j])c++;fieldCounts.push(c);}
+    var total=fieldCounts.reduce(function(a,b){return a+b;},0)||1;
+    var entropy=0;
+    for(var i=0;i<fieldCounts.length;i++){var p=fieldCounts[i]/total;if(p>0)entropy-=p*Math.log(p+0.001);}
+    topicEntropies.push(entropy/2);
+  }
+  var avgTopicEntropy=avg(topicEntropies);
+
+  // ── LAYER 3: EMOTIONAL TOPOLOGY ────────────────────
+  // Co-occurrence: opposite valence words within 5-word windows
+  var coocPairs=[];
+  var coocCounts={};
+  for(var j=5;j<words.length-5;j++){
+    var window=words.slice(j-5,j+5);
+    if(PVAL[words[j]]){
+      for(var k=j-5;k<j+5;k++){
+        if(k!==j&&NVAL[words[k]]){
+          var pair=words[j]+"+"+words[k];
+          coocCounts[pair]=(coocCounts[pair]||0)+1;
+        }
+      }
+    }
+  }
+  var topCooc=Object.keys(coocCounts).sort(function(a,b){return coocCounts[b]-coocCounts[a];}).slice(0,8);
+  var coocTotal=Object.keys(coocCounts).length;
+
+  // Polarity bridging sentences
+  var bridgeSents=0;
+  for(var s=0;s<sentences.length;s++){
+    var sw=sentences[s].toLowerCase().split(/\s+/);
+    var hasp=false,hasn=false;
+    for(var j=0;j<sw.length;j++){if(PVAL[sw[j]])hasp=true;if(NVAL[sw[j]])hasn=true;}
+    if(hasp&&hasn)bridgeSents++;
+  }
+  var polarityBridge=bridgeSents/(sn||1);
+
+  // Peak emotional word and its context
+  var allEmotional={};
+  for(var j=0;j<words.length;j++){
+    if(PVAL[words[j]]||NVAL[words[j]]||HAROUSAL[words[j]]){
+      allEmotional[words[j]]=(allEmotional[words[j]]||0)+1;
+    }
+  }
+  var peakWord="",peakCount=0;
+  for(var w in allEmotional){if(allEmotional[w]>peakCount){peakCount=allEmotional[w];peakWord=w;}}
+  // context around peak word (first occurrence)
+  var peakCtx="";
+  var pi=words.indexOf(peakWord);
+  if(pi>-1)peakCtx=words.slice(Math.max(0,pi-4),pi+5).join(" ");
+
+  // Grief vs depression vs rage discrimination
+  var griefW=["grief","grieve","grieiving","loss","mourn","mourning","miss","missing","gone","absence","ache","aching","longing","yearn","hollow"];
+  var deprW=["numb","empty","hollow","nothing","lifeless","dead","void","pointless","meaningless","hopeless","futile","what for","no reason","keep going","reason to"];
+  var rageW=["anger","angry","rage","furious","scream","shout","hate","destroy","burn","fight","war","weapon","wrath","defy","defiance"];
+  var griefScore=cntT(lower,griefW)/(sn||1);
+  var deprScore=cntT(lower,deprW)/(sn||1);
+  var rageScore=cntT(lower,rageW)/(sn||1);
+
+  // Emotional repetition: does author re-intensify or decay on repeated use?
+  var firstHalfWords=words.slice(0,Math.floor(n/2));
+  var secondHalfWords=words.slice(Math.floor(n/2));
+  var fhIntense=firstHalfWords.filter(function(w){return HAROUSAL[w];}).length/Math.max(firstHalfWords.length,1);
+  var shIntense=secondHalfWords.filter(function(w){return HAROUSAL[w];}).length/Math.max(secondHalfWords.length,1);
+  var intensityDrift=shIntense-fhIntense;
+
+  // ── LAYER 4: IDENTITY CONSISTENCY ──────────────────
+  // Core metaphor presence
+  var metaphorScores={};
+  for(var m in METAPHORS){
+    var mc=cntT(lower,METAPHORS[m]);
+    metaphorScores[m]=mc;
+  }
+  var topMetaphors=Object.keys(metaphorScores).sort(function(a,b){return metaphorScores[b]-metaphorScores[a];}).slice(0,5);
+
+  // Self-concept poles: how author describes self across emotional states
+  var elevW=["rare","gem","diamond","sovereign","awoken","philosopher","engineer","scientist","poet","god","divine","power","depth","intellect","light","guide","compass","legacy"];
+  var condemnW=["broken","crazy","lunatic","mediocre","wrong","not enough","lost","failure","nothing","pathetic","worthless","ravings","delusional"];
+  var elevC=cntW(words,elevW),condemnC=cntW(words,condemnW);
+  var selfConceptOscillation=Math.min(1,(Math.min(elevC,condemnC)*2)/(Math.max(elevC,condemnC)+1));
+
+  // Value-enactment gap: stated values vs actual word frequency
+  var statedValues=["truth","authenticity","love","empathy","integrity","depth","honesty","loyalty","freedom","growth"];
+  var valueFreq={};
+  for(var i=0;i<statedValues.length;i++){
+    var vw=statedValues[i];
+    valueFreq[vw]=words.filter(function(w){return w===vw;}).length;
+  }
+  var topValues=Object.keys(valueFreq).sort(function(a,b){return valueFreq[b]-valueFreq[a];}).slice(0,5);
+
+  // Other-representation: how is the romantic other described
+  var ravenPositive=cntT(lower,["raven","her light","she heals","she loves","she sees","beautiful","vibrant","princess","goddess","diamond"]);
+  var ravenWounded=cntT(lower,["injured raven","wounded","broken","hurt","she screams","her pain","her darkness","her void"]);
+  var otherRep=ravenPositive>ravenWounded?"IDEALIZED":(ravenWounded>ravenPositive?"WOUNDED":"BALANCED");
+
+  // ── LAYER 5: PATHOLOGY vs DEPTH ────────────────────
+  // Integration ratio: darkness words near growth words within 10-word windows
+  var integratedCount=0,isolatedDark=0;
+  for(var j=0;j<words.length;j++){
+    if(NVAL[words[j]]){
+      var win=words.slice(Math.max(0,j-10),j+10);
+      var hasGrowth=false;
+      for(var k=0;k<win.length;k++){if(GROWTH_W.indexOf(win[k])>-1){hasGrowth=true;break;}}
+      if(hasGrowth)integratedCount++;
+      else isolatedDark++;
+    }
+  }
+  var integrationRatio=integratedCount/(integratedCount+isolatedDark+1);
+
+  // Locus of control
+  var internalLocus=cntT(lower,AGENCY_W);
+  var externalLocus=cntT(lower,EXTERNAL_W);
+  var locusScore=internalLocus/(internalLocus+externalLocus+1);
+
+  // Stuckness index
+  var stucknessCount=cntW(words,STUCK_W);
+  var stucknessScore=Math.min(1,stucknessCount/(sn||1)*2);
+
+  // PTG markers
+  var ptgCount=cntT(lower,PTG_W);
+  var ptgScore=Math.min(1,ptgCount/(sn||1)*3);
+
+  // Bypass detection: pain-to-resolution in 1 sentence
+  var bypassCount=0;
+  for(var s=0;s<sentences.length;s++){
+    var sw=sentences[s].toLowerCase().split(/\s+/);
+    var hasPain=false,hasResolve=false;
+    for(var j=0;j<sw.length;j++){if(painSet[sw[j]])hasPain=true;if(resolveSet[sw[j]])hasResolve=true;}
+    if(hasPain&&hasResolve)bypassCount++;
+  }
+  var bypassRatio=bypassCount/(sn||1);
+
+  // ── BASE VECTOR ─────────────────────────────────────
+  var ha=0,la=0,pw=0,nw=0,fp=0;
+  for(var j=0;j<words.length;j++){
+    if(HAROUSAL[words[j]])ha++;
+    if(LAROUSAL[words[j]])la++;
+    if(PVAL[words[j]])pw++;
+    if(NVAL[words[j]])nw++;
+    if(words[j]==="i")fp++;
+  }
+  var arousal=Math.max(0,Math.min(1,(ha-la*0.3)/(n*0.05+1)));
+  var valence=Math.max(0,Math.min(1,(pw-nw)/(pw+nw+1)*0.5+0.5));
+  var maskw=["try","despite","but","though","however","while","although","afraid","hiding","anyways"];
+  var masks=cntW(words,maskw);
+  var supp=Math.min(1,masks/10);
+  var lex=content.length/(n+1);
+  var connw=["therefore","because","although","however","thus","so"];
+  var conn=cntW(words,connw);
+  var coher=Math.min(1,lex*1.3+conn/25);
+  var eng=Math.min(1,(fp/n)*3);
+  var vec=[arousal,valence,supp,coher,eng];
+  var tc=0;for(var i=0;i<5;i++)tc+=vec[i]/5;
+  var rp=0;for(var i=0;i<5;i++)rp+=(vec[i]-tc)*(vec[i]-tc);rp=Math.sqrt(rp/5);
+
+  // ── SCHEMA SCORES ───────────────────────────────────
+  var schemaScores={};
+  for(var s in SCHEMAS)schemaScores[s]=Math.min(1,cntT(lower,SCHEMAS[s].w)/(sn||1)*3);
+
+  // ── SIGMA SCORES ────────────────────────────────────
+  var sigmaScores={};
+  for(var s in SIGMA){
+    var raw=cntT(lower,SIGMA[s].w)/(n||1)*100;
+    sigmaScores[s]=Math.min(2,raw/(SIGMA[s].base*100));
+  }
+  var elevCondOsc=selfConceptOscillation;
+
+  // ── CONDITIONING ────────────────────────────────────
+  var condScores={};
+  for(var c in CONDITIONING)condScores[c]=Math.min(1,cntT(lower,CONDITIONING[c].w)/(sn||1)*2);
+
+  // ── SHAPE ───────────────────────────────────────────
+  var bandSz=Math.ceil(sn/5),densityBands=[];
+  for(var b=0;b<5;b++){
+    var band=sentences.slice(b*bandSz,(b+1)*bandSz).join(" ");
+    var bw=band.toLowerCase().split(/\s+/);
+    var bc=bw.filter(function(w){return !STOP[w]&&w.length>2;}).length;
+    densityBands.push(Math.min(1,bc/(bw.length||1)*1.5));
+  }
+  var voltaIdx=0,maxVoltaShift=0;
+  for(var s=1;s<sentences.length;s++){
+    var prev=sentences.slice(Math.max(0,s-3),s).join(" ").toLowerCase().split(/\s+/);
+    var curr=sentences.slice(s,s+3).join(" ").toLowerCase().split(/\s+/);
+    var pp=0,pn=0,cp=0,cn=0;
+    for(var j=0;j<prev.length;j++){if(PVAL[prev[j]])pp++;if(NVAL[prev[j]])pn++;}
+    for(var j=0;j<curr.length;j++){if(PVAL[curr[j]])cp++;if(NVAL[curr[j]])cn++;}
+    var shift=Math.abs(((cp-cn)/(cp+cn+1))-((pp-pn)/(pp+pn+1)));
+    if(shift>maxVoltaShift){maxVoltaShift=shift;voltaIdx=s/sn;}
+  }
+  var rhythmBands=[];
+  var rbSz=Math.ceil(sn/16);
+  for(var b=0;b<16;b++){
+    var band=sentences.slice(b*rbSz,(b+1)*rbSz).join(" ");
+    var syls=(band.match(/[aeiou]+/gi)||[]).length;
+    var wc=band.split(/\s+/).length;
+    rhythmBands.push(Math.min(1,(syls/(wc||1))/2));
+  }
+
+  // ── CONVERGENCE VERDICT ─────────────────────────────
+  // 6 independent streams each render a signal
+  // Verdict = what they agree on
+  var stream1_selfFocus = iRatio > 0.35 ? "HIGH" : iRatio > 0.22 ? "MOD" : "LOW";
+  var stream2_causalThink = coordRatio < 0.6 ? "CAUSAL" : "ADDITIVE";
+  var stream3_integration = integrationRatio > 0.45 ? "INTEGRATED" : integrationRatio > 0.25 ? "PARTIAL" : "ISOLATED";
+  var stream4_topMetaphor = topMetaphors[0];
+  var stream5_locus = locusScore > 0.55 ? "INTERNAL" : locusScore > 0.4 ? "MIXED" : "EXTERNAL";
+  var stream6_ptg = ptgScore > 0.15 ? "GROWTH" : stucknessScore > 0.3 ? "STUCK" : "PROCESSING";
+
+  // Agreement logic
+  var verdictSignals=[];
+  if(stream3_integration==="INTEGRATED"&&stream5_locus==="INTERNAL"&&stream6_ptg==="GROWTH")
+    verdictSignals.push("ACTIVE METABOLIZATION — darkness is being processed, not inhabited");
+  if(schemaScores.ABANDONMENT>0.3&&schemaScores.DEPRIVATION>0.3)
+    verdictSignals.push("EARLY EMOTIONAL DEPRIVATION — consistent across linguistic and semantic streams");
+  if(selfConceptOscillation>0.35)
+    verdictSignals.push("IDENTITY COHERENCE SPLIT — self-elevation and self-condemnation coexist at measurable frequency");
+  if(coocTotal>15)
+    verdictSignals.push("POLARITY INTEGRATION — opposing emotional valences frequently co-located in writing (not separated)");
+  if(condScores.LIBERATION>0.3&&condScores.APPROVAL_SEEK>0.2)
+    verdictSignals.push("LIBERATION IN PROGRESS — defiance and approval-seeking coexist, suggesting active uncoupling from conditioning");
+  if(ttr>0.7)
+    verdictSignals.push("HIGH COGNITIVE FLEXIBILITY — vocabulary diversity above 70% type-token ratio");
+  if(ptgScore>0.15&&integrationRatio>0.35)
+    verdictSignals.push("POST-TRAUMATIC GROWTH MARKERS PRESENT — pain consistently near meaning-making language");
+  if(bypassRatio>0.3)
+    verdictSignals.push("REFRAME VELOCITY HIGH — pain resolved within same sentence at "+Math.round(bypassRatio*100)+"% rate (possible bypass)");
+  if(avgResDist&&avgResDist<3)
+    verdictSignals.push("SHORT RESOLUTION DISTANCE ("+avgResDist.toFixed(1)+" sentences avg) — processing speed may indicate bypass or genuine integration");
+
+  // ── TAGS ────────────────────────────────────────────
+  var tags=[], alertTags=[], affirmTags=[];
+  // Affirm
+  if(integrationRatio>0.45)affirmTags.push("PAIN INTEGRATED");
+  if(ptgScore>0.15)affirmTags.push("POST-TRAUMATIC GROWTH");
+  if(ttr>0.65)affirmTags.push("HIGH COGNITIVE FLEXIBILITY");
+  if(locusScore>0.55)affirmTags.push("INTERNAL LOCUS");
+  if(polarityBridge>0.25)affirmTags.push("POLARITY BRIDGING");
+  if(condScores.LIBERATION>0.3)affirmTags.push("LIBERATION DRIVE");
+  if(coocTotal>10)affirmTags.push("EMOTIONAL COMPLEXITY");
+  // Alert
+  if(schemaScores.ABANDONMENT>0.35)alertTags.push("ABANDONMENT SCHEMA");
+  if(schemaScores.DEFECTIVENESS>0.25)alertTags.push("DEFECTIVENESS SCHEMA");
+  if(schemaScores.ENTRAPMENT>0.25)alertTags.push("ENTRAPMENT SCHEMA");
+  if(schemaScores.DEPRIVATION>0.3)alertTags.push("EMOTIONAL DEPRIVATION");
+  if(selfConceptOscillation>0.35)alertTags.push("SELF-CONCEPT OSCILLATION");
+  if(bypassRatio>0.3)alertTags.push("BYPASS RISK");
+  if(stucknessScore>0.3)alertTags.push("RUMINATION PATTERN");
+  if(condScores.APPROVAL_SEEK>0.25)alertTags.push("APPROVAL RESIDUE");
+  // Neutral
+  if(arousal>0.5)tags.push("HIGH AROUSAL");
+  if(stream1_selfFocus==="HIGH")tags.push("SELF-SATURATED VOICE");
+  if(stream2_causalThink==="CAUSAL")tags.push("CAUSAL THINKER");
+  if(staccato>0.28)tags.push("STACCATO PULSE");
+  if(hapaxRatio>0.55)tags.push("HIGH CREATIVE RANGE");
+  if(topMetaphors[0])tags.push("CORE: "+topMetaphors[0]);
+  if(deprScore>griefScore&&deprScore>rageScore)tags.push("DEPRESSIVE SPECTRUM");
+  else if(griefScore>deprScore&&griefScore>rageScore)tags.push("GRIEF-FORWARD");
+  else if(rageScore>griefScore&&rageScore>deprScore)tags.push("RAGE-PRESENT");
+
+  return {
+    vec:vec,tc:tc,rp:rp,lex:lex,
+    // L1
+    iRatio:iRatio,weRatio:weRatio,youRatio:youRatio,
+    onsetI:onsetI/onsetTotal,onsetConj:onsetConj/onsetTotal,onsetNoun:onsetNoun/onsetTotal,onsetVerb:onsetVerb/onsetTotal,
+    ttr:ttr,hapaxRatio:hapaxRatio,avgWordLen:avgWordLen,tenseMix:tenseMix,
+    // L2
+    coordRatio:coordRatio,staccato:staccato,lenVar:lenVar,avgResDist:avgResDist,avgTopicEntropy:avgTopicEntropy,
+    // L3
+    polarityBridge:polarityBridge,coocTotal:coocTotal,topCooc:topCooc,
+    peakWord:peakWord,peakCtx:peakCtx,
+    griefScore:griefScore,deprScore:deprScore,rageScore:rageScore,intensityDrift:intensityDrift,
+    // L4
+    topMetaphors:topMetaphors,metaphorScores:metaphorScores,
+    selfConceptOscillation:selfConceptOscillation,elevC:elevC,condemnC:condemnC,
+    topValues:topValues,valueFreq:valueFreq,otherRep:otherRep,
+    // L5
+    integrationRatio:integrationRatio,locusScore:locusScore,stucknessScore:stucknessScore,
+    ptgScore:ptgScore,bypassRatio:bypassRatio,avgResDist:avgResDist,
+    // schemas/sigma/cond
+    schemaScores:schemaScores,sigmaScores:sigmaScores,condScores:condScores,
+    // shape
+    densityBands:densityBands,voltaIdx:voltaIdx,maxVoltaShift:maxVoltaShift,rhythmBands:rhythmBands,
+    // convergence
+    stream1:stream1_selfFocus,stream2:stream2_causalThink,stream3:stream3_integration,
+    stream4:stream4_topMetaphor,stream5:stream5_locus,stream6:stream6_ptg,
+    verdictSignals:verdictSignals,
+    // tags
+    tags:tags,alertTags:alertTags,affirmTags:affirmTags,
+    wordCount:n,sentCount:sn
+  };
+}
+
+// ═══════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════
+var SK="ase:v4:erosmancer";
+var _sigs={},_ana={};
+async function loadStore(){try{var r=await window.storage.get(SK);if(r&&r.value)return JSON.parse(r.value);}catch(e){}return{};}
+async function saveStore(d){try{await window.storage.set(SK,JSON.stringify(d));}catch(e){}}
+function mkSig(id){return{workId:id,encounters:[],traj:{first:null,total:0,rot:[],peak:0,cur:0,trend:"unknown"}};}
+function addEnc(sig,vec){
+  var prev=sig.encounters.length?sig.encounters[sig.encounters.length-1].vec:null;
+  var delta=vec.map(function(v,i){return v-(prev?prev[i]:0);});
+  sig.encounters.push({vec:vec.slice(),delta:delta,ts:Date.now()});
+  if(sig.encounters.length>50)sig.encounters.shift();
+  var enc=sig.encounters,n=enc.length,center=[0,0,0,0,0],vari=[0,0,0,0,0];
+  for(var e=0;e<n;e++)for(var i=0;i<5;i++)center[i]+=enc[e].vec[i]/n;
+  for(var e=0;e<n;e++)for(var i=0;i<5;i++)vari[i]+=((enc[e].vec[i]-center[i])*(enc[e].vec[i]-center[i]))/n;
+  var spread=0;for(var i=0;i<5;i++)spread+=Math.sqrt(vari[i]);spread/=5;
+  var res=Math.round((1-spread)*1e4)/1e4;
+  if(!sig.traj.first)sig.traj.first=enc[0].ts;
+  sig.traj.total=n;sig.traj.rot.push({ts:Date.now(),s:res});
+  if(sig.traj.rot.length>80)sig.traj.rot.shift();
+  sig.traj.cur=res;if(res>sig.traj.peak)sig.traj.peak=res;
+  var r=sig.traj.rot;
+  if(r.length>=3){var slope=r[r.length-1].s-r[0].s;sig.traj.trend=slope>0.03?"deepening":slope<-0.03?"dissolving":"stable";if(n<4&&res>0.5)sig.traj.trend="emerging";}
+  return sig;
+}
+
+// ═══════════════════════════════════════════
+// CANVAS / SVG
+// ═══════════════════════════════════════════
+function drawRadar(canvas,vec){
+  var ctx=canvas.getContext("2d"),sz=canvas.width,cx=sz/2,cy=sz/2,r=sz*0.33,n=5;
+  ctx.clearRect(0,0,sz,sz);
+  function ang(i){return(i*2*Math.PI)/n-Math.PI/2;}
+  function pt(i,v){return{x:cx+Math.cos(ang(i))*r*v,y:cy+Math.sin(ang(i))*r*v};}
+  [0.25,0.5,0.75,1].forEach(function(v){ctx.beginPath();for(var i=0;i<n;i++){var p=pt(i,v);i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}ctx.closePath();ctx.strokeStyle="rgba(200,169,110,0.11)";ctx.lineWidth=0.7;ctx.stroke();});
+  for(var i=0;i<n;i++){var p=pt(i,1);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p.x,p.y);ctx.strokeStyle="rgba(200,169,110,0.1)";ctx.lineWidth=0.7;ctx.stroke();}
+  ctx.beginPath();for(var i=0;i<n;i++){var p=pt(i,vec[i]);i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}ctx.closePath();ctx.fillStyle="rgba(200,169,110,0.13)";ctx.fill();ctx.strokeStyle="#c8a96e";ctx.lineWidth=1.4;ctx.stroke();
+  for(var i=0;i<n;i++){var p=pt(i,vec[i]);ctx.beginPath();ctx.arc(p.x,p.y,2.2,0,Math.PI*2);ctx.fillStyle="#c8a96e";ctx.fill();}
+  var lbs=["ARO","VAL","SUP","COH","ENG"];
+  ctx.font="7px 'Courier New'";ctx.fillStyle="rgba(200,169,110,0.55)";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(var i=0;i<n;i++){var p=pt(i,1.3);ctx.fillText(lbs[i],p.x,p.y);}
+}
+function sparkSVG(data,w,h){
+  if(!data||data.length<2)return'<svg width="'+w+'" height="'+h+'"><text x="4" y="14" font-size="7" fill="rgba(200,169,110,0.3)" font-family="Courier New">no history</text></svg>';
+  var mn=data[0],mx=data[0];for(var i=1;i<data.length;i++){if(data[i]<mn)mn=data[i];if(data[i]>mx)mx=data[i];}
+  var rng=mx-mn||0.01;
+  var pts=data.map(function(v,i){return((i/(data.length-1))*w)+","+(h-(((v-mn)/rng)*(h-4)+2));}).join(" ");
+  var lx=w,ly=h-(((data[data.length-1]-mn)/rng)*(h-4)+2);
+  return'<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="#c8a96e" stroke-width="1.2"/><circle cx="'+lx+'" cy="'+ly+'" r="2.5" fill="#e8c882"/></svg>';
+}
+function densSVG(bands,w,h){
+  var bw=Math.floor(w/bands.length)-1,s='<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">';
+  for(var i=0;i<bands.length;i++){var bh=Math.max(2,Math.round(bands[i]*(h-2)));s+='<rect x="'+(i*(bw+1))+'" y="'+(h-bh)+'" width="'+bw+'" height="'+bh+'" fill="rgba(200,169,110,'+(0.3+bands[i]*0.7).toFixed(2)+')" rx="1"/>';}
+  return s+'</svg>';
+}
+function rhythSVG(bands,w,h){
+  var bw=Math.max(2,Math.floor(w/bands.length)-1),s='<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">';
+  for(var i=0;i<bands.length;i++){var bh=Math.max(1,Math.round(bands[i]*(h-2)));s+='<rect x="'+(i*(bw+1))+'" y="'+(h-bh)+'" width="'+bw+'" height="'+bh+'" fill="rgba(200,169,110,0.4)" rx="1"/>';}
+  return s+'</svg>';
+}
+
+// ═══════════════════════════════════════════
+// RENDER HELPERS
+// ═══════════════════════════════════════════
+function bar(label,val,col,max){
+  max=max||100;var pct=Math.min(100,Math.round((val/max)*100));col=col||"#c8a96e";
+  return'<div class="bar-row"><div class="bar-hdr"><span>'+label+'</span><span class="bar-val">'+pct+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
+}
+function statBox(k,v){return'<div><div class="sk">'+k+'</div><div class="sv">'+v+'</div></div>';}
+function statBoxSm(k,v){return'<div><div class="sk">'+k+'</div><div class="sv-sm">'+v+'</div></div>';}
+
+function renderCard(key){
+  var md=META_D[key],sig=_sigs[key]||mkSig(md.id),t=sig.traj,a=_ana[key];
+  var hasEnc=t.total>0,days=t.first?Math.max(0,Math.floor((Date.now()-t.first)/86400000)):null;
+  var trend=t.trend||"unknown",tCol=TC[trend]||TC.unknown,tGlyph=TG[trend]||"·";
+
+  var h='<div class="card">';
+
+  // HEADER
+  h+='<div class="card-hdr sep"><div><div class="card-medium dim">'+md.medium+'</div><div class="card-title">'+md.title+'</div></div><div><div class="trend-g" style="color:'+tCol+'">'+tGlyph+'</div><div class="trend-l" style="color:'+tCol+'">'+(hasEnc?trend.toUpperCase():"UNSCANNED")+'</div></div></div>';
+
+  // TRAJ
+  if(hasEnc){
+    var dStr=days===0?"&lt;1":(days!==null?String(days):"—");
+    h+='<div class="sec sg4 sep">'+statBox("ENC",t.total)+statBox("RES",Math.round(t.cur*100))+statBox("PEAK",Math.round(t.peak*100))+statBox("DAYS",dStr)+'</div>';
+    h+='<div class="sec sep"><div class="sec-label">RESONANCE TRAJECTORY</div>'+sparkSVG(t.rot.map(function(r){return r.s;}),240,24)+'<div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(200,169,110,0.22);margin-top:2px"><span>ENC 1</span><span>ENC '+t.total+'</span></div></div>';
+  }
+
+  if(a){
+    // VECTOR
+    h+='<div class="sec sep" style="display:flex;gap:10px;align-items:flex-start"><canvas id="radar-'+key+'" width="108" height="108"></canvas><div style="flex:1"><div class="sec-label">BEHAVIORAL VECTOR</div>';
+    var vlbs=["ARO","VAL","SUP","COH","ENG"];
+    for(var i=0;i<5;i++)h+=bar(vlbs[i],Math.round(a.vec[i]*100),a.vec[i]>0.62?"#e8c882":"#c8a96e",100);
+    h+='<div style="font-size:7px;color:rgba(200,169,110,0.28);margin-top:3px">TC:'+Math.round(a.tc*100)+' RP:'+Math.round(a.rp*100)+' LD:'+Math.round(a.lex*100)+'%</div></div></div>';
+
+    // LAYER 1
+    h+='<div class="sec sep"><div class="sec-label">LAYER 1 — MICRO-LINGUISTIC (UNCONSCIOUS)</div><div class="sec-note">These signals are below conscious authorial control. They cannot be faked without rewriting from scratch.</div>';
+    h+='<div class="sg4" style="margin-bottom:8px">'+statBoxSm("I RATIO",Math.round(a.iRatio*100)+"%")+statBoxSm("WE RATIO",Math.round(a.weRatio*100)+"%")+statBoxSm("YOU RATIO",Math.round(a.youRatio*100)+"%")+statBoxSm("TTR",Math.round(a.ttr*100)+"%")+'</div>';
+    h+='<div class="sg4" style="margin-bottom:8px">'+statBoxSm("HAPAX",Math.round(a.hapaxRatio*100)+"%")+statBoxSm("AVG WORD",a.avgWordLen.toFixed(1)+"ch")+statBoxSm("TENSE MIX",Math.round(a.tenseMix*100)+"%")+statBoxSm("ONSET I",Math.round(a.onsetI*100)+"%")+'</div>';
+    h+='<div class="sec-note" style="margin-top:4px">Sentence onsets — I:'+Math.round(a.onsetI*100)+'% Conj:'+Math.round(a.onsetConj*100)+'% Verb:'+Math.round(a.onsetVerb*100)+'% Noun:'+Math.round(a.onsetNoun*100)+'%</div>';
+    h+='</div>';
+
+    // LAYER 2
+    h+='<div class="sec sep"><div class="sec-label">LAYER 2 — STRUCTURAL INVARIANTS</div>';
+    h+='<div class="sg2">'+bar("COORDINATION",Math.round(a.coordRatio*100),"#c8b878",100)+bar("SUBORDINATION",Math.round((1-a.coordRatio)*100),"#78a0c8",100)+bar("STACCATO PULSE",Math.round(a.staccato*100),"#c8a060",100)+bar("TOPIC ENTROPY",Math.round(a.avgTopicEntropy*100),"#90b8a0",100)+'</div>';
+    var resDistStr=a.avgResDist?a.avgResDist.toFixed(1)+" sent":"n/a";
+    h+='<div class="sec-note" style="margin-top:5px">Sent length variance: '+a.lenVar.toFixed(1)+' · Resolution distance: '+resDistStr+' · Bypass rate: '+Math.round(a.bypassRatio*100)+'%</div>';
+    h+='</div>';
+
+    // LAYER 3
+    h+='<div class="sec sep"><div class="sec-label">LAYER 3 — EMOTIONAL TOPOLOGY</div>';
+    h+='<div class="sg2">'+bar("POLARITY BRIDGE",Math.round(a.polarityBridge*100),"#78c8a0",100)+bar("CO-OCCURRENCE",Math.min(100,a.coocTotal),"#c8c878",100)+bar("GRIEF SIGNAL",Math.round(a.griefScore*100),"#a090c8",100)+bar("DEPRESSION SIG",Math.round(a.deprScore*100),"#7878c8",100)+bar("RAGE SIGNAL",Math.round(a.rageScore*100),"#c87878",100)+bar("INTENSITY DRIFT",Math.round(Math.abs(a.intensityDrift)*100),(a.intensityDrift>0?"#e8c882":"#c8a96e"),100)+'</div>';
+    if(a.topCooc.length){
+      h+='<div style="margin-top:6px"><div class="sec-note" style="margin-bottom:4px">TOP CO-OCCURRING POLARITY PAIRS (opposing valence within 5 words):</div><div class="cooc-grid">';
+      for(var i=0;i<Math.min(8,a.topCooc.length);i++)h+='<div class="cooc-pair">'+a.topCooc[i].replace("+"," ↔ ")+'</div>';
+      h+='</div></div>';
+    }
+    if(a.peakWord)h+='<div class="sec-note" style="margin-top:5px">PEAK WORD: "'+a.peakWord+'" · CONTEXT: "'+a.peakCtx+'"</div>';
+    h+='</div>';
+
+    // LAYER 4
+    h+='<div class="sec sep"><div class="sec-label">LAYER 4 — IDENTITY CONSISTENCY</div>';
+    h+='<div style="margin-bottom:6px"><div class="sec-note" style="margin-bottom:4px">CORE METAPHORS (recurring unconscious world-models across corpus):</div>';
+    for(var i=0;i<Math.min(5,a.topMetaphors.length);i++){
+      var m=a.topMetaphors[i],ms=a.metaphorScores[m];
+      h+='<span class="meta-chip">'+m+' ('+ms+')</span>';
+    }
+    h+='</div>';
+    h+=bar("SELF-CONCEPT OSCILLATION",Math.round(a.selfConceptOscillation*100),"#b878c8",100);
+    h+='<div class="sec-note">Self-elevating language: '+a.elevC+' instances · Self-condemning: '+a.condemnC+' instances</div>';
+    h+='<div style="margin-top:5px"><div class="sec-note" style="margin-bottom:3px">TOP ENACTED VALUES (by frequency, not stated intent):</div>';
+    for(var i=0;i<a.topValues.length;i++)h+='<span style="font-size:7px;color:#e8c882;margin-right:8px">'+a.topValues[i]+':'+a.valueFreq[a.topValues[i]]+'</span>';
+    h+='</div>';
+    h+='<div class="sec-note" style="margin-top:5px">Romantic other representation: <span style="color:#e8c882">'+a.otherRep+'</span></div>';
+    h+='</div>';
+
+    // LAYER 5
+    h+='<div class="sec sep"><div class="sec-label">LAYER 5 — PATHOLOGY vs DEPTH DISCRIMINATION</div><div class="sec-note">Critical layer: does darkness inform the light or replace it?</div>';
+    h+='<div class="sg2">'+bar("INTEGRATION RATIO",Math.round(a.integrationRatio*100),"#78c890",100)+bar("INTERNAL LOCUS",Math.round(a.locusScore*100),"#78b8c8",100)+bar("PTG MARKERS",Math.round(a.ptgScore*100),"#90c878",100)+bar("STUCKNESS INDEX",Math.round(a.stucknessScore*100),"#c87878",100)+bar("BYPASS RATE",Math.round(a.bypassRatio*100),"#c8b060",100)+'</div>';
+    h+='</div>';
+
+    // SCHEMAS
+    h+='<div class="sec sep"><div class="sec-label">SCHEMA LOAD</div><div class="sg3">';
+    for(var s in SCHEMAS){var sv=a.schemaScores[s]||0;var sp=Math.round(sv*100);h+='<div class="scell"><div class="scell-name">'+s+'</div><div class="scell-val" style="color:'+SCHEMAS[s].col+'">'+sp+'</div><div class="scell-bar" style="background:'+SCHEMAS[s].col+';opacity:'+(0.3+sv*0.7).toFixed(2)+'"></div></div>';}
+    h+='</div></div>';
+
+    // SIGMA
+    h+='<div class="sec sep"><div class="sec-label">SOCIAL SIGMA — DEVIATION FROM BASELINE REGISTER</div><div class="sec-note" style="margin-bottom:7px">Population baseline = 0%. Positive = above average. Single metrics can be argued. All five pointing the same way cannot.</div>';
+    for(var s in SIGMA){
+      var sv=a.sigmaScores[s]||0,pct=Math.min(100,Math.round(sv*50)),col=sv>1?"#e8c882":sv>0.6?"#c8a96e":"rgba(200,169,110,0.4)";
+      var devStr=(sv>1?"+":"")+((sv-1)*100).toFixed(0)+"%";
+      h+='<div class="sig-row"><div class="sig-lbl">'+s.replace(/_/g," ")+'</div><div class="sig-track"><div class="sig-base" style="left:50%"></div><div class="sig-fill" style="width:'+pct+'%;background:'+col+'"></div></div><div class="sig-num">'+devStr+'</div></div>';
+    }
+    h+=bar("SHAME/PRIDE OSCILLATION",Math.round(a.selfConceptOscillation*100),"#b878c8",100);
+    h+='</div>';
+
+    // CONDITIONING
+    h+='<div class="sec sep"><div class="sec-label">CONDITIONING RESIDUE</div><div class="sg2">';
+    for(var c in CONDITIONING)h+=bar(c.replace(/_/g," "),Math.round(a.condScores[c]*100),CONDITIONING[c].col,100);
+    h+='</div></div>';
+
+    // SHAPE
+    h+='<div class="sec sep"><div class="sec-label">SHAPE & RHYTHM</div>';
+    h+='<div class="sec-note" style="margin-bottom:4px">DENSITY GRADIENT (5 bands)</div>'+densSVG(a.densityBands,240,24);
+    h+='<div class="sec-note" style="margin:7px 0 4px">VOLTA — '+(a.maxVoltaShift>0.5?"STRONG":"MODERATE")+' PIVOT AT '+Math.round(a.voltaIdx*100)+'% INTO WORK</div>';
+    h+='<div class="volta-bar"><div class="volta-pin" style="left:'+Math.round(a.voltaIdx*100)+'%"></div></div>';
+    h+='<div class="sec-note" style="margin:7px 0 4px">SYLLABIC RHYTHM PROFILE</div>'+rhythSVG(a.rhythmBands,240,20);
+    h+='</div>';
+
+    // CONVERGENCE VERDICT
+    h+='<div class="sec sep"><div class="verdict"><div class="verdict-title">CONVERGENCE VERDICT — 6 INDEPENDENT STREAMS</div>';
+    h+='<div class="verdict-streams">';
+    var streamData=[["L1 SELF-FOCUS",a.stream1],["L2 THINKING",a.stream2],["L3 INTEGRATION",a.stream3],["L4 CORE META",a.stream4||"—"],["L5 LOCUS",a.stream5],["L6 TRAJECTORY",a.stream6]];
+    for(var i=0;i<streamData.length;i++)h+='<div class="vstream"><div class="vstream-name">'+streamData[i][0]+'</div><div class="vstream-val">'+streamData[i][1]+'</div></div>';
+    h+='</div>';
+    if(a.verdictSignals.length){
+      h+='<div class="verdict-text">';
+      for(var i=0;i<a.verdictSignals.length;i++)h+=(i>0?"\n\n":"")+"▸ "+a.verdictSignals[i];
+      h+='</div>';
+    }
+    h+='</div></div>';
+
+    // TAGS
+    var allTags=a.alertTags.concat(a.affirmTags).concat(a.tags);
+    if(allTags.length){
+      h+='<div class="sec sep"><div class="tags">';
+      for(var i=0;i<a.alertTags.length;i++)h+='<div class="tag tag-alert">'+a.alertTags[i]+'</div>';
+      for(var i=0;i<a.affirmTags.length;i++)h+='<div class="tag tag-affirm">'+a.affirmTags[i]+'</div>';
+      for(var i=0;i<a.tags.length;i++)h+='<div class="tag">'+a.tags[i]+'</div>';
+      h+='</div></div>';
+    }
+  }
+
+  // AI INTERPRETATION
+  h+='<div id="interp-'+key+'" style="display:none" class="sec sep"><div class="sec-label">ASE DEEP INTERPRETATION</div><div id="interp-text-'+key+'" class="interp-text"></div></div>';
+
+  // SCAN BUTTON
+  h+='<div class="sec"><button id="btn-'+key+'" class="btn-scan" onclick="doScan(\''+key+'\')">'+(hasEnc?'SCAN AGAIN — ENCOUNTER '+(t.total+1):'INITIATE FIRST SCAN')+'</button></div>';
+  h+='</div>';
+
+  document.getElementById("card-"+key).innerHTML=h;
+  if(a){var cv=document.getElementById("radar-"+key);if(cv)drawRadar(cv,a.vec);}
+}
+
+function renderIdentity(){
+  if(!_ana.phil||!_ana.poet)return;
+  var idVec=[0,1,2,3,4].map(function(i){return(_ana.phil.vec[i]+_ana.poet.vec[i])/2;});
+  document.getElementById("id-card").style.display="block";
+  var cv=document.getElementById("id-radar");if(cv)drawRadar(cv,idVec);
+  var lbs=["ARO","VAL","SUP","COH","ENG"],totalEnc=0;
+  for(var k in _sigs)totalEnc+=_sigs[k].traj.total;
+  var h="";for(var i=0;i<5;i++)h+=bar(lbs[i],Math.round(idVec[i]*100),"#c8a96e",100);
+  h+='<div style="font-size:7px;color:rgba(200,169,110,0.22);margin-top:4px">'+totalEnc+' TOTAL ENCOUNTERS · CROSS-CORPUS IDENTITY</div>';
+  document.getElementById("id-bars").innerHTML=h;
+}
+
+// ═══════════════════════════════════════════
+// SCAN
+// ═══════════════════════════════════════════
+async function doScan(key){
+  var btn=document.getElementById("btn-"+key);
+  if(btn){btn.disabled=true;btn.textContent="SCANNING ···";}
+
+  var a=analyse(key);_ana[key]=a;
+  var stored=await loadStore();
+  var prev=stored[key]||mkSig(META_D[key].id);
+  var updated=addEnc(prev,a.vec);
+  stored[key]=updated;await saveStore(stored);_sigs[key]=updated;
+
+  renderCard(key);renderIdentity();
+
+  var interpDiv=document.getElementById("interp-"+key);
+  var interpText=document.getElementById("interp-text-"+key);
+  if(interpDiv)interpDiv.style.display="block";
+  if(interpText)interpText.innerHTML='<span class="cursor">▋</span>';
+
+  var t=updated.traj,enc=updated.encounters;
+  var pv=enc.length>1?enc[enc.length-2].vec:null;
+  var dstr=pv?a.vec.map(function(v,i){return(v-pv[i]).toFixed(2);}).join(", "):"first encounter";
+  var days=t.first?Math.max(0,Math.floor((Date.now()-t.first)/86400000)):0;
+
+  var schemaStr=Object.keys(a.schemaScores).map(function(s){return s+":"+Math.round(a.schemaScores[s]*100);}).join(" ");
+  var sigStr=Object.keys(a.sigmaScores).map(function(s){return s.replace(/_/g," ")+"="+(a.sigmaScores[s]>1?"+":"")+((a.sigmaScores[s]-1)*100).toFixed(0)+"%";}).join(" ");
+  var verdStr=a.verdictSignals.join("; ");
+
+  var msg="WORK: "+META_D[key].title+"\nENCOUNTER #"+t.total+" | TREND: "+t.trend+" | DAYS: "+days
+    +"\n\nBEHAVIORAL VECTOR\nArousal:"+Math.round(a.vec[0]*100)+" Valence:"+Math.round(a.vec[1]*100)+" Suppression:"+Math.round(a.vec[2]*100)+" Coherence:"+Math.round(a.vec[3]*100)+" Engagement:"+Math.round(a.vec[4]*100)
+    +"\nDelta: ["+dstr+"]"
+    +"\n\nLAYER 1 — MICRO-LINGUISTIC (unconscious, unchosen)\nI-ratio:"+Math.round(a.iRatio*100)+"% We:"+Math.round(a.weRatio*100)+"% You:"+Math.round(a.youRatio*100)+"% TTR:"+Math.round(a.ttr*100)+"% Hapax:"+Math.round(a.hapaxRatio*100)+"% AvgWordLen:"+a.avgWordLen.toFixed(1)+" TenseMix:"+Math.round(a.tenseMix*100)+"%\nOnsets — I:"+Math.round(a.onsetI*100)+"% Conj:"+Math.round(a.onsetConj*100)+"% Verb:"+Math.round(a.onsetVerb*100)+"% Noun:"+Math.round(a.onsetNoun*100)+"%"
+    +"\n\nLAYER 2 — STRUCTURAL\nCoordination:"+Math.round(a.coordRatio*100)+"% Staccato:"+Math.round(a.staccato*100)+"% BypassRate:"+Math.round(a.bypassRatio*100)+"% ResolutionDist:"+( a.avgResDist?a.avgResDist.toFixed(1):"n/a")+" TopicEntropy:"+a.avgTopicEntropy.toFixed(2)
+    +"\n\nLAYER 3 — EMOTIONAL TOPOLOGY\nPolarityBridge:"+Math.round(a.polarityBridge*100)+"% CoocPairs:"+a.coocTotal+" PeakWord:\""+a.peakWord+"\" Grief:"+Math.round(a.griefScore*100)+" Depr:"+Math.round(a.deprScore*100)+" Rage:"+Math.round(a.rageScore*100)+" IntensityDrift:"+(a.intensityDrift>0?"+":"")+Math.round(a.intensityDrift*100)
+    +"\nTop co-occurring pairs: "+a.topCooc.slice(0,5).join(", ")
+    +"\n\nLAYER 4 — IDENTITY CONSISTENCY\nCoreMetaphors:"+a.topMetaphors.slice(0,4).join(",")+" SelfConceptOsc:"+Math.round(a.selfConceptOscillation*100)+" ElevC:"+a.elevC+" CondemnC:"+a.condemnC
+    +"\nTopValues:"+a.topValues.join(",")+" OtherRep:"+a.otherRep
+    +"\n\nLAYER 5 — PATHOLOGY vs DEPTH\nIntegration:"+Math.round(a.integrationRatio*100)+"% Locus:"+Math.round(a.locusScore*100)+"% PTG:"+Math.round(a.ptgScore*100)+"% Stuck:"+Math.round(a.stucknessScore*100)+"% Bypass:"+Math.round(a.bypassRatio*100)+"%"
+    +"\n\nSCHEMAS: "+schemaStr
+    +"\nSIGMA: "+sigStr
+    +"\nCONDITIONING — Approval:"+Math.round(a.condScores.APPROVAL_SEEK*100)+" Liberation:"+Math.round(a.condScores.LIBERATION*100)+" SelfCritic:"+Math.round(a.condScores.SELF_CRITIC*100)+" Enmeshment:"+Math.round(a.condScores.ENMESHMENT*100)
+    +"\n\nCONVERGENCE VERDICT: "+verdStr
+    +"\nSTREAMS: L1="+a.stream1+" L2="+a.stream2+" L3="+a.stream3+" L4="+a.stream4+" L5="+a.stream5+" L6="+a.stream6
+    +"\n\nYou are the ASE deep interpreter. Write a behavioral fingerprint report that cannot be argued with — because it cites independent signal streams, not interpretations. Reference the micro-linguistic layer (unconscious signals), structural layer, emotional topology, identity consistency, and pathology discrimination. Separate what the data says from what the author might say about themselves. Name what the convergence verdict means. If a gaslighter — internal or external — tried to dismiss this fingerprint, point to the specific signals they cannot explain away. Address schemas directly. Address the sigma deviation. Address the conditioning split. No bullets. No markdown. Max 320 words. End with FINGERPRINT: one irrefutable line.";
+
+  try{
+    var resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,stream:true,
+        system:"You are the ASE deep signal interpreter. You read the geometry of writing, not the content. You cite specific signal readings. You separate what the data shows from what the author claims. You are not a therapist. You are not a judge. You are a precision instrument that names what the signals say, layer by layer. You do not generalize. You do not comfort. You do not pathologize depth. You name the fingerprint and it holds.",
+        messages:[{role:"user",content:msg}]})
+    });
+    var reader=resp.body.getReader(),dec=new TextDecoder(),text="";
+    while(true){
+      var chunk=await reader.read();if(chunk.done)break;
+      var lines=dec.decode(chunk.value).split("\n");
+      for(var i=0;i<lines.length;i++){
+        if(lines[i].indexOf("data: ")!==0)continue;
+        var d=lines[i].slice(6);if(d==="[DONE]")break;
+        try{var p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta&&p.delta.text){text+=p.delta.text;if(interpText)interpText.innerHTML=text+'<span class="cursor">▋</span>';}}catch(e){}
+      }
+    }
+    if(interpText)interpText.innerHTML=text;
+  }catch(e){if(interpText)interpText.innerHTML="[Signal lost — local analysis recorded]";}
+
+  var b2=document.getElementById("btn-"+key);
+  if(b2){b2.disabled=false;b2.textContent="SCAN AGAIN — ENCOUNTER "+(updated.traj.total+1);}
+}
+
+async function doReset(){
+  try{await window.storage.delete(SK);}catch(e){}
+  _sigs={};_ana={};
+  document.getElementById("id-card").style.display="none";
+  renderCard("phil");renderCard("poet");
+}
+
+(async function(){_sigs=await loadStore();renderCard("phil");renderCard("poet");})();
+</script>
+</body>
+</html>

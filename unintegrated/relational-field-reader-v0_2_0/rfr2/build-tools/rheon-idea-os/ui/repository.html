@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repository · RHEON</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .repo-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr 280px;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+      height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    /* ── Sidebar: project list ── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: var(--s3) var(--s4);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .project-select-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .proj-item {
+      padding: var(--s2) var(--s4);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--t-fast);
+    }
+    .proj-item:hover { background: var(--bg-raised); }
+    .proj-item.active { background: var(--signal-glow); border-left: 2px solid var(--signal); }
+
+    .proj-item-name {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+    .proj-item.active .proj-item-name { color: var(--signal); }
+
+    .proj-item-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ── Main: file browser + editor ── */
+    .main-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    .main-toolbar {
+      padding: var(--s2) var(--s4);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      flex-shrink: 0;
+      background: var(--bg-deep);
+    }
+
+    .breadcrumb {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+      flex: 1;
+    }
+    .breadcrumb-seg { color: var(--text-secondary); cursor: pointer; }
+    .breadcrumb-seg:hover { color: var(--signal); }
+    .breadcrumb-sep { color: var(--text-muted); }
+
+    .git-controls { display: flex; gap: var(--s2); }
+
+    /* ── File browser ── */
+    .file-browser {
+      flex: 1;
+      overflow-y: auto;
+      display: none;
+    }
+    .file-browser.visible { display: block; }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      padding: var(--s2) var(--s4);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--t-fast);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .file-row:hover { background: var(--bg-raised); }
+
+    .file-icon { width: 16px; text-align: center; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+    .file-name { flex: 1; color: var(--text-primary); }
+    .file-name.dir { color: var(--signal); }
+    .file-size  { color: var(--text-muted); font-size: 10px; }
+    .file-ts    { color: var(--text-muted); font-size: 10px; min-width: 80px; text-align: right; }
+
+    /* ── Editor ── */
+    .editor-pane {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .editor-pane.visible { display: flex; }
+
+    .editor-bar {
+      padding: var(--s2) var(--s4);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      flex-shrink: 0;
+      background: var(--bg-deep);
+    }
+
+    .editor-filename {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .editor-modified {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--warn);
+      display: none;
+    }
+
+    .editor-textarea {
+      flex: 1;
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      padding: var(--s4);
+      border: none;
+      outline: none;
+      resize: none;
+      tab-size: 2;
+    }
+
+    /* ── Right panel: seam + git ── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .seam-panel {
+      padding: var(--s4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .seam-panel-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--s3);
+    }
+
+    .last-seam-card {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      padding: var(--s3);
+    }
+
+    .last-seam-name {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--signal);
+      margin-bottom: var(--s1);
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+    }
+    .last-seam-name::before { content: '⌿'; color: var(--signal-dim); }
+
+    .last-seam-ts {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .git-panel {
+      padding: var(--s4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .git-status-output {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: pre;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      padding: var(--s3);
+      max-height: 120px;
+      overflow-y: auto;
+      margin-top: var(--s3);
+    }
+
+    .spec-preview {
+      flex: 1;
+      padding: var(--s4);
+      overflow-y: auto;
+    }
+
+    .spec-section {
+      margin-bottom: var(--s4);
+    }
+    .spec-section-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--s2);
+      padding-bottom: var(--s1);
+      border-bottom: 1px solid var(--border);
+    }
+    .spec-item {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      padding: var(--s1) 0;
+      display: flex;
+      gap: var(--s2);
+    }
+    .spec-item-key { color: var(--text-muted); min-width: 60px; }
+
+    /* ── No project selected ── */
+    .no-project {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: var(--s3);
+      color: var(--text-muted);
+    }
+    .no-project-icon { font-size: 40px; opacity: 0.2; }
+    .no-project-text { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <div class="page">
+    <div class="repo-layout">
+
+      <!-- Sidebar: project list -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Projects</span>
+          <a href="/" class="btn btn-ghost" style="font-size:10px;padding:2px 6px;">+ New</a>
+        </div>
+        <div class="project-select-list" id="project-select-list">
+          <div class="empty" style="padding:var(--s5)">
+            <div class="empty-text">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main col -->
+      <div class="main-col" id="main-col">
+        <!-- Toolbar -->
+        <div class="main-toolbar">
+          <div class="breadcrumb" id="breadcrumb">
+            <span class="text-muted">Select a project →</span>
+          </div>
+          <div class="git-controls">
+            <button class="btn" id="btn-pull" style="display:none">↓ Pull</button>
+            <button class="btn" id="btn-push" style="display:none">↑ Push</button>
+          </div>
+        </div>
+
+        <!-- No project state -->
+        <div class="no-project" id="no-project-state">
+          <div class="no-project-icon">⌥</div>
+          <div class="no-project-text">Select a project from the sidebar</div>
+        </div>
+
+        <!-- File browser -->
+        <div class="file-browser" id="file-browser"></div>
+
+        <!-- Editor pane -->
+        <div class="editor-pane" id="editor-pane">
+          <div class="editor-bar">
+            <span class="editor-filename" id="editor-filename">—</span>
+            <span class="editor-modified" id="editor-modified">● unsaved</span>
+            <button class="btn btn-signal" id="btn-save" style="display:none">Save</button>
+            <button class="btn btn-ghost" id="btn-back-to-files">← Files</button>
+          </div>
+          <textarea class="editor-textarea" id="editor-textarea" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <!-- Right col -->
+      <div class="right-col" id="right-col">
+
+        <!-- Last seam -->
+        <div class="seam-panel">
+          <div class="seam-panel-title">Last Edited Seam</div>
+          <div id="last-seam-content">
+            <div class="last-seam-card">
+              <div class="last-seam-name" style="color:var(--text-muted)">—</div>
+              <div class="last-seam-ts">No seam edits recorded</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Git status -->
+        <div class="git-panel">
+          <div class="seam-panel-title" style="margin-bottom:0">Git Status</div>
+          <div class="git-status-output" id="git-status">—</div>
+          <div class="flex gap-2 mt-3">
+            <button class="btn flex-1" id="btn-git-status">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Spec preview -->
+        <div class="spec-preview" id="spec-preview">
+          <div class="empty" style="padding:var(--s4)">
+            <div class="empty-text">Select a project to see spec</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="/shared.js"></script>
+  <script>
+    const { GET, POST, PUT, toast, formatTs, formatBytes, renderNav, initNav, onEvent } = window.rheon;
+
+    document.getElementById('nav-mount').innerHTML = renderNav();
+    initNav();
+
+    let currentProject = null;
+    let currentPath    = [];
+    let currentFile    = null;
+    let editorDirty    = false;
+
+    function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // ── Load projects ────────────────────────────────────────────
+    async function loadProjects() {
+      const list = await GET('/api/projects');
+      const el   = document.getElementById('project-select-list');
+      if (!list.length) {
+        el.innerHTML = `<div class="empty" style="padding:var(--s5)"><div class="empty-text">No projects</div></div>`;
+        return;
+      }
+      el.innerHTML = list.map(p => `
+        <div class="proj-item ${currentProject?.name === p.name ? 'active' : ''}" data-name="${esc(p.name)}">
+          <div class="proj-item-name">${esc(p.name)}</div>
+          <div class="proj-item-meta">${formatTs(p.lastEditedTs)}</div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.proj-item').forEach(item => {
+        item.onclick = () => selectProject(item.dataset.name);
+      });
+
+      // Auto-select from URL param
+      const urlProject = new URLSearchParams(location.search).get('project');
+      if (urlProject && !currentProject) selectProject(urlProject);
+    }
+
+    // ── Select project ───────────────────────────────────────────
+    async function selectProject(name) {
+      const projects = await GET('/api/projects');
+      currentProject = projects.find(p => p.name === name);
+      if (!currentProject) return;
+
+      currentPath = [];
+      currentFile = null;
+
+      // Update sidebar active
+      document.querySelectorAll('.proj-item').forEach(i => {
+        i.classList.toggle('active', i.dataset.name === name);
+      });
+
+      // Show controls
+      document.getElementById('btn-pull').style.display = '';
+      document.getElementById('btn-push').style.display = '';
+      document.getElementById('no-project-state').style.display = 'none';
+
+      updateBreadcrumb();
+      loadFiles();
+      loadLastSeam();
+      loadGitStatus();
+      loadSpecPreview();
+    }
+
+    // ── File browser ─────────────────────────────────────────────
+    async function loadFiles(subPath = '') {
+      const browser = document.getElementById('file-browser');
+      const editor  = document.getElementById('editor-pane');
+      browser.classList.add('visible');
+      browser.classList.remove('hidden');
+      editor.classList.remove('visible');
+
+      try {
+        const pathParam = subPath ? `?path=${encodeURIComponent(subPath)}` : '';
+        const files = await GET(`/api/projects/${currentProject.name}/files${pathParam}`);
+        renderFiles(files);
+      } catch(e) {
+        browser.innerHTML = `<div class="empty"><div class="empty-text text-err">${esc(e.message)}</div></div>`;
+      }
+    }
+
+    function renderFiles(nodes) {
+      const browser = document.getElementById('file-browser');
+      if (!nodes.length) {
+        browser.innerHTML = `<div class="empty"><div class="empty-text">Empty directory</div></div>`;
+        return;
+      }
+
+      const backRow = currentPath.length ? `
+        <div class="file-row" id="go-up-row">
+          <span class="file-icon">↩</span>
+          <span class="file-name">..</span>
+        </div>` : '';
+
+      browser.innerHTML = backRow + nodes.map(n => `
+        <div class="file-row" data-path="${esc(n.path)}" data-type="${n.type}" data-name="${esc(n.name)}">
+          <span class="file-icon">${n.type === 'directory' ? '▶' : '·'}</span>
+          <span class="file-name ${n.type === 'directory' ? 'dir' : ''}">${esc(n.name)}</span>
+          ${n.type === 'file' ? `<span class="file-size">${formatBytes(n.size)}</span>` : ''}
+          ${n.type === 'file' ? `<span class="file-ts">${formatTs(n.modifiedTs)}</span>` : ''}
+        </div>
+      `).join('');
+
+      const upRow = document.getElementById('go-up-row');
+      if (upRow) upRow.onclick = () => {
+        currentPath.pop();
+        updateBreadcrumb();
+        loadFiles(currentPath.join('/'));
+      };
+
+      browser.querySelectorAll('.file-row[data-type]').forEach(row => {
+        row.onclick = () => {
+          if (row.dataset.type === 'directory') {
+            currentPath.push(row.dataset.name);
+            updateBreadcrumb();
+            loadFiles(currentPath.join('/'));
+          } else {
+            openFile(row.dataset.path, row.dataset.name);
+          }
+        };
+      });
+    }
+
+    // ── Editor ───────────────────────────────────────────────────
+    async function openFile(filePath, fileName) {
+      currentFile = filePath;
+      const browser = document.getElementById('file-browser');
+      const editor  = document.getElementById('editor-pane');
+      browser.classList.remove('visible');
+      editor.classList.add('visible');
+
+      document.getElementById('editor-filename').textContent = filePath;
+
+      const isEditable = !fileName.match(/\.(png|jpg|gif|svg|woff|ttf|eot|ico|zip|tar|gz)$/i);
+      const saveBtn = document.getElementById('btn-save');
+      const textarea = document.getElementById('editor-textarea');
+
+      if (!isEditable) {
+        textarea.value = '(binary file — not editable)';
+        textarea.readOnly = true;
+        saveBtn.style.display = 'none';
+        return;
+      }
+
+      textarea.readOnly = false;
+      saveBtn.style.display = '';
+
+      try {
+        const result = await GET(`/api/projects/${currentProject.name}/file?path=${encodeURIComponent(filePath)}`);
+        textarea.value = result.content;
+        editorDirty = false;
+        document.getElementById('editor-modified').style.display = 'none';
+      } catch(e) {
+        textarea.value = `Error loading file: ${e.message}`;
+      }
+    }
+
+    document.getElementById('editor-textarea').oninput = () => {
+      if (!editorDirty) {
+        editorDirty = true;
+        document.getElementById('editor-modified').style.display = '';
+      }
+    };
+
+    document.getElementById('btn-save').onclick = async () => {
+      if (!currentFile || !currentProject) return;
+      const content = document.getElementById('editor-textarea').value;
+      try {
+        await PUT(`/api/projects/${currentProject.name}/file`, { path: currentFile, content });
+        editorDirty = false;
+        document.getElementById('editor-modified').style.display = 'none';
+        toast(`Saved ${currentFile}`, 'ok');
+        loadLastSeam();
+        loadGitStatus();
+      } catch(e) {
+        toast(e.message, 'err');
+      }
+    };
+
+    // Ctrl+S / Cmd+S to save
+    document.getElementById('editor-textarea').onkeydown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        document.getElementById('btn-save').click();
+      }
+    };
+
+    document.getElementById('btn-back-to-files').onclick = () => {
+      if (editorDirty && !confirm('Unsaved changes — discard?')) return;
+      editorDirty = false;
+      currentFile = null;
+      document.getElementById('editor-pane').classList.remove('visible');
+      document.getElementById('file-browser').classList.add('visible');
+    };
+
+    // ── Breadcrumb ───────────────────────────────────────────────
+    function updateBreadcrumb() {
+      const bc = document.getElementById('breadcrumb');
+      const parts = [currentProject?.name, ...currentPath].filter(Boolean);
+      bc.innerHTML = parts.map((p, i) => {
+        const isLast = i === parts.length - 1;
+        const html = `<span class="breadcrumb-seg" data-idx="${i}">${esc(p)}</span>`;
+        return isLast ? html : html + `<span class="breadcrumb-sep">/</span>`;
+      }).join('');
+
+      bc.querySelectorAll('.breadcrumb-seg').forEach(seg => {
+        seg.onclick = () => {
+          const idx = parseInt(seg.dataset.idx);
+          if (idx === 0) { currentPath = []; }
+          else { currentPath = currentPath.slice(0, idx); }
+          updateBreadcrumb();
+          loadFiles(currentPath.join('/'));
+        };
+      });
+    }
+
+    // ── Last seam ────────────────────────────────────────────────
+    function loadLastSeam() {
+      if (!currentProject) return;
+      const el = document.getElementById('last-seam-content');
+      const seam = currentProject.lastSeam;
+      if (!seam) {
+        el.innerHTML = `<div class="last-seam-card">
+          <div class="last-seam-name" style="color:var(--text-muted)">—</div>
+          <div class="last-seam-ts">No seam edits recorded</div>
+        </div>`;
+        return;
+      }
+      el.innerHTML = `<div class="last-seam-card">
+        <div class="last-seam-name">${esc(seam.name)}</div>
+        <div class="last-seam-ts">${formatTs(seam.ts)}</div>
+      </div>`;
+    }
+
+    // ── Git ──────────────────────────────────────────────────────
+    async function loadGitStatus() {
+      if (!currentProject) return;
+      try {
+        const result = await GET(`/api/projects/${currentProject.name}/git/status`);
+        document.getElementById('git-status').textContent = result.output || '(clean)';
+      } catch(e) {
+        document.getElementById('git-status').textContent = e.message;
+      }
+    }
+
+    document.getElementById('btn-git-status').onclick = loadGitStatus;
+
+    document.getElementById('btn-push').onclick = async () => {
+      if (!currentProject) return;
+      const btn = document.getElementById('btn-push');
+      btn.textContent = 'Pushing…'; btn.disabled = true;
+      try {
+        const r = await POST(`/api/projects/${currentProject.name}/git/push`, {});
+        toast(r.ok ? 'Pushed' : `Push failed: ${r.error}`, r.ok ? 'ok' : 'err');
+        loadGitStatus();
+      } catch(e) { toast(e.message, 'err'); }
+      finally { btn.textContent = '↑ Push'; btn.disabled = false; }
+    };
+
+    document.getElementById('btn-pull').onclick = async () => {
+      if (!currentProject) return;
+      const btn = document.getElementById('btn-pull');
+      btn.textContent = 'Pulling…'; btn.disabled = true;
+      try {
+        const r = await POST(`/api/projects/${currentProject.name}/git/pull`, {});
+        toast(r.ok ? `Pulled: ${r.output}` : `Pull failed: ${r.error}`, r.ok ? 'ok' : 'err');
+        loadFiles(currentPath.join('/'));
+        loadGitStatus();
+      } catch(e) { toast(e.message, 'err'); }
+      finally { btn.textContent = '↓ Pull'; btn.disabled = false; }
+    };
+
+    // ── Spec preview ─────────────────────────────────────────────
+    async function loadSpecPreview() {
+      if (!currentProject) return;
+      const el = document.getElementById('spec-preview');
+      try {
+        const specFile = `${currentProject.name}.spec.json`;
+        const result = await GET(`/api/projects/${currentProject.name}/file?path=${encodeURIComponent(specFile)}`);
+        const spec = JSON.parse(result.content);
+        el.innerHTML = `
+          <div class="spec-section">
+            <div class="spec-section-title">Spec</div>
+            <div class="spec-item"><span class="spec-item-key">name</span><span>${esc(spec.name)}</span></div>
+            <div class="spec-item"><span class="spec-item-key">version</span><span>${esc(spec.version)}</span></div>
+            <div class="spec-item"><span class="spec-item-key">status</span><span class="text-signal">${esc(spec.status)}</span></div>
+          </div>
+          <div class="spec-section">
+            <div class="spec-section-title">Seams (${(spec.seams||[]).length})</div>
+            ${(spec.seams||[]).map(s => `<div class="seam-badge" style="margin-bottom:4px;display:flex">${esc(s)}</div>`).join('') || '<div class="mono-xs text-muted">none declared</div>'}
+          </div>
+          <div class="spec-section">
+            <div class="spec-section-title">Components (${(spec.components||[]).length})</div>
+            ${(spec.components||[]).map(c => `<div class="spec-item">· ${esc(c)}</div>`).join('') || '<div class="mono-xs text-muted">none</div>'}
+          </div>
+          <div class="spec-section">
+            <div class="spec-section-title">Gaps (${(spec.gaps||[]).length})</div>
+            ${(spec.gaps||[]).map(g => `<div class="spec-item text-warn">· ${esc(g)}</div>`).join('') || '<div class="mono-xs text-ok">none recorded</div>'}
+          </div>
+        `;
+      } catch {
+        el.innerHTML = `<div class="empty" style="padding:var(--s4)"><div class="empty-text">No spec file found</div></div>`;
+      }
+    }
+
+    // ── Live events ──────────────────────────────────────────────
+    onEvent('file.written', ({ projectName }) => {
+      if (projectName === currentProject?.name) loadGitStatus();
+    });
+    onEvent('project.created', () => loadProjects());
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadProjects();
+  </script>
+</body>
+</html>

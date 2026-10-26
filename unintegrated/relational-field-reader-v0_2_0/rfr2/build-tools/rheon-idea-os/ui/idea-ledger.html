@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Idea Ledger · RHEON</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .ledger-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 0;
+      height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    /* ── Left: idea list + add ── */
+    .ideas-col {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .ideas-toolbar {
+      padding: var(--s3) var(--s4);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+      background: var(--bg-deep);
+      flex-shrink: 0;
+    }
+
+    .idea-search {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: var(--s2) var(--s3);
+      outline: none;
+      transition: border-color var(--t-fast);
+    }
+    .idea-search:focus { border-color: var(--signal-dim); }
+    .idea-search::placeholder { color: var(--text-muted); }
+
+    .project-filter {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: var(--s1) var(--s3);
+      outline: none;
+    }
+
+    /* Add idea form */
+    .add-idea-form {
+      padding: var(--s3) var(--s4);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    .add-idea-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+      margin-bottom: var(--s2);
+    }
+
+    .idea-textarea {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: var(--s2) var(--s3);
+      width: 100%;
+      resize: none;
+      outline: none;
+      transition: border-color var(--t-fast);
+      line-height: 1.5;
+    }
+    .idea-textarea:focus { border-color: var(--signal-dim); }
+    .idea-textarea::placeholder { color: var(--text-muted); }
+
+    /* Ideas list */
+    .ideas-list-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .idea-item {
+      padding: var(--s3) var(--s4);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--t-fast);
+      position: relative;
+    }
+    .idea-item:hover { background: var(--bg-raised); }
+    .idea-item.selected { background: var(--signal-glow); border-left: 2px solid var(--signal); }
+
+    .idea-text {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.4;
+      margin-bottom: var(--s1);
+    }
+
+    .idea-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      flex-wrap: wrap;
+    }
+
+    .idea-id {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .idea-project {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--signal-dim);
+    }
+
+    .idea-tags {
+      display: flex;
+      gap: var(--s1);
+    }
+
+    .idea-ts {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    /* ── Right: graph + detail ── */
+    .lattice-col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .lattice-toolbar {
+      padding: var(--s3) var(--s5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      background: var(--bg-deep);
+      flex-shrink: 0;
+    }
+
+    .lattice-tabs {
+      display: flex;
+      gap: 1px;
+    }
+
+    .lattice-tab {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: var(--s1) var(--s3);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--t-fast);
+    }
+    .lattice-tab.active {
+      background: var(--signal-glow);
+      border-color: var(--signal-muted);
+      color: var(--signal);
+    }
+
+    /* Graph canvas */
+    .graph-view {
+      flex: 1;
+      display: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .graph-view.active { display: block; }
+
+    #graph-canvas {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-void);
+    }
+
+    .graph-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s3);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Detail view */
+    .detail-view {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-view.active { display: flex; }
+
+    .idea-detail-header {
+      padding: var(--s4) var(--s5);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .idea-detail-text {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.4;
+      margin-bottom: var(--s3);
+    }
+
+    .idea-detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--s4) var(--s5);
+    }
+
+    /* Link form */
+    .link-form {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: var(--s4);
+      margin-bottom: var(--s4);
+    }
+
+    .link-form-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--s3);
+    }
+
+    .edge-type-grid {
+      display: flex;
+      gap: var(--s2);
+      flex-wrap: wrap;
+      margin-bottom: var(--s3);
+    }
+
+    .edge-type-btn {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      padding: var(--s1) var(--s3);
+      border: 1px solid var(--border);
+      background: var(--bg-deep);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--t-fast);
+    }
+    .edge-type-btn.selected {
+      border-color: var(--signal-dim);
+      background: var(--signal-glow);
+      color: var(--signal);
+    }
+
+    /* Neighbours */
+    .neighbour-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s3);
+      padding: var(--s3);
+      border: 1px solid var(--border);
+      margin-bottom: var(--s2);
+      background: var(--bg-deep);
+      cursor: pointer;
+      transition: border-color var(--t-fast);
+    }
+    .neighbour-item:hover { border-color: var(--border-mid); }
+
+    .neighbour-edge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--signal-dim);
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .neighbour-text {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <div class="page">
+    <div class="ledger-layout">
+
+      <!-- Left: ideas -->
+      <div class="ideas-col">
+        <div class="ideas-toolbar">
+          <input class="idea-search" id="idea-search" placeholder="Search ideas…">
+          <select class="project-filter" id="project-filter">
+            <option value="">All projects</option>
+          </select>
+        </div>
+
+        <div class="add-idea-form">
+          <div class="add-idea-title">+ Add Idea</div>
+          <textarea class="idea-textarea" id="idea-input" rows="2" placeholder="Capture an idea…"></textarea>
+          <div class="flex gap-2 mt-2">
+            <input class="input flex-1" id="idea-tags-input" placeholder="tags (comma-separated)">
+            <button class="btn btn-signal" id="btn-add-idea">Add</button>
+          </div>
+        </div>
+
+        <div class="ideas-list-wrap" id="ideas-list">
+          <div class="empty" style="padding:var(--s5)">
+            <div class="empty-icon">◎</div>
+            <div class="empty-text">No ideas yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: lattice -->
+      <div class="lattice-col">
+        <div class="lattice-toolbar">
+          <div class="lattice-tabs">
+            <div class="lattice-tab active" data-tab="detail">Detail</div>
+            <div class="lattice-tab" data-tab="graph">Graph</div>
+          </div>
+          <span class="mono-xs text-muted" id="lattice-stats">— ideas · — edges</span>
+          <button class="btn btn-ghost ml-auto" id="btn-refresh-graph">Refresh</button>
+        </div>
+
+        <!-- Detail view -->
+        <div class="detail-view active" id="detail-view">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s3);color:var(--text-muted)" id="detail-empty">
+            <div style="font-size:40px;opacity:0.15">◎</div>
+            <div class="mono-xs">Select an idea to view connections</div>
+          </div>
+          <div id="idea-detail" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+            <div class="idea-detail-header">
+              <div class="idea-detail-text" id="detail-text">—</div>
+              <div class="flex items-center gap-3">
+                <span class="mono-xs text-muted" id="detail-id">—</span>
+                <span class="mono-xs" id="detail-project" style="color:var(--signal-dim)"></span>
+                <span class="mono-xs text-muted" id="detail-ts">—</span>
+              </div>
+            </div>
+            <div class="idea-detail-body">
+
+              <!-- Link form -->
+              <div class="link-form">
+                <div class="link-form-title">Create Association</div>
+                <div class="field mb-2">
+                  <label class="label">Target Idea ID</label>
+                  <input class="input" id="link-target-id" placeholder="idea id…">
+                </div>
+                <div class="edge-type-grid" id="edge-type-grid">
+                  ${['related','refines','contradicts','implements','spawns'].map(t => `
+                    <div class="edge-type-btn" data-type="${t}">${t}</div>`).join('')}
+                </div>
+                <button class="btn btn-signal" id="btn-link-idea">Link →</button>
+              </div>
+
+              <!-- Neighbours -->
+              <div class="card-title mb-3">Connections</div>
+              <div id="neighbours-list">
+                <div class="mono-xs text-muted">No connections yet</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph view -->
+        <div class="graph-view" id="graph-view">
+          <canvas id="graph-canvas"></canvas>
+          <div class="graph-empty" id="graph-empty">
+            <div style="font-size:32px;opacity:0.2">◎</div>
+            <div class="mono-xs">No lattice edges yet.<br>Link ideas to build the graph.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/shared.js"></script>
+  <script>
+    const { GET, POST, toast, formatTs, renderNav, initNav, onEvent } = window.rheon;
+    document.getElementById('nav-mount').innerHTML = renderNav();
+    initNav();
+
+    function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    let allIdeas    = [];
+    let latticeGraph = { nodes: [], edges: [] };
+    let selectedIdea = null;
+    let selectedEdgeType = 'related';
+    let searchQ = '';
+    let projectFilter = '';
+    let activeTab = 'detail';
+
+    // ── Edge type selector ───────────────────────────────────────
+    document.querySelectorAll('.edge-type-btn').forEach(btn => {
+      if (btn.dataset.type === 'related') btn.classList.add('selected');
+      btn.onclick = () => {
+        document.querySelectorAll('.edge-type-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedEdgeType = btn.dataset.type;
+      };
+    });
+
+    // ── Tab switcher ─────────────────────────────────────────────
+    document.querySelectorAll('.lattice-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.lattice-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeTab = tab.dataset.tab;
+        document.getElementById('detail-view').classList.toggle('active', activeTab === 'detail');
+        document.getElementById('graph-view').classList.toggle('active',  activeTab === 'graph');
+        if (activeTab === 'graph') renderGraph();
+      };
+    });
+
+    // ── Load projects for filter ─────────────────────────────────
+    async function loadProjectFilter() {
+      try {
+        const projects = await GET('/api/projects');
+        const sel = document.getElementById('project-filter');
+        sel.innerHTML = '<option value="">All projects</option>' +
+          projects.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+        sel.onchange = (e) => { projectFilter = e.target.value; loadIdeas(); };
+      } catch {}
+    }
+
+    // ── Load ideas ───────────────────────────────────────────────
+    async function loadIdeas() {
+      try {
+        let url = '/api/ideas?limit=200';
+        if (projectFilter) url += `&projectId=${encodeURIComponent(projectFilter)}`;
+        if (searchQ) {
+          // Use search endpoint
+          const results = await GET(`/api/ideas/search?q=${encodeURIComponent(searchQ)}${projectFilter ? '&projectId='+encodeURIComponent(projectFilter) : ''}`);
+          allIdeas = results;
+        } else {
+          allIdeas = await GET(url);
+        }
+        renderIdeas();
+      } catch(e) {
+        console.error('loadIdeas:', e.message);
+      }
+    }
+
+    function renderIdeas() {
+      const list = document.getElementById('ideas-list');
+      if (!allIdeas.length) {
+        list.innerHTML = `<div class="empty" style="padding:var(--s5)">
+          <div class="empty-icon">◎</div>
+          <div class="empty-text">${searchQ ? 'No matching ideas' : 'No ideas yet'}</div>
+        </div>`;
+        return;
+      }
+      list.innerHTML = allIdeas.map(i => `
+        <div class="idea-item ${selectedIdea?.id === i.id ? 'selected' : ''}" data-id="${esc(i.id)}">
+          <div class="idea-text">${esc(i.text)}</div>
+          <div class="idea-meta">
+            <span class="idea-id">${i.id}</span>
+            ${i.projectId ? `<span class="idea-project">⌥ ${esc(i.projectId)}</span>` : ''}
+            <div class="idea-tags">${(i.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+            <span class="idea-ts">${formatTs(i.ts)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.idea-item[data-id]').forEach(el => {
+        el.onclick = () => {
+          const idea = allIdeas.find(i => i.id === el.dataset.id);
+          if (idea) selectIdea(idea);
+        };
+      });
+    }
+
+    // ── Select idea ──────────────────────────────────────────────
+    async function selectIdea(idea) {
+      selectedIdea = idea;
+      renderIdeas();
+
+      document.getElementById('detail-empty').style.display = 'none';
+      const detailEl = document.getElementById('idea-detail');
+      detailEl.style.display = 'flex';
+
+      document.getElementById('detail-text').textContent    = idea.text;
+      document.getElementById('detail-id').textContent      = idea.id;
+      document.getElementById('detail-ts').textContent      = formatTs(idea.ts);
+      document.getElementById('detail-project').textContent = idea.projectId ? `⌥ ${idea.projectId}` : '';
+
+      await loadNeighbours(idea.id);
+    }
+
+    async function loadNeighbours(ideaId) {
+      const el = document.getElementById('neighbours-list');
+      try {
+        const graph = await GET(`/api/lattice`);
+        const edges = graph.edges.filter(e => e.fromId === ideaId || e.toId === ideaId);
+
+        if (!edges.length) {
+          el.innerHTML = `<div class="mono-xs text-muted">No connections yet</div>`;
+          return;
+        }
+
+        const nodeMap = new Map(graph.nodes.map(n => [n.id, n]));
+        el.innerHTML = edges.map(e => {
+          const otherId = e.fromId === ideaId ? e.toId : e.fromId;
+          const other   = nodeMap.get(otherId);
+          const dir     = e.fromId === ideaId ? '→' : '←';
+          return `
+            <div class="neighbour-item" data-id="${esc(otherId)}">
+              <div class="neighbour-edge">${dir} ${esc(e.type)}</div>
+              <div class="neighbour-text">${esc(other?.text || otherId)}</div>
+            </div>`;
+        }).join('');
+
+        el.querySelectorAll('.neighbour-item[data-id]').forEach(item => {
+          item.onclick = () => {
+            const idea = allIdeas.find(i => i.id === item.dataset.id);
+            if (idea) selectIdea(idea);
+          };
+        });
+
+        updateLatticeStats(graph);
+      } catch(e) {
+        el.innerHTML = `<div class="mono-xs text-err">${esc(e.message)}</div>`;
+      }
+    }
+
+    function updateLatticeStats(graph) {
+      document.getElementById('lattice-stats').textContent =
+        `${graph.nodes.length} ideas · ${graph.edges.length} edges`;
+    }
+
+    // ── Add idea ─────────────────────────────────────────────────
+    document.getElementById('btn-add-idea').onclick = async () => {
+      const text = document.getElementById('idea-input').value.trim();
+      if (!text) { toast('Idea text required', 'err'); return; }
+      const tags = document.getElementById('idea-tags-input').value.split(',').map(t => t.trim()).filter(Boolean);
+
+      try {
+        const idea = await POST('/api/ideas', {
+          text,
+          projectId: projectFilter || null,
+          tags,
+        });
+        document.getElementById('idea-input').value = '';
+        document.getElementById('idea-tags-input').value = '';
+        toast('Idea added', 'ok');
+        await loadIdeas();
+        selectIdea(idea);
+      } catch(e) { toast(e.message, 'err'); }
+    };
+
+    // Ctrl+Enter to add
+    document.getElementById('idea-input').onkeydown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        document.getElementById('btn-add-idea').click();
+      }
+    };
+
+    // ── Link ideas ───────────────────────────────────────────────
+    document.getElementById('btn-link-idea').onclick = async () => {
+      if (!selectedIdea) { toast('Select an idea first', 'err'); return; }
+      const toId = document.getElementById('link-target-id').value.trim();
+      if (!toId) { toast('Target ID required', 'err'); return; }
+
+      try {
+        await POST('/api/ideas/link', { fromId: selectedIdea.id, toId, type: selectedEdgeType });
+        toast(`Linked via "${selectedEdgeType}"`, 'ok');
+        document.getElementById('link-target-id').value = '';
+        await loadNeighbours(selectedIdea.id);
+        if (activeTab === 'graph') renderGraph();
+      } catch(e) { toast(e.message, 'err'); }
+    };
+
+    // ── Search ───────────────────────────────────────────────────
+    let searchTimer;
+    document.getElementById('idea-search').oninput = (e) => {
+      clearTimeout(searchTimer);
+      searchQ = e.target.value;
+      searchTimer = setTimeout(loadIdeas, 250);
+    };
+
+    // ── Graph renderer (canvas, force-directed) ──────────────────
+    async function renderGraph() {
+      const canvas  = document.getElementById('graph-canvas');
+      const ctx     = canvas.getContext('2d');
+      const emptyEl = document.getElementById('graph-empty');
+
+      try {
+        const graph = await GET('/api/lattice' + (projectFilter ? `?projectId=${encodeURIComponent(projectFilter)}` : ''));
+        latticeGraph = graph;
+        updateLatticeStats(graph);
+
+        if (!graph.edges.length) {
+          emptyEl.style.display = 'flex';
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+        emptyEl.style.display = 'none';
+      } catch { return; }
+
+      // Size canvas
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width  = rect.width;
+      canvas.height = rect.height;
+
+      const nodes = latticeGraph.nodes;
+      const edges = latticeGraph.edges;
+
+      // Simple force-directed layout
+      const positions = new Map();
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      nodes.forEach((n, i) => {
+        const angle = (i / nodes.length) * Math.PI * 2;
+        const r = Math.min(canvas.width, canvas.height) * 0.3;
+        positions.set(n.id, {
+          x: cx + r * Math.cos(angle) + (Math.random()-0.5)*40,
+          y: cy + r * Math.sin(angle) + (Math.random()-0.5)*40,
+          vx: 0, vy: 0,
+        });
+      });
+
+      // Run ~60 iterations of force simulation
+      for (let iter = 0; iter < 60; iter++) {
+        // Repulsion
+        nodes.forEach(a => {
+          nodes.forEach(b => {
+            if (a.id === b.id) return;
+            const pa = positions.get(a.id), pb = positions.get(b.id);
+            const dx = pa.x - pb.x, dy = pa.y - pb.y;
+            const dist = Math.max(Math.sqrt(dx*dx + dy*dy), 1);
+            const force = 800 / (dist * dist);
+            pa.vx += force * dx / dist;
+            pa.vy += force * dy / dist;
+          });
+        });
+
+        // Attraction along edges
+        edges.forEach(e => {
+          const pa = positions.get(e.fromId), pb = positions.get(e.toId);
+          if (!pa || !pb) return;
+          const dx = pb.x - pa.x, dy = pb.y - pa.y;
+          const dist = Math.max(Math.sqrt(dx*dx + dy*dy), 1);
+          const force = (dist - 120) * 0.015;
+          pa.vx += force * dx / dist; pa.vy += force * dy / dist;
+          pb.vx -= force * dx / dist; pb.vy -= force * dy / dist;
+        });
+
+        // Center pull
+        nodes.forEach(n => {
+          const p = positions.get(n.id);
+          p.vx += (cx - p.x) * 0.01;
+          p.vy += (cy - p.y) * 0.01;
+        });
+
+        // Apply + dampen
+        nodes.forEach(n => {
+          const p = positions.get(n.id);
+          p.x = Math.max(60, Math.min(canvas.width-60, p.x + p.vx));
+          p.y = Math.max(40, Math.min(canvas.height-40, p.y + p.vy));
+          p.vx *= 0.8; p.vy *= 0.8;
+        });
+      }
+
+      // Draw
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const EDGE_COLORS = {
+        related:      '#3a4a58',
+        refines:      '#2a9d5c',
+        contradicts:  '#c0392b',
+        implements:   '#e8a000',
+        spawns:       '#8b5cf6',
+      };
+
+      // Edges
+      edges.forEach(e => {
+        const pa = positions.get(e.fromId), pb = positions.get(e.toId);
+        if (!pa || !pb) return;
+        ctx.beginPath();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.lineTo(pb.x, pb.y);
+        ctx.strokeStyle = EDGE_COLORS[e.type] || '#3a4a58';
+        ctx.lineWidth   = 1.5;
+        ctx.globalAlpha = 0.7;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Arrow
+        const angle = Math.atan2(pb.y - pa.y, pb.x - pa.x);
+        const ax = pb.x - 14 * Math.cos(angle);
+        const ay = pb.y - 14 * Math.sin(angle);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - 7 * Math.cos(angle - 0.4), ay - 7 * Math.sin(angle - 0.4));
+        ctx.lineTo(ax - 7 * Math.cos(angle + 0.4), ay - 7 * Math.sin(angle + 0.4));
+        ctx.closePath();
+        ctx.fillStyle = EDGE_COLORS[e.type] || '#3a4a58';
+        ctx.fill();
+      });
+
+      // Nodes
+      nodes.forEach(n => {
+        const p = positions.get(n.id);
+        const isSelected = selectedIdea?.id === n.id;
+
+        // Circle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, isSelected ? 8 : 6, 0, Math.PI * 2);
+        ctx.fillStyle   = isSelected ? '#e8a000' : '#1c2229';
+        ctx.strokeStyle = isSelected ? '#e8a000' : '#2a3540';
+        ctx.lineWidth   = isSelected ? 2 : 1;
+        ctx.fill();
+        ctx.stroke();
+
+        // Label
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle   = isSelected ? '#e8a000' : '#7a8fa0';
+        ctx.textAlign   = 'center';
+        const label = n.text.length > 28 ? n.text.slice(0, 28) + '…' : n.text;
+        ctx.fillText(label, p.x, p.y + 20);
+      });
+
+      // Click to select node
+      canvas.onclick = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        for (const n of nodes) {
+          const p = positions.get(n.id);
+          const dist = Math.sqrt((mx-p.x)**2 + (my-p.y)**2);
+          if (dist < 12) {
+            const idea = allIdeas.find(i => i.id === n.id);
+            if (idea) {
+              selectIdea(idea);
+              // Switch to detail tab
+              document.querySelectorAll('.lattice-tab').forEach(t => t.classList.remove('active'));
+              document.querySelector('[data-tab="detail"]').classList.add('active');
+              document.getElementById('graph-view').classList.remove('active');
+              document.getElementById('detail-view').classList.add('active');
+              activeTab = 'detail';
+            }
+            break;
+          }
+        }
+      };
+    }
+
+    // ── Refresh button ───────────────────────────────────────────
+    document.getElementById('btn-refresh-graph').onclick = () => {
+      loadIdeas();
+      if (activeTab === 'graph') renderGraph();
+    };
+
+    // ── Live events ──────────────────────────────────────────────
+    onEvent('idea.added', () => loadIdeas());
+    onEvent('lattice.linked', () => {
+      if (selectedIdea) loadNeighbours(selectedIdea.id);
+      if (activeTab === 'graph') renderGraph();
+    });
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadProjectFilter();
+    loadIdeas();
+    GET('/api/lattice').then(g => updateLatticeStats(g)).catch(()=>{});
+  </script>
+</body>
+</html>

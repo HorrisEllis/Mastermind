@@ -1,0 +1,15 @@
+{
+  "name": "@spatial/resonance",
+  "version": "1.0.0",
+  "description": "Behavioral fingerprint engine. Attractor distance. Resonance matching. Find your people.",
+  "type": "module",
+  "exports": {
+    ".":              "./src/index.js",
+    "./fingerprint":  "./src/fingerprint.js",
+    "./distance":     "./src/distance.js",
+    "./engine":       "./src/engine.js"
+  },
+  "peerDependencies": { "@spatial/bus": "^1.0.0" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

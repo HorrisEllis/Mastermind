@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIMI · SIGNAL INTELLIGENCE SUITE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#020705;--surface:#0b180d;--wire:#163320;--wire2:#1f4a2c;
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--glow:rgba(57,255,106,.11);--glow2:rgba(57,255,106,.06);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;--pink:#ff6eb4;
+  --blue:#44aaff;--orange:#ff8844;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+html,body{background:#010403;min-height:100vh}
+.mm{background:var(--ink);color:var(--bright);font-family:var(--mono);min-height:100vh;position:relative;overflow:hidden}
+canvas#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ── TOPBAR ── */
+.tb{position:sticky;top:0;z-index:100;background:rgba(2,7,5,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;height:40px;gap:10px;flex-wrap:nowrap}
+.lm-mark{width:28px;height:28px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-family:var(--cond);font-size:14px;font-weight:900;color:var(--signal);letter-spacing:0;animation:blink 3s ease-in-out infinite;flex-shrink:0;position:relative}
+.lm-mark::after{content:'';position:absolute;inset:-3px;border:1px solid rgba(57,255,106,.2)}
+@keyframes blink{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 18px var(--signal),0 0 40px rgba(57,255,106,.3)}}
+.lt{font-family:var(--cond);font-size:13px;font-weight:900;letter-spacing:5px;color:var(--white)}
+.sep{width:1px;height:13px;background:var(--wire);flex-shrink:0}
+.tg{font-size:6px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.tv{font-size:6px;letter-spacing:1px;margin-left:3px}
+.tr{margin-left:auto;display:flex;gap:4px;align-items:center}
+.tbtn{font-size:6px;letter-spacing:1.5px;padding:3px 8px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:22px}
+.tbtn:hover{color:var(--white);border-color:var(--muted)}
+.tbtn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.lang-sel{font-size:6px;letter-spacing:1px;padding:2px 6px;border:1px solid var(--wire2);background:var(--surface);color:var(--mid);cursor:pointer;font-family:var(--mono);height:22px}
+
+/* ── NAV ── */
+.nv{display:flex;border-bottom:1px solid var(--wire);position:sticky;top:40px;z-index:99;background:rgba(4,10,7,.97);overflow-x:auto}
+.nv::-webkit-scrollbar{height:0}
+.nt{font-size:6px;letter-spacing:2px;text-transform:uppercase;padding:7px 11px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;transition:all .2s;font-family:var(--mono);background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;flex-shrink:0}
+.nt:hover{color:var(--muted)}
+.nt.on{color:var(--signal);border-bottom-color:var(--signal)}
+
+/* ── PANES ── */
+.pn{display:none;position:relative;z-index:10;flex-direction:column;min-height:calc(100vh - 80px)}
+.pn.on{display:flex}
+.sh{font-size:5px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding:10px 16px 8px;border-bottom:1px solid var(--wire);flex-shrink:0}
+
+/* ══ WELCOME ══ */
+.wc{align-items:center;justify-content:center;padding:40px 20px;text-align:center;gap:16px}
+.we{font-size:6px;letter-spacing:4px;color:var(--dim);text-transform:uppercase}
+.wname{font-family:var(--cond);font-size:72px;font-weight:900;letter-spacing:12px;color:var(--white);line-height:1;text-shadow:0 0 60px rgba(57,255,106,.3)}
+.wtag{font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;max-width:500px;line-height:2}
+.wnd{font-size:7px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;padding:6px 14px;border:1px solid rgba(255,204,0,.3);display:inline-block;background:rgba(255,204,0,.05)}
+.wcta{margin-top:8px;font-size:8px;letter-spacing:3px;padding:10px 28px;border:1px solid var(--signal);background:var(--glow);color:var(--signal);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .2s}
+.wcta:hover{background:rgba(57,255,106,.2);box-shadow:0 0 20px rgba(57,255,106,.2)}
+.wmods{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px;max-width:800px}
+.wmod{border:1px solid var(--wire);background:rgba(11,24,13,.6);padding:14px 16px;cursor:pointer;transition:all .2s;text-align:left;min-width:140px}
+.wmod:hover{border-color:var(--wire2);background:rgba(11,24,13,.9)}
+.wmi{font-size:18px;margin-bottom:6px}
+.wml{font-size:8px;letter-spacing:2px;color:var(--white);text-transform:uppercase;margin-bottom:3px}
+.wmd{font-size:6px;color:var(--dim);letter-spacing:.5px}
+.wdesc{font-size:7px;color:var(--mid);line-height:2;max-width:480px;margin-top:4px}
+
+/* ══ UPLOAD ══ */
+.uzone{margin:16px;border:2px dashed var(--wire2);background:rgba(11,24,13,.4);padding:32px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.uzone:hover,.uzone.drag{border-color:var(--signal);background:var(--glow)}
+.uzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uicon{font-size:32px;color:var(--dim);margin-bottom:10px}
+.utitle{font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.usub{font-size:6px;color:var(--dim);letter-spacing:1px}
+.ubtnrow{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap}
+.ubtn{font-size:7px;letter-spacing:1.5px;padding:7px 14px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;display:flex;align-items:center;gap:6px}
+.ubtn:hover{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.ubtn.active{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.url-row{display:flex;gap:8px;padding:0 16px 12px}
+.url-inp{flex:1;background:var(--surface);border:1px solid var(--wire2);color:var(--bright);font-family:var(--mono);font-size:8px;padding:7px 10px;outline:none}
+.url-inp:focus{border-color:var(--signal)}
+.upload-results{padding:0 16px 16px}
+.result-item{border:1px solid var(--wire);background:rgba(11,24,13,.6);padding:10px 12px;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px}
+.r-thumb{width:48px;height:48px;object-fit:cover;border:1px solid var(--wire);flex-shrink:0;background:var(--surface)}
+.r-info{flex:1;min-width:0}
+.r-name{font-size:7px;color:var(--white);letter-spacing:.5px;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-type{font-size:6px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.r-tags{display:flex;gap:4px;flex-wrap:wrap}
+.rtag{font-size:5px;letter-spacing:1px;padding:2px 5px;border:1px solid;text-transform:uppercase}
+.rtag.social{color:var(--cyan);border-color:rgba(0,255,238,.3)}
+.rtag.sms{color:var(--violet);border-color:rgba(204,136,255,.3)}
+.rtag.email{color:var(--amber);border-color:rgba(255,204,0,.3)}
+.rtag.dm{color:var(--pink);border-color:rgba(255,110,180,.3)}
+.rtag.video{color:var(--rose);border-color:rgba(255,68,85,.3)}
+.r-analyze{font-size:6px;letter-spacing:1px;padding:3px 8px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;white-space:nowrap}
+.r-analyze:hover{color:var(--signal);border-color:var(--signal)}
+
+/* ══ SOCIAL SUITE ══ */
+.social-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px;flex:1}
+.soc-panel{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:10px}
+.soc-title{font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--wire);display:flex;align-items:center;gap:6px}
+.soc-icon{font-size:10px}
+.soc-form label{font-size:6px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:3px;margin-top:8px}
+.soc-inp{width:100%;background:var(--surface);border:1px solid var(--wire2);color:var(--bright);font-family:var(--mono);font-size:7px;padding:5px 8px;outline:none;margin-bottom:2px}
+.soc-inp:focus{border-color:var(--signal)}
+.soc-inp.ta{height:80px;resize:vertical}
+.soc-plat{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.plat-btn{font-size:5px;letter-spacing:1px;padding:3px 7px;border:1px solid var(--wire);background:transparent;color:var(--dim);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s}
+.plat-btn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.sig-out{margin-top:8px;border:1px solid var(--wire);background:rgba(2,7,5,.8);padding:8px;min-height:60px}
+.sig-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.4)}
+.sig-label{font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.sig-val{font-family:var(--cond);font-size:14px;font-weight:700}
+.sig-bar-wrap{flex:1;margin:0 8px;height:3px;background:var(--wire)}
+.sig-bar{height:100%;transition:width .4s}
+.analysis-box{border:1px solid var(--wire);background:rgba(2,7,5,.7);padding:10px;margin-top:8px;font-size:7px;color:var(--muted);line-height:1.8}
+.analysis-box .label{color:var(--signal);font-size:6px;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:4px}
+.identity-card{border:1px solid var(--wire2);background:rgba(11,24,13,.8);padding:8px;margin-top:6px}
+.id-name{font-family:var(--cond);font-size:16px;font-weight:900;letter-spacing:2px;color:var(--white);margin-bottom:4px}
+.id-platform{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.id-stats{display:flex;gap:12px;flex-wrap:wrap}
+.id-stat{text-align:center}
+.id-sv{font-family:var(--cond);font-size:18px;font-weight:900;line-height:1}
+.id-sl{font-size:5px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+
+/* ══ ANALYSIS PANEL ══ */
+.analysis-full{padding:12px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
+.analysis-header{border:1px solid var(--wire);background:rgba(11,24,13,.6);padding:12px}
+.ah-source{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.ah-content{font-size:8px;color:var(--muted);line-height:1.8;font-style:italic}
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.a-card{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:10px}
+.a-title{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--wire)}
+.a-metric{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.3)}
+.a-label{font-size:6px;color:var(--muted);flex:1;letter-spacing:.5px}
+.a-score{font-family:var(--cond);font-size:14px;font-weight:700;min-width:32px;text-align:right}
+.a-bar{flex:1;height:2px;background:var(--wire);margin:0 6px}
+.a-fill{height:100%}
+.gap-list{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.gap-item{padding:5px 7px;border-left:2px solid;font-size:6.5px;color:var(--muted);line-height:1.6}
+.gap-type{font-size:5px;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:2px}
+.translation-box{border:1px solid var(--wire2);background:rgba(57,255,106,.04);padding:12px;border-left:3px solid var(--signal)}
+.tb-label{font-size:5px;letter-spacing:3px;color:var(--signal);text-transform:uppercase;margin-bottom:6px;display:block}
+.tb-content{font-size:8px;color:var(--white);line-height:2}
+.tb-chinese{font-size:9px;color:var(--cyan);line-height:2;margin-top:6px;display:none}
+.tb-chinese.show{display:block}
+
+/* ══ VATS ══ */
+.vats-layout{display:grid;grid-template-columns:1fr 340px;flex:1;gap:0}
+.vats-main{position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:400px}
+#vatsVid{width:100%;height:100%;object-fit:cover;opacity:.85}
+#vatsOverlay{position:absolute;inset:0;pointer-events:none}
+.vats-controls{padding:10px;display:flex;flex-direction:column;gap:6px}
+.zone-list{flex:1;overflow-y:auto}
+.zone-item{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:8px 10px;margin-bottom:4px;cursor:pointer;transition:all .2s}
+.zone-item:hover,.zone-item.active{border-color:var(--signal);background:var(--glow)}
+.zi-name{font-size:7px;letter-spacing:2px;color:var(--white);text-transform:uppercase;margin-bottom:3px}
+.zi-signal{font-size:6px;color:var(--dim);letter-spacing:.5px}
+.zi-intensity{height:2px;background:var(--wire);margin-top:5px}
+.zi-fill{height:100%;background:var(--signal);transition:width .5s}
+.vats-log{border:1px solid var(--wire);background:rgba(2,7,5,.8);padding:8px;max-height:200px;overflow-y:auto}
+.vl-entry{font-size:6px;color:var(--muted);padding:3px 0;border-bottom:1px solid rgba(22,51,32,.3);display:flex;gap:6px}
+.vl-ts{color:var(--dim);flex-shrink:0}
+.vl-zone{color:var(--signal);flex-shrink:0}
+.vl-msg{flex:1}
+
+/* ══ LATTICE ══ */
+.latt-layout{display:grid;grid-template-columns:280px 1fr;flex:1}
+.latt-sidebar{border-right:1px solid var(--wire);padding:10px;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
+#lattCanvas{width:100%;height:100%;min-height:400px;background:rgba(2,7,5,.5);cursor:crosshair;display:block}
+.node-card{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:7px 9px;font-size:6.5px;color:var(--muted);cursor:pointer;transition:all .15s;line-height:1.7}
+.node-card:hover{border-color:var(--wire2)}
+.nc-id{font-size:5px;color:var(--dim);letter-spacing:1px;margin-bottom:2px}
+.nc-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
+.ntag-pill{font-size:5px;letter-spacing:.5px;padding:1px 4px;border:1px solid;text-transform:uppercase}
+.cli-row{display:flex;gap:6px;padding:8px;border-top:1px solid var(--wire);background:rgba(2,7,5,.8)}
+.cli-inp{flex:1;background:transparent;border:none;color:var(--signal);font-family:var(--mono);font-size:8px;outline:none}
+.cli-inp::placeholder{color:var(--dim)}
+
+/* ══ DSM PANEL ══ */
+.dsm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;flex:1}
+.dsm-card{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:10px}
+.dsm-header{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:2px;color:var(--white);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--wire);display:flex;justify-content:space-between;align-items:center}
+.dsm-badge{font-size:5px;letter-spacing:1.5px;padding:2px 6px;border:1px solid;text-transform:uppercase}
+.dsm-badge.asd{color:var(--cyan);border-color:rgba(0,255,238,.3)}
+.dsm-badge.adhd{color:var(--violet);border-color:rgba(204,136,255,.3)}
+.dsm-badge.trauma{color:var(--rose);border-color:rgba(255,68,85,.3)}
+.dsm-badge.anxiety{color:var(--amber);border-color:rgba(255,204,0,.3)}
+.dsm-item{padding:4px 0;border-bottom:1px solid rgba(22,51,32,.3);font-size:6.5px;color:var(--muted);display:flex;align-items:center;gap:6px;line-height:1.5}
+.dsm-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dsm-prob{font-size:5px;color:var(--dim);margin-left:auto;letter-spacing:.5px;flex-shrink:0}
+.dsm-note{font-size:6px;color:var(--dim);margin-top:8px;line-height:1.8;font-style:italic;border-top:1px solid var(--wire);padding-top:6px}
+.dsm-toggle-row{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--wire)}
+.toggle-label{font-size:6px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.toggle{width:32px;height:16px;background:var(--wire);border-radius:8px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--signal)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--ink);transition:left .2s}
+.toggle.on::after{left:18px}
+.dsm-caveat{font-size:6px;color:var(--dim);letter-spacing:.5px;flex:1;line-height:1.6}
+
+/* ══ SIGMA / PATTERNS ══ */
+.sigma-layout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;flex:1}
+.sigma-card{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:10px}
+.sc-title{font-family:var(--cond);font-size:12px;font-weight:700;letter-spacing:2px;color:var(--white);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--wire)}
+.sc-item{padding:4px 0;border-bottom:1px solid rgba(22,51,32,.3);font-size:6.5px;color:var(--muted);line-height:1.5}
+.sc-item strong{color:var(--white);display:block;font-size:6px;letter-spacing:.5px;font-weight:400}
+.pat-entry{border:1px solid var(--wire);background:rgba(11,24,13,.6);padding:8px;margin-bottom:5px;cursor:pointer;transition:border-color .2s}
+.pat-entry:hover{border-color:var(--wire2)}
+.pe-id{font-size:5px;color:var(--dim);letter-spacing:1px;margin-bottom:3px}
+.pe-label{font-size:8px;color:var(--white);letter-spacing:.5px;margin-bottom:3px}
+.pe-meta{font-size:6px;color:var(--mid);display:flex;gap:8px}
+
+/* ══ SHARED ── */
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-size:6px;letter-spacing:1.5px;padding:4px 10px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s}
+.btn:hover{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.btn.primary{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.notice{font-size:6px;color:var(--amber);letter-spacing:1px;padding:6px 10px;border-left:2px solid var(--amber);background:rgba(255,204,0,.05);line-height:1.8}
+.section-pad{padding:12px 16px}
+.row{display:flex;gap:8px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:6px;flex:1}
+.label-sm{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:3px}
+
+/* scrollbars */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--ink)}
+::-webkit-scrollbar-thumb{background:var(--wire2)}
+
+/* status dots */
+.dot{width:5px;height:5px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot.green{background:var(--signal);box-shadow:0 0 4px var(--signal)}
+.dot.amber{background:var(--amber);box-shadow:0 0 4px var(--amber)}
+.dot.red{background:var(--rose);box-shadow:0 0 4px var(--rose)}
+.dot.dim{background:var(--wire2)}
+
+/* capture preview */
+#captureCanvas{display:none}
+.preview-box{border:1px solid var(--wire2);background:var(--surface);padding:6px;text-align:center;position:relative}
+.preview-box img{max-width:100%;max-height:200px;object-fit:contain;display:block;margin:0 auto}
+.preview-label{font-size:6px;color:var(--dim);letter-spacing:1px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="mm" id="mm">
+<canvas id="bg"></canvas>
+<canvas id="captureCanvas"></canvas>
+
+<!-- ── TOPBAR ── -->
+<div class="tb">
+  <div class="lm-mark">⬡</div>
+  <span class="lt">SIGNAL SUITE</span>
+  <div class="sep"></div>
+  <span class="tg">OPERATOR</span><span class="tv" style="color:var(--signal)">MIMI</span>
+  <div class="sep"></div>
+  <span class="tg">STATUS</span><span class="tv"><span class="dot green" style="margin-right:3px"></span>LIVE</span>
+  <div class="sep"></div>
+  <span class="tg">NODES</span><span class="tv" id="nodeCount" style="color:var(--cyan)">0</span>
+  <div class="sep"></div>
+  <span class="tg">LANG</span>
+  <select class="lang-sel" id="langSel" onchange="setLang(this.value)" style="margin-left:4px">
+    <option value="en">EN</option>
+    <option value="zh">中文</option>
+    <option value="es">ES</option>
+    <option value="ja">日本語</option>
+  </select>
+  <div class="tr">
+    <button class="tbtn on" onclick="go('welcome')">HOME</button>
+    <button class="tbtn" onclick="go('upload')">UPLOAD</button>
+    <button class="tbtn" onclick="go('social')">SOCIAL</button>
+    <button class="tbtn" onclick="go('analyze')">ANALYZE</button>
+    <button class="tbtn" onclick="go('vats')">VATS</button>
+    <button class="tbtn" onclick="go('lattice')">LATTICE</button>
+    <button class="tbtn" onclick="go('dsm')">DSM</button>
+    <button class="tbtn" onclick="go('patterns')">PATTERNS</button>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<div id="liveStrip" style="background:rgba(2,7,5,.95);border-bottom:1px solid var(--wire);padding:3px 16px;font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;position:sticky;top:40px;z-index:98;overflow:hidden;white-space:nowrap">SESSION LIVE · NO SIGNAL YET</div>
+<div class="nv" style="top:58px">
+  <button class="nt on" id="nt-welcome" onclick="go('welcome')">WELCOME</button>
+  <button class="nt" id="nt-upload" onclick="go('upload')">UPLOAD · CAPTURE · INGEST</button>
+  <button class="nt" id="nt-social" onclick="go('social')">SOCIAL SUITE</button>
+  <button class="nt" id="nt-analyze" onclick="go('analyze')">ANALYSIS · GAP · SIGNAL</button>
+  <button class="nt" id="nt-vats" onclick="go('vats')">VATS · BODY TARGETING</button>
+  <button class="nt" id="nt-lattice" onclick="go('lattice')">ASSOCIATIVE LATTICE</button>
+  <button class="nt" id="nt-dsm" onclick="go('dsm')">DSM · ND INDEX</button>
+  <button class="nt" id="nt-patterns" onclick="go('patterns')">PATTERNS · .PAT LOG</button>
+</div>
+
+<!-- ══════════════════════════ WELCOME ══════════════════════════ -->
+<div class="pn on wc" id="pane-welcome">
+  <div class="we">RHEON · SIGNAL INTELLIGENCE SUITE · v0.1.0</div>
+  <div class="wname" id="welcomeName">MIMI</div>
+  <div class="wtag" id="welcomeTagline">Welcome outlier and architect of meaning, Mimi.<br>You see the patterns others miss. This is your tool.</div>
+  <div class="wnd" id="welcomeND">ASD · ADHD · SYSTEMS THINKER · BETA ARCHITECT</div>
+  <div class="wdesc" id="welcomeDesc">Behavioral intelligence for neurodivergent minds.<br>Upload anything — screenshots, videos, voice, text.<br>The system reads signal, gaps, identity, and meaning.</div>
+  <button class="wcta" onclick="go('upload')">BEGIN <span>→</span></button>
+  <div class="wmods">
+    <div class="wmod" onclick="go('upload')">
+      <div class="wmi" style="color:var(--signal)">⬆</div>
+      <div class="wml" id="wm1l">Upload</div>
+      <div class="wmd" id="wm1d">Screenshots · video · audio · text · URL</div>
+    </div>
+    <div class="wmod" onclick="go('social')">
+      <div class="wmi" style="color:var(--cyan)">◈</div>
+      <div class="wml" id="wm2l">Social Suite</div>
+      <div class="wmd" id="wm2d">DM · posts · profiles · comments · SMS</div>
+    </div>
+    <div class="wmod" onclick="go('analyze')">
+      <div class="wmi" style="color:var(--violet)">⬡</div>
+      <div class="wml" id="wm3l">Analyze</div>
+      <div class="wmd" id="wm3d">ASE · resonance · gap · inversion · shadow</div>
+    </div>
+    <div class="wmod" onclick="go('vats')">
+      <div class="wmi" style="color:var(--amber)">⊕</div>
+      <div class="wml" id="wm4l">VATS</div>
+      <div class="wmd" id="wm4d">Body zones · heatmap · live targeting</div>
+    </div>
+    <div class="wmod" onclick="go('dsm')">
+      <div class="wmi" style="color:var(--rose)">◉</div>
+      <div class="wml" id="wm5l">DSM Index</div>
+      <div class="wmd" id="wm5d">ASD · ADHD · trauma · anxiety patterns</div>
+    </div>
+    <div class="wmod" onclick="go('patterns')">
+      <div class="wmi" style="color:var(--pink)">◎</div>
+      <div class="wml" id="wm6l">Patterns</div>
+      <div class="wmd" id="wm6d">.pat log · codex · signal history</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ UPLOAD ══════════════════════════ -->
+<div class="pn" id="pane-upload">
+  <div class="sh">UPLOAD · CAPTURE · INGEST — ANY FORMAT, ANY SOURCE</div>
+
+  <div class="ubtnrow">
+    <button class="ubtn" onclick="triggerFile('image/*')">📷 <span id="ub1">IMAGE / SCREENSHOT</span></button>
+    <button class="ubtn" onclick="triggerFile('video/*')">🎥 <span id="ub2">VIDEO FILE</span></button>
+    <button class="ubtn" onclick="triggerFile('audio/*')">🎙 <span id="ub3">AUDIO / VOICE</span></button>
+    <button class="ubtn" onclick="triggerFile('.txt,.pdf,.doc,.docx,.md')">📄 <span id="ub4">DOCUMENT / TEXT</span></button>
+    <button class="ubtn" id="capBtn" onclick="captureScreen()">🖥 <span id="ub5">SCREEN CAPTURE</span></button>
+    <button class="ubtn" id="ssBtn" onclick="screenshotTab()">📸 <span id="ub6">SCREENSHOT TAB</span></button>
+    <button class="ubtn" onclick="startWebcam()">📹 <span id="ub7">WEBCAM / LIVE</span></button>
+  </div>
+
+  <div class="url-row">
+    <input class="url-inp" id="urlInp" placeholder="Paste URL — social post · article · profile · anything" />
+    <button class="btn primary" onclick="ingestURL()">INGEST</button>
+  </div>
+
+  <div class="uzone" id="dropZone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+    <input type="file" id="fileInput" multiple accept="image/*,video/*,audio/*,.txt,.pdf,.doc,.docx,.md" onchange="handleFiles(this.files)">
+    <div class="uicon">⬡</div>
+    <div class="utitle" id="uzTitle">DROP ANYTHING HERE</div>
+    <div class="usub" id="uzSub">Images · screenshots · video · audio · documents · SMS exports · email exports</div>
+  </div>
+
+  <div class="upload-results" id="uploadResults"></div>
+</div>
+
+<!-- ══════════════════════════ SOCIAL SUITE ══════════════════════════ -->
+<div class="pn" id="pane-social">
+  <div class="sh">SOCIAL SUITE — FULL PLATFORM ANALYSIS · IDENTITY · SIGNAL · GAPS</div>
+  <div class="social-grid">
+
+    <!-- Input card -->
+    <div class="soc-panel">
+      <div class="soc-title"><span class="soc-icon">◈</span> <span id="ss1">CONTENT INPUT</span></div>
+      <div class="soc-form">
+        <div class="label-sm" id="ssl1">PLATFORM</div>
+        <div class="soc-plat" id="platSelector">
+          <button class="plat-btn on" data-p="twitter" onclick="selectPlat(this)">𝕏</button>
+          <button class="plat-btn" data-p="instagram" onclick="selectPlat(this)">IG</button>
+          <button class="plat-btn" data-p="tiktok" onclick="selectPlat(this)">TT</button>
+          <button class="plat-btn" data-p="facebook" onclick="selectPlat(this)">FB</button>
+          <button class="plat-btn" data-p="reddit" onclick="selectPlat(this)">RD</button>
+          <button class="plat-btn" data-p="discord" onclick="selectPlat(this)">DC</button>
+          <button class="plat-btn" data-p="sms" onclick="selectPlat(this)">SMS</button>
+          <button class="plat-btn" data-p="email" onclick="selectPlat(this)">EMAIL</button>
+          <button class="plat-btn" data-p="dm" onclick="selectPlat(this)">DM</button>
+          <button class="plat-btn" data-p="comment" onclick="selectPlat(this)">CMNT</button>
+          <button class="plat-btn" data-p="profile" onclick="selectPlat(this)">PROFILE</button>
+          <button class="plat-btn" data-p="wechat" onclick="selectPlat(this)">微信</button>
+        </div>
+        <div class="label-sm" id="ssl2">USERNAME / IDENTITY (OPTIONAL)</div>
+        <input class="soc-inp" id="socUsername" placeholder="@username or display name">
+        <div class="label-sm" id="ssl3">CONTENT BODY</div>
+        <textarea class="soc-inp ta" id="socContent" placeholder="Paste the message, post, comment, DM, SMS, email body..."></textarea>
+        <div class="label-sm" id="ssl4">CONTEXT (WHO SENT THIS TO WHO)</div>
+        <input class="soc-inp" id="socContext" placeholder="e.g. sent to me · from ex · public post · comment on my photo">
+        <div style="margin-top:8px" class="btn-row">
+          <button class="btn primary" onclick="analyzeSocial()">ANALYZE</button>
+          <button class="btn" onclick="clearSocial()">CLEAR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Identity card -->
+    <div class="soc-panel">
+      <div class="soc-title"><span class="soc-icon">◉</span> <span id="ss2">IDENTITY · ASE SIGNATURE</span></div>
+      <div id="identityOut">
+        <div class="identity-card" style="border-color:var(--wire)">
+          <div class="id-name" id="idName">—</div>
+          <div class="id-platform" id="idPlatform">AWAITING INPUT</div>
+          <div class="id-stats">
+            <div class="id-stat"><div class="id-sv" id="idAse" style="color:var(--signal)">—</div><div class="id-sl">ASE MATCH</div></div>
+            <div class="id-stat"><div class="id-sv" id="idRes" style="color:var(--cyan)">—</div><div class="id-sl">RESONANCE</div></div>
+            <div class="id-stat"><div class="id-sv" id="idDrift" style="color:var(--amber)">—</div><div class="id-sl">DRIFT</div></div>
+            <div class="id-stat"><div class="id-sv" id="idOriginal" style="color:var(--violet)">—</div><div class="id-sl">ORIGINAL</div></div>
+          </div>
+        </div>
+        <div class="sig-out" id="aseScores" style="margin-top:6px">
+          <div class="sig-row"><span class="sig-label" id="asel1">LEXICAL</span><div class="sig-bar-wrap"><div class="sig-bar" style="width:0%;background:var(--signal)"></div></div><span class="sig-val" style="color:var(--signal)">—</span></div>
+          <div class="sig-row"><span class="sig-label" id="asel2">SYNTACTIC</span><div class="sig-bar-wrap"><div class="sig-bar" style="width:0%;background:var(--cyan)"></div></div><span class="sig-val" style="color:var(--cyan)">—</span></div>
+          <div class="sig-row"><span class="sig-label" id="asel3">RHYTHMIC</span><div class="sig-bar-wrap"><div class="sig-bar" style="width:0%;background:var(--violet)"></div></div><span class="sig-val" style="color:var(--violet)">—</span></div>
+          <div class="sig-row"><span class="sig-label" id="asel4">EMOTIONAL</span><div class="sig-bar-wrap"><div class="sig-bar" style="width:0%;background:var(--pink)"></div></div><span class="sig-val" style="color:var(--pink)">—</span></div>
+          <div class="sig-row"><span class="sig-label" id="asel5">COGNITIVE</span><div class="sig-bar-wrap"><div class="sig-bar" style="width:0%;background:var(--amber)"></div></div><span class="sig-val" style="color:var(--amber)">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gap Hunter card -->
+    <div class="soc-panel" style="grid-column:1/-1">
+      <div class="soc-title"><span class="soc-icon">⬡</span> <span id="ss3">GAP HUNTER · LIMINAL ENGINE · SIGNAL TRANSLATION</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div>
+          <div class="label-sm" id="ssl5">SIGNAL-TO-NOISE</div>
+          <div class="sig-out" id="snrOut">
+            <div class="sig-row"><span class="sig-label" id="snrl1">SIGNAL</span><div class="sig-bar-wrap"><div class="sig-bar" id="signalBar" style="width:0%;background:var(--signal)"></div></div><span class="sig-val" id="signalVal" style="color:var(--signal)">—</span></div>
+            <div class="sig-row"><span class="sig-label" id="snrl2">NOISE</span><div class="sig-bar-wrap"><div class="sig-bar" id="noiseBar" style="width:0%;background:var(--rose)"></div></div><span class="sig-val" id="noiseVal" style="color:var(--rose)">—</span></div>
+            <div class="sig-row"><span class="sig-label" id="snrl3">SUPPRESSION</span><div class="sig-bar-wrap"><div class="sig-bar" id="suppBar" style="width:0%;background:var(--violet)"></div></div><span class="sig-val" id="suppVal" style="color:var(--violet)">—</span></div>
+            <div class="sig-row"><span class="sig-label" id="snrl4">AMBIGUITY</span><div class="sig-bar-wrap"><div class="sig-bar" id="ambigBar" style="width:0%;background:var(--amber)"></div></div><span class="sig-val" id="ambigVal" style="color:var(--amber)">—</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="label-sm" id="ssl6">DETECTED GAPS</div>
+          <div class="gap-list" id="gapList">
+            <div style="font-size:6px;color:var(--dim);padding:8px">Awaiting analysis...</div>
+          </div>
+        </div>
+        <div>
+          <div class="label-sm" id="ssl7">PLAIN LANGUAGE TRANSLATION</div>
+          <div class="translation-box" id="translationBox">
+            <span class="tb-label" id="tbl1">WHAT THIS ACTUALLY MEANS</span>
+            <div class="tb-content" id="translationEn">Analyze something to see the translation here.</div>
+            <div class="tb-chinese" id="translationZh">在这里分析一些内容以查看翻译。</div>
+          </div>
+          <div style="margin-top:6px" class="btn-row">
+            <button class="btn" id="zhBtn" onclick="toggleChinese()">中文 TOGGLE</button>
+          </div>
+        </div>
+      </div>
+      <div id="entityHistory" style="display:none;margin:0 16px 12px;border:1px solid var(--wire2);background:rgba(11,24,13,.8);padding:10px;font-size:6.5px;color:var(--muted)"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ ANALYZE ══════════════════════════ -->
+<div class="pn" id="pane-analyze">
+  <div class="sh">ANALYSIS ENGINE — SIGNAL · GAP · INVERSION · SHADOW · PATTERN</div>
+  <div class="analysis-full">
+    <div class="row">
+      <div class="col">
+        <div class="label-sm" id="anz1">INPUT TEXT OR PASTE CONTENT</div>
+        <textarea class="soc-inp ta" id="analyzeInput" style="height:100px" placeholder="Paste any communication — text, message, email, caption, comment, anything..."></textarea>
+      </div>
+      <div class="col" style="flex:0 0 180px">
+        <div class="label-sm">OPTIONS</div>
+        <div class="btn-row" style="flex-direction:column;gap:4px">
+          <button class="btn primary" onclick="runAnalysis()">RUN ANALYSIS</button>
+          <button class="btn" onclick="runFullSpectrum()">FULL SPECTRUM</button>
+          <button class="btn" onclick="clearAnalysis()">CLEAR</button>
+        </div>
+        <div style="margin-top:8px">
+          <div class="label-sm" id="anz2">ANALYSIS DEPTH</div>
+          <div class="btn-row" style="flex-direction:column;gap:3px">
+            <button class="btn active" id="depthBtn1" onclick="setDepth(1,this)">SURFACE</button>
+            <button class="btn" id="depthBtn2" onclick="setDepth(2,this)">DEEP</button>
+            <button class="btn" id="depthBtn3" onclick="setDepth(3,this)">FULL SPECTRUM</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-grid" id="analysisGrid">
+      <div class="a-card">
+        <div class="a-title" id="ac1">SIGNAL QUALITY</div>
+        <div class="a-metric"><span class="a-label" id="acl1">Clarity</span><div class="a-bar"><div class="a-fill" id="af1" style="width:0%;background:var(--signal)"></div></div><span class="a-score" id="as1" style="color:var(--signal)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="acl2">Authenticity</span><div class="a-bar"><div class="a-fill" id="af2" style="width:0%;background:var(--cyan)"></div></div><span class="a-score" id="as2" style="color:var(--cyan)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="acl3">Coherence</span><div class="a-bar"><div class="a-fill" id="af3" style="width:0%;background:var(--violet)"></div></div><span class="a-score" id="as3" style="color:var(--violet)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="acl4">Congruence</span><div class="a-bar"><div class="a-fill" id="af4" style="width:0%;background:var(--amber)"></div></div><span class="a-score" id="as4" style="color:var(--amber)">—</span></div>
+      </div>
+      <div class="a-card">
+        <div class="a-title" id="ac2">NVC PATTERNS</div>
+        <div class="a-metric"><span class="a-label" id="nvcl1">Observation</span><div class="a-bar"><div class="a-fill" id="nf1" style="width:0%;background:var(--signal)"></div></div><span class="a-score" id="ns1" style="color:var(--signal)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="nvcl2">Feeling</span><div class="a-bar"><div class="a-fill" id="nf2" style="width:0%;background:var(--pink)"></div></div><span class="a-score" id="ns2" style="color:var(--pink)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="nvcl3">Need</span><div class="a-bar"><div class="a-fill" id="nf3" style="width:0%;background:var(--cyan)"></div></div><span class="a-score" id="ns3" style="color:var(--cyan)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="nvcl4">Request</span><div class="a-bar"><div class="a-fill" id="nf4" style="width:0%;background:var(--violet)"></div></div><span class="a-score" id="ns4" style="color:var(--violet)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="nvcl5">Jackal / Blame</span><div class="a-bar"><div class="a-fill" id="nf5" style="width:0%;background:var(--rose)"></div></div><span class="a-score" id="ns5" style="color:var(--rose)">—</span></div>
+      </div>
+      <div class="a-card">
+        <div class="a-title" id="ac3">ATTACHMENT SIGNALS</div>
+        <div class="a-metric"><span class="a-label" id="atl1">Secure</span><div class="a-bar"><div class="a-fill" id="att1" style="width:0%;background:var(--signal)"></div></div><span class="a-score" id="ats1" style="color:var(--signal)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="atl2">Anxious</span><div class="a-bar"><div class="a-fill" id="att2" style="width:0%;background:var(--amber)"></div></div><span class="a-score" id="ats2" style="color:var(--amber)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="atl3">Avoidant</span><div class="a-bar"><div class="a-fill" id="att3" style="width:0%;background:var(--rose)"></div></div><span class="a-score" id="ats3" style="color:var(--rose)">—</span></div>
+        <div class="a-metric"><span class="a-label" id="atl4">Disorganized</span><div class="a-bar"><div class="a-fill" id="att4" style="width:0%;background:var(--violet)"></div></div><span class="a-score" id="ats4" style="color:var(--violet)">—</span></div>
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px">
+      <div class="col">
+        <div class="label-sm" id="anz3">DETECTED GAPS + LIMINAL SIGNALS</div>
+        <div class="gap-list" id="analysisGaps" style="border:1px solid var(--wire);padding:8px;background:rgba(11,24,13,.4)">
+          <div style="font-size:6px;color:var(--dim)">Run analysis to detect gaps...</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="label-sm" id="anz4">PLAIN LANGUAGE — WHAT THIS MEANS</div>
+        <div class="translation-box" id="analyzeTranslation" style="min-height:80px">
+          <span class="tb-label" id="atbl">TRANSLATION</span>
+          <div class="tb-content" id="analyzeTranslationEn">—</div>
+          <div class="tb-chinese" id="analyzeTranslationZh" style="display:none">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ VATS ══════════════════════════ -->
+<div class="pn" id="pane-vats">
+  <div class="sh">VATS · VISUAL AUTOMATED TARGETING · BODY SIGNAL MAPPING</div>
+  <div class="vats-layout">
+    <div class="vats-main">
+      <video id="vatsVid" autoplay muted playsinline></video>
+      <canvas id="vatsOverlay"></canvas>
+      <div id="noCamPrompt" style="color:var(--dim);font-size:7px;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:20px">
+        NO VIDEO INPUT<br><br>
+        <button class="btn" onclick="startVATSCam()">START WEBCAM</button>
+        <button class="btn" style="margin-top:6px" onclick="triggerVATSVideo()">LOAD VIDEO FILE</button>
+        <input type="file" id="vatsFileInput" accept="video/*" style="display:none" onchange="loadVATSVideo(this)">
+      </div>
+    </div>
+    <div class="vats-controls">
+      <div style="padding:6px 0;border-bottom:1px solid var(--wire)">
+        <div class="label-sm" id="vl1">BODY ZONES</div>
+      </div>
+      <div class="zone-list" id="zoneList"></div>
+      <div style="margin-top:6px">
+        <div class="label-sm" id="vl2">SIGNAL LOG</div>
+        <div class="vats-log" id="vatsLog">
+          <div class="vl-entry"><span class="vl-ts">—</span><span class="vl-msg" style="color:var(--dim)" id="vl3">Awaiting video input...</span></div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button class="btn" onclick="clearVATSLog()" id="vl4">CLEAR LOG</button>
+        <button class="btn primary" onclick="exportVATSLog()" id="vl5">EXPORT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ LATTICE ══════════════════════════ -->
+<div class="pn" id="pane-lattice">
+  <div class="sh">ASSOCIATIVE LATTICE — UNIVERSAL NODE MAP · ANYTHING IS A NODE</div>
+  <div class="latt-layout">
+    <div class="latt-sidebar">
+      <div class="label-sm" id="ll1">NODE LIST</div>
+      <div id="nodeList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:6px;color:var(--dim);padding:8px" id="ll2">No nodes yet. Analyze something or type below.</div>
+      </div>
+      <div class="cli-row">
+        <input class="cli-inp" id="lattCLI" placeholder="/add · /find · /connect · /clear" onkeydown="handleLattCLI(event)">
+      </div>
+    </div>
+    <canvas id="lattCanvas" onclick="latticeClick(event)"></canvas>
+  </div>
+</div>
+
+<!-- ══════════════════════════ DSM INDEX ══════════════════════════ -->
+<div class="pn" id="pane-dsm">
+  <div class="sh">DSM · NEURODIVERGENT INDEX — BEHAVIORAL SIGNAL MAPPING</div>
+  <div class="dsm-toggle-row">
+    <div class="toggle on" id="dsmToggle" onclick="toggleDSM()"></div>
+    <span class="toggle-label" id="dsmToggleLabel">DSM ANALYSIS ACTIVE</span>
+    <span class="dsm-caveat" id="dsmCaveat">⚠ Signal tool only. Not diagnosis. Not clinical assessment. Every output is a behavioral probability — not a fact about anyone. Consult a qualified clinician. This exists to help you understand patterns, not to label people.</span>
+  </div>
+  <div class="dsm-grid" id="dsmGrid">
+
+    <div class="dsm-card">
+      <div class="dsm-header">ASD <div class="dsm-badge asd">AUTISM SPECTRUM</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Atypical eye contact patterns<span class="dsm-prob" id="dp1">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Reduced expression sharing<span class="dsm-prob" id="dp2">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Stimming / regulatory movement<span class="dsm-prob" id="dp3">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Masking indicators<span class="dsm-prob" id="dp4">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Restricted/intense interests<span class="dsm-prob" id="dp5">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Sensory sensitivity markers<span class="dsm-prob" id="dp6">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--cyan)"></div>Shutdown / freeze pattern<span class="dsm-prob" id="dp7">—</span></div>
+      <div class="dsm-note" id="dsmNote1">Stimming is regulatory by default — not dysfunction. Masking costs energy. Shutdown is processing, not withdrawal.</div>
+    </div>
+
+    <div class="dsm-card">
+      <div class="dsm-header">ADHD <div class="dsm-badge adhd">ATTENTION · HYPERACTIVITY</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Fidgeting / motor restlessness<span class="dsm-prob" id="dp8">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Hyperfocus indicators<span class="dsm-prob" id="dp9">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Task-switching difficulty<span class="dsm-prob" id="dp10">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Impulsive language patterns<span class="dsm-prob" id="dp11">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Time blindness markers<span class="dsm-prob" id="dp12">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--violet)"></div>Rejection sensitivity<span class="dsm-prob" id="dp13">—</span></div>
+      <div class="dsm-note" id="dsmNote2">Fidgeting is often regulation, not distraction. Hyperfocus is a strength. All scores are behavioral signals, not diagnoses.</div>
+    </div>
+
+    <div class="dsm-card">
+      <div class="dsm-header">ANXIETY <div class="dsm-badge anxiety">NERVOUS SYSTEM</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--amber)"></div>Muscle tension sustained<span class="dsm-prob" id="dp14">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--amber)"></div>Hypervigilance scan<span class="dsm-prob" id="dp15">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--amber)"></div>Avoidance patterns<span class="dsm-prob" id="dp16">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--amber)"></div>Catastrophizing language<span class="dsm-prob" id="dp17">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--amber)"></div>Hedging / uncertainty markers<span class="dsm-prob" id="dp18">—</span></div>
+      <div class="dsm-note" id="dsmNote3">Anxiety often presents as over-preparation, masking, or hyper-analysis. These are adaptive strategies, not weaknesses.</div>
+    </div>
+
+    <div class="dsm-card">
+      <div class="dsm-header">TRAUMA <div class="dsm-badge trauma">PTSD · CPTSD</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--rose)"></div>Hyperarousal sustained<span class="dsm-prob" id="dp19">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--rose)"></div>Startle response elevated<span class="dsm-prob" id="dp20">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--rose)"></div>Freeze / dissociation markers<span class="dsm-prob" id="dp21">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--rose)"></div>Negative self-schema language<span class="dsm-prob" id="dp22">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--rose)"></div>Emotional numbing signals<span class="dsm-prob" id="dp23">—</span></div>
+      <div class="dsm-note" id="dsmNote4">Trauma responses are survival strategies. Freeze is not weakness. Dissociation is protection. These signals require care, not judgment.</div>
+    </div>
+
+    <div class="dsm-card">
+      <div class="dsm-header">PDA <div class="dsm-badge asd">PATHOLOGICAL DEMAND</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--signal)"></div>Demand avoidance language<span class="dsm-prob" id="dp24">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--signal)"></div>Autonomy defense markers<span class="dsm-prob" id="dp25">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--signal)"></div>Role-play / fantasy escape<span class="dsm-prob" id="dp26">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--signal)"></div>Negotiation / reframing<span class="dsm-prob" id="dp27">—</span></div>
+      <div class="dsm-note" id="dsmNote5">PDA is an anxiety-driven need to control one's environment. Demand avoidance is a survival mechanism, not defiance.</div>
+    </div>
+
+    <div class="dsm-card">
+      <div class="dsm-header">2E / GIFTED <div class="dsm-badge adhd">TWICE EXCEPTIONAL</div></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--pink)"></div>Asynchronous development<span class="dsm-prob" id="dp28">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--pink)"></div>Intense emotional depth<span class="dsm-prob" id="dp29">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--pink)"></div>Systems thinking patterns<span class="dsm-prob" id="dp30">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--pink)"></div>Overexcitabilities (OE)<span class="dsm-prob" id="dp31">—</span></div>
+      <div class="dsm-item"><div class="dsm-dot" style="background:var(--pink)"></div>Existential sensitivity<span class="dsm-prob" id="dp32">—</span></div>
+      <div class="dsm-note" id="dsmNote6">Twice exceptional = gifted + disabled simultaneously. Neither cancels the other. Both are real. Both need support.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ PATTERNS ══════════════════════════ -->
+<div class="pn" id="pane-patterns">
+  <div class="sh">PATTERNS · .PAT LOG · CODEX · SESSION HISTORY</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;flex:1">
+    <div>
+      <div class="label-sm" id="pl1">.PAT FILES — PROMOTED PATTERNS</div>
+      <div id="patList" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+        <div style="font-size:6px;color:var(--dim);padding:8px;border:1px solid var(--wire)" id="pl2">No patterns promoted yet. Repeated signals become .pat files.</div>
+      </div>
+    </div>
+    <div>
+      <div class="label-sm" id="pl3">CODEX — LAWS + PRINCIPLES</div>
+      <div id="codexList" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+        <div class="pat-entry">
+          <div class="pe-id">C001</div>
+          <div class="pe-label" id="cl1">Stimming is regulatory by default</div>
+          <div class="pe-meta"><span id="cl2">LAW</span><span style="color:var(--dim)">ND-AWARE</span></div>
+        </div>
+        <div class="pat-entry">
+          <div class="pe-id">C002</div>
+          <div class="pe-label" id="cl3">Masking costs energy — absence of stim ≠ regulation</div>
+          <div class="pe-meta"><span id="cl4">PRINCIPLE</span><span style="color:var(--dim)">ASD</span></div>
+        </div>
+        <div class="pat-entry">
+          <div class="pe-id">C003</div>
+          <div class="pe-label" id="cl5">Freeze is processing, not withdrawal (< 30s)</div>
+          <div class="pe-meta"><span id="cl6">RULE</span><span style="color:var(--dim)">ND-AWARE</span></div>
+        </div>
+        <div class="pat-entry">
+          <div class="pe-id">C004</div>
+          <div class="pe-label" id="cl7">All deviations measured against personal baseline</div>
+          <div class="pe-meta"><span id="cl8">LAW</span><span style="color:var(--dim)">CORE</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="label-sm" id="pl4">SESSION LOG</div>
+      <div id="sessionLog" style="display:flex;flex-direction:column;gap:3px;margin-top:6px;max-height:500px;overflow-y:auto">
+        <div style="font-size:6px;color:var(--dim);padding:8px;border:1px solid var(--wire)" id="pl5">Session events will appear here.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mm -->
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════
+// BACKGROUND CANVAS (identical to mastermind v3)
+// ══════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg');
+const mm = document.getElementById('mm');
+let pts = [], bgRaf;
+function initBg(){
+  bgCanvas.style.position='fixed';
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  pts = Array.from({length:70},()=>({
+    x:Math.random()*bgCanvas.width, y:Math.random()*bgCanvas.height,
+    vx:(Math.random()-.5)*.22, vy:(Math.random()-.5)*.22,
+    r:Math.random()*1.6+.4, ph:Math.random()*Math.PI*2
+  }));
+}
+function drawBg(){
+  const ctx = bgCanvas.getContext('2d');
+  ctx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  pts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>bgCanvas.width) p.vx*=-1;
+    if(p.y<0||p.y>bgCanvas.height) p.vy*=-1;
+    p.ph+=.013;
+  });
+  for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+    const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<150){
+      const ctx2=bgCanvas.getContext('2d');
+      ctx2.strokeStyle=`rgba(57,255,106,${(1-d/150)*.15})`;
+      ctx2.lineWidth=.5; ctx2.beginPath();
+      ctx2.moveTo(pts[i].x,pts[i].y); ctx2.lineTo(pts[j].x,pts[j].y); ctx2.stroke();
+    }
+  }
+  pts.forEach(p=>{
+    const pulse=.5+.5*Math.sin(p.ph);
+    const ctx2=bgCanvas.getContext('2d');
+    ctx2.beginPath(); ctx2.arc(p.x,p.y,p.r*(1+.3*pulse),0,Math.PI*2);
+    ctx2.fillStyle=`rgba(57,255,106,${.12+.22*pulse})`; ctx2.fill();
+  });
+  bgRaf=requestAnimationFrame(drawBg);
+}
+initBg(); requestAnimationFrame(drawBg);
+window.addEventListener('resize',()=>{ cancelAnimationFrame(bgRaf); initBg(); requestAnimationFrame(drawBg); });
+
+// ══════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════
+const PANES = ['welcome','upload','social','analyze','vats','lattice','dsm','patterns'];
+function go(id){
+  PANES.forEach(p=>{
+    document.getElementById('pane-'+p).classList.toggle('on',p===id);
+    const nt=document.getElementById('nt-'+p); if(nt) nt.classList.toggle('on',p===id);
+    document.querySelectorAll('.tbtn').forEach(b=>{ if(b.textContent.trim()===id.toUpperCase()) b.classList.add('on'); else b.classList.remove('on'); });
+  });
+  if(id==='vats') initVATSCanvas();
+  if(id==='lattice') initLatticeCanvas();
+}
+
+// ══════════════════════════════════════════════
+// LANGUAGE SYSTEM
+// ══════════════════════════════════════════════
+let LANG = 'en';
+const STRINGS = {
+  en: {
+    welcomeTagline: 'Welcome outlier and architect of meaning, Mimi.\nYou see the patterns others miss. This is your tool.',
+    welcomeND: 'ASD · ADHD · SYSTEMS THINKER · BETA ARCHITECT',
+    welcomeDesc: 'Behavioral intelligence for neurodivergent minds.\nUpload anything — screenshots, videos, voice, text.\nThe system reads signal, gaps, identity, and meaning.',
+    wm1l:'Upload', wm1d:'Screenshots · video · audio · text · URL',
+    wm2l:'Social Suite', wm2d:'DM · posts · profiles · comments · SMS',
+    wm3l:'Analyze', wm3d:'ASE · resonance · gap · inversion · shadow',
+    wm4l:'VATS', wm4d:'Body zones · heatmap · live targeting',
+    wm5l:'DSM Index', wm5d:'ASD · ADHD · trauma · anxiety patterns',
+    wm6l:'Patterns', wm6d:'.pat log · codex · signal history',
+    dsmCaveat:'⚠ Signal tool only. Not diagnosis. Not clinical assessment. Every output is a behavioral probability — not a fact about anyone.',
+    dsmToggleLabel:'DSM ANALYSIS ACTIVE',
+    dsmNote1:'Stimming is regulatory by default — not dysfunction. Masking costs energy.',
+    dsmNote2:'Fidgeting is often regulation, not distraction. Hyperfocus is a strength.',
+    dsmNote3:'Anxiety often presents as over-preparation, masking, or hyper-analysis.',
+    dsmNote4:'Trauma responses are survival strategies. Freeze is protection.',
+    dsmNote5:'PDA is anxiety-driven. Demand avoidance is survival, not defiance.',
+    dsmNote6:'Twice exceptional = gifted + disabled. Both are real. Both need support.',
+  },
+  zh: {
+    welcomeTagline: '欢迎你，异类与意义的建筑师，Mimi。\n你看到了别人错过的模式。这是你的工具。',
+    welcomeND: 'ASD · ADHD · 系统思维者 · 测试架构师',
+    welcomeDesc: '为神经多样性大脑设计的行为智能系统。\n上传任何内容——截图、视频、语音、文字。\n系统读取信号、空白、身份和意义。',
+    wm1l:'上传', wm1d:'截图 · 视频 · 音频 · 文字 · 网址',
+    wm2l:'社交套件', wm2d:'私信 · 帖子 · 个人资料 · 评论 · 短信',
+    wm3l:'分析', wm3d:'ASE · 共鸣 · 空白 · 反转 · 阴影',
+    wm4l:'VATS', wm4d:'身体区域 · 热图 · 实时定向',
+    wm5l:'DSM索引', wm5d:'ASD · ADHD · 创伤 · 焦虑模式',
+    wm6l:'模式', wm6d:'.pat日志 · 典籍 · 信号历史',
+    dsmCaveat:'⚠ 仅为信号工具。非诊断。非临床评估。每个输出都是行为概率，不是关于任何人的事实。',
+    dsmToggleLabel:'DSM分析已激活',
+    dsmNote1:'刺激行为默认是调节性的——不是功能障碍。掩饰需要消耗能量。',
+    dsmNote2:'坐立不安通常是调节，不是分心。超专注是一种优势。',
+    dsmNote3:'焦虑常表现为过度准备、掩饰或超分析。',
+    dsmNote4:'创伤反应是生存策略。冻结是保护机制。',
+    dsmNote5:'PDA是焦虑驱动的。需求回避是生存，不是对抗。',
+    dsmNote6:'双重例外 = 天才 + 残障。两者都是真实的。两者都需要支持。',
+  }
+};
+function setLang(l){
+  LANG = l;
+  const s = STRINGS[l] || STRINGS.en;
+  Object.keys(s).forEach(k=>{
+    const el = document.getElementById(k);
+    if(el){ el.innerHTML = s[k].replace(/\n/g,'<br>'); }
+  });
+  document.getElementById('translationZh').classList.toggle('show', l==='zh');
+  document.getElementById('analyzeTranslationZh').style.display = l==='zh' ? 'block':'none';
+}
+function toggleChinese(){
+  const el = document.getElementById('translationZh');
+  el.classList.toggle('show');
+}
+
+// ══════════════════════════════════════════════
+// FILE UPLOAD
+// ══════════════════════════════════════════════
+let uploadedItems = [];
+function triggerFile(accept){
+  const inp = document.getElementById('fileInput');
+  inp.accept = accept;
+  inp.click();
+}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+function handleFiles(files){
+  Array.from(files).forEach(f => processFile(f));
+}
+function processFile(file){
+  const item = {
+    id: 'F'+(Date.now()%99999),
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    file: file,
+    tags: detectFileTags(file),
+    url: null
+  };
+  if(file.type.startsWith('image/')){
+    const reader = new FileReader();
+    reader.onload = e => { item.url = e.target.result; renderUploadItem(item); };
+    reader.readAsDataURL(file);
+  } else {
+    renderUploadItem(item);
+  }
+  uploadedItems.push(item);
+  logSession('FILE', item.name + ' · ' + item.tags.join(', '));
+}
+function detectFileTags(file){
+  const tags = [];
+  const n = file.name.toLowerCase();
+  if(file.type.startsWith('image/')) tags.push('image');
+  if(file.type.startsWith('video/')) tags.push('video');
+  if(file.type.startsWith('audio/')) tags.push('audio');
+  if(n.includes('screenshot')||n.includes('screen')) tags.push('screenshot');
+  if(n.includes('dm')||n.includes('chat')) tags.push('dm');
+  if(n.includes('sms')) tags.push('sms');
+  if(n.includes('email')||n.includes('mail')) tags.push('email');
+  if(n.includes('twitter')||n.includes('instagram')||n.includes('tiktok')||n.includes('reddit')) tags.push('social');
+  if(n.includes('comment')) tags.push('social');
+  if(tags.length===0) tags.push('document');
+  return tags;
+}
+function renderUploadItem(item){
+  const el = document.createElement('div');
+  el.className = 'result-item';
+  el.innerHTML = `
+    ${item.url ? `<img class="r-thumb" src="${item.url}">` : '<div class="r-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--dim)">◈</div>'}
+    <div class="r-info">
+      <div class="r-name">${item.name}</div>
+      <div class="r-type">${item.type || 'unknown'} · ${Math.round(item.size/1024)}KB</div>
+      <div class="r-tags">${item.tags.map(t=>`<span class="rtag ${t}">${t.toUpperCase()}</span>`).join('')}</div>
+    </div>
+    <button class="r-analyze" onclick="analyzeFile('${item.id}')">ANALYZE →</button>
+  `;
+  document.getElementById('uploadResults').prepend(el);
+}
+// ══════════════════════════════════════════════════════════════════
+// MULTI-MODAL SIGNAL ENGINES
+// No AI. No external APIs. Pure client-side signal extraction.
+// Each engine returns a SignalReport compatible with the text
+// analysis pipeline. All outputs are probabilistic (0–1).
+// ══════════════════════════════════════════════════════════════════
+
+// ─── IMAGE SIGNAL ENGINE ──────────────────────────────────────────
+// Extracts behavioral and emotional signal from image pixels.
+// Works on screenshots, photos, social media captures, SMS exports.
+//
+// What it reads:
+//   VISUAL ENERGY    — brightness, contrast, saturation → arousal proxy
+//   COLOR PALETTE    — hue distribution → emotional tone mapping
+//   LAYOUT STRUCTURE — grid density, edge concentration → platform type
+//   SKIN TONE REGION — presence of person (face/body heat map)
+//   BUBBLE GEOMETRY  — message bubble detection → DM/SMS structure
+//   PLATFORM PATTERN — color signature matching → platform ID
+//   TEXT DENSITY     — light/dark region contrast → text vs image ratio
+//   COMPOSITION      — quadrant weight → visual attention mapping
+//
+async function analyzeImage(img) {
+  const c = document.createElement('canvas');
+  const MAX = 400;
+  const scale = Math.min(MAX/img.naturalWidth, MAX/img.naturalHeight, 1);
+  c.width  = Math.round(img.naturalWidth  * scale);
+  c.height = Math.round(img.naturalHeight * scale);
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const px = ctx.getImageData(0, 0, c.width, c.height).data;
+  const W = c.width, H = c.height, N = W * H;
+
+  // ── Per-pixel aggregation ──
+  let rSum=0,gSum=0,bSum=0,aSum=0;
+  let brightCount=0, darkCount=0, saturatedCount=0;
+  let redCount=0, greenCount=0, blueCount=0, yellowCount=0, purpleCount=0, neutralCount=0;
+  let skinCount=0;
+  // Quadrant brightness (TL, TR, BL, BR)
+  const quad=[0,0,0,0], quadN=[0,0,0,0];
+  // Edge detection (simplified Sobel on luma)
+  let edgeSum=0;
+  // Bubble detection: look for large uniform-color regions
+  const colorFreq = {};
+
+  for(let i=0;i<px.length;i+=4){
+    const r=px[i],g=px[i+1],b=px[i+2];
+    const pidx=(i/4)|0, px_x=pidx%W, py_y=(pidx/W)|0;
+    rSum+=r; gSum+=g; bSum+=b;
+    const luma=(0.299*r+0.587*g+0.114*b)/255;
+    aSum+=luma;
+    if(luma>0.75) brightCount++;
+    if(luma<0.2)  darkCount++;
+
+    // Saturation (HSL)
+    const max=Math.max(r,g,b)/255, min=Math.min(r,g,b)/255;
+    const sat=max===0?0:(max-min)/max;
+    if(sat>0.45) saturatedCount++;
+
+    // Hue classification
+    const hue=Math.atan2(Math.sqrt(3)*(g-b), 2*r-g-b)*(180/Math.PI);
+    if(sat>0.3){
+      if(hue>-30&&hue<=30)       redCount++;
+      else if(hue>30&&hue<=90)   yellowCount++;
+      else if(hue>90&&hue<=150)  greenCount++;
+      else if(hue>-90&&hue<=-30) purpleCount++;
+      else                        blueCount++;
+    } else neutralCount++;
+
+    // Skin tone (rough: r>160, g>100, b>50, r>g>b)
+    if(r>140&&g>90&&b>50&&r>g&&g>b&&sat>0.1&&sat<0.55) skinCount++;
+
+    // Quadrant
+    const qx=px_x<W/2?0:1, qy=py_y<H/2?0:1, qi=qy*2+qx;
+    quad[qi]+=luma; quadN[qi]++;
+
+    // Color frequency bucket for bubble detection
+    const bucket = `${Math.round(r/32)*32},${Math.round(g/32)*32},${Math.round(b/32)*32}`;
+    colorFreq[bucket]=(colorFreq[bucket]||0)+1;
+  }
+
+  const avgLuma = aSum/N;
+  const avgR = rSum/N/255, avgG = gSum/N/255, avgB = bSum/N/255;
+  const brightRatio  = brightCount/N;
+  const darkRatio    = darkCount/N;
+  const satRatio     = saturatedCount/N;
+  const skinRatio    = skinCount/N;
+  const quadBright   = quad.map((s,i)=>quadN[i]>0?s/quadN[i]:0);
+
+  // Dominant color buckets (bubble detection)
+  const sortedBuckets = Object.entries(colorFreq).sort((a,b)=>b[1]-a[1]);
+  const topBucketRatio = sortedBuckets[0]?sortedBuckets[0][1]/N:0;
+  // High top-bucket ratio = large uniform region = likely message bubble
+  const bubbleLikelihood = Math.min(1, topBucketRatio*3);
+
+  // ── Platform detection from color signature ──
+  // Each platform has characteristic UI colors
+  const platform = detectPlatformFromPixels(avgR, avgG, avgB, darkRatio, brightRatio, satRatio);
+
+  // ── Layout analysis ──
+  // Text-heavy screenshots: high dark/light contrast, regular grid patterns
+  const contrastRatio = Math.abs(brightRatio - darkRatio);
+  const textDensity   = Math.min(1, contrastRatio * 2);
+
+  // ── Message side detection (DM/SMS) ──
+  // Left-heavy brightness = incoming messages on right bg
+  // Right-heavy = outgoing messages
+  const leftBright  = (quadBright[0]+quadBright[2])/2;
+  const rightBright = (quadBright[1]+quadBright[3])/2;
+  const messageAsymmetry = Math.abs(leftBright - rightBright);
+
+  // ── Emotional tone from color psychology ──
+  const total = redCount+greenCount+blueCount+yellowCount+purpleCount+neutralCount||1;
+  const colEmotion = {
+    aggression:  redCount/total,
+    calm:        blueCount/total,
+    anxiety:     yellowCount/total,
+    connection:  greenCount/total,
+    complexity:  purpleCount/total,
+    suppression: neutralCount/total,
+  };
+
+  // ── Visual energy = arousal proxy ──
+  const visualEnergy = Math.min(1, (satRatio*0.4 + avgLuma*0.3 + contrastRatio*0.3));
+
+  // ── Person present ──
+  const personPresent = skinRatio > 0.04;
+
+  // ── Build signal report ──
+  const imageSignal = {
+    type: 'image',
+    platform,
+    visualEnergy,
+    avgLuma,
+    saturation: satRatio,
+    textDensity,
+    bubbleLikelihood,
+    messageAsymmetry,
+    personPresent,
+    skinRatio,
+    colorEmotion: colEmotion,
+    quadrantBrightness: quadBright,
+    // Map to behavioral/emotional signals
+    arousal:     visualEnergy,
+    suppression: colEmotion.suppression * (1-visualEnergy),
+    tension:     colEmotion.aggression * 0.6 + colEmotion.anxiety * 0.4,
+    openness:    colEmotion.connection * 0.5 + (1-colEmotion.suppression) * 0.5,
+    ambiguity:   messageAsymmetry > 0.15 ? 0.6 : 0.2,
+  };
+
+  return imageSignal;
+}
+
+function detectPlatformFromPixels(r, g, b, dark, bright, sat) {
+  // Platform color signatures (average UI background/accent tones)
+  // These are heuristic fingerprints based on dominant palette
+  if(dark > 0.6 && g > 0.12 && g > r && g > b) return 'whatsapp';
+  if(dark > 0.7 && r < 0.15 && g < 0.15 && b < 0.15) return 'twitter-dark';
+  if(bright > 0.6 && r > 0.8 && g > 0.85 && b > 0.85) return 'imessage';
+  if(bright > 0.5 && b > r && b > g && b > 0.4) return 'facebook';
+  if(dark > 0.5 && r > 0.25 && b > 0.25 && sat > 0.3) return 'instagram';
+  if(bright > 0.6 && r > 0.7 && g > 0.3 && b < 0.2) return 'reddit';
+  if(dark > 0.5 && b > 0.3 && r < 0.2) return 'discord';
+  if(sat < 0.15 && bright > 0.5) return 'sms-generic';
+  if(dark > 0.6) return 'dark-theme';
+  return 'unknown';
+}
+
+// ─── VIDEO SIGNAL ENGINE ──────────────────────────────────────────
+// Samples frames from video file, extracts behavioral signal over time.
+// No MediaPipe. Pure pixel-level motion and energy analysis.
+//
+// What it reads:
+//   MOTION DELTA     — frame-to-frame pixel difference → movement intensity
+//   BRIGHTNESS CURVE — luminance trajectory over time → energy arc
+//   SCENE CHANGES    — sudden large deltas → cut detection / starttle
+//   MOTION REGIONS   — which quadrant moves most → body zone proxy
+//   COLOR TRAJECTORY — hue drift over time → emotional arc
+//   STILLNESS        — long low-delta periods → freeze / suppression proxy
+//   RHYTHM           — periodic motion patterns → stimming / regulation
+//
+async function analyzeVideo(file) {
+  return new Promise((resolve) => {
+    const vid = document.createElement('video');
+    vid.muted = true;
+    vid.preload = 'metadata';
+    vid.src = URL.createObjectURL(file);
+
+    vid.onloadedmetadata = () => {
+      const duration = vid.duration;
+      const W = 160, H = 90; // small canvas for speed
+      const c = document.createElement('canvas');
+      c.width=W; c.height=H;
+      const ctx = c.getContext('2d');
+
+      const SAMPLES = Math.min(40, Math.max(8, Math.floor(duration)));
+      const timestamps = Array.from({length:SAMPLES},(_,i)=>i*(duration/SAMPLES)*0.98+0.1);
+      let frames=[], fi=0;
+
+      function sampleNext(){
+        if(fi>=timestamps.length){
+          URL.revokeObjectURL(vid.src);
+          resolve(buildVideoReport(frames, duration));
+          return;
+        }
+        vid.currentTime = timestamps[fi++];
+      }
+
+      vid.onseeked = () => {
+        ctx.drawImage(vid,0,0,W,H);
+        const px = ctx.getImageData(0,0,W,H).data;
+        const N=W*H;
+        let luma=0, r=0, g=0, b=0;
+        // Quadrant motion (4 quadrants)
+        const qLuma=[0,0,0,0], qN=[0,0,0,0];
+        for(let i=0;i<px.length;i+=4){
+          const li=(0.299*px[i]+0.587*px[i+1]+0.114*px[i+2])/255;
+          luma+=li; r+=px[i]; g+=px[i+1]; b+=px[i+2];
+          const pidx=i/4, px_x=pidx%W, py=Math.floor(pidx/W);
+          const qi=(py<H/2?0:2)+(px_x<W/2?0:1);
+          qLuma[qi]+=li; qN[qi]++;
+        }
+        frames.push({
+          t: vid.currentTime,
+          luma: luma/N,
+          r: r/N/255, g: g/N/255, b: b/N/255,
+          qLuma: qLuma.map((s,i)=>qN[i]>0?s/qN[i]:0),
+          px: new Uint8ClampedArray(px),
+        });
+        sampleNext();
+      };
+      sampleNext();
+    };
+    vid.onerror = () => resolve(null);
+  });
+}
+
+function buildVideoReport(frames, duration){
+  if(!frames.length) return null;
+  // Motion: frame-to-frame pixel delta
+  const motionDeltas=[], quadMotion=[[],[],[],[]];
+  for(let i=1;i<frames.length;i++){
+    let delta=0;
+    const a=frames[i-1].px, b=frames[i].px;
+    const qDelta=[0,0,0,0], qN=[0,0,0,0];
+    for(let j=0;j<a.length;j+=4){
+      const d=(Math.abs(a[j]-b[j])+Math.abs(a[j+1]-b[j+1])+Math.abs(a[j+2]-b[j+2]))/3/255;
+      delta+=d;
+      const pidx=j/4, px_x=pidx%160, py=Math.floor(pidx/160);
+      const qi=(py<45?0:2)+(px_x<80?0:1);
+      qDelta[qi]+=d; qN[qi]++;
+    }
+    motionDeltas.push(delta/(160*90));
+    qDelta.forEach((d,i)=>{ quadMotion[i].push(d/qN[i]); });
+  }
+
+  // Rhythm detection: autocorrelation on motion signal
+  const avgMotion = motionDeltas.reduce((s,v)=>s+v,0)/motionDeltas.length;
+  const stdMotion = Math.sqrt(motionDeltas.map(v=>(v-avgMotion)**2).reduce((s,v)=>s+v,0)/motionDeltas.length);
+
+  // Stillness periods
+  const threshold = avgMotion * 0.3;
+  let stillFrames=0;
+  motionDeltas.forEach(d=>{ if(d<threshold) stillFrames++; });
+  const stillnessRatio = stillFrames/motionDeltas.length;
+
+  // Scene changes (sudden large delta)
+  const sceneChanges = motionDeltas.filter(d=>d>avgMotion+2*stdMotion).length;
+
+  // Rhythm score: periodic oscillation in motion signal
+  let rhythmScore=0;
+  for(let lag=2;lag<Math.floor(motionDeltas.length/2);lag++){
+    let corr=0;
+    for(let i=0;i<motionDeltas.length-lag;i++) corr+=motionDeltas[i]*motionDeltas[i+lag];
+    corr/=(motionDeltas.length-lag);
+    if(corr>avgMotion*1.5) rhythmScore=Math.max(rhythmScore,corr/avgMotion);
+  }
+  rhythmScore=Math.min(1,rhythmScore*0.5);
+
+  // Dominant motion quadrant (proxy for body zone activity)
+  const quadAvg=quadMotion.map(q=>q.reduce((s,v)=>s+v,0)/(q.length||1));
+  const dominantQuad=['TOP-LEFT','TOP-RIGHT','BOTTOM-LEFT','BOTTOM-RIGHT'][quadAvg.indexOf(Math.max(...quadAvg))];
+
+  // Brightness arc (energy trajectory)
+  const lumaArc=frames.map(f=>f.luma);
+  const lumaStart=lumaArc.slice(0,3).reduce((s,v)=>s+v,0)/3;
+  const lumaEnd=lumaArc.slice(-3).reduce((s,v)=>s+v,0)/3;
+  const energyArc=lumaEnd-lumaStart; // positive=brightening, negative=darkening
+
+  // Color trajectory (emotional arc)
+  const rArc=frames[frames.length-1].r - frames[0].r;
+  const bArc=frames[frames.length-1].b - frames[0].b;
+  const emotionalShift = rArc > 0.05 ? 'toward-red-arousal' : bArc > 0.05 ? 'toward-calm' : 'stable';
+
+  return {
+    type: 'video',
+    duration,
+    frameCount: frames.length,
+    avgMotion,
+    stdMotion,
+    stillnessRatio,
+    sceneChanges,
+    rhythmScore,
+    dominantQuad,
+    energyArc,
+    emotionalShift,
+    // Behavioral signal mapping
+    arousal:     Math.min(1, avgMotion*8),
+    regulation:  rhythmScore,
+    freeze:      stillnessRatio > 0.6 ? stillnessRatio : 0,
+    suppression: stillnessRatio * (1-avgMotion*5),
+    stimming:    rhythmScore > 0.4 ? rhythmScore : 0,
+    startleCount:sceneChanges,
+    tension:     stdMotion*4,
+  };
+}
+
+// ─── AUDIO SIGNAL ENGINE ──────────────────────────────────────────
+// Decodes audio file, extracts prosodic and regulatory signal.
+// No library. Web Audio API OfflineAudioContext only.
+//
+// What it reads:
+//   RMS ENERGY       — volume curve → arousal arc
+//   ZERO CROSSING    — signal roughness → vocal tension
+//   SILENCE RATIO    — pause frequency → fragmentation / regulation
+//   SPECTRAL CENTROID — brightness → emotional valence proxy
+//   RHYTHM / PULSE   — periodic energy → regulation vs dysregulation
+//   ONSET DENSITY    — speech event rate → speaking rate
+//   DYNAMIC RANGE    — peak vs average → emotional intensity
+//
+async function analyzeAudio(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    await ctx.close();
+
+    const data = audioBuffer.getChannelData(0); // mono or left
+    const sr   = audioBuffer.sampleRate;
+    const dur  = audioBuffer.duration;
+    const N    = data.length;
+
+    // ── RMS energy in 100ms windows ──
+    const windowSize = Math.floor(sr * 0.1);
+    const rmsFrames=[], zcFrames=[], centFrames=[];
+    let silentFrames=0;
+
+    for(let start=0;start<N-windowSize;start+=windowSize){
+      let rms=0, zcr=0;
+      for(let i=start;i<start+windowSize;i++){
+        rms+=data[i]*data[i];
+        if(i>start&&Math.sign(data[i])!==Math.sign(data[i-1])) zcr++;
+      }
+      rms=Math.sqrt(rms/windowSize);
+      rmsFrames.push(rms);
+      zcFrames.push(zcr/windowSize);
+      if(rms<0.01) silentFrames++;
+
+      // Spectral centroid (FFT-lite: use zero-crossing as proxy)
+      centFrames.push(zcr/windowSize*sr/2); // Hz estimate
+    }
+
+    const avgRMS   = rmsFrames.reduce((s,v)=>s+v,0)/rmsFrames.length;
+    const maxRMS   = Math.max(...rmsFrames);
+    const dynamicRange = maxRMS - avgRMS;
+    const silenceRatio = silentFrames/rmsFrames.length;
+    const avgZCR   = zcFrames.reduce((s,v)=>s+v,0)/zcFrames.length;
+    const avgCent  = centFrames.reduce((s,v)=>s+v,0)/centFrames.length;
+
+    // RMS std (emotional variability)
+    const rmsStd=Math.sqrt(rmsFrames.map(v=>(v-avgRMS)**2).reduce((s,v)=>s+v,0)/rmsFrames.length);
+
+    // Rhythm: autocorrelation on RMS (300ms–2s range)
+    const minLag=3,maxLag=20; let rhythmScore=0,rhythmPeriod=0;
+    for(let lag=minLag;lag<Math.min(maxLag,rmsFrames.length/2);lag++){
+      let corr=0;
+      for(let i=0;i<rmsFrames.length-lag;i++) corr+=rmsFrames[i]*rmsFrames[i+lag];
+      corr/=(rmsFrames.length-lag)*avgRMS*avgRMS||1;
+      if(corr>rhythmScore){ rhythmScore=corr; rhythmPeriod=lag*0.1; }
+    }
+    rhythmScore=Math.min(1,rhythmScore);
+
+    // Onset detection (energy spikes = speech events)
+    let onsets=0;
+    for(let i=1;i<rmsFrames.length;i++){
+      if(rmsFrames[i]>rmsFrames[i-1]*1.8&&rmsFrames[i]>avgRMS*0.5) onsets++;
+    }
+    const speakingRate=onsets/(dur/60); // events per minute proxy
+
+    // Fragmentation: many short speech events vs few long ones
+    const fragmentationScore = Math.min(1, onsets/(rmsFrames.length*0.1)*0.3);
+
+    // Pitch proxy from ZCR (higher ZCR = higher pitch = arousal)
+    const pitchProxy = Math.min(1, avgZCR*10);
+
+    // Monotone: low RMS variation
+    const monotone = rmsStd < avgRMS * 0.3 ? 0.7 : 0.1;
+
+    return {
+      type: 'audio',
+      duration: dur,
+      avgRMS: Math.min(1,avgRMS*5),
+      dynamicRange: Math.min(1,dynamicRange*4),
+      silenceRatio,
+      avgZCR: Math.min(1,avgZCR*20),
+      spectralCentroid: avgCent,
+      rmsStd: Math.min(1,rmsStd*8),
+      rhythmScore,
+      rhythmPeriod,
+      speakingRate,
+      fragmentationScore,
+      pitchProxy,
+      monotone,
+      // Behavioral signal mapping
+      arousal:      Math.min(1,(avgRMS*4+dynamicRange*2)*0.5),
+      suppression:  monotone*0.6+(silenceRatio>0.5?0.4:0),
+      regulation:   rhythmScore,
+      fragmentation:fragmentationScore,
+      tension:      Math.min(1,avgZCR*15),
+      valence:      (1-monotone)*0.5+rhythmScore*0.5,
+      energyLevel:  Math.min(1,avgRMS*5),
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+// ─── SOCIAL SCREENSHOT STRUCTURE ENGINE ──────────────────────────
+// Reads message bubble layout from image pixel analysis.
+// Identifies sender/receiver sides, bubble colors, density.
+//
+function analyzeMessageLayout(imgReport){
+  if(!imgReport) return {};
+  const asym = imgReport.messageAsymmetry;
+  const bubble = imgReport.bubbleLikelihood;
+
+  // Sender/receiver side estimation
+  // WhatsApp: sender=right(green), receiver=left(white)
+  // iMessage: sender=right(blue), receiver=left(gray)
+  const senderSide = imgReport.quadrantBrightness[1]>imgReport.quadrantBrightness[0] ? 'right' : 'left';
+
+  // Conversation density
+  const density = Math.min(1, imgReport.textDensity);
+
+  // Emotional tone from bubble colors
+  let tone = 'neutral';
+  if(imgReport.colorEmotion.aggression > 0.3) tone = 'high-tension';
+  else if(imgReport.colorEmotion.calm > 0.4) tone = 'calm';
+  else if(imgReport.colorEmotion.anxiety > 0.3) tone = 'anxious';
+
+  return { platform: imgReport.platform, senderSide, density, tone, bubbleLikelihood: bubble };
+}
+
+// ─── MAIN DISPATCH ────────────────────────────────────────────────
+// Routes any file to the right engine. Builds unified analysis output.
+//
+async function analyzeFile(id){
+  const item = uploadedItems.find(i=>i.id===id);
+  if(!item){ go('analyze'); return; }
+
+  // Show analysis pane with loading state
+  go('analyze');
+  document.getElementById('analyzeInput').value='';
+  showAnalysisLoading(item.name, item.type);
+
+  let modalReport = null;
+  let textForAnalysis = '';
+  let contextNotes = [];
+
+  try {
+    if(item.type.startsWith('image/')){
+      // ── Image analysis ──
+      const img = new Image();
+      img.src = item.url;
+      await new Promise(res=>{ img.onload=res; img.onerror=res; });
+      modalReport = await analyzeImage(img);
+      const layout = analyzeMessageLayout(modalReport);
+
+      contextNotes.push(`Platform detected: ${layout.platform||modalReport.platform||'unknown'}`);
+      contextNotes.push(`Visual energy: ${Math.round(modalReport.visualEnergy*100)}%`);
+      contextNotes.push(`Person present: ${modalReport.personPresent?'yes':'not detected'}`);
+      if(layout.bubbleLikelihood>0.4) contextNotes.push(`Message bubbles detected — ${layout.senderSide} side sender`);
+      if(modalReport.colorEmotion.aggression>0.3) contextNotes.push('High red/aggression color signal');
+      if(modalReport.colorEmotion.suppression>0.5) contextNotes.push('Suppressed neutral palette — low emotional signal on surface');
+      textForAnalysis = contextNotes.join('. ');
+
+    } else if(item.type.startsWith('video/')){
+      // ── Video analysis ──
+      modalReport = await analyzeVideo(item.file);
+      if(modalReport){
+        contextNotes.push(`Duration: ${Math.round(modalReport.duration)}s`);
+        contextNotes.push(`Average motion: ${Math.round(modalReport.arousal*100)}%`);
+        if(modalReport.freeze>0.3) contextNotes.push('Extended stillness detected — possible freeze or shutdown');
+        if(modalReport.stimming>0.4) contextNotes.push('Rhythmic periodic motion — possible stimming or self-regulation');
+        if(modalReport.startleCount>2) contextNotes.push(`${modalReport.startleCount} sudden motion events detected`);
+        contextNotes.push(`Dominant motion zone: ${modalReport.dominantQuad}`);
+        contextNotes.push(`Emotional arc: ${modalReport.emotionalShift}`);
+        if(modalReport.rhythmScore>0.4) contextNotes.push(`Rhythmic regulation pattern detected (period ~${modalReport.rhythmPeriod.toFixed(1)}s)`);
+        textForAnalysis = contextNotes.join('. ');
+      }
+
+    } else if(item.type.startsWith('audio/')){
+      // ── Audio analysis ──
+      modalReport = await analyzeAudio(item.file);
+      if(modalReport){
+        contextNotes.push(`Duration: ${Math.round(modalReport.duration)}s`);
+        contextNotes.push(`Energy level: ${Math.round(modalReport.energyLevel*100)}%`);
+        if(modalReport.silenceRatio>0.4) contextNotes.push(`High silence ratio (${Math.round(modalReport.silenceRatio*100)}%) — pauses or fragmentation`);
+        if(modalReport.monotone>0.5) contextNotes.push('Monotone vocal pattern — flat affect or suppression');
+        if(modalReport.fragmentation>0.4) contextNotes.push('Fragmented speech pattern — emotional overload proxy');
+        if(modalReport.rhythmScore>0.5) contextNotes.push(`Rhythmic vocal pattern — regulated state (period ~${modalReport.rhythmPeriod.toFixed(1)}s)`);
+        if(modalReport.arousal>0.7) contextNotes.push('High vocal energy — arousal or distress');
+        textForAnalysis = contextNotes.join('. ');
+      }
+
+    } else {
+      // ── Text / document ──
+      textForAnalysis = `File: ${item.name}. No binary signal available for this format.`;
+    }
+
+    // Populate analyze input with synthesized context
+    document.getElementById('analyzeInput').value = textForAnalysis;
+
+    // Run text analysis on the synthesized signal description
+    const textScores = textForAnalysis ? analyzeText(textForAnalysis) : null;
+
+    // Merge modal report into display
+    if(modalReport){
+      displayModalAnalysis(modalReport, item, layout||{});
+      wireVATSFromModal(modalReport);
+    }
+
+    // Run standard analysis pipeline
+    setTimeout(runAnalysis, 80);
+
+    // Push to lattice
+    const tags = buildTagsFromModal(modalReport, item.tags);
+    addLatticeNode(item.name + ' · ' + contextNotes[0], tags, modalReport?.suppression||0.5);
+    logSession('ANALYZE', item.name + ' · ' + (contextNotes[0]||item.type));
+
+    // Update DSM from modal signals
+    if(modalReport) updateDSMFromModal(modalReport);
+
+  } catch(err) {
+    document.getElementById('analyzeInput').value = `Analysis error: ${err.message}. File: ${item.name}.`;
+    setTimeout(runAnalysis, 80);
+  }
+}
+
+function showAnalysisLoading(name, type){
+  document.getElementById('analyzeInput').value = `⬡ Analyzing ${name}...\nType: ${type}\nExtracting signal...`;
+}
+
+function displayModalAnalysis(report, item, layout){
+  // Inject modal-specific scores into the existing metric bars
+  // using the animateBar function
+  if(!report) return;
+  const r=report;
+  if(r.arousal!==undefined)     animateBar('af1','as1',r.arousal,'var(--signal)');
+  if(r.suppression!==undefined) animateBar('af3','as3',r.suppression,'var(--violet)');
+  if(r.tension!==undefined)     animateBar('af4','as4',r.tension,'var(--amber)');
+  if(r.regulation!==undefined)  animateBar('att1','ats1',r.regulation,'var(--signal)');
+  if(r.freeze!==undefined)      animateBar('att3','ats3',r.freeze,'var(--rose)');
+
+  // Show modal-specific findings in the gaps panel
+  const gaps=[];
+  if(r.freeze>0.4)    gaps.push({type:'FREEZE DETECTED',text:`Extended stillness (${Math.round(r.stillnessRatio*100)}% of duration) — possible shutdown or processing state`,color:'var(--cyan)'});
+  if(r.stimming>0.4)  gaps.push({type:'RHYTHM SIGNAL',text:`Periodic motion detected — regulatory behavior (stimming) probability: ${Math.round(r.stimming*100)}%`,color:'var(--signal)'});
+  if(r.suppression>0.5) gaps.push({type:'SUPPRESSION',text:`Surface signal is muted — possible masking or emotional suppression`,color:'var(--violet)'});
+  if(r.tension>0.5)   gaps.push({type:'TENSION',text:`High tension signal in ${r.type} — arousal beneath surface`,color:'var(--amber)'});
+  if(r.monotone>0.5)  gaps.push({type:'FLAT AFFECT',text:`Monotone pattern — affect suppressed or shutdown state`,color:'var(--rose)'});
+  if(r.fragmentation>0.4) gaps.push({type:'FRAGMENTATION',text:`Speech fragmentation — possible overwhelm or processing overload`,color:'var(--rose)'});
+  if(r.startleCount>2) gaps.push({type:'STARTLE EVENTS',text:`${r.startleCount} sudden activation events — hypervigilance or external triggers`,color:'var(--amber)'});
+  if(layout.tone==='high-tension') gaps.push({type:'VISUAL TENSION',text:`Color palette indicates high arousal — red/warm dominance`,color:'var(--rose)'});
+  if(r.personPresent===false) gaps.push({type:'NO PERSON DETECTED',text:`Screenshot may be text-only — social media post or message`,color:'var(--dim)'});
+  if(gaps.length>0) renderGapList('analysisGaps', gaps);
+}
+
+function buildTagsFromModal(report, existingTags){
+  const tags=[...existingTags];
+  if(!report) return tags;
+  if(report.freeze>0.4) tags.push('BLOCK');
+  if(report.stimming>0.4) tags.push('STIM');
+  if(report.suppression>0.5) tags.push('SUPPRESS');
+  if(report.tension>0.5) tags.push('FRICTION');
+  if(report.type==='image') tags.push('VISUAL');
+  if(report.type==='video') tags.push('MOTION');
+  if(report.type==='audio') tags.push('AUDIO');
+  return [...new Set(tags)];
+}
+
+function updateDSMFromModal(report){
+  if(!dsmActive||!report) return;
+  // ASD
+  if(report.stimming>0) setProbEl('dp3', report.stimming);
+  if(report.suppression>0) setProbEl('dp4', report.suppression);
+  // ADHD
+  if(report.arousal>0) setProbEl('dp8', report.arousal*0.6);
+  // Anxiety
+  if(report.tension>0) setProbEl('dp14', report.tension);
+  if(report.tension>0) setProbEl('dp15', report.tension*0.7);
+  // Trauma
+  if(report.freeze>0) setProbEl('dp21', report.freeze);
+  if(report.startleCount>0) setProbEl('dp20', Math.min(1,report.startleCount/5));
+  if(report.suppression>0) setProbEl('dp19', report.suppression);
+}
+function ingestURL(){
+  const url = document.getElementById('urlInp').value.trim();
+  if(!url) return;
+  const item = { id:'U'+(Date.now()%99999), name:url, type:'url', size:0, tags:['url','web'], url:null };
+  renderUploadItem(item);
+  uploadedItems.push(item);
+  document.getElementById('urlInp').value='';
+  logSession('URL', url);
+}
+
+// ══════════════════════════════════════════════
+// SCREEN CAPTURE
+// ══════════════════════════════════════════════
+async function captureScreen(){
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({video:true});
+    const track = stream.getVideoTracks()[0];
+    const cap = new ImageCapture(track);
+    const bitmap = await cap.grabFrame();
+    const c = document.getElementById('captureCanvas');
+    c.width = bitmap.width; c.height = bitmap.height;
+    c.getContext('2d').drawImage(bitmap,0,0);
+    const dataUrl = c.toDataURL('image/png');
+    stream.getTracks().forEach(t=>t.stop());
+    const item = {id:'SC'+(Date.now()%99999),name:'screen-capture-'+Date.now()+'.png',type:'image/png',size:0,tags:['screenshot','screen'],url:dataUrl};
+    renderUploadItem(item);
+    uploadedItems.push(item);
+    logSession('CAPTURE','Screen captured');
+  } catch(e){ alert('Screen capture requires browser permission.'); }
+}
+async function screenshotTab(){
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser'}});
+    const track = stream.getVideoTracks()[0];
+    const cap = new ImageCapture(track);
+    const bitmap = await cap.grabFrame();
+    const c = document.getElementById('captureCanvas');
+    c.width = bitmap.width; c.height = bitmap.height;
+    c.getContext('2d').drawImage(bitmap,0,0);
+    const dataUrl = c.toDataURL('image/png');
+    stream.getTracks().forEach(t=>t.stop());
+    const item = {id:'TAB'+(Date.now()%99999),name:'tab-screenshot-'+Date.now()+'.png',type:'image/png',size:0,tags:['screenshot','tab'],url:dataUrl};
+    renderUploadItem(item);
+    uploadedItems.push(item);
+  } catch(e){ alert('Tab screenshot requires browser permission.'); }
+}
+
+// ══════════════════════════════════════════════
+// SOCIAL ANALYSIS
+// ══════════════════════════════════════════════
+let activePlat = 'twitter';
+function selectPlat(btn){
+  document.querySelectorAll('.plat-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  activePlat = btn.dataset.p;
+}
+
+// Heuristic ASE/Resonance/Gap analysis (client-side, no AI)
+function analyzeSocial(){
+  const content = document.getElementById('socContent').value.trim();
+  const username = document.getElementById('socUsername').value.trim();
+  if(!content){ alert('Paste some content first.'); return; }
+
+  const scores = analyzeText(content);
+
+  // Identity card
+  document.getElementById('idName').textContent = username || 'Unknown';
+  document.getElementById('idPlatform').textContent = activePlat.toUpperCase() + ' · ' + new Date().toLocaleDateString();
+  document.getElementById('idAse').textContent = Math.round(scores.ase*100)+'%';
+  document.getElementById('idRes').textContent = Math.round(scores.resonance*100)+'%';
+  document.getElementById('idDrift').textContent = Math.round(scores.drift*100)+'%';
+  document.getElementById('idOriginal').textContent = Math.round(scores.originality*100)+'%';
+
+  // ASE dimension bars
+  const dims = ['lexical','syntactic','rhythmic','emotional','cognitive'];
+  dims.forEach((d,i)=>{
+    const v = scores.dimensions[d]||0;
+    const bar = document.querySelector(`#aseScores .sig-row:nth-child(${i+1}) .sig-bar`);
+    const val = document.querySelector(`#aseScores .sig-row:nth-child(${i+1}) .sig-val`);
+    if(bar) bar.style.width = Math.round(v*100)+'%';
+    if(val) val.textContent = Math.round(v*100)+'%';
+  });
+
+  // SNR scores
+  setBar('signalBar','signalVal', scores.signal);
+  setBar('noiseBar','noiseVal', scores.noise);
+  setBar('suppBar','suppVal', scores.suppression);
+  setBar('ambigBar','ambigVal', scores.ambiguity);
+
+  // Gap list
+  renderGapList('gapList', scores.gaps);
+
+  // Translation
+  const trans = generateTranslation(content, scores, LANG);
+  document.getElementById('translationEn').textContent = trans.en;
+  document.getElementById('translationZh').textContent = trans.zh;
+
+  logSession('SOCIAL', (username||'?') + ' on ' + activePlat + ' — signal: ' + Math.round(scores.signal*100)+'%');
+  addLatticeNode(content.slice(0,60)+'…', ['SOCIAL', activePlat.toUpperCase()], scores.signal);
+  // Session memory
+  const entityKey = username||activePlat+'_anon';
+  recordAnalysis(scores, 'social:'+activePlat, entityKey);
+  renderEntityCard(entityKey);
+  checkPatternClusters();
+  // Micro-expression report in gap list
+  if(scores.microExp&&scores.microExp.length){
+    const existing = document.getElementById('gapList');
+    if(existing){
+      scores.microExp.slice(0,3).forEach(m=>{
+        const d=document.createElement('div');
+        d.className='gap-item';
+        d.style.borderColor='var(--cyan)';
+        d.innerHTML=`<span class="gap-type" style="color:var(--cyan)">NONVERBAL: ${m.signal.toUpperCase()}</span>${m.note}`;
+        existing.appendChild(d);
+      });
+    }
+  }
+}
+
+function clearSocial(){
+  document.getElementById('socContent').value='';
+  document.getElementById('socUsername').value='';
+  document.getElementById('socContext').value='';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SESSION MEMORY — accumulates signal across all analyses
+// The highest leverage invention in the stack.
+// Everything gets better when analyses remember each other.
+// ══════════════════════════════════════════════════════════════════
+const SESSION = {
+  analyses: [],        // every analysis result
+  entities: {},        // per-username accumulated signal
+  patternCounts: {},   // gap type → occurrence count
+  dominantSignals: [], // top 5 signals across session
+  sessionSigma: 0,     // overall session instability
+};
+
+function recordAnalysis(scores, source, entityId){
+  const record = {
+    id: 'A'+(Date.now()%99999),
+    ts: Date.now(),
+    source,
+    entityId: entityId||'unknown',
+    scores,
+    dominant: dominantGap(scores),
+  };
+  SESSION.analyses.push(record);
+
+  // Per-entity accumulation
+  if(!SESSION.entities[record.entityId]){
+    SESSION.entities[record.entityId] = {
+      id: record.entityId,
+      analyses: [],
+      signalHistory: [],
+      gapHistory: [],
+      attachStyle: {secure:0,anxious:0,avoidant:0},
+      avgSuppression: 0,
+      avgNoise: 0,
+      nvcBalance: {obs:0,feel:0,need:0,req:0,jackal:0},
+      count: 0,
+    };
+  }
+  const entity = SESSION.entities[record.entityId];
+  entity.analyses.push(record);
+  entity.count++;
+  entity.signalHistory.push(scores.signal);
+  entity.gapHistory.push(...scores.gaps.map(g=>g.type));
+  // Accumulate attach style
+  entity.attachStyle.secure  += scores.attach.secure;
+  entity.attachStyle.anxious += scores.attach.anxious;
+  entity.attachStyle.avoidant+= scores.attach.avoidant;
+  // Rolling averages
+  entity.avgSuppression = entity.analyses.map(a=>a.scores.suppression).reduce((s,v)=>s+v,0)/entity.count;
+  entity.avgNoise       = entity.analyses.map(a=>a.scores.noise).reduce((s,v)=>s+v,0)/entity.count;
+  // NVC
+  ['obs','feel','need','req','jackal'].forEach(k=>{
+    entity.nvcBalance[k] += scores.nvc[k];
+  });
+
+  // Pattern counting
+  scores.gaps.forEach(g=>{
+    SESSION.patternCounts[g.type] = (SESSION.patternCounts[g.type]||0)+1;
+  });
+
+  // Auto-promote to .pat when threshold hit
+  Object.entries(SESSION.patternCounts).forEach(([type,count])=>{
+    if(count===3) promoteToPattern(type);
+  });
+
+  // Update session sigma (instability across analyses)
+  const allSupp = SESSION.analyses.map(a=>a.scores.suppression);
+  const meanSupp = allSupp.reduce((s,v)=>s+v,0)/allSupp.length;
+  SESSION.sessionSigma = Math.min(1,
+    Math.sqrt(allSupp.map(v=>(v-meanSupp)**2).reduce((s,v)=>s+v,0)/allSupp.length)*3
+  );
+
+  // Update live signal strip
+  updateSignalStrip();
+  return record;
+}
+
+function dominantGap(scores){
+  if(!scores.gaps||!scores.gaps.length) return 'CLEAR';
+  return scores.gaps.find(g=>g.type!=='CLEAR')?.type || 'CLEAR';
+}
+
+function promoteToPattern(gapType){
+  const analyses = SESSION.analyses.filter(a=>a.dominant===gapType||a.scores.gaps.some(g=>g.type===gapType));
+  if(analyses.length<3) return;
+  const pat = {
+    id: 'P'+Math.floor(Math.random()*9999).toString().padStart(4,'0'),
+    label: gapType + ' — recurring pattern · '+analyses.length+' occurrences',
+    tags: [gapType, 'LOOP', 'PATTERN'],
+    confidence: Math.min(1, analyses.length/5),
+    sigma: SESSION.sessionSigma,
+    ts: Date.now(),
+  };
+  // Render in pattern feed
+  const el = document.getElementById('patList');
+  if(el){
+    const entry = document.createElement('div');
+    entry.className='pat-entry';
+    entry.innerHTML=`
+      <div class="pe-id">${pat.id}</div>
+      <div class="pe-label">${pat.label}</div>
+      <div class="pe-meta">
+        <span style="color:var(--signal)">${Math.round(pat.confidence*100)}% conf</span>
+        <span style="color:var(--dim)">σ${Math.round(pat.sigma*100)}%</span>
+        <span style="color:var(--amber)">${analyses.length}× observed</span>
+      </div>
+    `;
+    el.prepend(entry);
+  }
+  // Add as lattice node
+  addLatticeNode(pat.label, pat.tags, pat.sigma);
+  logSession('PAT', pat.id+' promoted — '+gapType);
+}
+
+// ── Entity memory card ──────────────────────────────────────────
+function getEntityCard(entityId){
+  const e = SESSION.entities[entityId];
+  if(!e||e.count<2) return null;
+  const n = e.count;
+  const attachDom = Object.entries(e.attachStyle)
+    .sort((a,b)=>b[1]-a[1])[0][0];
+  const gapFreq = {};
+  e.gapHistory.forEach(g=>{ gapFreq[g]=(gapFreq[g]||0)+1; });
+  const topGap = Object.entries(gapFreq).sort((a,b)=>b[1]-a[1])[0]||['NONE',0];
+  const signalTrend = e.signalHistory.length>2
+    ? e.signalHistory[e.signalHistory.length-1] - e.signalHistory[0]
+    : 0;
+  return {
+    entityId, count:n, attachStyle:attachDom,
+    avgSuppression: e.avgSuppression,
+    avgNoise: e.avgNoise,
+    topGap: topGap[0], topGapCount: topGap[1],
+    signalTrend,
+    nvcBalance: Object.fromEntries(
+      Object.entries(e.nvcBalance).map(([k,v])=>[k,v/n])
+    ),
+  };
+}
+
+// ── Live signal strip ────────────────────────────────────────────
+function updateSignalStrip(){
+  const strip = document.getElementById('liveStrip');
+  if(!strip) return;
+  const top = Object.entries(SESSION.patternCounts)
+    .filter(([t])=>t!=='CLEAR')
+    .sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!top.length){ strip.textContent='SESSION LIVE · NO PATTERNS YET'; return; }
+  strip.innerHTML = '&nbsp;SESSION LIVE&nbsp;·&nbsp;' + top.map(([t,n])=>
+    `<span style="color:${GAP_COLORS[t]||'var(--signal)'}">${t}×${n}</span>`
+  ).join('&nbsp;·&nbsp;') + `&nbsp;·&nbsp;σ${Math.round(SESSION.sessionSigma*100)}%`;
+}
+
+const GAP_COLORS = {
+  INVERSION:'var(--violet)', SHADOW:'var(--rose)', AVOIDANCE:'var(--amber)',
+  'BLAME FRAME':'var(--rose)', 'ANXIOUS ATTACH':'var(--amber)',
+  CATASTROPHIZING:'var(--orange)', 'UNEXPRESSED NEED':'var(--cyan)',
+  CLEAR:'var(--signal)', SUPPRESS:'var(--violet)', FREEZE:'var(--cyan)',
+  STIM:'var(--signal)', TENSION:'var(--amber)', FRAGMENTATION:'var(--rose)',
+};
+
+// ══════════════════════════════════════════════════════════════════
+// IDENTITY ACCUMULATOR
+// Tracks signal across multiple analyses of the same person.
+// Shows drift, dominant patterns, NVC balance over time.
+// ══════════════════════════════════════════════════════════════════
+function renderEntityCard(entityId){
+  const card = getEntityCard(entityId);
+  if(!card) return;
+  const el = document.getElementById('entityHistory');
+  if(!el) return;
+  const trendIcon = card.signalTrend > 0.05 ? '↑' : card.signalTrend < -0.05 ? '↓' : '→';
+  const trendColor = card.signalTrend > 0.05 ? 'var(--signal)' : card.signalTrend < -0.05 ? 'var(--rose)' : 'var(--dim)';
+  el.style.display='block';
+  el.innerHTML=`
+    <div style="font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">
+      ENTITY MEMORY · ${card.count} ANALYSES
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+      <div><div style="font-family:var(--cond);font-size:18px;color:var(--amber)">${card.attachStyle.toUpperCase()}</div><div style="font-size:5px;color:var(--dim)">ATTACHMENT STYLE</div></div>
+      <div><div style="font-family:var(--cond);font-size:18px;color:var(--rose)">${Math.round(card.avgSuppression*100)}%</div><div style="font-size:5px;color:var(--dim)">AVG SUPPRESSION</div></div>
+      <div><div style="font-family:var(--cond);font-size:18px;color:${trendColor}">${trendIcon}</div><div style="font-size:5px;color:var(--dim)">SIGNAL TREND</div></div>
+      <div><div style="font-family:var(--cond);font-size:18px;color:var(--violet)">${card.topGap}</div><div style="font-size:5px;color:var(--dim)">TOP GAP ×${card.topGapCount}</div></div>
+    </div>
+    <div style="font-size:6px;color:var(--muted);line-height:1.8">
+      NVC balance: obs ${Math.round(card.nvcBalance.obs*100)}% · feel ${Math.round(card.nvcBalance.feel*100)}% · need ${Math.round(card.nvcBalance.need*100)}% · req ${Math.round(card.nvcBalance.req*100)}% · jackal ${Math.round(card.nvcBalance.jackal*100)}%
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RHYTHM + CADENCE ENGINE
+// Real rhythmic signature from text.
+// No random values. Actual sentence structure analysis.
+// ══════════════════════════════════════════════════════════════════
+function analyzeRhythm(text){
+  const sentences = text.split(/[.!?]+/).map(s=>s.trim()).filter(s=>s.length>2);
+  const words = text.match(/\b\w+\b/g)||[];
+
+  // Sentence length rhythm (variance = cadence irregularity)
+  const lens = sentences.map(s=>s.split(/\s+/).length);
+  const avgLen = lens.reduce((s,v)=>s+v,0)/(lens.length||1);
+  const lenVar = Math.sqrt(lens.map(l=>(l-avgLen)**2).reduce((s,v)=>s+v,0)/(lens.length||1));
+
+  // Word length pattern (proxy for vocabulary complexity rhythm)
+  const wlens = words.map(w=>w.length);
+  const avgWLen = wlens.reduce((s,v)=>s+v,0)/(wlens.length||1);
+
+  // Punctuation rhythm (comma density = breathing pattern)
+  const commas = (text.match(/,/g)||[]).length;
+  const commaDensity = commas/(words.length||1);
+
+  // Repetition rhythm (anaphora: same word starting sentences)
+  const starters = sentences.map(s=>s.split(/\s+/)[0]?.toLowerCase());
+  const starterFreq={};
+  starters.forEach(w=>{ if(w) starterFreq[w]=(starterFreq[w]||0)+1; });
+  const anaphora = Object.values(starterFreq).filter(v=>v>1).length/(sentences.length||1);
+
+  // End rhyme (last word of each sentence)
+  const endings = sentences.map(s=>{ const w=s.split(/\s+/).pop()||''; return w.slice(-3).toLowerCase(); });
+  const endFreq={};
+  endings.forEach(e=>{ endFreq[e]=(endFreq[e]||0)+1; });
+  const rhymeScore = Object.values(endFreq).filter(v=>v>1).length/(endings.length||1);
+
+  // Alliteration (consecutive same-initial words)
+  let allitCount=0;
+  for(let i=1;i<words.length;i++){
+    if(words[i][0]&&words[i-1][0]&&words[i][0].toLowerCase()===words[i-1][0].toLowerCase()) allitCount++;
+  }
+  const alliteration = allitCount/(words.length||1);
+
+  // Cadence shape from sentence length trajectory
+  const cadence = lens.length>3
+    ? (lens[lens.length-1]>lens[0] ? 'expanding'
+      : lens[lens.length-1]<lens[0] ? 'contracting'
+      : lenVar>3 ? 'oscillating' : 'steady')
+    : 'short';
+
+  // Rhythmic score: how regular is the sentence rhythm?
+  const rhythmScore = Math.max(0, 1 - lenVar/10);
+
+  return {
+    avgSentenceLen: avgLen,
+    sentenceLenVariance: lenVar,
+    avgWordLen: avgWLen,
+    commaDensity,
+    anaphora,
+    rhymeScore,
+    alliteration,
+    cadence,
+    rhythmScore,
+    // 0–1 composite
+    rhythmic: Math.min(1, (rhythmScore*0.4 + rhymeScore*0.3 + anaphora*0.3)),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DYNAMIC TRANSLATION ENGINE
+// Composes genuinely different plain-language output from actual scores.
+// Context-sensitive templates, not fixed strings.
+// Bilingual EN/ZH throughout.
+// ══════════════════════════════════════════════════════════════════
+function generateTranslation(content, scores, lang){
+  const parts=[], zhParts=[];
+  const s=scores;
+
+  // ── What is this actually saying? ──
+  const dominant = dominantGap(s);
+
+  // Lead sentence: overall read
+  if(s.signal>0.6&&s.noise<0.3){
+    parts.push('This is clear, direct communication — the signal maps cleanly to what\'s being expressed.');
+    zhParts.push('这是清晰、直接的沟通——信号与表达内容清楚对应。');
+  } else if(s.suppression>0.5){
+    parts.push('The surface is calm but the signal underneath is active — something is being held back.');
+    zhParts.push('表面平静，但底层信号很活跃——有什么东西被压制住了。');
+  } else if(s.noise>0.6){
+    parts.push('There\'s a lot of noise in this signal — it\'s hard to read what\'s actually being communicated.');
+    zhParts.push('这个信号中有很多噪音——很难读出实际在传达什么。');
+  }
+
+  // ── Gap-specific readings ──
+  if(dominant==='INVERSION'){
+    const word = content.match(/\b(fine|okay|fine|nothing|whatever|alright)\b/i);
+    parts.push(`"${word?word[0]:'It'}" is doing a lot of work here. When dismissal language appears with somatic or arousal markers, the literal meaning inverts — the word says one thing, the signal says the opposite.`);
+    zhParts.push(`"${word?word[0]:'这个词'}"在这里承担了很多。当轻描淡写的语言与躯体或唤醒标记同时出现时，字面意思就会反转——文字说一件事，信号说相反的事。`);
+  }
+  if(dominant==='SHADOW'){
+    parts.push('There\'s content being carried that isn\'t being claimed — the weight is present but the ownership isn\'t. This often means the feeling is too vulnerable or too uncertain to name directly.');
+    zhParts.push('有内容被携带着但没有被认领——重量存在，但主体权没有。这通常意味着这种感受太脆弱或太不确定，无法直接命名。');
+  }
+  if(dominant==='ANXIOUS ATTACH'){
+    const q = content.includes('?');
+    parts.push(`${q?'The questions here':'This'} carry anxious attachment energy — there\'s a fear of disconnection or abandonment underneath the words. The communication is reaching for reassurance without directly asking for it.`);
+    zhParts.push(`${q?'这里的问题':'这'} 带有焦虑依恋的能量——文字背后有对断联或被抛弃的恐惧。沟通在寻求安慰，但没有直接要求。`);
+  }
+  if(dominant==='BLAME FRAME'){
+    parts.push('The framing is outward — responsibility is being assigned rather than owned. This is usually a distress signal disguised as accusation. What\'s under the blame is usually a hurt or an unmet need.');
+    zhParts.push('框架是向外的——责任在被分配而不是被承担。这通常是伪装成指责的痛苦信号。责备背后通常是受伤或未满足的需求。');
+  }
+  if(dominant==='AVOIDANCE'){
+    parts.push('Something is being stepped around. The deflection might look like changing the subject, going quiet, or giving a non-answer — but it marks where the real content is.');
+    zhParts.push('有什么东西在被绕过。回避可能看起来像是换话题、沉默或给出非答案——但它标志着真正内容所在的地方。');
+  }
+  if(dominant==='CATASTROPHIZING'){
+    parts.push('The framing is all-or-nothing — "always", "never", "everything". This is usually cognitive overwhelm rather than accurate assessment. The feeling is real; the scope is amplified.');
+    zhParts.push('框架是全有或全无的——"总是"、"从不"、"一切"。这通常是认知超载，而不是准确评估。感受是真实的；范围被放大了。');
+  }
+  if(s.nvc.need>0.3&&s.nvc.req===0){
+    parts.push('There\'s a need here that hasn\'t been turned into a request yet. The want is present — the ask hasn\'t been made. This gap is often where connection breaks down.');
+    zhParts.push('这里有一个需求还没有转化为请求。想要是存在的——请求还没有被提出。这个差距通常是连接断裂的地方。');
+  }
+
+  // ── Attachment read ──
+  if(s.attach.avoidant>0.5&&s.attach.anxious<0.2){
+    parts.push('The communication style here reads as avoidant — distance is being maintained, and emotional content is being deflected or minimized.');
+    zhParts.push('这里的沟通风格读起来是回避的——距离在被维持，情感内容在被转移或最小化。');
+  }
+  if(s.attach.secure>0.6){
+    parts.push('There\'s a secure attachment quality here — the communication is direct enough to be readable and warm enough to be safe.');
+    zhParts.push('这里有一种安全依恋的品质——沟通足够直接以便阅读，也足够温暖以便安全。');
+  }
+
+  // ── Fallback ──
+  if(parts.length===0){
+    parts.push('Signal is present. No dominant pattern detected — the communication is within normal range for this context.');
+    zhParts.push('信号存在。未检测到主要模式——在此上下文中，沟通在正常范围内。');
+  }
+
+  return {
+    en: parts.join(' '),
+    zh: zhParts.join(' '),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PATTERN CLUSTER DETECTOR
+// When 3+ lattice nodes share a dominant tag, create a compound
+// cluster node that surfaces the emergent meaning.
+// ══════════════════════════════════════════════════════════════════
+function checkPatternClusters(){
+  const tagCount={};
+  latticeNodes.forEach(n=>n.tags.forEach(t=>{
+    tagCount[t]=(tagCount[t]||0)+1;
+  }));
+  Object.entries(tagCount).forEach(([tag,count])=>{
+    if(count>=3){
+      const existingCluster=latticeNodes.find(n=>n.tags.includes('PATTERN')&&n.content.includes(tag));
+      if(!existingCluster){
+        addLatticeNode(
+          `CLUSTER: ${tag} — ${count} observations`,
+          ['PATTERN','SEED',tag],
+          0.3
+        );
+        logSession('CLUSTER', tag+' cluster formed ('+count+'×)');
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// VATS VIDEO WIRING
+// Wire VATS zone intensities to real video analysis results.
+// Quadrant motion → body zones. Color emotion → zone state.
+// ══════════════════════════════════════════════════════════════════
+function wireVATSFromModal(modalReport){
+  if(!modalReport) return;
+  const r = modalReport;
+
+  // Video: quadrant motion → body zones
+  if(r.type==='video'){
+    // TOP-LEFT motion → head/face/shoulder-left
+    // TOP-RIGHT motion → shoulder-right
+    // BOTTOM-LEFT → hand-left / torso
+    // BOTTOM-RIGHT → hand-right / torso
+    const qMap = {
+      'TOP-LEFT':    ['face','shoulder_l'],
+      'TOP-RIGHT':   ['shoulder_r'],
+      'BOTTOM-LEFT': ['hand_l','torso'],
+      'BOTTOM-RIGHT':['hand_r','torso'],
+    };
+    const dominated = r.dominantQuad;
+    const zones = qMap[dominated]||['torso'];
+    zones.forEach(z=>{
+      vatsIntensities[z] = Math.min(1, r.arousal + 0.1 + Math.random()*0.15);
+    });
+    // Freeze → suppress all zones
+    if(r.freeze>0.5){
+      Object.keys(vatsIntensities).forEach(z=>{ vatsIntensities[z]=vatsIntensities[z]*0.3; });
+    }
+    // Stimming → hands activate rhythmically
+    if(r.stimming>0.4){
+      vatsIntensities['hand_l'] = Math.min(1, r.stimming + Math.random()*0.2);
+      vatsIntensities['hand_r'] = Math.min(1, r.stimming + Math.random()*0.2);
+    }
+  }
+
+  // Image: color emotion → zone state
+  if(r.type==='image'){
+    if(r.colorEmotion){
+      vatsIntensities['face']    = Math.min(1, r.colorEmotion.aggression*0.6 + r.visualEnergy*0.4);
+      vatsIntensities['torso']   = Math.min(1, r.suppression + r.colorEmotion.anxiety*0.4);
+      vatsIntensities['posture'] = Math.min(1, r.colorEmotion.suppression);
+    }
+    if(r.personPresent){
+      vatsIntensities['eyes']   = Math.min(1, r.visualEnergy * 0.7 + 0.2);
+      vatsIntensities['mouth']  = Math.min(1, r.colorEmotion?.aggression * 0.8 || 0.2);
+    }
+  }
+
+  // Audio: prosodic signal → neck/mouth/posture zones
+  if(r.type==='audio'){
+    vatsIntensities['neck']    = Math.min(1, r.tension);
+    vatsIntensities['mouth']   = Math.min(1, r.energyLevel);
+    vatsIntensities['posture'] = Math.min(1, r.suppression);
+    vatsIntensities['shoulder_l'] = Math.min(1, r.arousal * 0.6);
+    vatsIntensities['shoulder_r'] = Math.min(1, r.arousal * 0.6);
+  }
+
+  renderZoneList();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MICRO-EXPRESSION HEURISTIC ENGINE
+// Reads facial language from text descriptions and emoji.
+// Maps emoji + body language vocabulary to FACS-adjacent signals.
+// Works entirely on text — no image needed.
+// ══════════════════════════════════════════════════════════════════
+function detectMicroExpressions(text){
+  const t = text;
+  const signals = [];
+
+  // Emoji → facial signal mapping
+  const emojiMap = [
+    { emoji:/😊|☺️|🙂/, signal:'social_smile', zone:'mouth', intensity:0.4, note:'Mouth smile without eye involvement — social/performed' },
+    { emoji:/😄|😁|😂|🤣/, signal:'duchenne_smile', zone:'eyes', intensity:0.7, note:'Full-face engagement — genuine positive affect' },
+    { emoji:/😐|😑|😶/, signal:'flat_affect', zone:'face', intensity:0.6, note:'Neutral mask — suppression or shutdown signal' },
+    { emoji:/😶|🫥/, signal:'dissociation', zone:'face', intensity:0.7, note:'Face without expression — possible freeze state' },
+    { emoji:/🙃/, signal:'masked_distress', zone:'face', intensity:0.7, note:'Inverted smile — classic inversion signal' },
+    { emoji:/😅|🥵/, signal:'stress_sweat', zone:'face', intensity:0.5, note:'Stress display with smile mask' },
+    { emoji:/😤|😠|😡|🤬/, signal:'anger_display', zone:'brow', intensity:0.8, note:'Brow furrow + nostril flare pattern' },
+    { emoji:/😢|😭|🥺|😥/, signal:'distress', zone:'eyes', intensity:0.8, note:'Genuine distress signal' },
+    { emoji:/😬/, signal:'tension_grimace', zone:'mouth', intensity:0.6, note:'Jaw tension + lip compression' },
+    { emoji:/🤔|🧐/, signal:'brow_raise_processing', zone:'brow', intensity:0.4, note:'Processing or skepticism' },
+    { emoji:/👀|👁️/, signal:'gaze_signal', zone:'eyes', intensity:0.5, note:'Gaze emphasis or hypervigilance' },
+    { emoji:/🫣|😳/, signal:'startle_response', zone:'eyes', intensity:0.7, note:'Eye widen — startle or shock' },
+    { emoji:/🤷|🤷‍♀️|🤷‍♂️/, signal:'shoulder_shrug', zone:'shoulder_l', intensity:0.4, note:'Uncertainty or avoidance display' },
+    { emoji:/💀|☠️/, signal:'overwhelm_humor', zone:'face', intensity:0.5, note:'Death/overwhelm humor — ND coping signal' },
+    { emoji:/😴|💤/, signal:'shutdown', zone:'face', intensity:0.6, note:'Shutdown display — exhaustion or freeze' },
+    { emoji:/🫠/, signal:'melting_overwhelm', zone:'face', intensity:0.7, note:'Overwhelm or burnout signal' },
+  ];
+
+  emojiMap.forEach(({emoji,signal,zone,intensity,note})=>{
+    if(emoji.test(t)){
+      signals.push({type:'MICRO_EXPRESSION',signal,zone,intensity,note,source:'emoji'});
+    }
+  });
+
+  // Text-based body language vocabulary
+  const bodyVocab = [
+    { pattern:/\b(can't look|can't make eye contact|avoiding your eyes|looking away)\b/i, signal:'gaze_aversion', zone:'eyes', intensity:0.6, note:'Shame or avoidance' },
+    { pattern:/\b(heart (racing|pounding|dropping)|chest tight|can't breathe)\b/i, signal:'autonomic_arousal', zone:'torso', intensity:0.8, note:'Physiological arousal signal' },
+    { pattern:/\b(shaking|trembling|hands shaking)\b/i, signal:'tremor', zone:'hand_l', intensity:0.7, note:'High arousal or fear' },
+    { pattern:/\b(can't move|frozen|can't get up)\b/i, signal:'freeze', zone:'posture', intensity:0.8, note:'Shutdown or freeze state' },
+    { pattern:/\b(rocking|stimming|flapping|tapping|bouncing)\b/i, signal:'stim', zone:'torso', intensity:0.5, note:'Self-regulation behavior' },
+    { pattern:/\b(walls closing|head spinning|too much)\b/i, signal:'overwhelm', zone:'face', intensity:0.8, note:'Sensory/emotional overwhelm' },
+    { pattern:/\b(holding it together|keeping it together|pretending)\b/i, signal:'masking', zone:'face', intensity:0.8, note:'Active masking effort' },
+    { pattern:/\b(numb|empty|hollow|going through motions)\b/i, signal:'emotional_numbing', zone:'face', intensity:0.7, note:'Dissociation or shutdown' },
+    { pattern:/\b(clenching|jaw tight|grinding|shoulders up)\b/i, signal:'tension', zone:'neck', intensity:0.6, note:'Physical tension accumulation' },
+    { pattern:/\b(smile.*not reach.*eyes|smiling.*but.*not)\b/i, signal:'social_smile', zone:'eyes', intensity:0.8, note:'Explicit surface/depth gap in expression' },
+  ];
+
+  bodyVocab.forEach(({pattern,signal,zone,intensity,note})=>{
+    if(pattern.test(t)){
+      signals.push({type:'NONVERBAL_DESCRIBED',signal,zone,intensity,note,source:'text'});
+    }
+  });
+
+  return signals;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// COMMUNICATION GEOMETRY ENGINE
+// Reads the structural shape of conversation from text.
+// Who explains, who asks, who defers, who defines terms.
+// Detects power asymmetry, emotional labor, topic control.
+// ══════════════════════════════════════════════════════════════════
+function analyzeCommGeometry(text){
+  const sentences = text.split(/[.!?]+/).filter(s=>s.trim().length>2);
+  const questions = sentences.filter(s=>/\?/.test(s)).length;
+  const exclaims  = sentences.filter(s=>/!/.test(s)).length;
+  const statements= sentences.length - questions - exclaims;
+
+  // Interrogative density (question-asker vs explainer)
+  const questionRatio = questions/(sentences.length||1);
+  const statementRatio = statements/(sentences.length||1);
+
+  // Emotional labor markers (managing the other person's feelings)
+  const emoLabor = countMatches(text.toLowerCase(),[
+    /\b(it's okay|you're fine|don't worry|calm down|relax)\b/,
+    /\b(i know you (don't|didn't)|i understand that you)\b/,
+    /\b(i'm (not|just)|i was (just|only))\b/,
+    /\b(sorry for|didn't mean to|apologize for)\b/,
+  ]);
+
+  // Topic control (reframes or redirects)
+  const topicControl = countMatches(text.toLowerCase(),[
+    /\b(the point is|what (i'm|you're) (really|actually) saying)\b/,
+    /\b(you (always|always seem)|you (never|never seem))\b/,
+    /\b(that's not what|you're missing|you don't understand)\b/,
+    /\b(let me (explain|be clear|put it this way))\b/,
+  ]);
+
+  // Minimization (reducing scope)
+  const minimization = countMatches(text.toLowerCase(),[
+    /\bjust\b/,/\bonly\b/,/\ba little\b/,/\bkind of\b/,/\bsort of\b/,
+    /\bit's not (a big deal|that important|serious)\b/,
+  ]);
+
+  // Apology density
+  const apologies = (text.match(/\b(sorry|apologize|my fault|my bad|forgive me)\b/gi)||[]).length;
+  const apologyDensity = Math.min(1, apologies/(sentences.length||1)*3);
+
+  // Geometry classification
+  let geometry = 'balanced';
+  if(statementRatio>0.8&&questionRatio<0.1) geometry='explanation-dominant';
+  else if(questionRatio>0.5) geometry='interrogation-dominant';
+  else if(emoLabor>0.5) geometry='emotional-labor-heavy';
+  else if(topicControl>0.5) geometry='control-heavy';
+  else if(apologyDensity>0.3) geometry='deferential';
+  else if(minimization>0.5) geometry='minimizing';
+
+  return {
+    questionRatio,
+    statementRatio,
+    emotionalLabor: emoLabor,
+    topicControl,
+    minimization,
+    apologyDensity,
+    geometry,
+    powerAsymmetry: Math.min(1,(topicControl+emoLabor-questionRatio)*0.5),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// COGNITIVE STATE DETECTOR
+// Detects cognitive load, working memory pressure, processing state.
+// Particularly relevant for ASD/ADHD profiles.
+// ══════════════════════════════════════════════════════════════════
+function detectCognitiveState(text, rhythm){
+  const t=text.toLowerCase();
+  const words=t.match(/\b\w+\b/g)||[];
+
+  // Working memory pressure: long sentences, many embedded clauses
+  const sentences=text.split(/[.!?]+/).filter(s=>s.trim().length>2);
+  const avgLen=sentences.map(s=>s.split(/\s+/).length).reduce((a,b)=>a+b,0)/(sentences.length||1);
+
+  // Hyperfocus signal: very long, very detailed, very specific
+  const hyperfocus = avgLen>25&&words.length>100&&rhythm.avgWordLen>5 ? 0.8 : 0;
+
+  // Overwhelm: short, fragmented, incomplete
+  const overwhelm = avgLen<5&&rhythm.sentenceLenVariance>3 ? 0.7 : 0;
+
+  // Rumination: circular language, same concepts repeating
+  const rumination = rhythm.anaphora>0.3||(words.length>50&&detectRepetition(words)>0.3) ? 0.6 : 0;
+
+  // Masking effort: very formal, hedged, overly explained
+  const maskingCognitive = countMatches(t,[
+    /\b(as i was saying|to clarify|what i mean is|to be clear)\b/,
+    /\b(i want to make sure|i hope that makes sense|does that make sense)\b/,
+    /\b(sorry if|excuse me if|forgive me if)\b/,
+  ]);
+
+  // Time blindness markers (ADHD)
+  const timeBlinds = countMatches(t,[
+    /\b(forgot|completely forgot|lost track|didn't realize it was)\b/,
+    /\b(wait when did|has it been|time (flies|went by|passed))\b/,
+    /\b(anyway where was i|what was i saying|oh right)\b/,
+  ]);
+
+  // Rejection sensitivity (ADHD/ASD)
+  const rejSensitivity = countMatches(t,[
+    /\b(you (probably|definitely|must) (hate|think|find))\b/,
+    /\b(i knew you (would|wouldn't|were))\b/,
+    /\b(everyone (always|thinks|says))\b/,
+    /\b(i'm (too much|a lot|annoying|difficult))\b/,
+  ]);
+
+  const cogLoad = Math.min(1,(
+    (rhythm.sentenceLenVariance/10)*0.3 +
+    overwhelm*0.3 + rumination*0.2 + hyperfocus*0.2
+  ));
+
+  return {
+    hyperfocus,
+    overwhelm,
+    rumination,
+    maskingCognitive,
+    timeBlinds,
+    rejSensitivity,
+    cognitiveLoad: cogLoad,
+    state: hyperfocus>0.5?'HYPERFOCUS':overwhelm>0.5?'OVERWHELM':rumination>0.5?'RUMINATION':cogLoad>0.5?'HIGH-LOAD':'CLEAR',
+  };
+}
+
+// ══════════════════════════════════════════════
+// TEXT ANALYSIS ENGINE (heuristic, client-side)
+// ══════════════════════════════════════════════
+function analyzeText(text){
+  const t = text.toLowerCase();
+  const words = t.match(/\b\w+\b/g)||[];
+  const wc = words.length||1;
+  const sentences = text.split(/[.!?]+/).filter(s=>s.trim().length>2);
+  const sc = sentences.length||1;
+
+  // NVC detection
+  const obs = (/when (i|you|we)|i (noticed|saw|heard|observed)/.test(t)?1:0)*0.8 + (text.split(/,/).length/10)*0.2;
+  const feel = countMatches(t,[/\bi feel\b/,/\bfelt\b/,/\bfeel\b.*?(hurt|sad|scared|angry|frustrated|happy|grateful|overwhelmed|anxious|excited|relieved|lonely|confused)/,/\b(hurt|heartbroken|devastated|joyful)\b/]);
+  const need = countMatches(t,[/\bi need\b/,/\bwhat (i|we) need\b/,/\b(safety|connection|autonomy|respect|understanding|support|space|honesty|consistency)\b/]);
+  const req = countMatches(t,[/\bwould you be willing\b/,/\bcould you\b/,/\bi('d| would) like\b/,/\bplease\b.*\?/]);
+  const jackal = countMatches(t,[/\byou (always|never|should|shouldn't|must|have to)\b/,/\bstop (being|doing)\b/,/\bit('s| is) your fault\b/,/\byou (make|made) me\b/]);
+
+  // Attachment
+  const anxious = countMatches(t,[/do you (still|even) (love|care|want|like)/,/are you (mad|upset|angry|leaving)/,/i('m| am) (worried|scared) (you|that you)/,/please (don't|do).*?(leave|go|ignore)/]);
+  const avoidant = countMatches(t,[/\bi('m| am) fine\b/,/\bit('s| is) fine\b/,/\bnever mind\b/,/\bforget it\b/,/\bi don't (want|need) to talk/,/\bwhatever\b/]);
+  const secure = countMatches(t,[/\bi understand\b/,/\bi hear you\b/,/\bwe can\b/,/\btogether\b/,/\bi('m| am) here\b/,/\bthanks for (telling|sharing)\b/]);
+
+  // Framing
+  const agency = countMatches(t,[/\bi (chose|decided|chose|wanted|did|made)\b/]);
+  const victim = countMatches(t,[/\bthings always\b/,/\bit (never|always) (happens|goes)\b/,/\bnobody (ever|always)\b/]);
+  const catastroph = countMatches(t,[/\balways\b.*\bnever\b/,/\beverything (is|was) (wrong|broken|ruined)\b/,/\bnothing (ever|will|works)\b/,/\bworst\b/]);
+
+  // Cognitive load
+  const hedging = countMatches(t,[/\bmaybe\b/,/\bperhaps\b/,/\bi think\b/,/\bsort of\b/,/\bkind of\b/,/\bprobably\b/]);
+  const fillers = countMatches(t,[/\bum\b/,/\buh\b/,/\blike\b/,/\byou know\b/]);
+  const repeat = detectRepetition(words);
+
+  // Inversion / shadow
+  const inversion = countMatches(t,[/\b(i('m| am)|it('s| is)) fine\b.*\bbut\b/,/\bnot (angry|upset|bothered|sad)\b/,/\bdon't (care|mind|worry)\b.*\bbut\b/]);
+  const shadow = (countMatches(t,[/\bbroken|lost|failing|worthless|empty|hollow|alone\b/]) > 0 && !(/\bi (am|feel|felt)\b/.test(t))) ? 1 : 0;
+
+  // Suppression
+  const suppression = Math.min(1, (avoidant + inversion*0.5 + (1-feel)*0.3)*0.4);
+
+  // Compute composite scores
+  const signal = Math.min(1, (obs*0.2 + feel*0.25 + need*0.2 + req*0.15 + agency*0.2));
+  const noise = Math.min(1, (jackal*0.3 + hedging*0.2 + fillers*0.15 + catastroph*0.2 + repeat*0.15));
+  const ambiguity = Math.min(1, (hedging*0.4 + avoidant*0.3 + inversion*0.3));
+  const resonance = Math.min(1, (secure*0.4 + feel*0.3 + (1-jackal)*0.3));
+  const drift = Math.min(1, (inversion*0.35 + shadow*0.35 + suppression*0.3));
+  const originality = Math.max(0.2, Math.min(1, 0.5 + (feel-hedging)*0.3 + agency*0.2));
+  const ase = Math.min(1, (originality*0.4 + resonance*0.3 + (1-noise)*0.3));
+
+  // Gaps
+  const gaps = [];
+  if(inversion>0) gaps.push({type:'INVERSION',text:'Dismissal language with arousal markers — the surface says fine, the signal says otherwise',color:'var(--violet)'});
+  if(shadow>0) gaps.push({type:'SHADOW',text:'Negative content without first-person ownership — carried but not claimed',color:'var(--rose)'});
+  if(avoidant>0.5) gaps.push({type:'AVOIDANCE',text:'Topic deflection or withdrawal markers detected',color:'var(--amber)'});
+  if(jackal>0.5) gaps.push({type:'BLAME FRAME',text:'Evaluative or blame language present — jackal mode',color:'var(--rose)'});
+  if(anxious>0.5) gaps.push({type:'ANXIOUS ATTACH',text:'Reassurance-seeking or fear-of-abandonment markers',color:'var(--amber)'});
+  if(catastroph>0.5) gaps.push({type:'CATASTROPHIZING',text:'Extreme absolute language — all-or-nothing framing',color:'var(--orange)'});
+  if(need>0 && req===0) gaps.push({type:'UNEXPRESSED NEED',text:'Need is present but no request made — the want is there, the ask is not',color:'var(--cyan)'});
+  if(gaps.length===0) gaps.push({type:'CLEAR',text:'No significant gaps detected. Signal is relatively congruent.',color:'var(--signal)'});
+
+  // ── Real rhythm, micro-expression, geometry, cognitive engines ──
+  const rhythm    = analyzeRhythm(text);
+  const microExp  = detectMicroExpressions(text);
+  const commGeo   = analyzeCommGeometry(text);
+  const cogState  = detectCognitiveState(text, rhythm);
+
+  // Micro-expression gaps
+  microExp.forEach(m=>{
+    if(m.intensity>0.6) gaps.push({type:'NONVERBAL:'+m.signal.toUpperCase(),text:m.note+' ('+m.source+')',color:'var(--cyan)'});
+  });
+  // Geometry gaps
+  if(commGeo.geometry!=='balanced') gaps.push({type:'COMM GEOMETRY',text:'Pattern: '+commGeo.geometry,color:'var(--blue)'});
+  // Cognitive state gaps
+  if(cogState.state!=='CLEAR') gaps.push({type:'COGNITIVE:'+cogState.state,text:
+    cogState.state==='HYPERFOCUS'?'Hyperfocus signal — deep detail, extended elaboration':
+    cogState.state==='OVERWHELM'?'Overwhelm signal — fragmented, short, high variance':
+    cogState.state==='RUMINATION'?'Rumination pattern — circular, repeating themes':
+    'High cognitive load — working memory pressure',color:'var(--violet)'});
+  if(cogState.rejSensitivity>0.3) gaps.push({type:'REJECTION SENSITIVITY',text:'RSD signal — anticipating negative judgment or abandonment',color:'var(--amber)'});
+
+  const dimensions = {
+    lexical:   Math.min(1, wc/200 * 0.5 + originality*0.5),
+    syntactic: Math.min(1, sc/20 * 0.5 + (1-hedging)*0.5),
+    rhythmic:  rhythm.rhythmic,
+    emotional: Math.min(1, feel*0.6 + need*0.4),
+    cognitive: Math.min(1, agency*0.5 + (1-victim)*0.5),
+  };
+
+  return { signal, noise, suppression, ambiguity, resonance, drift, originality, ase,
+    nvc:{obs,feel,need,req,jackal}, attach:{anxious,avoidant,secure},
+    framing:{agency,victim,catastroph}, cognitive:{hedging,fillers,repeat},
+    gaps, dimensions, rhythm, microExp, commGeo, cogState };
+}
+
+function countMatches(text, patterns){
+  return Math.min(1, patterns.reduce((sum,p)=>sum+(p.test(text)?1:0),0)/patterns.length);
+}
+function detectRepetition(words){
+  const freq={}, dupes=new Set();
+  words.forEach(w=>{ if(w.length>4){ freq[w]=(freq[w]||0)+1; if(freq[w]>2) dupes.add(w); }});
+  return Math.min(1, dupes.size/10);
+}
+function setBar(barId,valId,v){
+  const bar=document.getElementById(barId), val=document.getElementById(valId);
+  if(bar) bar.style.width=Math.round(v*100)+'%';
+  if(val) val.textContent=Math.round(v*100)+'%';
+}
+function renderGapList(containerId, gaps){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = gaps.map(g=>`
+    <div class="gap-item" style="border-color:${g.color}">
+      <span class="gap-type" style="color:${g.color}">${g.type}</span>
+      ${g.text}
+    </div>
+  `).join('');
+}
+function generateTranslation(content, scores, lang){
+  const parts=[];
+  if(scores.nvc.jackal>0.3) parts.push('There\'s blame or evaluation language here — the message is expressing frustration through attack rather than need.');
+  if(scores.nvc.feel>0.3) parts.push('Genuine feeling is present. There\'s real emotional content underneath the words.');
+  if(scores.nvc.need>0.3) parts.push('A need is being expressed — this is what they actually want, even if they\'re not asking directly.');
+  if(scores.attach.anxious>0.3) parts.push('This has anxious attachment energy — there\'s fear of losing connection driving the communication.');
+  if(scores.attach.avoidant>0.3) parts.push('There\'s withdrawal or deflection here — something is being avoided or closed off.');
+  const inversion = scores.gaps.find(g=>g.type==='INVERSION');
+  if(inversion) parts.push('The surface message says one thing but the underlying signal says another. Trust the signal, not the words.');
+  const shadow = scores.gaps.find(g=>g.type==='SHADOW');
+  if(shadow) parts.push('Something is being carried but not said directly. There\'s more here than what\'s on the surface.');
+  if(parts.length===0) parts.push('Communication is relatively clear and congruent. What\'s said maps to what\'s meant.');
+  const en = parts.join(' ');
+
+  const zhParts = [];
+  if(scores.nvc.jackal>0.3) zhParts.push('这里有责备或评判语言——信息通过攻击而不是需求来表达挫折感。');
+  if(scores.nvc.feel>0.3) zhParts.push('有真实的感受存在。文字背后有真实的情感内容。');
+  if(scores.nvc.need>0.3) zhParts.push('有一个需求在被表达——这是他们真正想要的，即使他们没有直接要求。');
+  if(scores.attach.anxious>0.3) zhParts.push('这里有焦虑依恋的能量——害怕失去联系正在驱动这种沟通。');
+  if(scores.attach.avoidant>0.3) zhParts.push('这里有撤退或回避——某些东西被回避或关闭了。');
+  if(inversion) zhParts.push('表面信息说一件事，但底层信号说另一件事。相信信号，而不是文字。');
+  if(shadow) zhParts.push('有些东西被携带着但没有直接说出来。表面之下还有更多。');
+  if(zhParts.length===0) zhParts.push('沟通相对清晰和一致。所说的与所意味的相符。');
+  const zh = zhParts.join(' ');
+
+  return { en, zh };
+}
+
+// ══════════════════════════════════════════════
+// FULL ANALYSIS
+// ══════════════════════════════════════════════
+let analysisDepth = 1;
+function setDepth(d, btn){
+  analysisDepth = d;
+  document.querySelectorAll('[id^=depthBtn]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function runAnalysis(){
+  const content = document.getElementById('analyzeInput').value.trim();
+  if(!content) return;
+  const scores = analyzeText(content);
+
+  // Signal quality
+  animateBar('af1','as1',scores.signal,'var(--signal)');
+  animateBar('af2','as2',scores.nvc.obs,'var(--cyan)');
+  animateBar('af3','as3',1-scores.noise,'var(--violet)');
+  animateBar('af4','as4',1-Math.abs(scores.signal-scores.resonance),'var(--amber)');
+  // NVC
+  animateBar('nf1','ns1',scores.nvc.obs,'var(--signal)');
+  animateBar('nf2','ns2',scores.nvc.feel,'var(--pink)');
+  animateBar('nf3','ns3',scores.nvc.need,'var(--cyan)');
+  animateBar('nf4','ns4',scores.nvc.req,'var(--violet)');
+  animateBar('nf5','ns5',scores.nvc.jackal,'var(--rose)');
+  // Attachment
+  animateBar('att1','ats1',scores.attach.secure,'var(--signal)');
+  animateBar('att2','ats2',scores.attach.anxious,'var(--amber)');
+  animateBar('att3','ats3',scores.attach.avoidant,'var(--rose)');
+  animateBar('att4','ats4',0,'var(--violet)');
+
+  renderGapList('analysisGaps', scores.gaps);
+  const trans = generateTranslation(content, scores, LANG);
+  document.getElementById('analyzeTranslationEn').textContent = trans.en;
+  document.getElementById('analyzeTranslationZh').textContent = trans.zh;
+  if(LANG==='zh') document.getElementById('analyzeTranslationZh').style.display='block';
+
+  addLatticeNode(content.slice(0,60), scores.gaps.map(g=>g.type), scores.signal);
+  logSession('ANALYZE', 'Signal: '+Math.round(scores.signal*100)+'% · Gaps: '+scores.gaps.length);
+  updateDSMFromScores(scores);
+  // Wire session memory
+  const entityId = document.getElementById('socUsername')?.value.trim()||'default';
+  recordAnalysis(scores, 'text', entityId);
+  renderEntityCard(entityId);
+  checkPatternClusters();
+  // Show cognitive state in a readable way
+  if(scores.cogState&&scores.cogState.state!=='CLEAR'){
+    logSession('COG', scores.cogState.state+' detected — '+
+      (scores.cogState.cognitiveLoad*100|0)+'% cognitive load');
+  }
+  if(scores.commGeo&&scores.commGeo.geometry!=='balanced'){
+    logSession('GEO', 'Communication geometry: '+scores.commGeo.geometry);
+  }
+}
+function runFullSpectrum(){
+  analysisDepth=3;
+  document.querySelectorAll('[id^=depthBtn]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('depthBtn3').classList.add('active');
+  runAnalysis();
+}
+function clearAnalysis(){
+  document.getElementById('analyzeInput').value='';
+  document.querySelectorAll('.a-fill').forEach(el=>el.style.width='0%');
+  document.querySelectorAll('.a-score').forEach(el=>el.textContent='—');
+}
+function animateBar(barId,valId,v,color){
+  const bar=document.getElementById(barId), val=document.getElementById(valId);
+  if(bar){ bar.style.width='0%'; bar.style.background=color; setTimeout(()=>bar.style.width=Math.round(v*100)+'%',50); }
+  if(val){ val.style.color=color; val.textContent=Math.round(v*100)+'%'; }
+}
+
+// ══════════════════════════════════════════════
+// VATS
+// ══════════════════════════════════════════════
+const ZONES = [
+  {id:'face',label:'FACE',signal:'Micro-expressions · tension · affect',color:'#39ff6a'},
+  {id:'eyes',label:'EYES',signal:'Gaze · EAR · blink pattern',color:'#00ffee'},
+  {id:'mouth',label:'MOUTH',signal:'Lip compress · tighten · open',color:'#cc88ff'},
+  {id:'neck',label:'NECK',signal:'Tension · swallowing · breath',color:'#ffcc00'},
+  {id:'shoulder_l',label:'SHOULDER L',signal:'Raise · asymmetry · tension',color:'#ff6eb4'},
+  {id:'shoulder_r',label:'SHOULDER R',signal:'Raise · asymmetry · tension',color:'#ff6eb4'},
+  {id:'hand_l',label:'HAND LEFT',signal:'Gesture · stim · self-touch',color:'#44aaff'},
+  {id:'hand_r',label:'HAND RIGHT',signal:'Gesture · stim · self-touch',color:'#44aaff'},
+  {id:'torso',label:'TORSO',signal:'Lean · sway · posture state',color:'#ff8844'},
+  {id:'posture',label:'POSTURE',signal:'Open · collapsed · protective',color:'#ff4455'},
+];
+let vatsIntensities = {};
+function initVATSCanvas(){
+  ZONES.forEach(z=>{ vatsIntensities[z.id]=0; });
+  renderZoneList();
+}
+function renderZoneList(){
+  const el=document.getElementById('zoneList');
+  el.innerHTML=ZONES.map(z=>`
+    <div class="zone-item" id="zi-${z.id}" onclick="selectZone('${z.id}')">
+      <div class="zi-name" style="color:${z.color}">${z.label}</div>
+      <div class="zi-signal">${z.signal}</div>
+      <div class="zi-intensity"><div class="zi-fill" style="width:${Math.round(vatsIntensities[z.id]*100)}%;background:${z.color}"></div></div>
+    </div>
+  `).join('');
+}
+function selectZone(zoneId){
+  const zone=ZONES.find(z=>z.id===zoneId);
+  document.querySelectorAll('.zone-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('zi-'+zoneId).classList.add('active');
+  // Manual zone tap — base intensity on session sigma or default
+  const baseIntensity = Math.min(0.9, SESSION.sessionSigma + 0.3);
+  const intensity = Math.min(1, baseIntensity + 0.1);
+  vatsIntensities[zoneId]=intensity;
+  renderZoneList();
+  logVATS(zone.label, zone.signal.split('·')[0].trim(), intensity);
+  logSession('VATS', zone.label + ' · ' + Math.round(intensity*100)+'%');
+}
+let vatsLog=[];
+function logVATS(zone,signal,intensity){
+  const ts=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  vatsLog.unshift({ts,zone,signal,intensity});
+  const el=document.getElementById('vatsLog');
+  el.innerHTML=vatsLog.slice(0,30).map(e=>`
+    <div class="vl-entry">
+      <span class="vl-ts">${e.ts}</span>
+      <span class="vl-zone">${e.zone}</span>
+      <span class="vl-msg">${e.signal} · ${Math.round(e.intensity*100)}%</span>
+    </div>
+  `).join('');
+}
+function clearVATSLog(){ vatsLog=[]; document.getElementById('vatsLog').innerHTML='<div class="vl-entry"><span class="vl-msg" style="color:var(--dim)">Log cleared.</span></div>'; }
+function exportVATSLog(){
+  const data=JSON.stringify(vatsLog,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='vats-log-'+Date.now()+'.json'; a.click();
+}
+async function startVATSCam(){
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({video:true});
+    const vid=document.getElementById('vatsVid');
+    vid.srcObject=stream;
+    document.getElementById('noCamPrompt').style.display='none';
+    logSession('VATS','Webcam started');
+  } catch(e){ alert('Camera permission required.'); }
+}
+function triggerVATSVideo(){ document.getElementById('vatsFileInput').click(); }
+function loadVATSVideo(inp){
+  const file=inp.files[0]; if(!file) return;
+  const vid=document.getElementById('vatsVid');
+  vid.src=URL.createObjectURL(file);
+  vid.loop=true; vid.play();
+  document.getElementById('noCamPrompt').style.display='none';
+  logSession('VATS','Video file loaded: '+file.name);
+}
+
+// ══════════════════════════════════════════════
+// LATTICE
+// ══════════════════════════════════════════════
+let latticeNodes=[], selectedNode=null, latticeRaf=null;
+const TAG_COLORS={'SOCIAL':'#00ffee','INVERSION':'#cc88ff','SHADOW':'#ff4455','GAP':'#ff4455','LOOP':'#cc44ff','SEED':'#39ff6a','SUPPRESS':'#ff6eb4','CLEAR':'#39ff6a','ANXIOUS ATTACH':'#ffcc00','BLAME FRAME':'#ff4455','AVOIDANCE':'#ffcc00','SYS':'#00c8ff','REL':'#11ddcc'};
+function addLatticeNode(content, tags=[], sigma=0.5){
+  const n={
+    id:'N'+(Date.now()%99999).toString().padStart(3,'0'),
+    content: content.slice(0,80),
+    tags, sigma,
+    lx: 100+Math.random()*500,
+    ly: 60+Math.random()*280,
+    vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
+    r:12+sigma*8,
+    assoc:[]
+  };
+  // Simple word-overlap associations
+  latticeNodes.forEach(existing=>{
+    const sharedWords = n.content.toLowerCase().split(/\s+/).filter(w=>w.length>4&&existing.content.toLowerCase().includes(w));
+    if(sharedWords.length>0){ n.assoc.push(existing.id); existing.assoc.push(n.id); }
+  });
+  latticeNodes.push(n);
+  document.getElementById('nodeCount').textContent=latticeNodes.length;
+  renderNodeList();
+  if(!latticeRaf) initLatticeCanvas();
+}
+function initLatticeCanvas(){
+  const cvs=document.getElementById('lattCanvas');
+  if(!cvs) return;
+  if(latticeRaf) cancelAnimationFrame(latticeRaf);
+  cvs.width=cvs.offsetWidth||700;
+  cvs.height=cvs.offsetHeight||450;
+  latticeRaf=requestAnimationFrame(drawLattice);
+}
+function drawLattice(){
+  const cvs=document.getElementById('lattCanvas');
+  if(!cvs){ latticeRaf=null; return; }
+  const ctx=cvs.getContext('2d');
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  // Grid
+  ctx.strokeStyle='rgba(22,51,32,.2)'; ctx.lineWidth=.5;
+  for(let x=0;x<cvs.width;x+=44){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,cvs.height);ctx.stroke();}
+  for(let y=0;y<cvs.height;y+=44){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cvs.width,y);ctx.stroke();}
+  // Physics
+  const ns=latticeNodes;
+  ns.forEach(n=>{
+    if(selectedNode===n.id) return;
+    let fx=(cvs.width/2-n.lx)*.003, fy=(cvs.height/2-n.ly)*.003;
+    ns.forEach(m=>{ if(m.id===n.id) return; const dx=n.lx-m.lx,dy=n.ly-m.ly,d=Math.max(Math.hypot(dx,dy),1),f=2200/(d*d); fx+=dx/d*f; fy+=dy/d*f; });
+    n.assoc.forEach(aid=>{const m=ns.find(x=>x.id===aid);if(!m)return;const dx=m.lx-n.lx,dy=m.ly-n.ly,d=Math.max(Math.hypot(dx,dy),1),f=(d-120)*.012;fx+=dx/d*f;fy+=dy/d*f;});
+    n.vx=(n.vx+fx)*.82; n.vy=(n.vy+fy)*.82;
+    n.lx=Math.max(20,Math.min(cvs.width-20,n.lx+n.vx));
+    n.ly=Math.max(20,Math.min(cvs.height-20,n.ly+n.vy));
+  });
+  // Edges
+  const drawn=new Set();
+  ns.forEach(n=>n.assoc.forEach(aid=>{
+    const key=[n.id,aid].sort().join('|');
+    if(drawn.has(key)) return; drawn.add(key);
+    const m=ns.find(x=>x.id===aid); if(!m) return;
+    const col=TAG_COLORS[n.tags[0]]||'#4a7898';
+    ctx.strokeStyle=col+'30'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(n.lx,n.ly); ctx.lineTo(m.lx,m.ly); ctx.stroke();
+  }));
+  // Nodes
+  ns.forEach(n=>{
+    const col=TAG_COLORS[n.tags[0]]||'#39ff6a';
+    const isSel=selectedNode===n.id;
+    if(isSel){const g=ctx.createRadialGradient(n.lx,n.ly,n.r*.5,n.lx,n.ly,n.r*2.5);g.addColorStop(0,col+'44');g.addColorStop(1,col+'00');ctx.beginPath();ctx.arc(n.lx,n.ly,n.r*2.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();}
+    ctx.beginPath(); ctx.arc(n.lx,n.ly,n.r,0,Math.PI*2);
+    ctx.fillStyle=isSel?col+'22':'rgba(8,16,24,.88)';
+    ctx.fill(); ctx.strokeStyle=col+(isSel?'ff':'88'); ctx.lineWidth=isSel?2:1.2; ctx.stroke();
+    ctx.fillStyle=col; ctx.font='bold 7px Azeret Mono'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(n.id,n.lx,n.ly);
+    ctx.fillStyle='rgba(184,216,240,.45)'; ctx.font='7px Azeret Mono'; ctx.textBaseline='top';
+    ctx.fillText(n.content.slice(0,14)+(n.content.length>14?'…':''),n.lx,n.ly+n.r+3);
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  });
+  latticeRaf=requestAnimationFrame(drawLattice);
+}
+function latticeClick(e){
+  const cvs=document.getElementById('lattCanvas');
+  const r=cvs.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top;
+  const hit=latticeNodes.find(n=>Math.hypot(n.lx-x,n.ly-y)<n.r+4);
+  selectedNode=hit?hit.id:null;
+  renderNodeList();
+}
+function renderNodeList(){
+  const el=document.getElementById('nodeList');
+  if(!latticeNodes.length){el.innerHTML='<div style="font-size:6px;color:var(--dim);padding:8px">No nodes yet. Analyze something or type below.</div>';return;}
+  el.innerHTML=latticeNodes.slice().reverse().slice(0,20).map(n=>`
+    <div class="node-card" onclick="selectLattNode('${n.id}')" style="${selectedNode===n.id?'border-color:var(--signal)':''}">
+      <div class="nc-id">${n.id} · σ${Math.round(n.sigma*100)}%</div>
+      ${n.content}
+      <div class="nc-tags">${n.tags.slice(0,3).map(t=>`<span class="ntag-pill" style="color:${TAG_COLORS[t]||'#39ff6a'};border-color:${TAG_COLORS[t]||'#39ff6a'}44">${t}</span>`).join('')}</div>
+    </div>
+  `).join('');
+}
+function selectLattNode(id){ selectedNode=id; renderNodeList(); }
+function handleLattCLI(e){
+  if(e.key!=='Enter') return;
+  const inp=document.getElementById('lattCLI'), cmd=inp.value.trim(); inp.value='';
+  if(cmd.startsWith('/add ')){ addLatticeNode(cmd.slice(5),['SYS'],0.5); }
+  else if(cmd.startsWith('/find ')) { const q=cmd.slice(6).toLowerCase(); latticeNodes.forEach(n=>{if(n.content.toLowerCase().includes(q)) selectedNode=n.id;}); renderNodeList(); }
+  else if(cmd==='/clear'){ latticeNodes=[]; selectedNode=null; renderNodeList(); document.getElementById('nodeCount').textContent='0'; }
+  else addLatticeNode(cmd,['SYS'],0.5);
+}
+
+// ══════════════════════════════════════════════
+// DSM
+// ══════════════════════════════════════════════
+let dsmActive=true;
+function toggleDSM(){
+  dsmActive=!dsmActive;
+  document.getElementById('dsmToggle').classList.toggle('on',dsmActive);
+  document.getElementById('dsmToggleLabel').textContent=dsmActive?'DSM ANALYSIS ACTIVE':'DSM ANALYSIS DISABLED';
+}
+function updateDSMFromScores(scores){
+  if(!dsmActive) return;
+  // ASD signals
+  setProbEl('dp3', scores.framing ? scores.framing.agency*0.3 : 0.1);
+  setProbEl('dp4', scores.nvc.jackal<0.2&&scores.noise>0.4 ? 0.6 : 0.2);
+  // ADHD signals
+  setProbEl('dp8', scores.cognitive.fillers);
+  setProbEl('dp11', scores.nvc.jackal);
+  // Anxiety
+  setProbEl('dp14', scores.suppression);
+  setProbEl('dp15', scores.attach.anxious);
+  setProbEl('dp16', scores.attach.avoidant);
+  setProbEl('dp17', scores.framing ? scores.framing.catastroph : 0);
+  setProbEl('dp18', scores.cognitive.hedging);
+  // Trauma
+  setProbEl('dp19', scores.suppression);
+  setProbEl('dp21', scores.attach.avoidant*0.7);
+  setProbEl('dp22', scores.nvc.feel<0.1&&scores.noise>0.5?0.5:0.1);
+  // 2E
+  setProbEl('dp30', scores.signal>0.6?0.7:0.3);
+  setProbEl('dp31', scores.nvc.feel);
+}
+function setProbEl(id, v){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const pct=Math.round(Math.min(1,Math.max(0,v))*100);
+  const col=pct>60?'var(--rose)':pct>30?'var(--amber)':'var(--dim)';
+  el.textContent=pct+'%';
+  el.style.color=col;
+}
+function startWebcam(){
+  go('vats');
+  setTimeout(startVATSCam,100);
+}
+
+// ══════════════════════════════════════════════
+// SESSION LOG
+// ══════════════════════════════════════════════
+let sessionEvents=[];
+function logSession(type,msg){
+  const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  sessionEvents.unshift({ts,type,msg});
+  const el=document.getElementById('sessionLog');
+  if(el) el.innerHTML=sessionEvents.slice(0,50).map(e=>`
+    <div class="vl-entry">
+      <span class="vl-ts">${e.ts}</span>
+      <span class="vl-zone" style="color:var(--amber)">${e.type}</span>
+      <span class="vl-msg">${e.msg}</span>
+    </div>
+  `).join('');
+}
+function promotePattern(label,tags){
+  const el=document.getElementById('patList');
+  const id='P'+(Date.now()%99999).toString().padStart(3,'0');
+  el.innerHTML=`<div class="pat-entry"><div class="pe-id">${id}</div><div class="pe-label">${label}</div><div class="pe-meta">${tags.join(' · ')}</div></div>`+el.innerHTML;
+}
+
+// Init
+initVATSCanvas();
+logSession('INIT', 'Signal Suite loaded · Mimi online');
+</script>
+</body>
+</html>

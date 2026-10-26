@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASE · Authorship Signature Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#020705;--void:#040a07;--deep:#071008;--surface:#0b180d;--lift:#0f2011;
+  --wire:#163320;--wire2:#1f4a2c;--dim:#2e6640;--mid:#4a9960;--muted:#78c490;
+  --bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--signal2:#00cc44;--glow:rgba(57,255,106,.15);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+html,body{width:100%;min-height:100vh;background:var(--ink);color:var(--bright);font-family:var(--mono);overflow-x:hidden;}
+
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(57,255,106,.008) 2px,rgba(57,255,106,.008) 3px);pointer-events:none;z-index:9998;}
+
+/* ── TOPBAR ── */
+#topbar{position:sticky;top:0;z-index:100;background:rgba(4,10,7,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 16px;height:42px;gap:0;}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-mark{width:18px;height:18px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--signal);animation:blink-border 3s ease-in-out infinite;}
+@keyframes blink-border{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 12px var(--signal),inset 0 0 4px rgba(57,255,106,.2)}}
+.logo-text{font-family:var(--cond);font-size:14px;font-weight:900;letter-spacing:6px;color:var(--white);}
+.logo-sub{font-size:6px;letter-spacing:2px;color:var(--dim);margin-left:6px;align-self:flex-end;margin-bottom:2px;}
+.tb-sep{width:1px;height:16px;background:var(--wire);margin:0 14px;}
+#phase-label{font-size:7px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;}
+#phase-val{font-size:7px;letter-spacing:1px;color:var(--signal);margin-left:6px;}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+#batch-count{font-size:7px;color:var(--dim);letter-spacing:1px;}
+.tb-btn{font-size:6px;letter-spacing:1.5px;padding:4px 12px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:26px;}
+.tb-btn:hover{color:var(--white);border-color:var(--muted);}
+.tb-btn.go{color:var(--signal);border-color:var(--signal);background:var(--glow);}
+.tb-btn.go:hover{background:rgba(57,255,106,.25);}
+.tb-btn:disabled{opacity:.3;cursor:default;}
+
+/* ── MAIN LAYOUT ── */
+#shell{display:grid;grid-template-columns:1fr 360px;gap:0;min-height:calc(100vh - 42px);}
+
+/* ── LEFT PANE ── */
+#left-pane{border-right:1px solid var(--wire);display:flex;flex-direction:column;}
+
+/* Upload Zone */
+#upload-zone{
+  border:1px dashed var(--wire2);margin:16px;background:rgba(2,7,5,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;cursor:pointer;transition:all .2s;min-height:140px;position:relative;
+}
+#upload-zone:hover,#upload-zone.drag{border-color:var(--signal);background:var(--glow);}
+#upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.uz-icon{font-size:28px;opacity:.3;}
+.uz-title{font-family:var(--cond);font-size:12px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;}
+.uz-sub{font-size:7px;color:var(--dim);letter-spacing:1px;}
+
+/* Stage Grid */
+#stage-label{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;padding:0 16px 8px;border-bottom:1px solid var(--wire);}
+#stage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;padding:12px 16px;flex:1;align-content:start;}
+
+.stage-card{
+  background:var(--deep);border:1px solid var(--wire);position:relative;overflow:hidden;cursor:default;
+  transition:border-color .2s;
+}
+.stage-card:hover{border-color:var(--wire2);}
+.sc-thumb{width:100%;height:88px;object-fit:cover;display:block;filter:saturate(0.08) brightness(0.7) contrast(1.2);}
+.sc-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:6px;}
+.sc-status{font-size:6px;letter-spacing:1.5px;text-transform:uppercase;padding:2px 5px;border:1px solid transparent;align-self:flex-start;}
+.sc-status.idle{color:var(--dim);border-color:var(--wire);}
+.sc-status.ocr{color:var(--amber);border-color:var(--amber);animation:pulse-label 1s ease-in-out infinite;}
+.sc-status.mapping{color:var(--cyan);border-color:var(--cyan);animation:pulse-label 1s ease-in-out infinite;}
+.sc-status.scanning{color:var(--violet);border-color:var(--violet);animation:pulse-label 1s ease-in-out infinite;}
+.sc-status.done{color:var(--signal);border-color:var(--signal);}
+.sc-status.error{color:var(--rose);border-color:var(--rose);}
+@keyframes pulse-label{0%,100%{opacity:1}50%{opacity:.5}}
+.sc-name{font-size:6px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.5px;}
+.sc-conf{font-size:8px;color:var(--signal);font-family:var(--mono);}
+.sc-bg{position:absolute;inset:0;background:linear-gradient(to top,rgba(2,7,5,.92) 40%,transparent);pointer-events:none;}
+
+/* Progress bar in card */
+.sc-progress{position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--wire);}
+.sc-progress-fill{height:100%;width:0%;background:var(--signal);transition:width .4s ease;}
+.sc-progress-fill.amber{background:var(--amber);}
+.sc-progress-fill.cyan{background:var(--cyan);}
+.sc-progress-fill.violet{background:var(--violet);}
+
+/* OCR Text Preview */
+.sc-ocr-preview{position:absolute;inset:0;background:rgba(2,7,5,.96);padding:6px;overflow:hidden;display:none;font-size:5.5px;color:var(--dim);line-height:1.4;letter-spacing:.3px;}
+.stage-card:hover .sc-ocr-preview.has-text{display:block;}
+
+/* ── SCANNER PANEL (center log) ── */
+#scanner-log{
+  padding:10px 16px;border-top:1px solid var(--wire);
+  font-size:6.5px;color:var(--dim);line-height:1.6;
+  max-height:180px;overflow-y:auto;flex-shrink:0;
+}
+.log-line{display:flex;gap:8px;margin-bottom:1px;}
+.log-tick{color:var(--wire2);flex-shrink:0;width:36px;}
+.log-msg{flex:1;}
+.log-msg.sig{color:var(--signal);}
+.log-msg.amb{color:var(--amber);}
+.log-msg.cya{color:var(--cyan);}
+.log-msg.vio{color:var(--violet);}
+.log-msg.err{color:var(--rose);}
+
+/* Run controls */
+#run-bar{padding:10px 16px;border-top:1px solid var(--wire);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+#run-progress{flex:1;height:3px;background:var(--wire);}
+#run-progress-fill{height:100%;width:0%;background:var(--signal);transition:width .3s;}
+#run-status{font-size:7px;color:var(--dim);letter-spacing:1px;width:120px;text-align:right;}
+
+/* ── RIGHT PANE — PROFILE CARD ── */
+#right-pane{background:var(--deep);display:flex;flex-direction:column;overflow:hidden;}
+
+#card-header{padding:14px 16px 10px;border-bottom:1px solid var(--wire);}
+.card-title{font-family:var(--cond);font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;}
+#card-userid{font-size:8px;color:var(--signal);letter-spacing:1px;}
+#card-meta{font-size:6px;color:var(--dim);letter-spacing:1px;margin-top:4px;}
+
+#profile-card{flex:1;overflow-y:auto;padding:12px 16px;}
+
+/* Empty state */
+#empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--dim);}
+.empty-icon{font-size:32px;opacity:.15;}
+.empty-text{font-size:7px;letter-spacing:2px;text-transform:uppercase;}
+
+/* ── Card sections ── */
+.card-section{margin-bottom:14px;}
+.cs-label{font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid var(--wire);padding-bottom:3px;}
+
+/* Mode chips */
+.mode-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--signal);background:var(--glow);margin-bottom:6px;}
+.mode-chip-label{font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:3px;color:var(--white);text-transform:uppercase;}
+.mode-chip-conf{font-size:6px;color:var(--signal);}
+.mode-secondary{font-size:7px;color:var(--mid);letter-spacing:1px;margin-bottom:6px;}
+.mode-desc{font-size:7px;color:var(--muted);line-height:1.6;letter-spacing:.3px;}
+
+/* Axis bars */
+.axis-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.axis-key{font-size:6px;color:var(--muted);width:90px;flex-shrink:0;letter-spacing:.5px;}
+.axis-bar-bg{flex:1;height:3px;background:var(--wire);}
+.axis-bar-fill{height:100%;transition:width .8s ease;background:var(--signal);}
+.axis-bar-fill.amber{background:var(--amber);}
+.axis-bar-fill.cyan{background:var(--cyan);}
+.axis-bar-fill.violet{background:var(--violet);}
+.axis-val{font-size:6px;color:var(--signal);width:28px;text-align:right;flex-shrink:0;}
+
+/* Fingerprint tags */
+.fp-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.fp-tag{font-size:5.5px;letter-spacing:1px;padding:2px 5px;border:1px solid var(--wire2);color:var(--muted);text-transform:uppercase;}
+.fp-tag.hi{border-color:var(--amber);color:var(--amber);}
+.fp-tag.lo{border-color:var(--cyan);color:var(--cyan);}
+
+/* Entropy/intensity meter */
+.ei-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.ei-cell{background:var(--surface);border:1px solid var(--wire);padding:8px;}
+.ei-label{font-size:5.5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px;}
+.ei-val{font-size:18px;font-family:var(--cond);font-weight:700;color:var(--signal);letter-spacing:2px;}
+.ei-sub{font-size:5.5px;color:var(--dim);margin-top:2px;}
+
+/* Drift indicator */
+.drift-row{display:flex;align-items:center;gap:8px;}
+.drift-dot{width:8px;height:8px;border-radius:50%;background:var(--signal);flex-shrink:0;}
+.drift-dot.shifting{background:var(--amber);animation:pulse-label .8s ease-in-out infinite;}
+.drift-text{font-size:7px;color:var(--muted);}
+.drift-axes{font-size:6px;color:var(--amber);margin-top:3px;}
+
+/* IDL Axes radar (simplified) */
+.idl-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.idl-cell{background:var(--surface);border:1px solid var(--wire);padding:7px;}
+.idl-cell-label{font-size:5.5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:5px;}
+
+/* OCR text block */
+.ocr-block{background:var(--surface);border:1px solid var(--wire);border-left:2px solid var(--signal);padding:6px 8px;font-size:6px;color:var(--muted);line-height:1.6;letter-spacing:.3px;max-height:80px;overflow-y:auto;margin-bottom:8px;}
+
+/* Signal summary chips */
+.signal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px;}
+.sg-cell{background:var(--surface);border:1px solid var(--wire);padding:5px 6px;text-align:center;}
+.sg-key{font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin-bottom:2px;}
+.sg-val{font-size:10px;font-family:var(--cond);font-weight:700;color:var(--bright);}
+
+/* Export button */
+#export-btn{margin:0 16px 16px;font-size:7px;letter-spacing:2px;padding:8px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .2s;width:calc(100% - 32px);}
+#export-btn:hover{color:var(--signal);border-color:var(--signal);background:var(--glow);}
+#export-btn:disabled{opacity:.3;cursor:default;}
+
+::-webkit-scrollbar{width:2px;}
+::-webkit-scrollbar-track{background:var(--void);}
+::-webkit-scrollbar-thumb{background:var(--wire2);}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-mark">◈</div>
+    <div class="logo-text">ASE</div>
+    <div class="logo-sub">AUTHORSHIP SIGNATURE ENGINE</div>
+  </div>
+  <div class="tb-sep"></div>
+  <span id="phase-label">PHASE</span>
+  <span id="phase-val">IDLE</span>
+  <div class="tb-right">
+    <span id="batch-count">0 images queued</span>
+    <button class="tb-btn go" id="run-btn" disabled onclick="runPipeline()">RUN PIPELINE</button>
+    <button class="tb-btn" onclick="clearAll()">CLEAR</button>
+  </div>
+</div>
+
+<div id="shell">
+  <!-- LEFT: Upload + Stage -->
+  <div id="left-pane">
+    <div id="upload-zone" id="drop-zone">
+      <input type="file" id="file-input" multiple accept="image/*" onchange="handleFiles(this.files)">
+      <div class="uz-icon">⬡</div>
+      <div class="uz-title">BATCH IMAGE UPLOAD</div>
+      <div class="uz-sub">Drop images · JPG · PNG · WEBP · GIF — multiple files OK</div>
+    </div>
+
+    <div id="stage-label">STAGED ── 0 IMAGES</div>
+    <div id="stage-grid"></div>
+
+    <div id="scanner-log">
+      <div class="log-line"><span class="log-tick">00:00</span><span class="log-msg">ASE pipeline ready. Upload images to begin.</span></div>
+    </div>
+
+    <div id="run-bar">
+      <div id="run-progress"><div id="run-progress-fill"></div></div>
+      <div id="run-status">IDLE</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Profile Card -->
+  <div id="right-pane">
+    <div id="card-header">
+      <div class="card-title">ASE PROFILE CARD</div>
+      <div id="card-userid">—</div>
+      <div id="card-meta">awaiting signal extraction</div>
+    </div>
+    <div id="profile-card">
+      <div id="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Upload &amp; run pipeline to generate profile</div>
+      </div>
+    </div>
+    <button id="export-btn" disabled onclick="exportCard()">⬡ EXPORT PROFILE JSON</button>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+const state = {
+  images: [],          // {file, url, name, id}
+  results: [],         // {id, ocr, signal, ase, idl}
+  running: false,
+  startTime: null,
+};
+
+let profileData = null;
+let logTimer = null;
+
+// ── Upload handling ────────────────────────────────────────────
+const dropZone = document.getElementById('upload-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    const id = 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const url = URL.createObjectURL(f);
+    state.images.push({ file: f, url, name: f.name, id });
+    addStageCard({ file: f, url, name: f.name, id });
+  }
+  updateBatchCount();
+}
+
+function addStageCard(img) {
+  const grid = document.getElementById('stage-grid');
+  const card = document.createElement('div');
+  card.className = 'stage-card';
+  card.id = 'card-' + img.id;
+  card.innerHTML = `
+    <img class="sc-thumb" src="${img.url}" alt="${img.name}">
+    <div class="sc-bg"></div>
+    <div class="sc-overlay">
+      <span class="sc-status idle" id="status-${img.id}">IDLE</span>
+      <div>
+        <div class="sc-name">${img.name.slice(0,22)}</div>
+        <div class="sc-conf" id="conf-${img.id}">—</div>
+      </div>
+    </div>
+    <div class="sc-ocr-preview" id="ocr-${img.id}"></div>
+    <div class="sc-progress"><div class="sc-progress-fill" id="prog-${img.id}"></div></div>
+  `;
+  grid.appendChild(card);
+  document.getElementById('stage-label').textContent = `STAGED ── ${state.images.length} IMAGE${state.images.length !== 1 ? 'S' : ''}`;
+  document.getElementById('run-btn').disabled = false;
+}
+
+function updateBatchCount() {
+  document.getElementById('batch-count').textContent = `${state.images.length} image${state.images.length !== 1 ? 's' : ''} queued`;
+}
+
+function clearAll() {
+  state.images = [];
+  state.results = [];
+  profileData = null;
+  document.getElementById('stage-grid').innerHTML = '';
+  document.getElementById('stage-label').textContent = 'STAGED ── 0 IMAGES';
+  document.getElementById('batch-count').textContent = '0 images queued';
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('run-progress-fill').style.width = '0%';
+  document.getElementById('run-status').textContent = 'IDLE';
+  document.getElementById('phase-val').textContent = 'IDLE';
+  document.getElementById('card-userid').textContent = '—';
+  document.getElementById('card-meta').textContent = 'awaiting signal extraction';
+  document.getElementById('profile-card').innerHTML = '<div id="empty-state"><div class="empty-icon">◈</div><div class="empty-text">Upload &amp; run pipeline to generate profile</div></div>';
+  document.getElementById('export-btn').disabled = true;
+  clearLog();
+  log('ASE pipeline cleared. Ready for new batch.');
+}
+
+// ── Logger ─────────────────────────────────────────────────────
+function log(msg, cls='') {
+  const logEl = document.getElementById('scanner-log');
+  const elapsed = state.startTime ? ((Date.now() - state.startTime) / 1000).toFixed(1) : '0.0';
+  const mm = String(Math.floor(elapsed / 60)).padStart(2,'0');
+  const ss = String((elapsed % 60).toFixed(1)).padStart(4,'0');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-tick">${mm}:${ss}</span><span class="log-msg ${cls}">${msg}</span>`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() {
+  const logEl = document.getElementById('scanner-log');
+  logEl.innerHTML = '';
+}
+
+function setPhase(ph) { document.getElementById('phase-val').textContent = ph; }
+function setStatus(id, status, cls) {
+  const el = document.getElementById('status-' + id);
+  el.textContent = status;
+  el.className = 'sc-status ' + cls;
+}
+function setProgress(id, pct, cls='') {
+  const el = document.getElementById('prog-' + id);
+  el.style.width = pct + '%';
+  el.className = 'sc-progress-fill ' + (cls || '');
+}
+function setConf(id, val) { document.getElementById('conf-' + id).textContent = val; }
+function setOCR(id, text) {
+  const el = document.getElementById('ocr-' + id);
+  el.textContent = text.slice(0, 200);
+  if (text.trim().length > 3) el.classList.add('has-text');
+}
+
+// ── OCR via Tesseract.js (loaded from CDN) ─────────────────────
+async function loadTesseract() {
+  if (window.Tesseract) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function runOCR(imgEl) {
+  const { data: { text, confidence } } = await Tesseract.recognize(imgEl, 'eng', { logger: () => {} });
+  return { text: text.trim(), confidence: confidence / 100 };
+}
+
+// ── Heuristic signal extractor (mirrors Resonance heuristics.ts) ──
+function clamp(n) { return Math.max(0, Math.min(1, n)); }
+
+function extractSignalVector(text) {
+  const words = (text.toLowerCase().match(/\b[a-z']+\b/g) || []);
+  const wc = words.length || 1;
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+  const sc = sentences.length || 1;
+
+  // Word sets
+  const ABSTRACT = new Set(['meaning','essence','truth','consciousness','structure','pattern','system','theory','concept','abstraction','principle','framework','paradigm','philosophy','ontology','emergence','complexity','entropy','coherence','resonance','signal','dynamic','recursive','infinite','temporal','fundamental']);
+  const CONCRETE  = new Set(['table','chair','walk','eat','drive','house','door','hand','money','work','job','car','food','body','room','street','today','yesterday','now','here','store','phone','coffee']);
+  const SOMATIC   = new Set(['chest','breath','body','stomach','skin','hands','spine','gut','heart','throat','eyes','shoulder','weight','tired','heavy','ache','warm','cold','tight','release','tension','pulse','numb','hollow','burning','neck','jaw','floor','ground']);
+  const SYMBOLIC  = new Set(['god','soul','shadow','fire','death','birth','void','cosmos','sacred','myth','archetype','ritual','fate','destiny','eternal','infinite','dark','light','threshold','vessel','wound','gift']);
+  const NEGATIVE  = new Set(['broken','lost','fail','wrong','bad','hurt','pain','suffering','alone','empty','hollow','dark','dead','collapse','ruin','grief','fear','dread','shame','guilt','rage','despair','nothing','never']);
+  const POSITIVE  = new Set(['good','clear','true','love','joy','alive','light','hope','build','grow','create','connect','understand','free','open','real','whole','full','solid','strong','beautiful','meaningful']);
+  const URGENCY   = new Set(['now','immediately','urgent','crisis','need','must','quickly','fast','panic','desperate','breaking','collapsing','failing','lost']);
+
+  const count = (set) => words.filter(w => set.has(w)).length;
+
+  const abstractCount  = count(ABSTRACT);
+  const concreteCount  = count(CONCRETE);
+  const somaticCount   = count(SOMATIC);
+  const symbolicCount  = count(SYMBOLIC);
+  const negCount       = count(NEGATIVE);
+  const posCount       = count(POSITIVE);
+  const urgencyCount   = count(URGENCY);
+
+  // Patterns
+  const causalMatches  = (text.match(/\b(because|therefore|which means|leads to|implies|consequently|thus|hence)\b/gi) || []).length;
+  const selfRefMatches = (text.match(/\bI\s+(think|feel|notice|realize|wonder|believe|find)\b/gi) || []).length;
+  const metaphorMatches= (text.match(/\b(like a|as if|waves?|echo|bridge|roots?|seeds?|threads?|mirrors?|layers?|architecture)\b/gi) || []).length;
+  const poeticMarks    = (text.match(/—|\.\.\./g) || []).length;
+  const analyticalWords= (text.match(/\b(analyze|therefore|thus|hence|specifically|precisely|systematically|logically|functionally)\b/gi) || []).length;
+  const narrativeMarks = sentences.filter(s => s.length > 60).length;
+
+  // Cognition
+  const abstractionLevel = clamp((abstractCount / wc) * 20 - (concreteCount / wc) * 10 + 0.4);
+  const linearity        = clamp(1 - (poeticMarks / sc) * 0.3 - (metaphorMatches / wc) * 5 + (analyticalWords / wc) * 10 + 0.3);
+  const recursionDepth   = clamp((selfRefMatches / sc) * 2 + 0.2);
+  const systemThinking   = clamp((causalMatches / sc) * 1.5 + (abstractCount / wc) * 8 + 0.2);
+  const compression      = clamp(wc / sc / 25);
+
+  // Affect
+  const valence          = clamp(0.5 + (posCount - negCount) / wc * 5);
+  const volatility       = clamp((urgencyCount / wc) * 15 + (negCount / wc) * 5);
+  const attachmentLoad   = clamp((selfRefMatches / sc) * 1.5 + (somaticCount / wc) * 8 + 0.2);
+  const urgency          = clamp((urgencyCount / wc) * 20 + 0.1);
+  const somaticDensity   = clamp((somaticCount / wc) * 15);
+
+  // Language
+  const metaphorDensity  = clamp((metaphorMatches / wc) * 12);
+  const symbolicUsage    = clamp((symbolicCount / wc) * 15);
+  const poeticness       = clamp((poeticMarks / sc) * 0.4 + (metaphorMatches / wc) * 6 + 0.1);
+  const analyticalness   = clamp((analyticalWords / wc) * 12 + (linearity - 0.3) * 0.5);
+  const narrativeStructure = clamp((narrativeMarks / sc) * 1.2);
+
+  // Global
+  const entropy          = clamp(1 - (abstractionLevel * 0.3 + linearity * 0.3 + compression * 0.4));
+  const intensity        = clamp((urgency + volatility + attachmentLoad) / 3 * 1.2);
+
+  return {
+    cognition: { abstractionLevel, linearity, recursionDepth, systemThinking, compression },
+    affect:    { valence, volatility, attachmentLoad, urgency, somaticDensity },
+    language:  { metaphorDensity, symbolicUsage, poeticness, analyticalness, narrativeStructure },
+    entropy, intensity,
+    confidence: Math.min(0.9, wc / 100 + 0.3),
+    wordCount: wc, sentenceCount: sc
+  };
+}
+
+// ── ASE Signature computation (mirrors Resonance ase/signature.ts) ──
+function computeASE(signals) {
+  const emaAlpha = 0.18;
+  function ema(curr, nv, a) { return curr * (1 - a) + nv * a; }
+
+  // Init from first signal
+  let core = {
+    cognition: { ...signals[0].cognition },
+    affect:    { ...signals[0].affect },
+    language:  { ...signals[0].language },
+    entropy:   signals[0].entropy,
+    intensity: signals[0].intensity,
+  };
+
+  // EMA over all signals
+  for (let i = 1; i < signals.length; i++) {
+    const s = signals[i];
+    for (const k of Object.keys(core.cognition)) core.cognition[k] = ema(core.cognition[k], s.cognition[k], emaAlpha);
+    for (const k of Object.keys(core.affect))    core.affect[k]    = ema(core.affect[k],    s.affect[k],    emaAlpha);
+    for (const k of Object.keys(core.language))  core.language[k]  = ema(core.language[k],  s.language[k],  emaAlpha);
+    core.entropy   = ema(core.entropy,   s.entropy,   emaAlpha);
+    core.intensity = ema(core.intensity, s.intensity, emaAlpha);
+  }
+
+  // Fingerprint — variance per axis
+  const allKeys = [
+    ...Object.keys(core.cognition).map(k => ({ k, group: 'cognition' })),
+    ...Object.keys(core.affect).map(k    => ({ k, group: 'affect' })),
+    ...Object.keys(core.language).map(k  => ({ k, group: 'language' })),
+  ];
+  const varMap = {};
+  for (const { k, group } of allKeys) {
+    const vals = signals.map(s => s[group][k]);
+    const m = vals.reduce((a,b)=>a+b,0)/vals.length;
+    varMap[k] = vals.reduce((s,v)=>s+(v-m)**2,0)/vals.length;
+  }
+  const sorted = Object.entries(varMap).sort((a,b)=>b[1]-a[1]);
+  const highVarianceAxes = sorted.slice(0,3).map(([k])=>k);
+  const lowVarianceAxes  = sorted.slice(-3).map(([k])=>k);
+
+  const dominantMode   = inferMode(core);
+  const secondaryMode  = inferSecondaryMode(core, dominantMode);
+
+  // Drift (compare first half vs second half)
+  let driftMag = 0, driftDir = [];
+  if (signals.length >= 4) {
+    const half = Math.floor(signals.length / 2);
+    const early = signals.slice(0, half);
+    const late  = signals.slice(half);
+    const avg = (arr, g, k) => arr.reduce((s,v)=>s+v[g][k],0)/arr.length;
+    for (const { k, group } of allKeys) {
+      const d = Math.abs(avg(late, group, k) - avg(early, group, k));
+      if (d > 0.08) driftDir.push(k);
+      driftMag = Math.max(driftMag, d);
+    }
+  }
+
+  return {
+    core, fingerprint: { highVarianceAxes, lowVarianceAxes, dominantMode, secondaryMode },
+    drift: { magnitude: driftMag, direction: driftDir, isShifting: driftMag > 0.12 },
+    sampleSize: signals.length
+  };
+}
+
+function inferMode(core) {
+  const c = core.cognition, a = core.affect, l = core.language;
+  if (c.abstractionLevel > 0.7 && c.systemThinking > 0.6)   return 'systems-architect';
+  if (l.poeticness > 0.65 && l.symbolicUsage > 0.55)        return 'symbolic-poet';
+  if (c.recursionDepth > 0.65 && a.attachmentLoad < 0.4)    return 'deep-internal-processor';
+  if (a.volatility > 0.6 && a.somaticDensity > 0.5)         return 'somatic-emotive';
+  if (l.analyticalness > 0.65 && c.linearity > 0.6)         return 'analytical-structured';
+  if (a.attachmentLoad > 0.65 && l.narrativeStructure > 0.55)return 'relational-narrator';
+  if (core.entropy > 0.65 && c.compression > 0.6)           return 'high-entropy-synthesizer';
+  if (a.urgency > 0.6 && core.intensity > 0.65)             return 'high-intensity-driver';
+  return 'adaptive-generalist';
+}
+
+function inferSecondaryMode(core, primary) {
+  const c = core.cognition, a = core.affect, l = core.language;
+  const candidates = [];
+  if (c.abstractionLevel > 0.55 && c.systemThinking > 0.5  && primary !== 'systems-architect')      candidates.push('systems-architect');
+  if (l.poeticness > 0.5                                    && primary !== 'symbolic-poet')           candidates.push('symbolic-poet');
+  if (c.recursionDepth > 0.5                                && primary !== 'deep-internal-processor') candidates.push('deep-internal-processor');
+  if (a.somaticDensity > 0.4                                && primary !== 'somatic-emotive')         candidates.push('somatic-emotive');
+  if (l.analyticalness > 0.5                                && primary !== 'analytical-structured')   candidates.push('analytical-structured');
+  if (a.attachmentLoad > 0.5                                && primary !== 'relational-narrator')     candidates.push('relational-narrator');
+  return candidates[0] || 'adaptive-generalist';
+}
+
+// ── IDL computation ────────────────────────────────────────────
+function computeIDL(signals) {
+  const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const variance = arr => { const m=mean(arr); return arr.reduce((s,v)=>s+(v-m)**2,0)/arr.length; };
+
+  const volatilities    = signals.map(s => s.affect.volatility);
+  const attachmentLoads = signals.map(s => s.affect.attachmentLoad);
+  const urgencies       = signals.map(s => s.affect.urgency);
+  const recursions      = signals.map(s => s.cognition.recursionDepth);
+  const intensities     = signals.map(s => s.intensity);
+  const valences        = signals.map(s => s.affect.valence);
+  const entropies       = signals.map(s => s.entropy);
+
+  const bondRetention      = clamp(1 - variance(volatilities) * 4);
+  const repairTendency     = clamp(mean(attachmentLoads) * 0.6 + mean(valences) * 0.4);
+  const returnLikelihood   = clamp(1 - variance(entropies) * 3);
+  const separationTolerance= clamp(1 - mean(attachmentLoads) * 0.6 - mean(urgencies) * 0.4);
+  const independenceStability = clamp(mean(recursions) * 0.5 + (1 - variance(intensities) * 3) * 0.5);
+  const nonCling           = clamp((1 - mean(attachmentLoads)) * 0.7 + (1 - mean(urgencies)) * 0.3);
+  const predictability     = clamp(1 - variance(volatilities) * 3);
+  const emotionalConsistency = clamp(1 - variance(valences) * 3);
+  const relationalPacing   = clamp(1 - variance(intensities) * 2);
+  const internalDepth      = clamp(mean(recursions) * 0.7 + (1 - mean(urgencies)) * 0.3);
+  const expressionDelay    = clamp(1 - mean(urgencies));
+  const integrationTime    = clamp(mean(recursions) * 0.5 + (1 - mean(urgencies)) * 0.5);
+
+  const persistence = { bondRetention, repairTendency, returnLikelihood };
+  const elasticity  = { separationTolerance, independenceStability, nonCling };
+  const regulation  = { predictability, emotionalConsistency, relationalPacing };
+  const latency     = { internalDepth, expressionDelay, integrationTime };
+
+  // Mode
+  const mode = classifyIDLMode({ persistence, elasticity, regulation, latency });
+  return { persistence, elasticity, regulation, latency, mode };
+}
+
+function classifyIDLMode(v) {
+  const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const scores = {
+    'structured-devotional': mean([v.persistence.bondRetention, v.persistence.repairTendency, v.regulation.predictability, v.regulation.emotionalConsistency]),
+    'chaotic-attachment':    mean([1-v.regulation.predictability, 1-v.regulation.emotionalConsistency, v.persistence.returnLikelihood, 1-v.elasticity.separationTolerance]),
+    'detached-autonomous':   mean([v.elasticity.separationTolerance, v.elasticity.independenceStability, v.elasticity.nonCling, v.regulation.predictability]),
+    'deep-processor':        mean([v.latency.internalDepth, v.latency.expressionDelay, v.latency.integrationTime, v.elasticity.independenceStability]),
+    'anxious-attacher':      mean([1-v.elasticity.separationTolerance, 1-v.elasticity.nonCling, 1-v.regulation.emotionalConsistency]),
+    'reciprocal-builder':    mean([v.persistence.repairTendency, v.persistence.bondRetention, v.regulation.relationalPacing, v.latency.integrationTime]),
+    'fluid-relational':      (() => { const all=[mean(Object.values(v.persistence)),mean(Object.values(v.elasticity)),mean(Object.values(v.regulation)),mean(Object.values(v.latency))]; const m=mean(all); return 1-mean(all.map(x=>Math.abs(x-m)))*3; })(),
+  };
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const MODE_DESC = {
+    'structured-devotional': 'Bonds hold through rupture. Consistent presence, repair-oriented, low volatility. The anchor in a storm.',
+    'chaotic-attachment':    'High amplitude oscillation between closeness and distance. Not dysfunction — high variance waveform.',
+    'detached-autonomous':   'Stable internal state independent of proximity. Connection without grip. High self-regulation.',
+    'deep-processor':        'Internalizes before expressing. Emotion compressed and integrated before output. Silence is not absence.',
+    'anxious-attacher':      'Separation activates distress. High need for relational contact to self-regulate. Reactive, not integrated.',
+    'reciprocal-builder':    'Steady presence with high repair capacity. Thoughtful pacing, mutual investment orientation.',
+    'fluid-relational':      'Adapts relational style to context and partner. No dominant axis — context-sensitive bonding.',
+  };
+  return { primary: sorted[0][0], secondary: sorted[1][0], confidence: sorted[0][1], description: MODE_DESC[sorted[0][0]] };
+}
+
+// ── PIPELINE ──────────────────────────────────────────────────
+async function runPipeline() {
+  if (state.running || state.images.length === 0) return;
+  state.running = true;
+  state.startTime = Date.now();
+  state.results = [];
+
+  document.getElementById('run-btn').disabled = true;
+  clearLog();
+
+  // ── PHASE 1: OCR ──────────────────────────────────────────
+  setPhase('LOADING OCR ENGINE');
+  log('Initializing Tesseract.js OCR engine...', 'amb');
+  await loadTesseract();
+  log('OCR engine ready.', 'sig');
+
+  setPhase('OCR EXTRACTION');
+  log(`Starting OCR batch — ${state.images.length} image(s)`, 'cya');
+
+  const total = state.images.length;
+  const ocrResults = [];
+
+  for (let i = 0; i < state.images.length; i++) {
+    const img = state.images[i];
+    setStatus(img.id, 'OCR', 'ocr');
+    setProgress(img.id, 20, 'amber');
+    log(`[${i+1}/${total}] Running OCR → ${img.name}`, 'amb');
+    document.getElementById('run-status').textContent = `OCR ${i+1}/${total}`;
+    document.getElementById('run-progress-fill').style.width = ((i / total) * 33) + '%';
+
+    let ocrText = '', ocrConf = 0;
+    try {
+      const imgEl = document.createElement('img');
+      imgEl.src = img.url;
+      await new Promise(r => { imgEl.onload = r; imgEl.onerror = r; });
+      const result = await runOCR(imgEl);
+      ocrText = result.text;
+      ocrConf = result.confidence;
+      setProgress(img.id, 50, 'amber');
+      log(`  ✓ OCR done — ${ocrText.split(/\s+/).length} words · conf ${(ocrConf*100).toFixed(0)}%`, 'amb');
+      setConf(img.id, `${(ocrConf*100).toFixed(0)}% conf`);
+      setOCR(img.id, ocrText || '(no text detected)');
+    } catch(e) {
+      log(`  ✗ OCR error: ${e.message}`, 'err');
+      setStatus(img.id, 'ERROR', 'error');
+    }
+    ocrResults.push({ id: img.id, name: img.name, text: ocrText, confidence: ocrConf });
+    await sleep(60);
+  }
+
+  // ── PHASE 2: SIGNAL MAPPING ────────────────────────────────
+  setPhase('SIGNAL MAPPING');
+  log('─── Mapping OCR text → SignalVectors', 'cya');
+
+  const signals = [];
+  for (let i = 0; i < ocrResults.length; i++) {
+    const r = ocrResults[i];
+    setStatus(r.id, 'MAPPING', 'mapping');
+    setProgress(r.id, 65, 'cyan');
+    document.getElementById('run-progress-fill').style.width = (33 + (i / total) * 22) + '%';
+    document.getElementById('run-status').textContent = `MAPPING ${i+1}/${total}`;
+
+    const text = r.text || `Image ${r.name} — no extractable text`;
+    const sv = extractSignalVector(text);
+    sv.userId = 'batch-user';
+    sv.text = text;
+    sv.timestamp = Date.now() + i;
+    signals.push(sv);
+
+    log(`  [${i+1}] ${r.name} → cog:${sv.cognition.abstractionLevel.toFixed(2)} aff:${sv.affect.valence.toFixed(2)} lang:${sv.language.poeticness.toFixed(2)} entropy:${sv.entropy.toFixed(2)}`, 'cya');
+    setProgress(r.id, 80, 'cyan');
+    await sleep(40);
+  }
+
+  // ── PHASE 3: SCANNER / ASE ─────────────────────────────────
+  setPhase('ASE SCANNER');
+  log('─── Running Authorship Signature Engine', 'vio');
+
+  document.getElementById('run-progress-fill').style.width = '60%';
+  document.getElementById('run-status').textContent = 'ASE COMPUTING';
+
+  await sleep(120);
+  const ase = computeASE(signals);
+  log(`  ASE core computed — ${ase.sampleSize} samples`, 'vio');
+  log(`  Dominant mode: ${ase.fingerprint.dominantMode}`, 'vio');
+  log(`  High-variance axes: ${ase.fingerprint.highVarianceAxes.join(', ')}`, 'vio');
+  if (ase.drift.isShifting) log(`  ⚠ Identity drift detected: magnitude ${ase.drift.magnitude.toFixed(3)}`, 'err');
+
+  document.getElementById('run-progress-fill').style.width = '75%';
+
+  // ── PHASE 4: IDL ───────────────────────────────────────────
+  setPhase('IDL COMPUTATION');
+  log('─── Computing Intimacy Dynamics Layer', 'cya');
+
+  await sleep(80);
+  const idl = computeIDL(signals);
+  log(`  IDL mode: ${idl.mode.primary} (${(idl.mode.confidence*100).toFixed(0)}% confidence)`, 'cya');
+  log(`  Secondary: ${idl.mode.secondary}`, 'cya');
+
+  document.getElementById('run-progress-fill').style.width = '90%';
+
+  // ── Finalize ───────────────────────────────────────────────
+  for (const img of state.images) {
+    setStatus(img.id, 'DONE', 'done');
+    setProgress(img.id, 100, '');
+  }
+
+  profileData = { ase, idl, signals, ocrResults, generatedAt: Date.now(), imageCount: total };
+
+  setPhase('PROFILE READY');
+  log('─── Profile card generated.', 'sig');
+  document.getElementById('run-progress-fill').style.width = '100%';
+  document.getElementById('run-status').textContent = 'COMPLETE';
+
+  renderProfileCard(profileData);
+  document.getElementById('export-btn').disabled = false;
+  state.running = false;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── RENDER PROFILE CARD ────────────────────────────────────────
+function renderProfileCard(data) {
+  const { ase, idl, signals, ocrResults } = data;
+  const userId = 'USR-' + Date.now().toString(36).toUpperCase().slice(-6);
+
+  document.getElementById('card-userid').textContent = userId;
+  document.getElementById('card-meta').textContent =
+    `${data.imageCount} images · ${signals.reduce((s,v)=>s+v.wordCount,0)} words · ${new Date().toISOString().split('T')[0]}`;
+
+  const avgConf = (signals.reduce((s,v)=>s+v.confidence,0)/signals.length*100).toFixed(0);
+
+  function bar(val, cls='') {
+    return `<div class="axis-bar-bg"><div class="axis-bar-fill ${cls}" style="width:${(val*100).toFixed(0)}%"></div></div>`;
+  }
+  function axisRow(label, val, cls='') {
+    return `<div class="axis-row"><span class="axis-key">${label}</span>${bar(val, cls)}<span class="axis-val ${cls?'':''}${cls}">${(val*100).toFixed(0)}</span></div>`;
+  }
+
+  const modeColors = {
+    'systems-architect': '', 'symbolic-poet': 'violet', 'deep-internal-processor': 'cyan',
+    'somatic-emotive': 'amber', 'analytical-structured': '', 'relational-narrator': 'amber',
+    'high-entropy-synthesizer': 'violet', 'high-intensity-driver': 'amber', 'adaptive-generalist': ''
+  };
+  const idlModeColor = {'structured-devotional':'', 'chaotic-attachment':'amber', 'detached-autonomous':'cyan', 'deep-processor':'cyan', 'anxious-attacher':'amber', 'reciprocal-builder':'', 'fluid-relational':''};
+
+  const combinedOCR = ocrResults.filter(r=>r.text).map(r=>r.text).join(' ').slice(0, 300);
+
+  const html = `
+    <!-- OCR Sample -->
+    <div class="card-section">
+      <div class="cs-label">OCR CORPUS SAMPLE</div>
+      <div class="ocr-block">${combinedOCR || '(no text extracted from images)'}</div>
+    </div>
+
+    <!-- Signal Summary -->
+    <div class="card-section">
+      <div class="cs-label">SIGNAL SUMMARY · ${signals.length} samples · avg conf ${avgConf}%</div>
+      <div class="signal-grid">
+        <div class="sg-cell"><div class="sg-key">ENTROPY</div><div class="sg-val">${(ase.core.entropy*100).toFixed(0)}</div></div>
+        <div class="sg-cell"><div class="sg-key">INTENSITY</div><div class="sg-val">${(ase.core.intensity*100).toFixed(0)}</div></div>
+        <div class="sg-cell"><div class="sg-key">VALENCE</div><div class="sg-val">${(ase.core.affect.valence*100).toFixed(0)}</div></div>
+        <div class="sg-cell"><div class="sg-key">RECURSION</div><div class="sg-val">${(ase.core.cognition.recursionDepth*100).toFixed(0)}</div></div>
+        <div class="sg-cell"><div class="sg-key">ABSTRACTION</div><div class="sg-val">${(ase.core.cognition.abstractionLevel*100).toFixed(0)}</div></div>
+        <div class="sg-cell"><div class="sg-key">POETICNESS</div><div class="sg-val">${(ase.core.language.poeticness*100).toFixed(0)}</div></div>
+      </div>
+    </div>
+
+    <!-- ASE Mode -->
+    <div class="card-section">
+      <div class="cs-label">ASE AUTHORSHIP MODE</div>
+      <div class="mode-chip">
+        <span class="mode-chip-label">${ase.fingerprint.dominantMode.replace(/-/g,' ')}</span>
+        <span class="mode-chip-conf">${avgConf}%</span>
+      </div>
+      <div class="mode-secondary">↳ ${ase.fingerprint.secondaryMode.replace(/-/g,' ')}</div>
+    </div>
+
+    <!-- Cognition axes -->
+    <div class="card-section">
+      <div class="cs-label">COGNITION AXES</div>
+      ${axisRow('abstraction', ase.core.cognition.abstractionLevel)}
+      ${axisRow('linearity', ase.core.cognition.linearity)}
+      ${axisRow('recursion depth', ase.core.cognition.recursionDepth, 'cyan')}
+      ${axisRow('system thinking', ase.core.cognition.systemThinking)}
+      ${axisRow('compression', ase.core.cognition.compression)}
+    </div>
+
+    <!-- Affect axes -->
+    <div class="card-section">
+      <div class="cs-label">AFFECT AXES</div>
+      ${axisRow('valence', ase.core.affect.valence)}
+      ${axisRow('volatility', ase.core.affect.volatility, 'amber')}
+      ${axisRow('attachment load', ase.core.affect.attachmentLoad, 'amber')}
+      ${axisRow('urgency', ase.core.affect.urgency, 'amber')}
+      ${axisRow('somatic density', ase.core.affect.somaticDensity)}
+    </div>
+
+    <!-- Language axes -->
+    <div class="card-section">
+      <div class="cs-label">LANGUAGE AXES</div>
+      ${axisRow('metaphor density', ase.core.language.metaphorDensity, 'violet')}
+      ${axisRow('symbolic usage', ase.core.language.symbolicUsage, 'violet')}
+      ${axisRow('poeticness', ase.core.language.poeticness, 'violet')}
+      ${axisRow('analyticalness', ase.core.language.analyticalness)}
+      ${axisRow('narrative structure', ase.core.language.narrativeStructure)}
+    </div>
+
+    <!-- Fingerprint -->
+    <div class="card-section">
+      <div class="cs-label">FINGERPRINT</div>
+      <div style="font-size:6px;color:var(--dim);margin-bottom:4px;">HIGH VARIANCE (expressive range)</div>
+      <div class="fp-tags">${ase.fingerprint.highVarianceAxes.map(k=>`<span class="fp-tag hi">${k}</span>`).join('')}</div>
+      <div style="font-size:6px;color:var(--dim);margin:6px 0 4px;">LOW VARIANCE (stable anchors)</div>
+      <div class="fp-tags">${ase.fingerprint.lowVarianceAxes.map(k=>`<span class="fp-tag lo">${k}</span>`).join('')}</div>
+    </div>
+
+    <!-- Drift -->
+    <div class="card-section">
+      <div class="cs-label">IDENTITY DRIFT</div>
+      <div class="drift-row">
+        <div class="drift-dot ${ase.drift.isShifting ? 'shifting' : ''}"></div>
+        <div>
+          <div class="drift-text">${ase.drift.isShifting ? 'Drift detected — identity in motion' : 'Stable — no significant drift'} · magnitude ${(ase.drift.magnitude*100).toFixed(1)}</div>
+          ${ase.drift.direction.length ? `<div class="drift-axes">Moving axes: ${ase.drift.direction.slice(0,4).join(' · ')}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- IDL Mode -->
+    <div class="card-section">
+      <div class="cs-label">IDL INTIMACY MODE</div>
+      <div class="mode-chip" style="border-color:var(--cyan)">
+        <span class="mode-chip-label" style="font-size:9px;">${idl.mode.primary.replace(/-/g,' ')}</span>
+        <span class="mode-chip-conf" style="color:var(--cyan)">${(idl.mode.confidence*100).toFixed(0)}%</span>
+      </div>
+      <div class="mode-secondary">↳ ${idl.mode.secondary.replace(/-/g,' ')}</div>
+      <div class="mode-desc">${idl.mode.description}</div>
+    </div>
+
+    <!-- IDL Axes -->
+    <div class="card-section">
+      <div class="cs-label">IDL RELATIONAL AXES</div>
+      <div class="idl-grid">
+        <div class="idl-cell">
+          <div class="idl-cell-label">PERSISTENCE</div>
+          ${axisRow('bond retention', idl.persistence.bondRetention)}
+          ${axisRow('repair tendency', idl.persistence.repairTendency)}
+          ${axisRow('return likelihood', idl.persistence.returnLikelihood)}
+        </div>
+        <div class="idl-cell">
+          <div class="idl-cell-label">ELASTICITY</div>
+          ${axisRow('sep. tolerance', idl.elasticity.separationTolerance, 'cyan')}
+          ${axisRow('independence', idl.elasticity.independenceStability, 'cyan')}
+          ${axisRow('non-cling', idl.elasticity.nonCling, 'cyan')}
+        </div>
+        <div class="idl-cell">
+          <div class="idl-cell-label">REGULATION</div>
+          ${axisRow('predictability', idl.regulation.predictability)}
+          ${axisRow('emotional cons.', idl.regulation.emotionalConsistency)}
+          ${axisRow('rel. pacing', idl.regulation.relationalPacing)}
+        </div>
+        <div class="idl-cell">
+          <div class="idl-cell-label">LATENCY</div>
+          ${axisRow('internal depth', idl.latency.internalDepth, 'violet')}
+          ${axisRow('expression delay', idl.latency.expressionDelay, 'violet')}
+          ${axisRow('integration time', idl.latency.integrationTime, 'violet')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('profile-card').innerHTML = html;
+
+  // Animate bars in
+  setTimeout(() => {
+    document.querySelectorAll('.axis-bar-fill').forEach(el => {
+      const w = el.style.width;
+      el.style.width = '0%';
+      setTimeout(() => { el.style.width = w; }, 50);
+    });
+  }, 50);
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────
+function exportCard() {
+  if (!profileData) return;
+  const blob = new Blob([JSON.stringify(profileData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ase-profile-${Date.now()}.json`;
+  a.click();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,585 @@
+[
+  {
+    "type": "tool",
+    "key": "six-eyes",
+    "icon": "◎",
+    "name": "The Six Eyes",
+    "color": "#00c8ff",
+    "desc": "The mind's perception engine. Six simultaneous lenses: pattern, signal, entropy, wave, constellation, relational.",
+    "intel": [
+      "Pattern Recognition & Forecasting",
+      "Meta-Cognition",
+      "Social Cognition",
+      "Embodied Intelligence"
+    ],
+    "domains": [
+      "perception",
+      "meta",
+      "relational",
+      "pattern"
+    ],
+    "uses": [
+      "learning difficulty assessment",
+      "neurodivergent mapping",
+      "self-knowledge",
+      "situational awareness",
+      "conflict navigation"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, Learning Difficulty",
+        "text": "A child with dyslexia struggles to \"see\" how words connect. Six Eyes lets them map the sound-shape-meaning web instead of linear decoding.",
+        "action": "Build a visual constellation map of their reading patterns — find which lens is strongest and amplify it."
+      },
+      {
+        "ctx": "Adult, Career",
+        "text": "Someone feels lost professionally. Six Eyes scans: what patterns keep repeating? What signals are they ignoring?",
+        "action": "Run each lens on their work history. The pattern lens often reveals the hidden attractor."
+      }
+    ]
+  },
+  {
+    "type": "tool",
+    "key": "sandbox-os",
+    "icon": "⬜",
+    "name": "Sandbox OS",
+    "color": "#00ff88",
+    "desc": "New variable → Filter (weather/regulation/risk) → Good/Bad boxes → Meta-box → Stress test → Domain synthesis.",
+    "intel": [
+      "Logical-Mathematical",
+      "Risk Assessment",
+      "Adaptive Strategy",
+      "Systems Thinking"
+    ],
+    "domains": [
+      "variables",
+      "systems",
+      "risk",
+      "simulation"
+    ],
+    "uses": [
+      "decision making",
+      "belief testing",
+      "trauma processing",
+      "innovation",
+      "learning agility"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Teen, Anxiety",
+        "text": "A teenager catastrophizes new social situations. Sandbox OS lets them run scenarios in a \"safe container\" before real exposure.",
+        "action": "Build a Good/Bad box for the feared scenario. Stress-test in simulation. Discover the actual risk is lower than predicted."
+      },
+      {
+        "ctx": "Adult, Career Change",
+        "text": "Someone considering a major career shift. Every \"what if\" creates paralysis.",
+        "action": "Each fear gets its own sandbox. Separate contamination from real risk. Find which variables actually have leverage."
+      }
+    ]
+  },
+  {
+    "type": "tool",
+    "key": "tension-harvest",
+    "icon": "⚡",
+    "name": "Tension Harvesting",
+    "color": "#ff3355",
+    "desc": "Extract insight from discomfort. Anger→violated expectation. Grief→attachment depth. Confusion→hidden assumption.",
+    "intel": [
+      "Emotional Awareness",
+      "Meta-Cognition",
+      "Reflective / Integrative",
+      "Resilience & Self-Regulation"
+    ],
+    "domains": [
+      "emotional",
+      "learning",
+      "healing",
+      "signal"
+    ],
+    "uses": [
+      "mental health",
+      "trauma processing",
+      "purpose finding",
+      "relationship work",
+      "learning from failure"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, School Refusal",
+        "text": "A child refuses school and can't explain why. The tension is signal — not obstruction.",
+        "action": "Map the tension: what specific moment triggers the feeling? That's the leverage point for intervention."
+      },
+      {
+        "ctx": "Senior, Grief",
+        "text": "A senior experiences rage after loss. Anger is often grief's armor.",
+        "action": "Use tension harvesting to decode: what did this person represent? What is being protected?"
+      }
+    ]
+  },
+  {
+    "type": "tool",
+    "key": "council-method",
+    "icon": "⊕",
+    "name": "The Council Method",
+    "color": "#ff66aa",
+    "desc": "IFS-based internal governance. Parts freed from compartments, assembled with names, roles, symbols. Each has a voice.",
+    "intel": [
+      "Emotional Awareness",
+      "Attachment / Relational",
+      "Resilience & Self-Regulation",
+      "Virtue & Character"
+    ],
+    "domains": [
+      "identity",
+      "healing",
+      "self-work",
+      "integration"
+    ],
+    "uses": [
+      "trauma recovery",
+      "identity building",
+      "ADHD parts work",
+      "self-sovereignty",
+      "neurodivergent support"
+    ],
+    "scenarios": [
+      {
+        "ctx": "ADHD Child",
+        "text": "A child with ADHD feels \"broken\" because their impulsive part keeps getting them in trouble.",
+        "action": "Name and give roles to each part. The impulsive one becomes \"The Spark\" — its job is to notice opportunities. Redirect, don't suppress."
+      },
+      {
+        "ctx": "Adult, Complex Trauma",
+        "text": "An adult with dissociative patterns can't stay present. Parts are in conflict.",
+        "action": "Build the council slowly. Start with the safest part. Let it lead. Integration is months of small recognitions."
+      }
+    ]
+  },
+  {
+    "type": "tool",
+    "key": "iv-bag",
+    "icon": "↓",
+    "name": "IV Bag",
+    "color": "#11ddcc",
+    "desc": "Letting emotion back in slowly, dripping like an IV. Visualizing emotions as a controlled infusion rate — not flood.",
+    "intel": [
+      "Emotional Awareness",
+      "Resilience & Self-Regulation",
+      "Embodied Intelligence",
+      "Attachment / Relational"
+    ],
+    "domains": [
+      "emotional regulation",
+      "trauma",
+      "somatic",
+      "healing"
+    ],
+    "uses": [
+      "emotional flooding",
+      "overwhelm management",
+      "grief work",
+      "re-sensitization",
+      "mental health"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Teenager, Emotional Numbness",
+        "text": "A teen who has shut down emotionally after trauma. Direct emotional work causes re-traumatization.",
+        "action": "Use IV Bag metaphor: 1 drop at a time. What tiny feeling can you let in today without flooding?"
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "end-state-sim",
+    "icon": "▶",
+    "name": "End-State Simulation",
+    "color": "#ffe04a",
+    "desc": "Define coherent end-state first. Work backward through all necessary conditions. Only what coheres under pressure survives.",
+    "intel": [
+      "Systems Thinking",
+      "Logical-Mathematical",
+      "Adaptive Strategy",
+      "Real-World Problem Solving"
+    ],
+    "domains": [
+      "planning",
+      "strategy",
+      "simulation",
+      "problem-solving"
+    ],
+    "uses": [
+      "goal setting",
+      "learning plans",
+      "IEP building",
+      "career mapping",
+      "therapy goals"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, IEP",
+        "text": "Building an individualized education plan for a child with dyscalculia.",
+        "action": "Start from end-state: what does thriving look like in 2 years? Work backward to today's smallest step."
+      },
+      {
+        "ctx": "Adult, Purpose",
+        "text": "Someone in mid-life who feels directionless.",
+        "action": "Simulate 3 possible end-states. Which one produces coherence when tested against their values, energy, and constraints?"
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "meta-compression",
+    "icon": "◈",
+    "name": "Meta Compression",
+    "color": "#00c8ff",
+    "desc": "Filter → Prioritize by leverage → Synthesize cross-domain signals → Output highest-leverage direction.",
+    "intel": [
+      "Systems Thinking",
+      "Meta-Cognition",
+      "Adaptive Strategy",
+      "Convergent Thinking"
+    ],
+    "domains": [
+      "meta",
+      "synthesis",
+      "decision",
+      "clarity"
+    ],
+    "uses": [
+      "overwhelm reduction",
+      "cognitive load",
+      "ADHD executive function",
+      "clarity building",
+      "leadership"
+    ],
+    "scenarios": [
+      {
+        "ctx": "ADHD Adult",
+        "text": "15 tabs open, 8 projects, infinite ideas. The system is overloaded and nothing moves.",
+        "action": "Meta Compression: filter by energy ROI. Which single action, if taken today, would compound the most?"
+      },
+      {
+        "ctx": "Student, Learning Plan",
+        "text": "A student with processing differences is overwhelmed by curriculum.",
+        "action": "Compress to essence: what are the 3 concepts that unlock everything else? Build from those."
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "oscillation-theory",
+    "icon": "∿",
+    "name": "Relational Oscillation Theory",
+    "color": "#ff66aa",
+    "desc": "Relationships oscillate. Pendulum + radar dish + entropy field. Balance = alignment + attunement + reciprocity.",
+    "intel": [
+      "Attachment / Relational",
+      "Social Cognition",
+      "Conflict Management",
+      "Emotional Awareness"
+    ],
+    "domains": [
+      "relational",
+      "emotional",
+      "family",
+      "therapy"
+    ],
+    "uses": [
+      "relationship mapping",
+      "family therapy",
+      "school dynamics",
+      "conflict resolution",
+      "attachment work"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, School Social Difficulty",
+        "text": "A neurodivergent child keeps having falling-outs with the same friends.",
+        "action": "Map the oscillation cycle: where in the pendulum swing does rupture happen? What's the entropy trigger?"
+      },
+      {
+        "ctx": "Adult, Relationship Patterns",
+        "text": "An adult repeats the same relational collapse with every partner.",
+        "action": "Map 3 past relationships. Find the structural isomorphism — the pattern is the data."
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "horizon-planning",
+    "icon": "→",
+    "name": "Non-Linear Horizon Planning",
+    "color": "#11ddcc",
+    "desc": "Plan by orientation, not timelines. Short/Medium/Long horizons. Work from end-state backward. Release fixed outcomes.",
+    "intel": [
+      "Systems Thinking",
+      "Adaptive Strategy",
+      "Real-World Problem Solving",
+      "Meta-Learning"
+    ],
+    "domains": [
+      "strategy",
+      "learning",
+      "planning",
+      "growth"
+    ],
+    "uses": [
+      "IEP long-term goals",
+      "career planning",
+      "life purpose",
+      "neurodivergent pacing",
+      "senior planning"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Teen, Neurodivergent",
+        "text": "A dyspraxic teenager has been told they'll \"never be good at X.\" Traditional timelines feel like a verdict.",
+        "action": "Set orientation, not deadline. Where do you want to be headed? What's one small movement in that direction this week?"
+      },
+      {
+        "ctx": "Senior, Reinvention",
+        "text": "A senior post-retirement asks: what is there left to become?",
+        "action": "Long horizon: what would you build if given 20 more years? Medium: what project could be done in 2? Short: what calls you this week?"
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "cross-domain",
+    "icon": "✦",
+    "name": "Cross-Domain Synthesis",
+    "color": "#ffe04a",
+    "desc": "Stack structures across Love / Life / Physics. Find structural isomorphisms. Extract meta-pattern. See if it fits.",
+    "intel": [
+      "Divergent Thinking",
+      "Imaginative / Conceptual",
+      "Adaptive Strategy",
+      "Reflective / Integrative"
+    ],
+    "domains": [
+      "innovation",
+      "learning",
+      "pattern",
+      "synthesis"
+    ],
+    "uses": [
+      "gifted education",
+      "innovation",
+      "creative problem solving",
+      "scientific learning",
+      "interdisciplinary study"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Gifted Child, Boredom",
+        "text": "A gifted child is bored because their brain makes connections the curriculum doesn't.",
+        "action": "Give them cross-domain problems: \"How is this math concept the same as this music pattern?\" Their synthesis ability is the gift."
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "bayesian",
+    "icon": "⊙",
+    "name": "Bayesian Reasoning",
+    "color": "#00ff88",
+    "desc": "Beliefs as probabilities. New evidence adjusts confidence. Never loyal to stories instead of facts.",
+    "intel": [
+      "Logical-Mathematical",
+      "Critical Thinking",
+      "Meta-Cognition",
+      "Ethical Reasoning"
+    ],
+    "domains": [
+      "learning",
+      "belief",
+      "evidence",
+      "reasoning"
+    ],
+    "uses": [
+      "learning from failure",
+      "belief updating",
+      "growth mindset",
+      "scientific thinking",
+      "self-knowledge"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, Fixed Mindset",
+        "text": "A child says \"I'm just bad at math\" after one test.",
+        "action": "Bayesian reframe: \"That's one data point. What's the probability that's permanently true? What would update that estimate?\""
+      }
+    ]
+  },
+  {
+    "type": "framework",
+    "key": "first-principles",
+    "icon": "▽",
+    "name": "First Principles Thinking",
+    "color": "#cc44ff",
+    "desc": "Strip everything to irreducible truth. Discard precedent, tradition, assumption. Rebuild as unconventionally as possible.",
+    "intel": [
+      "Logical-Mathematical",
+      "Innovative / Disruptive",
+      "Critical Thinking",
+      "Real-World Problem Solving"
+    ],
+    "domains": [
+      "innovation",
+      "learning",
+      "problem-solving",
+      "deconstruction"
+    ],
+    "uses": [
+      "learning difficulties",
+      "creative problem solving",
+      "innovation",
+      "paradigm breaking",
+      "systems redesign"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Learning Difficulty",
+        "text": "A child with dysgraphia is failing writing assessments. The assumption: writing = handwriting.",
+        "action": "First principles: what is the goal? Communication of ideas. Remove the handwriting constraint. Voice-to-text, drawing, dictation. Same goal, different path."
+      }
+    ]
+  },
+  {
+    "type": "pattern",
+    "key": "feedback-loop",
+    "icon": "∞",
+    "name": "Feedback Loop",
+    "color": "#cc44ff",
+    "desc": "Output becomes input. Positive loops amplify. Negative loops stabilize. The system's behavior emerges from loop structure.",
+    "intel": [
+      "Systems Thinking",
+      "Pattern Recognition & Forecasting",
+      "Adaptive Strategy",
+      "Logical-Mathematical"
+    ],
+    "domains": [
+      "systems",
+      "learning",
+      "behavior",
+      "relationships"
+    ],
+    "uses": [
+      "behavioral patterns",
+      "learning loops",
+      "habit formation",
+      "relationship dynamics",
+      "organizational systems"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Child, Avoidance",
+        "text": "A child avoids reading → falls behind → feels shame → avoids more. A compounding negative loop.",
+        "action": "Interrupt at the earliest point. Small win before the shame enters. One sentence, not a chapter."
+      }
+    ]
+  },
+  {
+    "type": "pattern",
+    "key": "pendulum",
+    "icon": "↔",
+    "name": "Pendulum Pattern",
+    "color": "#ff66aa",
+    "desc": "Systems oscillate between poles. The swing reveals the attractor. Extreme oscillation = dysregulation. Midpoint = homeostasis.",
+    "intel": [
+      "Pattern Recognition & Forecasting",
+      "Attachment / Relational",
+      "Systems Thinking",
+      "Emotional Awareness"
+    ],
+    "domains": [
+      "emotional",
+      "relational",
+      "behavioral",
+      "systems"
+    ],
+    "uses": [
+      "BPD support",
+      "emotional dysregulation",
+      "relationship patterns",
+      "burnout cycles",
+      "addiction recovery"
+    ],
+    "scenarios": [
+      {
+        "ctx": "BPD / Emotional Dysregulation",
+        "text": "Extreme love → devaluation → abandonment panic → extreme love. The pendulum is the pattern.",
+        "action": "Map the swing length and trigger. Midpoint = the regulation target. Where does the pendulum feel stable?"
+      }
+    ]
+  },
+  {
+    "type": "pattern",
+    "key": "fractal",
+    "icon": "∿",
+    "name": "Fractal Pattern",
+    "color": "#00c8ff",
+    "desc": "Same structure repeats at every scale. The micro contains the macro. Find the unit, understand the whole.",
+    "intel": [
+      "Pattern Recognition & Forecasting",
+      "Systems Thinking",
+      "Meta-Cognition",
+      "Logical-Mathematical"
+    ],
+    "domains": [
+      "pattern",
+      "systems",
+      "learning",
+      "meta"
+    ],
+    "uses": [
+      "pattern recognition training",
+      "systems analysis",
+      "personal growth patterns",
+      "organizational diagnosis"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Neurodivergent Learner",
+        "text": "A learner keeps repeating the same error type across different subjects.",
+        "action": "Find the fractal unit: is the same assumption structure appearing in math, in social situations, in reading? The unit is the intervention point."
+      }
+    ]
+  },
+  {
+    "type": "pattern",
+    "key": "causal-chain-p",
+    "icon": "→",
+    "name": "Cause → Effect Chain",
+    "color": "#00ff88",
+    "desc": "Every outcome has a traceable causal chain. Root cause is the deepest stable source. Downstream effects compound.",
+    "intel": [
+      "Systems Thinking",
+      "Logical-Mathematical",
+      "Real-World Problem Solving",
+      "Meta-Cognition"
+    ],
+    "domains": [
+      "systems",
+      "reasoning",
+      "problem-solving",
+      "analysis"
+    ],
+    "uses": [
+      "root cause analysis",
+      "behavior intervention",
+      "learning diagnosis",
+      "organizational problems",
+      "personal patterns"
+    ],
+    "scenarios": [
+      {
+        "ctx": "Behavior Intervention",
+        "text": "A child has repeated outbursts at 2pm. The surface cause is \"tiredness\" but the chain goes deeper.",
+        "action": "Trace back: 2pm → lunch digestion → blood sugar drop → what was eaten → school lunch quality → family food access. The root cause unlocks the real intervention."
+      }
+    ]
+  }
+]

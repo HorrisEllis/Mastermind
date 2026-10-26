@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · Video Demo · v1.8.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="mp-loader">
+  <div class="mp-spinner"></div>
+  <div class="mp-status" id="mp-status-text">Initializing</div>
+  <div class="mp-detail" id="mp-detail-text">Loading ALK VideoModule…</div>
+</div>
+
+<div id="shell">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="logo">
+      <div class="logo-mark">⬡</div>
+      <div>
+        <div class="logo-text">ALK</div>
+      </div>
+      <div class="logo-sub">VIDEO MODULE · v1.6.0</div>
+    </div>
+    <div class="tb-sep"></div>
+    <div id="session-id">NO SESSION</div>
+    <div id="session-status">OFFLINE</div>
+    <div class="tb-right">
+      <div id="fps-disp">-- fps</div>
+      <div class="tb-sep"></div>
+      <button class="tb-btn go"  id="btn-start" onclick="startSession()">▶ CAPTURE</button>
+      <button class="tb-btn" id="btn-mic" onclick="openMicBridge()" title="Open mic bridge">⬡ MIC</button>
+      <button class="tb-btn stop" id="btn-stop" onclick="stopSession()" style="display:none">■ STOP</button>
+      <button class="tb-btn" onclick="toggleMirror()">⇄ MIRROR</button>
+      <button class="tb-btn" id="btn-config" onclick="toggleConfig()">⚙ CONFIG</button>
+      <button class="tb-btn" onclick="clearLog()">✕ CLEAR</button>
+    </div>
+  </div>
+
+  <!-- VIDEO PANE -->
+  <div id="video-pane">
+    <video id="video-feed" autoplay playsinline muted></video>
+    <canvas id="cfr-canvas"></canvas>
+    <canvas id="lm-canvas"></canvas>
+    <div id="cue-flash"></div>
+    <div id="blink-indicator">BLINK</div>
+    <div class="gaze-dot" id="gaze-dot-l"></div>
+    <div class="gaze-dot" id="gaze-dot-r"></div>
+
+    <div class="crosshair">
+      <div class="ch-h"></div><div class="ch-v"></div><div class="ch-c"></div>
+    </div>
+
+    <!-- HUD corners -->
+    <div id="hud-tl">
+      <div class="hud-label">EAR L / R</div>
+      <div class="hud-val" id="hud-ear">– / –</div>
+      <div class="hud-label" style="margin-top:7px">BLINK STATE</div>
+      <div class="hud-val" id="hud-blink-state">OPEN</div>
+      <div class="hud-label" style="margin-top:7px">HEAD TILT</div>
+      <div class="hud-val" id="hud-tilt">–°</div>
+      <div class="hud-label" style="margin-top:7px">MESH</div>
+      <div class="hud-val" id="hud-mesh" style="font-size:8px">IDLE</div>
+    </div>
+    <div id="hud-tr">
+      <div class="hud-label">GAZE L</div>
+      <div class="hud-val" id="hud-gaze-l">–, –</div>
+      <div class="hud-label" style="margin-top:7px">GAZE R</div>
+      <div class="hud-val" id="hud-gaze-r">–, –</div>
+      <div class="hud-label" style="margin-top:7px">FRAME</div>
+      <div class="hud-val" id="hud-frame">–</div>
+      <div class="hud-label" style="margin-top:7px">QUADRANT</div>
+      <div class="hud-val" id="hud-quadrant" style="font-size:8px">—</div>
+    </div>
+    <div id="hud-bl">
+      <div class="hud-label">FIELD</div>
+      <div class="hud-val" id="hud-field">–</div>
+      <div class="hud-label" style="margin-top:7px">PARTICLES</div>
+      <div class="hud-val" id="hud-particles">–</div>
+    </div>
+    <div id="hud-br">
+      <div class="hud-label">ACTIVE CUES</div>
+      <div class="hud-val" id="hud-cues">0</div>
+      <div class="hud-label" style="margin-top:7px">ATTRACTORS</div>
+      <div class="hud-val" id="hud-attractors">0</div>
+      <div class="hud-label" style="margin-top:7px">COMPOSITE STATE</div>
+      <div class="hud-val" id="hud-composite" style="font-size:8px;letter-spacing:1px;">—</div>
+    </div>
+
+    <!-- Expression panel — micro to macro -->
+    <div id="emotion-panel">
+      <div class="em-title">
+        <span>Expression Engine</span>
+        <span id="em-dominant" style="float:right;color:var(--amber);letter-spacing:2px;font-size:7px;">—</span>
+      </div>
+
+      <!-- Composite scores (8 universals) -->
+      <div style="margin-bottom:6px;">
+        <div class="em-row"><div class="em-label" style="color:var(--amber)">Joy · Genuine</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-joy-g" style="background:var(--signal)"></div></div><div class="em-val" id="em-joy-g-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Joy · Social</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-joy-s"></div></div><div class="em-val" id="em-joy-s-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Surprise</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-surp"></div></div><div class="em-val" id="em-surp-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Fear</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-fear" style="background:var(--violet)"></div></div><div class="em-val" id="em-fear-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Anger</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-anger" style="background:var(--rose)"></div></div><div class="em-val" id="em-anger-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Disgust</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-disg"></div></div><div class="em-val" id="em-disg-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Contempt</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-cont" style="background:var(--amber)"></div></div><div class="em-val" id="em-cont-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Sadness</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-sad" style="background:var(--cyan)"></div></div><div class="em-val" id="em-sad-v">0.00</div></div>
+      </div>
+
+      <!-- Scale indicator -->
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;padding-top:4px;border-top:1px solid var(--wire)">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;flex-shrink:0">SCALE</div>
+        <div id="em-scale-micro"  style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">MICRO</div>
+        <div id="em-scale-partial"style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">PARTIAL</div>
+        <div id="em-scale-macro"  style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">MACRO</div>
+      </div>
+
+      <!-- Micro-expression flash log (last 5) -->
+      <div style="border-top:1px solid var(--wire);padding-top:4px;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:3px;">MICRO LOG</div>
+        <div id="em-micro-log" style="font-size:7px;line-height:1.6;"></div>
+      </div>
+
+      <!-- Duchenne indicator -->
+      <div style="margin-top:4px;display:flex;gap:6px;align-items:center;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;">DUCHENNE</div>
+        <div id="em-duchenne" style="font-size:7px;color:var(--wire2);letter-spacing:1px;">—</div>
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-left:8px;">ASYM</div>
+        <div id="em-asym" style="font-size:7px;color:var(--wire2);">0.00</div>
+      </div>
+
+      <!-- Cross-stream composite state -->
+      <div style="border-top:1px solid var(--wire);padding-top:6px;margin-top:6px;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;">CROSS-STREAM COMPOSITE</div>
+        <div id="em-composite-list" style="font-size:7px;line-height:1.7;"></div>
+      </div>
+    </div>
+
+
+    <!-- Latent state panel -->
+    <div id="latent-panel" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);background:rgba(2,7,5,.92);border:1px solid var(--wire2);padding:8px 10px;width:160px;pointer-events:none;z-index:20;backdrop-filter:blur(2px);">
+      <div style="font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:8px;">Latent State</div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">VALENCE</span>
+          <span style="font-size:7px;color:var(--signal)" id="lat-val-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);position:relative;">
+          <div id="lat-val-bar" style="position:absolute;height:100%;background:var(--signal);transition:all .15s;left:50%;width:0%"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">AROUSAL</span>
+          <span style="font-size:7px;color:var(--amber)" id="lat-aro-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);">
+          <div id="lat-aro-bar" style="height:100%;background:var(--amber);width:0%;transition:all .15s;"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">ENGAGEMENT</span>
+          <span style="font-size:7px;color:var(--cyan)" id="lat-eng-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);position:relative;">
+          <div id="lat-eng-bar" style="position:absolute;height:100%;background:var(--cyan);transition:all .15s;left:50%;width:0%"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">COHERENCE</span>
+          <span style="font-size:7px;color:var(--signal)" id="lat-coh-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);">
+          <div id="lat-coh-bar" style="height:100%;background:var(--signal);width:0%;transition:all .15s;"></div>
+        </div>
+      </div>
+
+      <!-- Suppression score — the headline number -->
+      <div style="border-top:1px solid var(--wire);padding-top:8px;margin-top:6px;">
+        <div style="font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px;">Suppression</div>
+        <div style="display:flex;align-items:baseline;gap:6px;">
+          <div id="lat-supp-score" style="font-size:22px;font-family:var(--mono);color:var(--rose);letter-spacing:-1px;line-height:1;">0.00</div>
+          <div id="lat-supp-level" style="font-size:7px;color:var(--dim);letter-spacing:1px;">AUTH</div>
+        </div>
+        <div style="height:4px;background:var(--wire);margin-top:6px;border-radius:2px;">
+          <div id="lat-supp-bar" style="height:100%;background:var(--rose);width:0%;transition:all .2s;border-radius:2px;"></div>
+        </div>
+        <div style="margin-top:4px;font-size:6px;color:var(--dim);" id="lat-supp-evidence">—</div>
+        <div style="margin-top:3px;display:flex;justify-content:space-between;">
+          <span style="font-size:6px;color:var(--dim)">SURFACE</span>
+          <span id="lat-surface" style="font-size:7px;color:var(--muted)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:6px;color:var(--dim)">INFERRED</span>
+          <span id="lat-inferred" style="font-size:7px;color:var(--rose)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mesh magnet (shown when peer can't auto-discover) -->
+    <div id="mesh-magnet-panel" style="display:none;position:absolute;bottom:140px;right:12px;background:rgba(2,7,5,.92);border:1px solid var(--wire2);padding:8px 10px;width:200px;z-index:20;">
+      <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;">MAGNET LINK</div>
+      <div id="mesh-magnet-display" style="font-size:6px;color:var(--signal);word-break:break-all;line-height:1.5;"></div>
+      <button onclick="copyMeshMagnet()" style="margin-top:6px;font-size:6px;padding:3px 8px;border:1px solid var(--wire2);color:var(--mid);background:none;cursor:pointer;font-family:var(--mono);letter-spacing:1px;">COPY</button>
+    </div>
+
+    <div id="no-cam">
+      <div class="no-cam-icon">⊘</div>
+      <div class="no-cam-text">Camera offline</div>
+      <div class="no-cam-sub">Click CAPTURE to begin</div>
+    </div>
+  </div>
+
+  <!-- CONFIG PANEL -->
+  <div id="config-panel">
+    <div class="cfg-section">
+      <div class="cfg-section-title">Performance</div>
+      <div class="cfg-row"><span class="cfg-label">Target FPS</span><span class="cfg-val" id="cv-fps">30</span><input class="cfg-slider" type="range" min="5" max="60" value="30" oninput="setCfg('fps',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Particles (k)</span><span class="cfg-val" id="cv-n">80</span><input class="cfg-slider" type="range" min="10" max="200" value="80" oninput="setCfg('nk',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Point Size</span><span class="cfg-val" id="cv-pt">1.5</span><input class="cfg-slider" type="range" min="0.5" max="4" step="0.1" value="1.5" oninput="setCfg('pt',this.value)"></div>
+      <div class="cfg-preset-row">
+        <div class="cfg-preset" onclick="applyPreset('light')">LIGHT</div>
+        <div class="cfg-preset" onclick="applyPreset('balanced')">BALANCED</div>
+        <div class="cfg-preset" onclick="applyPreset('ultra')">ULTRA</div>
+      </div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">Detection</div>
+      <div class="cfg-row"><span class="cfg-label">EAR Threshold</span><span class="cfg-val" id="cv-ear">0.20</span><input class="cfg-slider" type="range" min="0.08" max="0.40" step="0.01" value="0.20" oninput="setCfg('ear',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Blink Confirm (f)</span><span class="cfg-val" id="cv-bfc">2</span><input class="cfg-slider" type="range" min="1" max="5" step="1" value="2" oninput="setCfg('bfc',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Gaze Sensitivity</span><span class="cfg-val" id="cv-gaze">0.30</span><input class="cfg-slider" type="range" min="0.05" max="0.80" step="0.01" value="0.30" oninput="setCfg('gaze',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">EMA Fast</span><span class="cfg-val" id="cv-ema">0.50</span><input class="cfg-slider" type="range" min="0.1" max="1.0" step="0.05" value="0.50" oninput="setCfg('ema',this.value)"></div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">CFR Field</div>
+      <div class="cfg-row"><span class="cfg-label">Entropy</span><span class="cfg-val" id="cv-ent">0.18</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.12" oninput="setCfg('ent',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Structure</span><span class="cfg-val" id="cv-str">0.85</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.92" oninput="setCfg('str',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Curl</span><span class="cfg-val" id="cv-curl">0.50</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.45" oninput="setCfg('curl',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Damping</span><span class="cfg-val" id="cv-damp">0.12</span><input class="cfg-slider" type="range" min="0.01" max="0.5" step="0.01" value="0.14" oninput="setCfg('damp',this.value)"></div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">Temporal History</div>
+      <div style="font-size:6px;color:var(--dim);margin-bottom:6px;line-height:1.6">Particles accumulate over time — long exposure of the face's expression history. High decay = long memory.</div>
+      <div class="cfg-row"><span class="cfg-label">Decay (memory)</span><span class="cfg-val" id="cv-decay">0.93</span><input class="cfg-slider" type="range" min="0.70" max="0.99" step="0.01" value="0.93" oninput="setCfg('decay',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Exposure</span><span class="cfg-val" id="cv-expo">1.8</span><input class="cfg-slider" type="range" min="0.5" max="4.0" step="0.1" value="1.8" oninput="setCfg('expo',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Bloom</span><span class="cfg-val" id="cv-bloom">0.25</span><input class="cfg-slider" type="range" min="0" max="1" step="0.05" value="0.25" oninput="setCfg('bloom',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Gamma</span><span class="cfg-val" id="cv-gamma">1.8</span><input class="cfg-slider" type="range" min="0.8" max="2.8" step="0.1" value="1.8" oninput="setCfg('gamma',this.value)"></div>
+      <div class="cfg-preset-row">
+        <div class="cfg-preset" onclick="applyPreset('ghost')">GHOST</div>
+        <div class="cfg-preset" onclick="applyPreset('portrait')">PORTRAIT</div>
+        <div class="cfg-preset" onclick="applyPreset('live')">LIVE</div>
+      </div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">Layers</div>
+      <div class="cfg-row"><span class="cfg-label">Particles</span><div class="cfg-toggle on" id="tog-particles" onclick="toggleLayer('particles')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Face Mesh</span><div class="cfg-toggle on" id="tog-mesh" onclick="toggleLayer('mesh')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Iris / Gaze</span><div class="cfg-toggle on" id="tog-iris" onclick="toggleLayer('iris')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Skeleton</span><div class="cfg-toggle on" id="tog-skel" onclick="toggleLayer('skel')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Hands</span><div class="cfg-toggle on" id="tog-hands" onclick="toggleLayer('hands')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Emotion Panel</span><div class="cfg-toggle on" id="tog-emotion" onclick="toggleLayer('emotion')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Mirror</span><div class="cfg-toggle on" id="tog-mirror" onclick="toggleMirror()"></div></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sb-header">
+      <div class="sb-title">Event Stream</div>
+      <div id="event-count">0 events</div>
+    </div>
+    <div id="cue-pills"></div>
+    <div id="event-log"></div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottombar">
+    <div class="metric-cell">
+      <div class="metric-label">Audio Energy</div>
+      <div class="metric-val" id="hud-audio-z">–σ</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="hud-audio-energy" style="width:0%"></div></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Frame Rate</div>
+      <div class="metric-val" id="m-frames">0</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="m-fps-bar" style="width:0%"></div></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Cues Detected</div>
+      <div class="metric-val" id="m-cues">0</div>
+      <div class="metric-sub" id="m-cue-top">–</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Blink Count</div>
+      <div class="metric-val" id="m-blink">0</div>
+      <div class="metric-sub" id="m-blink-sub">session total</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Attractors</div>
+      <div class="metric-val" id="m-att">0</div>
+      <div class="metric-sub" id="m-att-sub">active</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Lattice Nodes</div>
+      <div class="metric-val" id="m-lattice">0</div>
+      <div class="metric-sub" id="m-tick">tick 0</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Ring Buffer</div>
+      <div class="metric-val" id="m-ring">0</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="m-ring-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+  <!-- DEBUG PANEL -->
+  <div id="debug-panel" style="position:fixed;bottom:110px;left:8px;z-index:9999;background:rgba(0,0,0,.92);border:1px solid #f0f;color:#f0f;font:9px/1.5 monospace;padding:8px 10px;max-width:420px;max-height:320px;overflow-y:auto;display:none;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="letter-spacing:2px;font-size:7px;">ALK-GL DEBUG</span>
+      <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:none;border:none;color:#f0f;cursor:pointer;font-size:10px;">✕</button>
+    </div>
+    <div id="dbg-content" style="white-space:pre;"></div>
+  </div>
+  <button onclick="document.getElementById('debug-panel').style.display='block';window._alkDebug()" style="position:fixed;bottom:110px;left:8px;z-index:10000;background:#0a0010;border:1px solid #f0f;color:#f0f;font:7px monospace;padding:3px 8px;cursor:pointer;letter-spacing:1px;">⬡ DEBUG</button>
+
+</div>
+
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

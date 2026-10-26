@@ -1,0 +1,2221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · Social Intelligence Module</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0c10;--bg2:#111318;--bg3:#181b22;--bg4:#1e2229;--bg5:#242933;
+  --line:#ffffff0f;--line2:#ffffff18;--line3:#ffffff28;
+  --fg:#e8e9ed;--fg2:#9ba0ad;--fg3:#5c6272;--fg4:#363c4a;
+  --accent:#7f5af0;--accent2:#2cb67d;--accent3:#ff8906;--accent4:#e53170;
+  --live:#2cb67d;--warn:#ff8906;--danger:#e53170;--info:#3da9fc;
+  --r:8px;--r2:14px;--r3:999px;
+  --f:'Syne',sans-serif;--fm:'Space Mono',monospace;--fmm:'Syne Mono',monospace;
+}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f);min-height:100vh;overflow-x:hidden;font-size:14px}
+
+/* ── SCREENSHOT GRID ── */
+.shot-card{background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r);overflow:hidden;position:relative;cursor:pointer;transition:.15s}
+.shot-card:hover{border-color:var(--accent)}
+.shot-card.processed{border-color:rgba(44,182,125,.4)}
+.shot-card.processed::after{content:'✓';position:absolute;top:5px;right:5px;background:var(--accent2);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;font-family:var(--fm)}
+.shot-card.skipped{opacity:.45}
+.shot-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--bg4)}
+.shot-thumb-placeholder{width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:var(--bg4);font-size:24px;color:var(--fg4)}
+.shot-meta{padding:5px 7px}
+.shot-name{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shot-date{font-family:var(--fm);font-size:8px;color:var(--fg3);margin-top:1px}
+.shot-source{font-size:8px;padding:1px 5px;border-radius:3px;background:var(--bg4);border:1px solid var(--line);color:var(--fg4);font-family:var(--fm);margin-top:3px;display:inline-block}
+.cloud-badge{font-size:9px;padding:2px 7px;border-radius:3px;font-family:var(--fm);font-weight:700}
+.cloud-badge.gdrive{background:rgba(66,133,244,.15);border:1px solid rgba(66,133,244,.3);color:#4285F4}
+.cloud-badge.icloud{background:rgba(10,132,255,.15);border:1px solid rgba(10,132,255,.3);color:#0A84FF}
+.cloud-badge.local{background:var(--bg4);border:1px solid var(--line2);color:var(--fg3)}
+
+
+/* ── SHELL ── */
+.shell{display:grid;grid-template-columns:52px 300px 1fr 360px;min-height:100vh;max-width:1600px;margin:0 auto}
+
+/* ── NAV ── */
+.nav{border-right:1px solid var(--line2);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px;position:sticky;top:0;height:100vh;background:var(--bg2);z-index:100}
+.nav-logo{width:32px;height:32px;background:var(--accent4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff;margin-bottom:14px;cursor:pointer;letter-spacing:-.5px}
+.nav-btn{width:36px;height:36px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:15px;transition:.15s;position:relative;font-family:var(--fm)}
+.nav-btn:hover{background:var(--bg3);color:var(--fg)}
+.nav-btn.on{background:var(--bg4);color:var(--accent4)}
+.nav-btn .pip{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;border:1.5px solid var(--bg2)}
+.pip-live{background:var(--live)}
+.pip-warn{background:var(--warn)}
+.pip-danger{background:var(--danger)}
+.nav-div{width:28px;height:1px;background:var(--line2);margin:5px 0}
+.nav-spacer{flex:1}
+
+/* ── LEFT ── */
+.left{border-right:1px solid var(--line2);overflow-y:auto;background:var(--bg2);display:flex;flex-direction:column}
+.lhead{padding:16px 14px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2);z-index:20}
+.ltag{font-family:var(--fm);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);margin-bottom:4px}
+.ltitle{font-size:17px;font-weight:800;color:var(--fg);letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:blink 1.4s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ── SECTION LABEL ── */
+.sec{margin:14px 14px 8px;display:flex;align-items:center;gap:8px}
+.slabel{font-family:var(--fm);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3)}
+.sline{flex:1;height:1px;background:var(--line)}
+.sec-act{font-family:var(--fm);font-size:9px;color:var(--accent);cursor:pointer;padding:2px 6px;border-radius:4px;border:1px solid rgba(127,90,240,.3);transition:.15s}
+.sec-act:hover{background:rgba(127,90,240,.12)}
+
+/* ── PLATFORM CHIPS ── */
+.platform-grid{display:flex;flex-wrap:wrap;gap:5px;margin:0 14px 14px}
+.plat{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:var(--r3);border:1px solid var(--line2);background:var(--bg3);cursor:pointer;font-size:11px;font-weight:700;color:var(--fg3);transition:.15s;user-select:none;font-family:var(--fm);position:relative}
+.plat:hover{border-color:var(--fg3);color:var(--fg)}
+.plat.on{color:#fff}
+.plat .badge{position:absolute;top:-4px;right:-4px;width:15px;height:15px;border-radius:50%;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:800;border:1.5px solid var(--bg2)}
+.plat-ico{font-size:13px;line-height:1}
+
+/* Platform colors */
+.plat[data-p="twitter"].on{background:rgba(0,0,0,.6);border-color:#1DA1F2;color:#1DA1F2}
+.plat[data-p="instagram"].on{background:rgba(225,48,108,.12);border-color:#E1306C;color:#E1306C}
+.plat[data-p="facebook"].on{background:rgba(24,119,242,.12);border-color:#1877F2;color:#1877F2}
+.plat[data-p="reddit"].on{background:rgba(255,69,0,.12);border-color:#FF4500;color:#FF4500}
+.plat[data-p="discord"].on{background:rgba(88,101,242,.12);border-color:#5865F2;color:#5865F2}
+.plat[data-p="linkedin"].on{background:rgba(0,119,181,.12);border-color:#0077B5;color:#0077B5}
+.plat[data-p="telegram"].on{background:rgba(38,162,223,.12);border-color:#26A2DF;color:#26A2DF}
+.plat[data-p="tiktok"].on{background:rgba(254,44,85,.12);border-color:#FE2C55;color:#FE2C55}
+.plat[data-p="youtube"].on{background:rgba(255,0,0,.12);border-color:#FF0000;color:#FF0000}
+.plat[data-p="mastodon"].on{background:rgba(99,100,255,.12);border-color:#6364FF;color:#6364FF}
+.plat[data-p="threads"].on{background:rgba(232,232,232,.12);border-color:#e8e8e8;color:#e8e8e8}
+.plat[data-p="twitch"].on{background:rgba(145,70,255,.12);border-color:#9146FF;color:#9146FF}
+
+/* ── COMM TYPE ── */
+.comm-wrap{margin:0 14px 12px;display:flex;flex-wrap:wrap;gap:4px}
+.comm-chip{font-family:var(--fm);font-size:9px;padding:3px 8px;border-radius:var(--r3);border:1px solid var(--line2);color:var(--fg3);cursor:pointer;transition:.15s;background:transparent}
+.comm-chip:hover{border-color:var(--fg3);color:var(--fg)}
+.comm-chip.on{border-color:var(--accent4);color:var(--accent4);background:rgba(229,49,112,.1)}
+
+/* ── URL MONITOR ── */
+.url-list{margin:0 14px 12px;display:flex;flex-direction:column;gap:4px}
+.url-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--bg3);border:1px solid var(--line);border-radius:var(--r);font-size:10px;font-family:var(--fm);position:relative;overflow:hidden;cursor:pointer;transition:.15s}
+.url-item:hover{border-color:var(--line2)}
+.url-item.polling{border-color:rgba(44,182,125,.3)}
+.url-item.polling::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2)}
+.url-item.error{border-color:rgba(229,49,112,.3)}
+.url-item.error::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--danger)}
+.url-host{font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.url-status{font-size:8px;padding:2px 5px;border-radius:4px;flex-shrink:0}
+.url-status.live{background:rgba(44,182,125,.15);color:var(--accent2);border:1px solid rgba(44,182,125,.25)}
+.url-status.idle{background:var(--bg4);color:var(--fg3);border:1px solid var(--line)}
+.url-status.err{background:rgba(229,49,112,.12);color:var(--danger);border:1px solid rgba(229,49,112,.2)}
+.url-del{margin-left:auto;font-size:10px;color:var(--fg4);cursor:pointer;padding:2px 4px;border-radius:4px;flex-shrink:0}
+.url-del:hover{color:var(--danger)}
+
+.add-url-row{display:flex;gap:5px;margin:0 14px 12px}
+.url-in{flex:1;font-family:var(--fm);font-size:11px;padding:7px 9px;border:1px solid var(--line2);border-radius:8px;background:var(--bg3);color:var(--fg);outline:none;transition:.15s}
+.url-in:focus{border-color:var(--accent4);background:var(--bg4)}
+.url-in::placeholder{color:var(--fg4)}
+.url-go{padding:7px 11px;background:var(--accent4);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;font-family:var(--f)}
+.url-go:hover{opacity:.85}
+
+/* ── DROP ZONE ── */
+.drop-zone{margin:0 14px 12px;border:1px dashed var(--line3);border-radius:var(--r2);padding:18px 14px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg3)}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--accent4);background:rgba(229,49,112,.05)}
+.drop-ico{font-size:22px;margin-bottom:6px}
+.drop-t{font-size:11px;font-weight:700;color:var(--fg2);margin-bottom:2px}
+.drop-s{font-size:10px;color:var(--fg3);font-family:var(--fm)}
+
+/* ── IDENTITY FILTER ── */
+.id-filter{margin:0 14px 16px;padding:10px 12px;background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r2)}
+.id-filter-label{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);margin-bottom:6px}
+.id-filter-in{width:100%;font-family:var(--fm);font-size:11px;padding:6px 9px;border:1px solid var(--line2);border-radius:7px;background:var(--bg4);color:var(--fg);outline:none;transition:.15s}
+.id-filter-in:focus{border-color:var(--accent)}
+.id-filter-in::placeholder{color:var(--fg4)}
+.alias-row{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.alias-chip{font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:var(--r3);background:var(--bg4);border:1px solid var(--line2);color:var(--fg2);cursor:pointer;transition:.15s}
+.alias-chip:hover{border-color:var(--accent);color:var(--accent)}
+.alias-chip.on{border-color:var(--accent);color:var(--accent);background:rgba(127,90,240,.1)}
+
+/* ── CENTER ── */
+.center{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-height:100vh}
+.chat-header{padding:14px 18px;border-bottom:1px solid var(--line2);background:var(--bg2);display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:10}
+.chat-platform-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg3);border:1px solid var(--line2);flex-shrink:0}
+.chat-platform-name{font-size:15px;font-weight:800;letter-spacing:-.02em}
+.chat-platform-sub{font-size:10px;color:var(--fg3);font-family:var(--fm);margin-top:1px}
+.chat-header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ch-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:10px;font-family:var(--fm);cursor:pointer;transition:.15s;font-weight:700}
+.ch-btn:hover{border-color:var(--fg2);color:var(--fg)}
+.ch-btn.active{border-color:var(--accent4);color:var(--accent4);background:rgba(229,49,112,.08)}
+.scan-toggle{display:flex;align-items:center;gap:5px;font-family:var(--fm);font-size:9px;color:var(--fg3)}
+.scan-toggle input{accent-color:var(--accent4)}
+
+/* ── CHAT AREA ── */
+.chat-area{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+
+/* ── MESSAGE BUBBLE ── */
+.msg{display:flex;gap:10px;animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg.self{flex-direction:row-reverse}
+.msg-avatar{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;margin-top:2px}
+.msg-body{max-width:72%;display:flex;flex-direction:column;gap:3px}
+.msg.self .msg-body{align-items:flex-end}
+.msg-meta{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:9px;color:var(--fg3)}
+.msg.self .msg-meta{flex-direction:row-reverse}
+.msg-platform{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700;letter-spacing:.04em}
+.msg-bubble{padding:9px 12px;border-radius:12px;font-size:12px;line-height:1.55;word-break:break-word;position:relative}
+.msg:not(.self) .msg-bubble{background:var(--bg3);border:1px solid var(--line2);border-bottom-left-radius:4px}
+.msg.self .msg-bubble{background:rgba(127,90,240,.18);border:1px solid rgba(127,90,240,.3);border-bottom-right-radius:4px}
+.msg-scan{margin-top:4px;padding:5px 8px;background:rgba(44,182,125,.07);border:1px solid rgba(44,182,125,.2);border-radius:7px;font-size:10px;font-family:var(--fm);color:var(--accent2)}
+.msg-scan-label{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);margin-bottom:2px}
+.msg-dates{display:flex;gap:8px;font-size:8px;font-family:var(--fm);color:var(--fg4);margin-top:2px}
+.msg-img{max-width:100%;border-radius:8px;border:1px solid var(--line2);cursor:pointer;margin-top:4px;display:block}
+.msg-img-wrap{position:relative}
+.ocr-overlay{position:absolute;inset:0;background:rgba(11,12,16,.85);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0;transition:.2s;cursor:pointer}
+.msg-img-wrap:hover .ocr-overlay{opacity:1}
+.ocr-btn{padding:5px 12px;border-radius:6px;background:var(--accent4);color:#fff;font-size:11px;font-weight:700;font-family:var(--f)}
+
+/* ── DAY DIVIDER ── */
+.day-div{display:flex;align-items:center;gap:10px;margin:4px 0}
+.day-line{flex:1;height:1px;background:var(--line)}
+.day-label{font-family:var(--fm);font-size:9px;color:var(--fg4);letter-spacing:.06em;text-transform:uppercase}
+
+/* ── COMPOSE BAR ── */
+.compose-wrap{padding:12px 18px 14px;border-top:1px solid var(--line2);background:var(--bg2);flex-shrink:0}
+.compose-context{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:var(--fm);font-size:9px;color:var(--fg3)}
+.compose-identity{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:5px;background:var(--bg4);border:1px solid var(--line2);cursor:pointer;transition:.15s}
+.compose-identity:hover{border-color:var(--accent);color:var(--accent)}
+.compose-identity-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.compose-row{display:flex;gap:8px;align-items:flex-end}
+.compose-in{flex:1;font-family:var(--fm);font-size:12px;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg3);color:var(--fg);outline:none;transition:.15s;resize:none;min-height:40px;max-height:120px;font-size:12px;line-height:1.5}
+.compose-in:focus{border-color:var(--accent);background:var(--bg4)}
+.compose-in::placeholder{color:var(--fg4)}
+.compose-actions{display:flex;flex-direction:column;gap:5px}
+.send-btn{padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:var(--f);font-size:12px;font-weight:800;cursor:pointer;transition:.2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.send-btn:hover{opacity:.88}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.compose-tools{display:flex;gap:4px}
+.compose-tool{width:28px;height:28px;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.compose-tool:hover{border-color:var(--fg2);color:var(--fg)}
+.guardian-badge{font-family:var(--fm);font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(127,90,240,.15);border:1px solid rgba(127,90,240,.3);color:var(--accent)}
+
+/* ── RIGHT PANEL ── */
+.right{border-left:1px solid var(--line2);display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
+.right-tabs{display:flex;border-bottom:1px solid var(--line2);flex-shrink:0}
+.rtab{flex:1;padding:10px 6px;font-family:var(--fm);font-size:9px;letter-spacing:.06em;text-transform:uppercase;text-align:center;cursor:pointer;color:var(--fg3);border-bottom:2px solid transparent;transition:.15s;position:relative}
+.rtab:hover{color:var(--fg)}
+.rtab.on{color:var(--fg);border-bottom-color:var(--accent4)}
+.rtab .ct{font-size:8px;padding:1px 4px;border-radius:3px;background:var(--bg4);margin-left:4px}
+.rtab-content{flex:1;overflow-y:auto;display:none}
+.rtab-content.on{display:flex;flex-direction:column}
+
+/* ── SCAN LOG TABLE ── */
+.log-controls{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center;flex-shrink:0}
+.log-search{flex:1;font-family:var(--fm);font-size:10px;padding:5px 8px;border:1px solid var(--line2);border-radius:6px;background:var(--bg3);color:var(--fg);outline:none;transition:.15s}
+.log-search:focus{border-color:var(--accent)}
+.log-search::placeholder{color:var(--fg4)}
+.log-export{padding:5px 8px;border-radius:6px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:9px;font-family:var(--fm);cursor:pointer;transition:.15s;font-weight:700}
+.log-export:hover{border-color:var(--accent2);color:var(--accent2)}
+
+.log-table-wrap{flex:1;overflow:auto}
+.log-table{width:100%;border-collapse:collapse;font-size:10px;font-family:var(--fm)}
+.log-table th{position:sticky;top:0;background:var(--bg3);padding:7px 8px;text-align:left;font-size:8px;text-transform:uppercase;letter-spacing:.07em;color:var(--fg3);border-bottom:1px solid var(--line2);white-space:nowrap;font-weight:700}
+.log-table td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--fg2)}
+.log-table tr:hover td{background:rgba(255,255,255,.02)}
+.log-table tr.flagged td{background:rgba(229,49,112,.04)}
+.log-p-badge{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700;white-space:nowrap}
+.log-scan-ok{color:var(--accent2)}
+.log-scan-warn{color:var(--warn)}
+.log-scan-err{color:var(--danger)}
+.log-content-cell{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.log-content-cell:hover{color:var(--fg);white-space:normal;max-width:none}
+.log-username{color:var(--accent);font-weight:700}
+.log-alias{color:var(--fg3)}
+
+/* ── LISTENER TAB ── */
+.listener-header{padding:12px 14px;border-bottom:1px solid var(--line);flex-shrink:0}
+.lh-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.lh-title{font-size:13px;font-weight:800;letter-spacing:-.01em}
+.listener-status{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:9px}
+.lstat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.lstat-dot.live{background:var(--live);box-shadow:0 0 6px var(--live);animation:blink 1.5s ease infinite}
+.lstat-dot.off{background:var(--fg4)}
+.lstat-dot.connecting{background:var(--warn);animation:blink .8s ease infinite}
+.identity-box{padding:8px 10px;background:var(--bg3);border:1px solid var(--line2);border-radius:8px;font-size:10px;font-family:var(--fm)}
+.ib-row{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.ib-key{color:var(--fg3);width:60px;flex-shrink:0}
+.ib-val{color:var(--fg);font-weight:700;word-break:break-all}
+.ib-edit{font-size:8px;padding:1px 5px;border-radius:3px;border:1px solid var(--line2);background:transparent;color:var(--fg3);cursor:pointer;transition:.15s;margin-left:auto;font-family:var(--fm)}
+.ib-edit:hover{border-color:var(--accent);color:var(--accent)}
+.listener-controls{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line);flex-shrink:0}
+.lctrl-btn{flex:1;padding:7px 10px;border-radius:7px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:10px;font-family:var(--fm);font-weight:700;cursor:pointer;transition:.15s;text-align:center}
+.lctrl-btn:hover{border-color:var(--fg2);color:var(--fg)}
+.lctrl-btn.live{background:rgba(229,49,112,.12);border-color:var(--accent4);color:var(--accent4)}
+.lctrl-btn.on{background:rgba(44,182,125,.1);border-color:var(--accent2);color:var(--accent2)}
+.listener-stream{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.stream-event{padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg3);animation:fadein .25s ease;position:relative;overflow:hidden}
+.stream-event::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.stream-event.incoming::before{background:var(--accent2)}
+.stream-event.sent::before{background:var(--accent)}
+.stream-event.error::before{background:var(--danger)}
+.stream-event.scan::before{background:var(--accent3)}
+.stream-event.url::before{background:var(--info)}
+.se-header{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.se-type{font-family:var(--fm);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.se-type.incoming{color:var(--accent2)}
+.se-type.sent{color:var(--accent)}
+.se-type.error{color:var(--danger)}
+.se-type.scan{color:var(--accent3)}
+.se-type.url{color:var(--info)}
+.se-platform{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700}
+.se-time{margin-left:auto;font-family:var(--fm);font-size:8px;color:var(--fg4)}
+.se-user{font-size:10px;font-weight:700;color:var(--fg);margin-bottom:3px}
+.se-text{font-family:var(--fm);font-size:10px;color:var(--fg2);line-height:1.45;word-break:break-word}
+.se-meta{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.se-tag{font-size:8px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--fg3);border:1px solid var(--line)}
+
+/* ── MONITOR TAB ── */
+.monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px}
+.mon-card{background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r2);padding:10px 12px;position:relative;overflow:hidden}
+.mon-card.live{border-color:rgba(44,182,125,.3)}
+.mon-card.live::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),transparent)}
+.mon-card-title{font-size:11px;font-weight:800;color:var(--fg);margin-bottom:3px;letter-spacing:-.01em}
+.mon-card-url{font-family:var(--fm);font-size:8px;color:var(--fg3);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mon-stat{display:flex;justify-content:space-between;font-family:var(--fm);font-size:9px;margin-bottom:2px}
+.mon-stat-k{color:var(--fg3)}
+.mon-stat-v{color:var(--fg);font-weight:700}
+.mon-stat-v.ok{color:var(--accent2)}
+.mon-stat-v.warn{color:var(--warn)}
+.mon-stat-v.err{color:var(--danger)}
+.mon-actions{display:flex;gap:4px;margin-top:8px}
+.mon-act{flex:1;padding:4px 6px;border-radius:5px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:9px;font-family:var(--fm);cursor:pointer;transition:.15s;text-align:center;font-weight:700}
+.mon-act:hover{border-color:var(--fg2);color:var(--fg)}
+.mon-act.poll{border-color:rgba(44,182,125,.4);color:var(--accent2);background:rgba(44,182,125,.07)}
+
+/* ── SCREEN RECORDER ── */
+.recorder-wrap{padding:12px 14px}
+.rec-status{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r);margin-bottom:10px}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--fg4);flex-shrink:0;transition:.3s}
+.rec-dot.recording{background:var(--danger);animation:blink .8s ease infinite}
+.rec-dot.ready{background:var(--accent2)}
+.rec-label{font-size:12px;font-weight:700}
+.rec-time{margin-left:auto;font-family:var(--fm);font-size:13px;font-weight:700;color:var(--fg2)}
+.rec-controls{display:flex;gap:6px;margin-bottom:10px}
+.rec-btn{flex:1;padding:8px 10px;border-radius:7px;border:1px solid var(--line2);background:transparent;color:var(--fg2);font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:5px}
+.rec-btn:hover{border-color:var(--fg2);color:var(--fg)}
+.rec-btn.start{border-color:rgba(229,49,112,.4);color:var(--accent4);background:rgba(229,49,112,.07)}
+.rec-btn.stop{border-color:rgba(44,182,125,.4);color:var(--accent2)}
+.rec-btn:disabled{opacity:.4;cursor:not-allowed}
+.rec-preview{background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--fg4);font-family:var(--fm);font-size:11px;overflow:hidden;position:relative}
+.rec-preview video,.rec-preview canvas{width:100%;height:100%;object-fit:contain;display:none}
+.rec-preview video.on,.rec-preview canvas.on{display:block}
+.rec-clips{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.rec-clip{display:flex;align-items:center;gap:8px;padding:6px 9px;background:var(--bg3);border:1px solid var(--line2);border-radius:7px;font-size:10px;font-family:var(--fm)}
+.rc-name{flex:1;color:var(--fg);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-dur{color:var(--fg3)}
+.rc-actions{display:flex;gap:4px}
+.rc-act{padding:2px 7px;border-radius:4px;border:1px solid var(--line2);background:transparent;color:var(--fg3);font-size:9px;cursor:pointer;transition:.15s;font-family:var(--fm)}
+.rc-act:hover{border-color:var(--accent);color:var(--accent)}
+.rc-act.scan{border-color:rgba(255,137,6,.3);color:var(--accent3)}
+.rc-act.scan:hover{background:rgba(255,137,6,.08)}
+
+/* ── TOAST ── */
+#toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:9999;pointer-events:none}
+.toast{padding:8px 14px;border-radius:8px;font-family:var(--fm);font-size:11px;font-weight:700;border:1px solid;transition:opacity .3s;pointer-events:none;max-width:280px}
+.toast-ok{background:rgba(44,182,125,.12);border-color:var(--accent2);color:var(--accent2)}
+.toast-warn{background:rgba(255,137,6,.12);border-color:var(--warn);color:var(--warn)}
+.toast-err{background:rgba(229,49,112,.12);border-color:var(--danger);color:var(--danger)}
+.toast-info{background:rgba(61,169,252,.12);border-color:var(--info);color:var(--info)}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--fg4)}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(11,12,16,.85);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);display:none}
+.modal-bg.on{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r2);padding:20px;width:420px;max-width:90vw;animation:fadein .2s ease}
+.modal-title{font-size:15px;font-weight:800;margin-bottom:14px;letter-spacing:-.01em}
+.modal-label{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);margin-bottom:4px;margin-top:10px}
+.modal-in{width:100%;font-family:var(--fm);font-size:11px;padding:7px 9px;border:1px solid var(--line2);border-radius:7px;background:var(--bg3);color:var(--fg);outline:none;transition:.15s}
+.modal-in:focus{border-color:var(--accent)}
+.modal-in::placeholder{color:var(--fg4)}
+.modal-row{display:flex;gap:6px;margin-top:14px}
+.modal-btn{flex:1;padding:9px;border-radius:7px;border:1px solid var(--line2);background:transparent;color:var(--fg2);font-family:var(--f);font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
+.modal-btn:hover{border-color:var(--fg2);color:var(--fg)}
+.modal-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.modal-btn.primary:hover{opacity:.88}
+.modal-close{float:right;font-size:16px;color:var(--fg3);cursor:pointer;background:none;border:none;line-height:1}
+.modal-close:hover{color:var(--fg)}
+
+/* ── EMPTY STATE ── */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--fg4);font-family:var(--fm);font-size:11px;padding:40px}
+.empty-ico{font-size:32px;opacity:.4}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){.shell{grid-template-columns:52px 260px 1fr 300px}}
+@media(max-width:900px){.shell{grid-template-columns:52px 0 1fr 0}.left,.right{display:none}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ══════════════════════ NAV ══════════════════════ -->
+<nav class="nav">
+  <div class="nav-logo">SIM</div>
+  <button class="nav-btn on" title="Social Chat" onclick="navTo('chat',this)">💬</button>
+  <button class="nav-btn" title="Scan Log" onclick="navTo('log',this)">📋</button>
+  <button class="nav-btn" title="URL Monitor" onclick="navTo('monitor',this)">📡</button>
+  <button class="nav-btn" title="Screen Recorder" onclick="navTo('recorder',this)">🔴</button>
+  <div class="nav-div"></div>
+  <button class="nav-btn" title="Guardian Listener" onclick="navTo('listener',this)">👁</button>
+  <button class="nav-btn" title="Identity" onclick="openIdentityModal()">🪪</button>
+  <div class="nav-spacer"></div>
+  <button class="nav-btn" title="Settings" onclick="showToast('Settings coming soon','info')">⚙</button>
+</nav>
+
+<!-- ══════════════════════ LEFT ══════════════════════ -->
+<aside class="left" id="left-panel">
+  <div class="lhead">
+    <div class="ltag">ALK · Social Intelligence</div>
+    <div class="ltitle">Social Module <span class="live-dot" id="live-indicator" style="display:none"></span></div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="sec"><span class="slabel">Platforms</span><div class="sline"></div><span class="sec-act" onclick="toggleAllPlatforms()">all</span></div>
+  <div class="platform-grid" id="platform-grid">
+    <div class="plat on" data-p="twitter" onclick="togglePlat(this)"><span class="plat-ico">𝕏</span>Twitter</div>
+    <div class="plat" data-p="instagram" onclick="togglePlat(this)"><span class="plat-ico">📸</span>Instagram</div>
+    <div class="plat" data-p="facebook" onclick="togglePlat(this)"><span class="plat-ico">👤</span>Facebook</div>
+    <div class="plat" data-p="reddit" onclick="togglePlat(this)"><span class="plat-ico">🔴</span>Reddit</div>
+    <div class="plat" data-p="discord" onclick="togglePlat(this)"><span class="plat-ico">🎮</span>Discord</div>
+    <div class="plat" data-p="linkedin" onclick="togglePlat(this)"><span class="plat-ico">💼</span>LinkedIn</div>
+    <div class="plat" data-p="telegram" onclick="togglePlat(this)"><span class="plat-ico">✈</span>Telegram</div>
+    <div class="plat" data-p="tiktok" onclick="togglePlat(this)"><span class="plat-ico">🎵</span>TikTok</div>
+    <div class="plat" data-p="youtube" onclick="togglePlat(this)"><span class="plat-ico">▶</span>YouTube</div>
+    <div class="plat" data-p="mastodon" onclick="togglePlat(this)"><span class="plat-ico">🐘</span>Mastodon</div>
+    <div class="plat" data-p="threads" onclick="togglePlat(this)"><span class="plat-ico">@</span>Threads</div>
+    <div class="plat" data-p="twitch" onclick="togglePlat(this)"><span class="plat-ico">🎲</span>Twitch</div>
+  </div>
+
+  <!-- Comm Types -->
+  <div class="sec"><span class="slabel">Comm Type</span><div class="sline"></div></div>
+  <div class="comm-wrap" id="comm-wrap">
+    <div class="comm-chip on" data-ct="all" onclick="toggleComm(this)">ALL</div>
+    <div class="comm-chip" data-ct="dm" onclick="toggleComm(this)">DM</div>
+    <div class="comm-chip" data-ct="post" onclick="toggleComm(this)">POST</div>
+    <div class="comm-chip" data-ct="comment" onclick="toggleComm(this)">COMMENT</div>
+    <div class="comm-chip" data-ct="story" onclick="toggleComm(this)">STORY</div>
+    <div class="comm-chip" data-ct="thread" onclick="toggleComm(this)">THREAD</div>
+    <div class="comm-chip" data-ct="channel" onclick="toggleComm(this)">CHANNEL</div>
+    <div class="comm-chip" data-ct="mention" onclick="toggleComm(this)">MENTION</div>
+    <div class="comm-chip" data-ct="live" onclick="toggleComm(this)">LIVE</div>
+  </div>
+
+  <!-- Identity Filter -->
+  <div class="sec"><span class="slabel">Identity Filter</span><div class="sline"></div></div>
+  <div class="id-filter">
+    <div class="id-filter-label">Username / Alias</div>
+    <input class="id-filter-in" id="identity-filter" placeholder="@username or alias…" oninput="filterMessages()" />
+    <div class="alias-row" id="alias-chips">
+      <div class="alias-chip on" data-alias="all" onclick="selectAlias(this)">ALL</div>
+      <div class="alias-chip" data-alias="erosmancer" onclick="selectAlias(this)">@erosmancer</div>
+      <div class="alias-chip" data-alias="jbrooks" onclick="selectAlias(this)">@jbrooks</div>
+      <div class="alias-chip" data-alias="demontaigne" onclick="selectAlias(this)">@demontaigne</div>
+    </div>
+  </div>
+
+  <!-- URL Monitor -->
+  <div class="sec"><span class="slabel">URL Monitor</span><div class="sline"></div><span class="sec-act" onclick="addUrlModal()">+ add</span></div>
+  <div class="url-list" id="url-list"></div>
+  <div class="add-url-row">
+    <input class="url-in" id="url-input" placeholder="https://…" onkeydown="if(event.key==='Enter')addUrl()" />
+    <button class="url-go" onclick="addUrl()">Watch</button>
+  </div>
+
+  <!-- Screenshot Import -->
+  <div class="sec"><span class="slabel">Import Screenshot</span><div class="sline"></div></div>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-in').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+    <div class="drop-ico">🖼</div>
+    <div class="drop-t">Drop screenshot or click</div>
+    <div class="drop-s">PNG · JPG · WEBP · PDF</div>
+  </div>
+  <input type="file" id="file-in" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(event)" multiple />
+</aside>
+
+<!-- ══════════════════════ CENTER ══════════════════════ -->
+<main class="center" id="center-panel">
+
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="chat-platform-ico" id="chat-ico">𝕏</div>
+    <div>
+      <div class="chat-platform-name" id="chat-platform-name">Unified Feed</div>
+      <div class="chat-platform-sub" id="chat-platform-sub">All platforms · All comm types · <span id="msg-count">0</span> messages</div>
+    </div>
+    <div class="chat-header-right">
+      <label class="scan-toggle"><input type="checkbox" id="auto-scan-toggle" checked onchange="toggleAutoScan(this)"> <span>Auto-scan</span></label>
+      <button class="ch-btn" onclick="clearChat()">Clear</button>
+      <button class="ch-btn" onclick="exportChat()">Export</button>
+      <span class="guardian-badge">GuardianSend</span>
+    </div>
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-area" id="chat-area">
+    <div class="empty" id="chat-empty">
+      <div class="empty-ico">💬</div>
+      <div>No messages yet</div>
+      <div style="font-size:9px;color:var(--fg4)">Import a screenshot · paste a URL · or start typing</div>
+    </div>
+  </div>
+
+  <!-- Compose -->
+  <div class="compose-wrap">
+    <div class="compose-context">
+      <span>Sending via</span>
+      <div class="compose-identity" onclick="openIdentityModal()">
+        <div class="compose-identity-dot"></div>
+        <span id="compose-identity-label">erosmancer</span>
+      </div>
+      <span>→</span>
+      <span id="compose-platform-label" style="color:var(--fg2);font-weight:700">𝕏 Twitter · DM</span>
+      <span style="margin-left:auto;color:var(--fg4)">GuardianSend(<span id="gs-intent-label">intent</span>, <span style="color:var(--accent)">erosmancer</span>)</span>
+    </div>
+    <div class="compose-row">
+      <textarea class="compose-in" id="compose-in" placeholder="Type a message…" rows="1" oninput="autoResize(this)" onkeydown="handleComposKey(event)"></textarea>
+      <div class="compose-actions">
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">Send ↑</button>
+        <div class="compose-tools">
+          <button class="compose-tool" title="Attach screenshot" onclick="document.getElementById('file-in').click()">📎</button>
+          <button class="compose-tool" title="Start Guardian Listener" onclick="startListener()">👁</button>
+          <button class="compose-tool" title="Screen record" onclick="navTo('recorder',null)">⏺</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════════ RIGHT ══════════════════════ -->
+<aside class="right" id="right-panel">
+  <div class="right-tabs">
+    <div class="rtab on" data-rt="scan" onclick="switchRTab('scan',this)">Scan Log <span class="ct" id="log-ct">0</span></div>
+    <div class="rtab" data-rt="listener" onclick="switchRTab('listener',this)">Listener <span class="ct" id="event-ct">0</span></div>
+    <div class="rtab" data-rt="monitor" onclick="switchRTab('monitor',this)">Monitor</div>
+    <div class="rtab" data-rt="recorder" onclick="switchRTab('recorder',this)">Record</div>
+    <div class="rtab" data-rt="screenshots" onclick="switchRTab('screenshots',this)">📸 <span class="ct" id="shot-ct">0</span></div>
+  </div>
+
+  <!-- SCAN LOG TAB -->
+  <div class="rtab-content on" id="rt-scan">
+    <div class="log-controls">
+      <input class="log-search" id="log-search" placeholder="Search logs…" oninput="filterLog()" />
+      <button class="log-export" onclick="exportLog()">↓ CSV</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table" id="log-table">
+        <thead>
+          <tr>
+            <th>Platform</th>
+            <th>Username</th>
+            <th>Orig Date</th>
+            <th>Scanned</th>
+            <th>Content</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LISTENER TAB -->
+  <div class="rtab-content" id="rt-listener">
+    <div class="listener-header">
+      <div class="lh-row">
+        <div class="lh-title">Guardian Listener</div>
+        <div class="listener-status">
+          <div class="lstat-dot off" id="listener-dot"></div>
+          <span id="listener-status-label">Offline</span>
+        </div>
+      </div>
+      <div class="identity-box">
+        <div class="ib-row">
+          <span class="ib-key">Identity</span>
+          <span class="ib-val" id="ib-identity">erosmancer</span>
+          <button class="ib-edit" onclick="openIdentityModal()">edit</button>
+        </div>
+        <div class="ib-row">
+          <span class="ib-key">Agent</span>
+          <span class="ib-val" id="ib-agent">guardian-v4</span>
+        </div>
+        <div class="ib-row">
+          <span class="ib-key">SSE Url</span>
+          <span class="ib-val" id="ib-sse">localhost:3747/sse</span>
+        </div>
+      </div>
+    </div>
+    <div class="listener-controls">
+      <button class="lctrl-btn" id="listener-start-btn" onclick="startListener()">▶ Start</button>
+      <button class="lctrl-btn" id="listener-stop-btn" onclick="stopListener()" disabled>⬛ Stop</button>
+      <button class="lctrl-btn" onclick="clearStream()">Clear</button>
+    </div>
+    <div class="listener-stream" id="listener-stream">
+      <div class="empty"><div class="empty-ico">👁</div><div>Listener inactive</div><div style="font-size:9px">GuardianRequest(Identity.json)</div></div>
+    </div>
+  </div>
+
+  <!-- MONITOR TAB -->
+  <div class="rtab-content" id="rt-monitor">
+    <div class="monitor-grid" id="monitor-grid"></div>
+  </div>
+
+  <!-- RECORDER TAB -->
+  <div class="rtab-content" id="rt-recorder">
+    <div class="recorder-wrap">
+      <div class="rec-status">
+        <div class="rec-dot" id="rec-dot"></div>
+        <div class="rec-label" id="rec-label">Ready</div>
+        <div class="rec-time" id="rec-time">00:00</div>
+      </div>
+      <div class="rec-controls">
+        <button class="rec-btn start" id="rec-start" onclick="startRecording()">⏺ Record</button>
+        <button class="rec-btn stop" id="rec-stop" onclick="stopRecording()" disabled>⬛ Stop</button>
+        <button class="rec-btn" onclick="captureFrame()">📸 Frame</button>
+      </div>
+      <div class="rec-preview" id="rec-preview">
+        <span id="rec-preview-msg">No source</span>
+        <video id="rec-video" muted autoplay></video>
+        <canvas id="rec-canvas"></canvas>
+      </div>
+      <div class="sec" style="margin:10px 0 6px"><span class="slabel">Clips</span><div class="sline"></div></div>
+      <div class="rec-clips" id="rec-clips"></div>
+    </div>
+  </div>
+  <!-- SCREENSHOTS TAB -->
+  <div class="rtab-content" id="rt-screenshots">
+    <div class="log-controls" style="gap:6px;flex-wrap:wrap">
+      <span style="font-family:var(--fm);font-size:9px;color:var(--fg3);text-transform:uppercase;letter-spacing:.08em">Cloud Import</span>
+      <button class="log-export" onclick="connectGoogleDrive()" id="gdrive-btn">☁ Google Drive</button>
+      <button class="log-export" onclick="connectICloud()" id="icloud-btn">🍎 iCloud</button>
+      <button class="log-export" onclick="scanLocalScreenshots()" style="color:var(--accent)">↺ Scan Local</button>
+    </div>
+    <div style="padding:6px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">Dom-bridge userscript:</span>
+      <button class="log-export" onclick="injectUserscript()" id="us-inject-btn" style="color:var(--accent2)">⚡ Inject</button>
+      <span class="log-export" id="us-status" style="border-color:var(--fg4);color:var(--fg4)">not injected</span>
+    </div>
+    <div style="padding:8px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">folder key:</span>
+      <input id="shot-folder-key" class="log-search" style="flex:1;min-width:120px" placeholder="screenshots/2026" value="screenshots" />
+      <select id="shot-cloud-sel" style="font-family:var(--fm);font-size:9px;background:var(--bg3);border:1px solid var(--line2);color:var(--fg);border-radius:6px;padding:4px 8px">
+        <option value="local">Local only</option>
+        <option value="gdrive">Google Drive</option>
+        <option value="icloud">iCloud Drive</option>
+      </select>
+    </div>
+    <div id="shot-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;overflow-y:auto;flex:1"></div>
+    <div id="shot-day-log" style="border-top:1px solid var(--line);padding:8px 12px;font-family:var(--fm);font-size:9px;color:var(--fg3);max-height:120px;overflow-y:auto">
+      <div style="font-weight:700;color:var(--fg2);margin-bottom:4px">Daily Processing Log</div>
+      <div id="shot-log-list"></div>
+    </div>
+  </div>
+</aside>
+</div>
+
+<!-- IDENTITY MODAL -->
+<div class="modal-bg" id="identity-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('identity-modal')">✕</button>
+    <div class="modal-title">Identity Config</div>
+    <div class="modal-label">Username / Identity</div>
+    <input class="modal-in" id="m-identity" value="erosmancer" placeholder="@username" />
+    <div class="modal-label">Agent Name</div>
+    <input class="modal-in" id="m-agent" value="guardian-v4" placeholder="guardian-v4" />
+    <div class="modal-label">Aliases (comma-separated)</div>
+    <input class="modal-in" id="m-aliases" value="erosmancer, jbrooks, demontaigne" placeholder="alias1, alias2" />
+    <div class="modal-label">SSE Endpoint</div>
+    <input class="modal-in" id="m-sse" value="http://localhost:3747/sse" placeholder="http://localhost:3747/sse" />
+    <div class="modal-label">API Key (NEXUS_API_KEY)</div>
+    <input class="modal-in" id="m-apikey" value="Nexus-James-2026-Erosmancer" type="password" placeholder="API key" />
+    <div class="modal-row">
+      <button class="modal-btn" onclick="closeModal('identity-modal')">Cancel</button>
+      <button class="modal-btn primary" onclick="saveIdentity()">Save Identity</button>
+    </div>
+  </div>
+</div>
+
+<!-- URL ADD MODAL -->
+<div class="modal-bg" id="url-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('url-modal')">✕</button>
+    <div class="modal-title">Monitor URL</div>
+    <div class="modal-label">URL to Watch</div>
+    <input class="modal-in" id="m-url" placeholder="https://twitter.com/username" />
+    <div class="modal-label">Platform</div>
+    <input class="modal-in" id="m-url-platform" placeholder="twitter" />
+    <div class="modal-label">Poll Interval (seconds)</div>
+    <input class="modal-in" id="m-poll" value="30" type="number" min="5" />
+    <div class="modal-label">Description</div>
+    <input class="modal-in" id="m-url-desc" placeholder="Profile monitor, search monitor…" />
+    <div class="modal-row">
+      <button class="modal-btn" onclick="closeModal('url-modal')">Cancel</button>
+      <button class="modal-btn primary" onclick="saveUrl()">Add Monitor</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const STATE = {
+  identity: 'erosmancer',
+  agent: 'guardian-v4',
+  aliases: ['erosmancer','jbrooks','demontaigne'],
+  sseEndpoint: 'http://localhost:3747/sse',
+  apiKey: 'Nexus-James-2026-Erosmancer',
+  activePlatforms: new Set(['twitter']),
+  activeCommType: 'all',
+  activeAlias: 'all',
+  listenerActive: false,
+  listenerSource: null,
+  listenerTimer: null,
+  autoScan: true,
+  messages: [],        // {id, platform, commType, username, alias, content, origDate, scanDate, scanResult, self, img}
+  logs: [],            // full scan log
+  urls: [],            // {id, url, platform, desc, interval, status, lastPoll, events}
+  clips: [],           // recorded clips
+  eventCount: 0,
+  logCount: 0,
+  _listenerId: null,      // Guardian REGISTER_LISTENER id
+  _broadcastChannel: null, // BroadcastChannel 'guardian-bridge'
+  _pollTimer: null,        // guardianPollResponse tick handle
+  recTimer: null,
+  recStart: null,
+  mediaRecorder: null,
+  recChunks: [],
+  recStream: null,
+  // ── Screenshot / cloud integration ──
+  screenshots: [],        // { id, name, src, thumb, date, source, dayKey, processed, skipped }
+  shotCount: 0,
+  _gdriveToken: null,     // Google OAuth access token
+  _icloudReady: false,    // iCloud Drive File System Access handle
+  _icloudDirHandle: null, // FileSystemDirectoryHandle
+  _shotPollTimer: null,   // setInterval handle for cloud polling
+  _domBridge: false,      // true when userscript DOM-bridge is active
+  _dbPromise: null,       // IndexedDB promise (guardian_shots)
+};
+
+const PLATFORM_META = {
+  twitter:   {ico:'𝕏',  color:'#1DA1F2', bg:'rgba(29,161,242,.12)'},
+  instagram: {ico:'📸', color:'#E1306C', bg:'rgba(225,48,108,.12)'},
+  facebook:  {ico:'👤', color:'#1877F2', bg:'rgba(24,119,242,.12)'},
+  reddit:    {ico:'🔴', color:'#FF4500', bg:'rgba(255,69,0,.12)'},
+  discord:   {ico:'🎮', color:'#5865F2', bg:'rgba(88,101,242,.12)'},
+  linkedin:  {ico:'💼', color:'#0077B5', bg:'rgba(0,119,181,.12)'},
+  telegram:  {ico:'✈',  color:'#26A2DF', bg:'rgba(38,162,223,.12)'},
+  tiktok:    {ico:'🎵', color:'#FE2C55', bg:'rgba(254,44,85,.12)'},
+  youtube:   {ico:'▶',  color:'#FF0000', bg:'rgba(255,0,0,.12)'},
+  mastodon:  {ico:'🐘', color:'#6364FF', bg:'rgba(99,100,255,.12)'},
+  threads:   {ico:'@',  color:'#e8e8e8', bg:'rgba(232,232,232,.1)'},
+  twitch:    {ico:'🎲', color:'#9146FF', bg:'rgba(145,70,255,.12)'},
+};
+
+const COMM_TYPES = {
+  twitter:   ['DM','Post','Reply','Thread','Mention'],
+  instagram: ['DM','Post','Story','Reel Comment','Mention'],
+  facebook:  ['Messenger','Post','Comment','Group','Event'],
+  reddit:    ['DM','Post','Comment','Subreddit'],
+  discord:   ['DM','Server Message','Channel','Thread'],
+  linkedin:  ['Message','Post','Comment','InMail'],
+  telegram:  ['Message','Channel','Group'],
+  tiktok:    ['DM','Comment','Live'],
+  youtube:   ['Comment','Community Post','Live Chat'],
+  mastodon:  ['DM','Toot','Mention','Boost'],
+  threads:   ['Post','Reply','DM'],
+  twitch:    ['Chat','DM','Clip Comment'],
+};
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+function navTo(view, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  if (view === 'listener') { switchRTab('listener', document.querySelector('[data-rt="listener"]')); }
+  if (view === 'monitor')  { switchRTab('monitor',  document.querySelector('[data-rt="monitor"]')); }
+  if (view === 'recorder') { switchRTab('recorder', document.querySelector('[data-rt="recorder"]')); }
+  if (view === 'log')      { switchRTab('scan',     document.querySelector('[data-rt="scan"]')); }
+}
+
+function switchRTab(name, el) {
+  document.querySelectorAll('.rtab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.rtab-content').forEach(c=>c.classList.remove('on'));
+  if (el) el.classList.add('on');
+  const t = document.getElementById('rt-'+name);
+  if (t) t.classList.add('on');
+}
+
+// ══════════════════════════════════════════════
+// PLATFORM / COMM TOGGLES
+// ══════════════════════════════════════════════
+function togglePlat(el) {
+  const p = el.dataset.p;
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) STATE.activePlatforms.add(p);
+  else STATE.activePlatforms.delete(p);
+  updateChatHeader();
+  filterMessages();
+}
+
+function toggleAllPlatforms() {
+  const allOn = [...document.querySelectorAll('.plat')].every(p=>p.classList.contains('on'));
+  document.querySelectorAll('.plat').forEach(p=>{
+    if (allOn) { p.classList.remove('on'); STATE.activePlatforms.delete(p.dataset.p); }
+    else { p.classList.add('on'); STATE.activePlatforms.add(p.dataset.p); }
+  });
+  filterMessages();
+}
+
+function toggleComm(el) {
+  document.querySelectorAll('.comm-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  STATE.activeCommType = el.dataset.ct;
+  filterMessages();
+}
+
+function selectAlias(el) {
+  document.querySelectorAll('.alias-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  STATE.activeAlias = el.dataset.alias;
+  filterMessages();
+}
+
+function filterMessages() {
+  const q = document.getElementById('identity-filter').value.toLowerCase();
+  const msgs = STATE.messages.filter(m => {
+    const platOk = STATE.activePlatforms.size === 0 || STATE.activePlatforms.has(m.platform);
+    const ctOk = STATE.activeCommType === 'all' || m.commType.toLowerCase() === STATE.activeCommType;
+    const aliasOk = STATE.activeAlias === 'all' || m.username.toLowerCase().includes(STATE.activeAlias) || (m.alias||'').toLowerCase().includes(STATE.activeAlias);
+    const qOk = !q || m.username.toLowerCase().includes(q) || m.content.toLowerCase().includes(q) || (m.alias||'').toLowerCase().includes(q);
+    return platOk && ctOk && aliasOk && qOk;
+  });
+  renderMessages(msgs);
+}
+
+// ══════════════════════════════════════════════
+// MESSAGES
+// ══════════════════════════════════════════════
+function addMessage(m) {
+  m.id = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  m.scanDate = new Date().toISOString();
+  if (!m.origDate) m.origDate = m.scanDate;
+  if (STATE.autoScan && !m.scanResult) m.scanResult = autoScan(m);
+  STATE.messages.push(m);
+  addLogEntry(m);
+  filterMessages();
+  document.getElementById('chat-empty').style.display='none';
+  document.getElementById('msg-count').textContent = STATE.messages.length;
+}
+
+function renderMessages(msgs) {
+  const area = document.getElementById('chat-area');
+  const empty = document.getElementById('chat-empty');
+  area.querySelectorAll('.msg,.day-div').forEach(e=>e.remove());
+  if (!msgs.length) { empty.style.display='flex'; return; }
+  empty.style.display='none';
+  let lastDay = '';
+  msgs.forEach(m => {
+    const day = new Date(m.origDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});
+    if (day !== lastDay) {
+      lastDay = day;
+      const div = document.createElement('div');
+      div.className='day-div';
+      div.innerHTML=`<div class="day-line"></div><div class="day-label">${day}</div><div class="day-line"></div>`;
+      area.appendChild(div);
+    }
+    area.appendChild(buildMsgEl(m));
+  });
+  area.scrollTop = area.scrollHeight;
+}
+
+function buildMsgEl(m) {
+  const pm = PLATFORM_META[m.platform] || {ico:'?',color:'#fff',bg:'transparent'};
+  const el = document.createElement('div');
+  el.className = 'msg' + (m.self ? ' self' : '');
+  el.dataset.id = m.id;
+
+  const initials = (m.username||'?').replace('@','').slice(0,2).toUpperCase();
+  const avatarColor = stringToColor(m.username||'?');
+  const origFmt = fmtDate(m.origDate);
+  const scanFmt = fmtDate(m.scanDate);
+
+  let imgHtml = '';
+  if (m.img) {
+    imgHtml = `<div class="msg-img-wrap">
+      <img class="msg-img" src="${m.img}" alt="screenshot" />
+      <div class="ocr-overlay" onclick="runOCR('${m.id}')">
+        <div class="ocr-btn">🔍 Scan Image</div>
+      </div>
+    </div>`;
+  }
+
+  let scanHtml = '';
+  if (m.scanResult) {
+    const cls = m.scanResult.flag === 'ok' ? 'log-scan-ok' : m.scanResult.flag === 'warn' ? 'log-scan-warn' : 'log-scan-err';
+    scanHtml = `<div class="msg-scan"><div class="msg-scan-label">Scan Result</div><span class="${cls}">▪ ${m.scanResult.summary}</span></div>`;
+  }
+
+  el.innerHTML = `
+    <div class="msg-avatar" style="background:${avatarColor}">${initials}</div>
+    <div class="msg-body">
+      <div class="msg-meta">
+        <span class="msg-platform" style="background:${pm.bg};color:${pm.color};border:1px solid ${pm.color}40">${pm.ico} ${m.platform}</span>
+        <strong style="font-size:10px;color:var(--fg);font-family:var(--fm)">${m.username}</strong>
+        ${m.alias ? `<span style="font-size:9px;color:var(--fg4)">(${m.alias})</span>` : ''}
+        <span>${m.commType}</span>
+      </div>
+      <div class="msg-bubble">
+        ${m.content ? `<div>${escHtml(m.content)}</div>` : ''}
+        ${imgHtml}
+      </div>
+      ${scanHtml}
+      <div class="msg-dates">
+        <span>orig: ${origFmt}</span>
+        <span>·</span>
+        <span>scanned: ${scanFmt}</span>
+        ${m.origin ? `<span>·</span><span>from: ${m.origin}</span>` : ''}
+      </div>
+    </div>`;
+  return el;
+}
+
+function autoScan(m) {
+  const flags = [];
+  const text = (m.content||'').toLowerCase();
+  if (text.includes('http')||text.includes('www')) flags.push({flag:'warn',note:'contains URL'});
+  if (text.includes('@')) flags.push({flag:'info',note:'mentions user'});
+  if (/[A-Z]{4,}/.test(m.content||'')) flags.push({flag:'info',note:'caps detected'});
+  if (!flags.length) return {flag:'ok',summary:'no flags detected'};
+  const top = flags.reduce((a,b) => b.flag==='warn'?b:a, flags[0]);
+  return {flag:top.flag, summary:flags.map(f=>f.note).join(', ')};
+}
+
+function sendMessage() {
+  const inp = document.getElementById('compose-in');
+  const text = inp.value.trim();
+  if (!text) return;
+  const plat = [...STATE.activePlatforms][0] || 'twitter';
+  const m = {
+    platform: plat,
+    commType: STATE.activeCommType === 'all' ? 'DM' : STATE.activeCommType,
+    username: '@'+STATE.identity,
+    alias: STATE.identity,
+    content: text,
+    self: true,
+    origin: 'compose',
+    origDate: new Date().toISOString(),
+  };
+  addMessage(m);
+  inp.value = '';
+  autoResize(inp);
+  guardianSend(text, STATE.identity, plat);
+  showToast(`GuardianSend → ${plat}`, 'ok');
+}
+
+// ── guardianSend(intent, identity, platform) ─────────────────────────────────
+// Wires compose bar → Guardian GUARDIAN_EXECUTE_INTENT pipeline.
+// Flow:
+//   1. CLEAR_TAB_LOCK  — fresh pipeline run, release any stale tab lock
+//   2. CLEAR_RESPONSE  — wipe stale _responseStore entry for this identity
+//   3. OPEN_TAB        — getOrOpenTab() in background.js (reuses lock if exists)
+//   4. GUARDIAN_EXECUTE_INTENT — injects text via NEXUS_CMD → content.js
+//   5. guardianPollResponse()  — polls POLL_RESPONSE every 800ms until complete
+// ─────────────────────────────────────────────────────────────────────────────
+async function guardianSend(text, identity, platform) {
+  const intent = { type: 'chat', text, identity, platform, agent: STATE.agent, timestamp: Date.now() };
+  console.log('[GuardianSend] intent:', intent);
+  addStreamEvent({ type: 'sent', platform, user: '@' + identity, text, meta: [STATE.agent, 'GuardianSend', 'EXECUTE_INTENT'] });
+
+  // Guard: must be in extension context
+  const rt = (typeof browser !== 'undefined' && browser.runtime) ||
+             (typeof chrome  !== 'undefined' && chrome.runtime)  || null;
+  if (!rt) {
+    console.warn('[GuardianSend] No browser.runtime — bridge fetch fallback');
+    fetch(`http://localhost:3747/guardian/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': STATE.apiKey },
+      body: JSON.stringify(intent),
+    }).catch(() => {});
+    return;
+  }
+
+  const send = (type, payload) =>
+    rt.sendMessage({ ...payload, type }).catch(e => ({ ok: false, reason: e.message }));
+
+  try {
+    // Step 1 — clear stale tab lock for this identity
+    await send('CLEAR_TAB_LOCK', { identity });
+
+    // Step 2 — clear stale response store entry
+    await send('CLEAR_RESPONSE', { identity });
+
+    // Step 3 — open (or reuse) the AI tab
+    const tabRes = await send('OPEN_TAB', { identity });
+    if (!tabRes?.ok) {
+      addStreamEvent({ type: 'error', platform, user: 'guardian', text: `OPEN_TAB failed: ${tabRes?.reason || 'unknown'}`, meta: ['GuardianSend'] });
+      return;
+    }
+    const tabId = tabRes.tabId;
+    addStreamEvent({ type: 'scan', platform: 'nexus', user: 'guardian', text: `Tab ready — tabId:${tabId}`, meta: ['OPEN_TAB', identity] });
+
+    // Step 4 — inject text and submit
+    const execRes = await send('GUARDIAN_EXECUTE_INTENT', { identity, text, tabId });
+    if (!execRes?.ok) {
+      addStreamEvent({ type: 'error', platform, user: 'guardian', text: `EXECUTE_INTENT failed: ${execRes?.reason || 'unknown'}`, meta: ['GuardianSend'] });
+      return;
+    }
+    addStreamEvent({ type: 'scan', platform, user: 'guardian', text: 'Intent injected — awaiting response…', meta: ['GUARDIAN_EXECUTE_INTENT', identity] });
+
+    // Step 5 — poll for the AI response
+    guardianPollResponse(identity, platform, send);
+  } catch (err) {
+    console.error('[GuardianSend] runtime error:', err);
+    addStreamEvent({ type: 'error', platform, user: 'guardian', text: 'GuardianSend error: ' + err.message, meta: ['GuardianSend'] });
+  }
+}
+
+// Polls POLL_RESPONSE every 800ms (matching GateForge cadence).
+// Resolves on complete:true or after 90s timeout.
+function guardianPollResponse(identity, platform, send) {
+  const MAX_MS   = 90_000;
+  const INTERVAL = 800;
+  const started  = Date.now();
+  let   lastText = '';
+  STATE._pollTimer = STATE._pollTimer || null;
+
+  const tick = async () => {
+    if (Date.now() - started > MAX_MS) {
+      addStreamEvent({ type: 'error', platform, user: 'guardian', text: 'Poll timeout — no complete response in 90s', meta: ['POLL_RESPONSE', identity] });
+      return;
+    }
+    const res = await send('POLL_RESPONSE', { identity });
+    const stored = res?.response;
+    if (!stored) { setTimeout(tick, INTERVAL); return; }
+
+    // Stream partial text updates into the listener panel
+    if (stored.text && stored.text !== lastText) {
+      lastText = stored.text;
+      addStreamEvent({ type: 'incoming', platform, user: identity, text: stored.text.slice(0, 400) + (stored.text.length > 400 ? '…' : ''), meta: ['POLL_RESPONSE', stored.complete ? 'complete' : 'streaming'] });
+    }
+
+    if (stored.complete) {
+      // Write the final response into the chat feed as an incoming message
+      addMessage({
+        platform,
+        commType: 'AI Response',
+        username: '@' + identity,
+        alias:    identity,
+        content:  stored.text,
+        origin:   'guardian-execute',
+        origDate: new Date(stored.ts || Date.now()).toISOString(),
+      });
+      addStreamEvent({ type: 'incoming', platform, user: identity, text: '✓ Response complete — written to chat', meta: ['guardianRequest', 'response.txt'] });
+    } else {
+      setTimeout(tick, INTERVAL);
+    }
+  };
+
+  setTimeout(tick, INTERVAL);
+}
+
+function handleComposKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,120)+'px';
+}
+
+function clearChat() { STATE.messages=[]; filterMessages(); document.getElementById('msg-count').textContent='0'; }
+
+function exportChat() {
+  const lines = STATE.messages.map(m=>`[${m.platform}][${m.commType}] ${m.username}: ${m.content} | orig: ${m.origDate} | scan: ${m.scanDate}`);
+  download('nexus-chat-export.txt', lines.join('\n'));
+}
+
+// ══════════════════════════════════════════════
+// SCAN LOG
+// ══════════════════════════════════════════════
+function addLogEntry(m) {
+  STATE.logs.unshift(m);
+  STATE.logCount++;
+  document.getElementById('log-ct').textContent = STATE.logCount;
+  renderLogRow(m, true);
+}
+
+function renderLogRow(m, prepend=false) {
+  const pm = PLATFORM_META[m.platform]||{color:'#fff'};
+  const tbody = document.getElementById('log-tbody');
+  const tr = document.createElement('tr');
+  if (m.scanResult && m.scanResult.flag !== 'ok') tr.classList.add('flagged');
+  const sr = m.scanResult;
+  const srCls = sr ? (sr.flag==='ok'?'log-scan-ok':sr.flag==='warn'?'log-scan-warn':'log-scan-err') : '';
+  const srText = sr ? sr.summary : '—';
+  tr.innerHTML = `
+    <td><span class="log-p-badge" style="background:${pm.bg||'var(--bg4)'};color:${pm.color};border:1px solid ${pm.color}40">${m.platform}</span></td>
+    <td><span class="log-username">${escHtml(m.username)}</span>${m.alias?`<br><span class="log-alias">${escHtml(m.alias)}</span>`:''}</td>
+    <td style="white-space:nowrap;font-size:9px">${fmtDate(m.origDate)}</td>
+    <td style="white-space:nowrap;font-size:9px">${fmtDate(m.scanDate)}</td>
+    <td class="log-content-cell" title="${escHtml(m.content||'')}">${escHtml((m.content||'').slice(0,40))}${(m.content||'').length>40?'…':''}</td>
+    <td class="${srCls}">${escHtml(srText)}</td>`;
+  if (prepend) tbody.insertBefore(tr, tbody.firstChild);
+  else tbody.appendChild(tr);
+}
+
+function filterLog() {
+  const q = document.getElementById('log-search').value.toLowerCase();
+  document.querySelectorAll('#log-tbody tr').forEach(tr => {
+    tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function exportLog() {
+  const headers = ['Platform','CommType','Username','Alias','OrigDate','ScanDate','Content','ScanResult','Origin'];
+  const rows = STATE.logs.map(m=>[m.platform,m.commType,m.username,m.alias||'',m.origDate,m.scanDate,'"'+(m.content||'').replace(/"/g,'""')+'"',m.scanResult?m.scanResult.summary:'',m.origin||''].join(','));
+  download('nexus-scan-log.csv', [headers.join(','),...rows].join('\n'));
+}
+
+// ══════════════════════════════════════════════
+// URL MONITOR
+// ══════════════════════════════════════════════
+function addUrl() {
+  const inp = document.getElementById('url-input');
+  const url = inp.value.trim();
+  if (!url) return;
+  createUrlMonitor({url, platform: guessPlat(url), desc: '', interval: 30});
+  inp.value='';
+  showToast('URL added to monitor','ok');
+}
+
+function addUrlModal() { openModal('url-modal'); }
+
+function saveUrl() {
+  const url = document.getElementById('m-url').value.trim();
+  if (!url) return;
+  createUrlMonitor({
+    url, 
+    platform: document.getElementById('m-url-platform').value || guessPlat(url),
+    desc: document.getElementById('m-url-desc').value,
+    interval: parseInt(document.getElementById('m-poll').value)||30
+  });
+  closeModal('url-modal');
+  showToast('URL monitor added','ok');
+}
+
+function createUrlMonitor(opts) {
+  const id = 'url_'+Date.now();
+  const mon = {id, ...opts, status:'idle', lastPoll:null, events:0};
+  STATE.urls.push(mon);
+  renderUrlItem(mon);
+  renderMonitorCard(mon);
+  startPolling(mon);
+}
+
+function renderUrlItem(mon) {
+  const list = document.getElementById('url-list');
+  const el = document.createElement('div');
+  el.className = 'url-item';
+  el.id = 'url-item-'+mon.id;
+  const host = tryHost(mon.url);
+  el.innerHTML = `
+    <span class="url-host" title="${escHtml(mon.url)}">${host}</span>
+    <span class="url-status idle" id="url-status-${mon.id}">IDLE</span>
+    <span class="url-del" onclick="removeUrl('${mon.id}')">✕</span>`;
+  el.onclick = e => { if (!e.target.classList.contains('url-del')) switchRTab('monitor', document.querySelector('[data-rt="monitor"]')); };
+  list.appendChild(el);
+}
+
+function renderMonitorCard(mon) {
+  const grid = document.getElementById('monitor-grid');
+  const c = document.createElement('div');
+  c.className='mon-card';
+  c.id='mon-card-'+mon.id;
+  const pm = PLATFORM_META[mon.platform]||{};
+  c.innerHTML=`
+    <div class="mon-card-title">${pm.ico||'🌐'} ${tryHost(mon.url)}</div>
+    <div class="mon-card-url">${escHtml(mon.url)}</div>
+    <div class="mon-stat"><span class="mon-stat-k">Status</span><span class="mon-stat-v" id="mcs-${mon.id}">Idle</span></div>
+    <div class="mon-stat"><span class="mon-stat-k">Interval</span><span class="mon-stat-v">${mon.interval}s</span></div>
+    <div class="mon-stat"><span class="mon-stat-k">Last poll</span><span class="mon-stat-v" id="mclp-${mon.id}">—</span></div>
+    <div class="mon-stat"><span class="mon-stat-k">Events</span><span class="mon-stat-v" id="mcev-${mon.id}">0</span></div>
+    <div class="mon-actions">
+      <button class="mon-act poll" onclick="pollNow('${mon.id}')">↺ Poll Now</button>
+      <button class="mon-act" onclick="removeUrl('${mon.id}')">✕ Remove</button>
+    </div>`;
+  grid.appendChild(c);
+}
+
+function startPolling(mon) {
+  mon._timer = setInterval(()=>pollNow(mon.id), mon.interval*1000);
+  setTimeout(()=>pollNow(mon.id), 500);
+}
+
+async function pollNow(id) {
+  const mon = STATE.urls.find(u=>u.id===id);
+  if (!mon) return;
+  setUrlStatus(id,'polling');
+  try {
+    // Try via bridge proxy (avoids CORS)
+    const r = await fetch(`http://localhost:3747/guardian/poll`, {
+      method:'POST', headers:{'Content-Type':'application/json','x-api-key':STATE.apiKey},
+      body: JSON.stringify({url:mon.url, identity:STATE.identity, platform:mon.platform}),
+      signal: AbortSignal.timeout(4000)
+    }).catch(()=>null);
+
+    mon.lastPoll = Date.now();
+    mon.events++;
+    setUrlStatus(id,'live');
+    el('mclp-'+id, fmtDate(mon.lastPoll));
+    el('mcev-'+id, mon.events);
+
+    // Simulate incoming content from URL
+    const simContent = `[Polled ${tryHost(mon.url)}] ${mon.events > 1 ? 'New content detected' : 'Initial snapshot captured'}.`;
+    addStreamEvent({type:'url', platform:mon.platform||'web', user:tryHost(mon.url), text:simContent, meta:['url-monitor',`interval:${mon.interval}s`]});
+
+    if (STATE.autoScan) {
+      addMessage({platform:mon.platform||'web',commType:'Monitor',username:tryHost(mon.url),content:simContent,origin:mon.url,origDate:new Date().toISOString()});
+    }
+  } catch(e) {
+    setUrlStatus(id,'error');
+    showToast(`Poll failed: ${tryHost(mon.url)}`,'warn');
+  }
+}
+
+function setUrlStatus(id, state) {
+  const item = document.getElementById('url-item-'+id);
+  const badge = document.getElementById('url-status-'+id);
+  const card = document.getElementById('mon-card-'+id);
+  const mcs = document.getElementById('mcs-'+id);
+  if (item) { item.className='url-item '+(state==='live'?'polling':state==='error'?'error':''); }
+  if (badge) { badge.className='url-status '+(state==='live'?'live':state==='error'?'err':'idle'); badge.textContent=state.toUpperCase(); }
+  if (card) { card.className='mon-card '+(state==='live'?'live':''); }
+  if (mcs) { mcs.className='mon-stat-v '+(state==='live'?'ok':state==='error'?'err':''); mcs.textContent=state==='live'?'Live':state==='error'?'Error':'Idle'; }
+}
+
+function removeUrl(id) {
+  const mon = STATE.urls.find(u=>u.id===id);
+  if (mon?._timer) clearInterval(mon._timer);
+  STATE.urls = STATE.urls.filter(u=>u.id!==id);
+  document.getElementById('url-item-'+id)?.remove();
+  document.getElementById('mon-card-'+id)?.remove();
+  showToast('Monitor removed','warn');
+}
+
+function guessPlat(url) {
+  const u = url.toLowerCase();
+  for (const p of Object.keys(PLATFORM_META)) if (u.includes(p)) return p;
+  return 'web';
+}
+
+function tryHost(url) {
+  try { return new URL(url).hostname.replace('www.',''); } catch{return url;}
+}
+
+// ══════════════════════════════════════════════
+// GUARDIAN LISTENER
+// ══════════════════════════════════════════════
+// ── startListener() ──────────────────────────────────────────────────────────
+// Implements guardianRequest(response.txt):
+//   1. Sends REGISTER_LISTENER to background.js via browser.runtime.sendMessage.
+//      background.js relays ATTACH_LISTENER → content.js → MutationObserver
+//      on the AI tab; events flow back via GUARDIAN_CALLTO → _responseStore.
+//   2. Subscribes the GEB SSE stream (bridge /sse) for real-time events.
+//   3. Listens on BroadcastChannel 'guardian-bridge' for GUARDIAN_CALLTO chunks.
+//   4. Falls back to simulation when bridge/extension is offline.
+// ─────────────────────────────────────────────────────────────────────────────
+async function startListener() {
+  if (STATE.listenerActive) return;
+  STATE.listenerActive = true;
+  setListenerStatus('connecting');
+  document.getElementById('live-indicator').style.display = 'inline-block';
+
+  clearStream();
+
+  const identityPayload = {
+    identity:  STATE.identity,
+    agent:     STATE.agent,
+    aliases:   STATE.aliases,
+    apiKey:    STATE.apiKey,
+    platforms: [...STATE.activePlatforms],
+  };
+  console.log('[guardianRequest]', identityPayload);
+  addStreamEvent({ type: 'scan', platform: 'nexus', user: 'system',
+    text: `guardianRequest initiated — identity: ${STATE.identity}, agent: ${STATE.agent}`,
+    meta: ['REGISTER_LISTENER', 'response.txt'] });
+
+  const rt = (typeof browser !== 'undefined' && browser.runtime) ||
+             (typeof chrome  !== 'undefined' && chrome.runtime)  || null;
+
+  // ── Path A: extension context — wire through browser.runtime ──────────────
+  if (rt) {
+    const listenerId = 'lsn-alksm-' + Date.now().toString(36);
+    STATE._listenerId = listenerId;
+
+    const regRes = await rt.sendMessage({
+      type:       'REGISTER_LISTENER',
+      listenerId,
+      listener: {
+        identity:  STATE.identity,
+        selector:  '.font-claude-message, [data-is-streaming], [data-message-author-role="assistant"]',
+        mode:      'chat',
+        requestId: listenerId,
+        calltoId:  listenerId,
+      },
+    }).catch(e => ({ ok: false, reason: e.message }));
+
+    if (regRes?.ok) {
+      setListenerStatus('live');
+      showToast('Guardian Listener registered', 'ok');
+      addStreamEvent({ type: 'scan', platform: 'nexus', user: 'guardian',
+        text: `Listener registered — id: ${listenerId}`, meta: ['REGISTER_LISTENER', STATE.identity] });
+    } else {
+      addStreamEvent({ type: 'error', platform: 'nexus', user: 'guardian',
+        text: `REGISTER_LISTENER failed: ${regRes?.reason || 'no target tab'}`,
+        meta: ['guardianRequest'] });
+    }
+
+    // BroadcastChannel — receives LISTENER_STARTED + GUARDIAN_CALLTO from background.js
+    const bc = new BroadcastChannel('guardian-bridge');
+    STATE._broadcastChannel = bc;
+    bc.onmessage = (e) => {
+      const msg = e.data;
+      if (!msg) return;
+      if (msg.type === 'LISTENER_STARTED') {
+        addStreamEvent({ type: 'scan', platform: 'nexus', user: 'guardian',
+          text: `Listener attached tabId:${msg.listener?.tabId} — ${msg.listener?.selector}`,
+          meta: ['ATTACH_LISTENER', msg.listener?.identity || STATE.identity] });
+      }
+      if (msg.type === 'GUARDIAN_CALLTO' || msg.type === 'CHAT_EVENT') {
+        const p = msg.payload || msg;
+        if (p.listenerId && p.listenerId !== STATE._listenerId) return;
+        handleGuardianEvent({
+          type:     'incoming',
+          platform: p.provider || p.identity || STATE.identity,
+          user:     '@' + (p.provider || STATE.identity),
+          text:     p.text || '',
+          complete: p.complete,
+          tags:     ['GUARDIAN_CALLTO', p.complete ? 'response.txt:complete' : 'streaming'],
+        });
+      }
+    };
+  }
+
+  // ── Path B: SSE stream from bridge /sse ────────────────────────────────────
+  try {
+    const src = new EventSource(
+      `${STATE.sseEndpoint}?identity=${encodeURIComponent(STATE.identity)}&agent=${encodeURIComponent(STATE.agent)}`
+    );
+    STATE.listenerSource = src;
+
+    src.onopen = () => {
+      if (!rt) { setListenerStatus('live'); showToast('Guardian Listener connected', 'ok'); }
+      addStreamEvent({ type: 'scan', platform: 'nexus', user: 'guardian',
+        text: 'SSE stream open — bridge events flowing', meta: ['SSE', 'connected'] });
+    };
+
+    src.onmessage = (e) => {
+      try { handleGuardianEvent(JSON.parse(e.data)); }
+      catch { addStreamEvent({ type: 'incoming', platform: 'guardian', user: 'sse', text: e.data, meta: ['raw'] }); }
+    };
+
+    src.onerror = () => {
+      if (!rt) { setListenerStatus('sim'); startSimulation(); }
+    };
+  } catch(e) {
+    if (!rt) { setListenerStatus('sim'); startSimulation(); }
+  }
+
+  document.getElementById('listener-start-btn').disabled = true;
+  document.getElementById('listener-stop-btn').disabled = false;
+}
+
+function handleGuardianEvent(data) {
+  const type = data.type || 'incoming';
+  addStreamEvent({type, platform:data.platform||'guardian', user:data.username||data.user||'guardian', text:data.content||data.text||JSON.stringify(data), meta:data.tags||[]});
+  if (data.content || data.text) {
+    addMessage({platform:data.platform||'guardian',commType:data.commType||'Listen',username:data.username||'@guardian',content:data.content||data.text,origin:data.origin||STATE.sseEndpoint,origDate:data.timestamp||new Date().toISOString()});
+  }
+}
+
+function startSimulation() {
+  addStreamEvent({type:'scan',platform:'nexus',user:'system',text:'Bridge offline — running simulation mode',meta:['simulation']});
+  showToast('Listener in simulation mode','warn');
+  setListenerStatus('sim');
+  const events = [
+    {type:'incoming',platform:'twitter',user:'@raven_signal',text:'Saw your thread on local-first systems. Completely agree on sovereignty.',meta:['DM','mention']},
+    {type:'url',platform:'reddit',user:'r/selfhosted',text:'New post: "Anyone using event-sourcing for personal knowledge graphs?"',meta:['post','monitor']},
+    {type:'incoming',platform:'discord',user:'@jonathan.bailey',text:'The SISO bridge is holding. Jaa passing all tests on the new schema.',meta:['DM','nexus']},
+    {type:'scan',platform:'nexus',user:'scanner',text:'Behavioral signature stable — oscillation within threshold. IDL coherence: 0.87',meta:['sigma','delta']},
+    {type:'incoming',platform:'mastodon',user:'@erosmancer@social.coop',text:'Toot boosted by 3 accounts — local-first philosophy resonating.',meta:['boost','mention']},
+    {type:'url',platform:'twitter',user:'@erosmancer',text:'Mention detected: "love what @erosmancer is building with nexus"',meta:['mention','url-monitor']},
+    {type:'incoming',platform:'telegram',user:'@siso_dev',text:'Bridge server up on 3747. Guardian routing confirmed.',meta:['message','bridge']},
+  ];
+  let i=0;
+  STATE.listenerTimer = setInterval(()=>{
+    if (!STATE.listenerActive) return;
+    const ev = events[i++ % events.length];
+    addStreamEvent(ev);
+    if (ev.type==='incoming') {
+      addMessage({platform:ev.platform,commType:'Listen',username:ev.user,content:ev.text,origin:'guardian-sim',origDate:new Date().toISOString()});
+    }
+  }, 3500 + Math.random()*2000);
+}
+
+async function stopListener() {
+  STATE.listenerActive = false;
+  if (STATE.listenerSource) { STATE.listenerSource.close(); STATE.listenerSource = null; }
+  if (STATE.listenerTimer)  { clearInterval(STATE.listenerTimer); STATE.listenerTimer = null; }
+
+  // Tear down BroadcastChannel
+  if (STATE._broadcastChannel) { STATE._broadcastChannel.close(); STATE._broadcastChannel = null; }
+
+  // Send STOP_LISTENER to background.js so MutationObserver is detached
+  if (STATE._listenerId) {
+    const rt = (typeof browser !== 'undefined' && browser.runtime) ||
+               (typeof chrome  !== 'undefined' && chrome.runtime)  || null;
+    if (rt) {
+      await rt.sendMessage({ type: 'STOP_LISTENER', listenerId: STATE._listenerId }).catch(() => {});
+    }
+    STATE._listenerId = null;
+  }
+
+  setListenerStatus('off');
+  document.getElementById('listener-start-btn').disabled = false;
+  document.getElementById('listener-stop-btn').disabled = true;
+  document.getElementById('live-indicator').style.display = 'none';
+  showToast('Listener stopped', 'warn');
+}
+
+function setListenerStatus(state) {
+  const dot = document.getElementById('listener-dot');
+  const label = document.getElementById('listener-status-label');
+  const startBtn = document.getElementById('listener-start-btn');
+  if (state==='live') { dot.className='lstat-dot live'; label.textContent='Connected'; startBtn.className='lctrl-btn on'; }
+  else if (state==='connecting') { dot.className='lstat-dot connecting'; label.textContent='Connecting…'; }
+  else if (state==='sim') { dot.className='lstat-dot live'; label.textContent='Simulation'; startBtn.className='lctrl-btn on'; }
+  else { dot.className='lstat-dot off'; label.textContent='Offline'; startBtn.className='lctrl-btn'; }
+}
+
+function addStreamEvent(ev) {
+  const stream = document.getElementById('listener-stream');
+  stream.querySelector('.empty')?.remove();
+  STATE.eventCount++;
+  document.getElementById('event-ct').textContent = STATE.eventCount;
+
+  const pm = PLATFORM_META[ev.platform]||{ico:'⬡',color:'var(--fg3)'};
+  const el2 = document.createElement('div');
+  el2.className = `stream-event ${ev.type}`;
+  const now = new Date().toTimeString().slice(0,8);
+  el2.innerHTML = `
+    <div class="se-header">
+      <span class="se-type ${ev.type}">${ev.type.toUpperCase()}</span>
+      <span class="se-platform" style="background:${PLATFORM_META[ev.platform]?.bg||'var(--bg4)'};color:${pm.color}">${pm.ico} ${ev.platform}</span>
+      <span class="se-time">${now}</span>
+    </div>
+    <div class="se-user">${escHtml(ev.user)}</div>
+    <div class="se-text">${escHtml(ev.text)}</div>
+    ${ev.meta?.length ? `<div class="se-meta">${ev.meta.map(t=>`<span class="se-tag">${escHtml(t)}</span>`).join('')}</div>` : ''}`;
+  stream.insertBefore(el2, stream.firstChild);
+  while (stream.children.length > 200) stream.removeChild(stream.lastChild);
+}
+
+function clearStream() {
+  const s = document.getElementById('listener-stream');
+  s.innerHTML = '<div class="empty"><div class="empty-ico">👁</div><div>Listener inactive</div><div style="font-size:9px">GuardianRequest(Identity.json)</div></div>';
+  STATE.eventCount=0;
+  document.getElementById('event-ct').textContent='0';
+}
+
+// ══════════════════════════════════════════════
+// SCREENSHOT / FILE IMPORT
+// ══════════════════════════════════════════════
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragover');
+  const files = event.dataTransfer.files;
+  processFiles(files);
+}
+
+function handleFileSelect(event) {
+  processFiles(event.target.files);
+  event.target.value='';
+}
+
+function processFiles(files) {
+  for (const f of files) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = e.target.result;
+      const plat = guessPlat(f.name) !== 'web' ? guessPlat(f.name) : [...STATE.activePlatforms][0]||'twitter';
+      showToast(`Importing: ${f.name}`,'info');
+      addMessage({
+        platform: plat,
+        commType: 'Screenshot',
+        username: '@'+STATE.identity,
+        alias: STATE.identity,
+        content: `[Screenshot: ${f.name} · ${fmtSize(f.size)}]`,
+        img,
+        origin: f.name,
+        origDate: new Date(f.lastModified).toISOString(),
+        scanResult: {flag:'warn', summary:'screenshot — pending OCR scan'},
+      });
+      addStreamEvent({type:'scan',platform:plat,user:'importer',text:`Screenshot imported: ${f.name}`,meta:['screenshot','OCR-pending',fmtSize(f.size)]});
+    };
+    reader.readAsDataURL(f);
+  }
+}
+
+function runOCR(msgId) {
+  const m = STATE.messages.find(x=>x.id===msgId);
+  if (!m) return;
+  showToast('Running scan on screenshot…','info');
+  setTimeout(()=>{
+    m.scanResult = {flag:'ok', summary:'OCR complete — no flagged content detected'};
+    filterMessages();
+    showToast('Screenshot scan complete','ok');
+    addStreamEvent({type:'scan',platform:m.platform,user:'ocr-engine',text:'Screenshot OCR scan complete — no flags',meta:['OCR','scan-complete']});
+  }, 1800);
+}
+
+// ══════════════════════════════════════════════
+// SCREEN RECORDER
+// ══════════════════════════════════════════════
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+    STATE.recStream = stream;
+    const video = document.getElementById('rec-video');
+    video.srcObject = stream;
+    video.classList.add('on');
+    document.getElementById('rec-preview-msg').style.display='none';
+    document.getElementById('rec-dot').className='rec-dot recording';
+    document.getElementById('rec-label').textContent='Recording';
+    document.getElementById('rec-start').disabled=true;
+    document.getElementById('rec-stop').disabled=false;
+    STATE.recChunks=[];
+    STATE.recStart=Date.now();
+    STATE.mediaRecorder = new MediaRecorder(stream);
+    STATE.mediaRecorder.ondataavailable=e=>STATE.recChunks.push(e.data);
+    STATE.mediaRecorder.onstop=()=>saveClip();
+    STATE.mediaRecorder.start(1000);
+    STATE.recTimer=setInterval(updateRecTime,1000);
+    stream.getVideoTracks()[0].onended=()=>stopRecording();
+    showToast('Screen recording started','ok');
+  } catch(e) {
+    showToast('Screen capture denied or unavailable','warn');
+  }
+}
+
+function stopRecording() {
+  if (STATE.mediaRecorder && STATE.mediaRecorder.state!=='inactive') STATE.mediaRecorder.stop();
+  if (STATE.recStream) { STATE.recStream.getTracks().forEach(t=>t.stop()); STATE.recStream=null; }
+  clearInterval(STATE.recTimer);
+  document.getElementById('rec-dot').className='rec-dot ready';
+  document.getElementById('rec-label').textContent='Ready';
+  document.getElementById('rec-start').disabled=false;
+  document.getElementById('rec-stop').disabled=true;
+  document.getElementById('rec-video').classList.remove('on');
+  document.getElementById('rec-preview-msg').style.display='';
+}
+
+function saveClip() {
+  if (!STATE.recChunks.length) return;
+  const blob = new Blob(STATE.recChunks,{type:'video/webm'});
+  const url = URL.createObjectURL(blob);
+  const dur = Math.round((Date.now()-STATE.recStart)/1000);
+  const name = `nexus-rec-${Date.now()}.webm`;
+  const clip = {name,url,dur,blob};
+  STATE.clips.push(clip);
+  renderClip(clip);
+  showToast(`Clip saved: ${secToTime(dur)}`,'ok');
+}
+
+function renderClip(clip) {
+  const el = document.createElement('div');
+  el.className='rec-clip';
+  el.innerHTML=`
+    <span class="rc-name">🎬 ${escHtml(clip.name)}</span>
+    <span class="rc-dur">${secToTime(clip.dur)}</span>
+    <div class="rc-actions">
+      <button class="rc-act" onclick="downloadClip('${clip.name}')">↓</button>
+      <button class="rc-act scan" onclick="scanClip('${clip.name}')">Scan</button>
+    </div>`;
+  document.getElementById('rec-clips').prepend(el);
+}
+
+function captureFrame() {
+  const video = document.getElementById('rec-video');
+  if (!video.srcObject) { showToast('No recording active','warn'); return; }
+  const canvas = document.getElementById('rec-canvas');
+  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0);
+  const img = canvas.toDataURL('image/png');
+  const plat = [...STATE.activePlatforms][0]||'twitter';
+  addMessage({platform:plat,commType:'Frame',username:'@'+STATE.identity,content:'[Screen capture frame]',img,origin:'screen-recorder',origDate:new Date().toISOString()});
+  showToast('Frame captured and added to chat','ok');
+}
+
+function downloadClip(name) {
+  const clip = STATE.clips.find(c=>c.name===name);
+  if (!clip) return;
+  const a=document.createElement('a'); a.href=clip.url; a.download=clip.name; a.click();
+}
+
+function scanClip(name) {
+  showToast('Scanning clip…','info');
+  setTimeout(()=>showToast('Clip scan complete — no flags','ok'),2000);
+  addStreamEvent({type:'scan',platform:'recorder',user:'scanner',text:`Video clip scanned: ${name}`,meta:['video-scan','no-flags']});
+}
+
+function updateRecTime() {
+  const s = Math.round((Date.now()-STATE.recStart)/1000);
+  document.getElementById('rec-time').textContent=secToTime(s);
+}
+
+// ══════════════════════════════════════════════
+// IDENTITY MODAL
+// ══════════════════════════════════════════════
+function openIdentityModal() { openModal('identity-modal'); }
+
+function saveIdentity() {
+  STATE.identity = document.getElementById('m-identity').value || STATE.identity;
+  STATE.agent = document.getElementById('m-agent').value || STATE.agent;
+  STATE.aliases = document.getElementById('m-aliases').value.split(',').map(s=>s.trim()).filter(Boolean);
+  STATE.sseEndpoint = document.getElementById('m-sse').value || STATE.sseEndpoint;
+  STATE.apiKey = document.getElementById('m-apikey').value || STATE.apiKey;
+  document.getElementById('compose-identity-label').textContent = STATE.identity;
+  document.getElementById('ib-identity').textContent = STATE.identity;
+  document.getElementById('ib-agent').textContent = STATE.agent;
+  document.getElementById('ib-sse').textContent = tryHost(STATE.sseEndpoint)+'/sse';
+  document.getElementById('gs-intent-label').textContent = 'intent';
+  // Refresh alias chips
+  const row = document.getElementById('alias-chips');
+  row.innerHTML = `<div class="alias-chip on" data-alias="all" onclick="selectAlias(this)">ALL</div>`;
+  STATE.aliases.forEach(a=>{
+    const c=document.createElement('div'); c.className='alias-chip'; c.dataset.alias=a;
+    c.textContent='@'+a; c.onclick=function(){selectAlias(this);}; row.appendChild(c);
+  });
+  closeModal('identity-modal');
+  showToast('Identity saved','ok');
+}
+
+// ══════════════════════════════════════════════
+// MODAL HELPERS
+// ══════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('on'); }
+function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+document.addEventListener('click', e=>{ if (e.target.classList.contains('modal-bg')) e.target.classList.remove('on'); });
+
+// ══════════════════════════════════════════════
+// CHAT HEADER
+// ══════════════════════════════════════════════
+function updateChatHeader() {
+  const plats = [...STATE.activePlatforms];
+  if (!plats.length) { document.getElementById('chat-ico').textContent='⊡'; document.getElementById('chat-platform-name').textContent='No Platform'; return; }
+  const pm = PLATFORM_META[plats[0]]||{};
+  document.getElementById('chat-ico').textContent = plats.length===1 ? pm.ico : '⊞';
+  document.getElementById('chat-platform-name').textContent = plats.length===1 ? plats[0].charAt(0).toUpperCase()+plats[0].slice(1) : 'Unified Feed';
+  document.getElementById('compose-platform-label').textContent = `${pm.ico||''} ${plats[0]} · ${STATE.activeCommType==='all'?'All types':STATE.activeCommType}`;
+}
+
+function toggleAutoScan(el) {
+  STATE.autoScan = el.checked;
+  showToast('Auto-scan '+(STATE.autoScan?'enabled':'disabled'), STATE.autoScan?'ok':'warn');
+}
+
+// ══════════════════════════════════════════════
+// UTILITY
+// ══════════════════════════════════════════════
+function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(ts){if(!ts)return'—';try{return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch{return String(ts);}}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
+function secToTime(s){const m=Math.floor(s/60),sec=s%60;return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+function el(id,txt){const e=document.getElementById(id);if(e)e.textContent=txt;}
+function stringToColor(s){let h=0;for(let i=0;i<s.length;i++)h=s.charCodeAt(i)+((h<<5)-h);const c=`hsl(${Math.abs(h)%360},60%,42%)`;return c;}
+function download(name,data){const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(data);a.download=name;a.click();}
+
+function showToast(msg,type='info'){
+  const w=document.getElementById('toast-wrap');
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`;
+  t.textContent=msg; w.appendChild(t);
+  setTimeout(()=>t.style.opacity='0',2800);
+  setTimeout(()=>t.remove(),3100);
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INDEXED-DB DAILY LOG
+// Each screenshot is logged by dayKey (YYYY-MM-DD). processed/skipped flags
+// persist across sessions so the poller always skips already-handled files.
+// ══════════════════════════════════════════════════════════════════════════════
+function openDB() {
+  if (STATE._dbPromise) return STATE._dbPromise;
+  STATE._dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open('guardian_shots', 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('shots')) {
+        const store = db.createObjectStore('shots', { keyPath: 'id' });
+        store.createIndex('dayKey',    'dayKey',    { unique: false });
+        store.createIndex('processed', 'processed', { unique: false });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+  return STATE._dbPromise;
+}
+
+async function dbPut(shot) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('shots', 'readwrite');
+    tx.objectStore('shots').put(shot);
+    tx.oncomplete = () => res();
+    tx.onerror    = (e) => rej(e.target.error);
+  });
+}
+
+async function dbGet(id) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction('shots', 'readonly');
+    const req = tx.objectStore('shots').get(id);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror   = (e) => rej(e.target.error);
+  });
+}
+
+// Return all shots for a dayKey — used to rebuild the log on init
+async function dbGetDay(dayKey) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx    = db.transaction('shots', 'readonly');
+    const index = tx.objectStore('shots').index('dayKey');
+    const req   = index.getAll(dayKey);
+    req.onsuccess = () => res(req.result || []);
+    req.onerror   = (e) => rej(e.target.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction('shots', 'readonly');
+    const req = tx.objectStore('shots').getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror   = (e) => rej(e.target.error);
+  });
+}
+
+// Build a deterministic ID from filename + date so duplicates are idempotent
+function shotId(name, dateStr) {
+  return 'shot_' + btoa(name + '|' + (dateStr || '')).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24);
+}
+
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// ── Append to the daily processing log panel ──────────────────────────────────
+function logDayEntry(msg, type='info') {
+  const el = document.getElementById('shot-log-list');
+  if (!el) return;
+  const ts  = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const col = type === 'ok' ? 'var(--accent2)' : type === 'warn' ? 'var(--warn)' : type === 'err' ? 'var(--danger)' : 'var(--fg3)';
+  const row = document.createElement('div');
+  row.style.cssText = `display:flex;gap:8px;margin-bottom:2px`;
+  row.innerHTML = `<span style="color:var(--fg4);flex-shrink:0">${ts}</span><span style="color:${col}">${msg}</span>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREENSHOT CARD RENDERING
+// ══════════════════════════════════════════════════════════════════════════════
+function renderShotCard(shot) {
+  const grid = document.getElementById('shot-grid');
+  if (!grid) return;
+  // Remove placeholder if present
+  const placeholder = grid.querySelector('.shot-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const card = document.createElement('div');
+  card.className = 'shot-card' + (shot.processed ? ' processed' : '') + (shot.skipped ? ' skipped' : '');
+  card.id = 'shot-' + shot.id;
+  card.onclick = () => openShotDetail(shot.id);
+
+  const sourceLabel = shot.source === 'gdrive' ? '<span class="cloud-badge gdrive">Drive</span>' :
+                      shot.source === 'icloud' ? '<span class="cloud-badge icloud">iCloud</span>' :
+                                                 '<span class="cloud-badge local">Local</span>';
+  const thumb = shot.thumb
+    ? `<img class="shot-thumb" src="${shot.thumb}" alt="${shot.name}" />`
+    : `<div class="shot-thumb-placeholder">📸</div>`;
+
+  card.innerHTML = `
+    ${thumb}
+    <div class="shot-meta">
+      <div class="shot-name" title="${shot.name}">${shot.name}</div>
+      <div class="shot-date">${fmtDate(shot.date)}</div>
+      <div style="display:flex;gap:4px;margin-top:3px;align-items:center">
+        ${sourceLabel}
+        ${!shot.processed && !shot.skipped ? `<button class="log-export" style="font-size:8px;padding:2px 5px" onclick="event.stopPropagation();processShotManual('${shot.id}')">→ Process</button>` : ''}
+        ${!shot.skipped ? `<button class="log-export" style="font-size:8px;padding:2px 5px;color:var(--fg4)" onclick="event.stopPropagation();skipShot('${shot.id}')">Skip</button>` : ''}
+      </div>
+    </div>`;
+  grid.appendChild(card);
+}
+
+function updateShotCard(shot) {
+  const card = document.getElementById('shot-' + shot.id);
+  if (card) {
+    card.className = 'shot-card' + (shot.processed ? ' processed' : '') + (shot.skipped ? ' skipped' : '');
+  }
+}
+
+function openShotDetail(id) {
+  const shot = STATE.screenshots.find(s => s.id === id);
+  if (!shot) return;
+  showToast(`${shot.name} — ${shot.processed ? 'Processed ✓' : shot.skipped ? 'Skipped' : 'Pending'}`, 'info');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHOT REGISTRATION — idempotent, checks DB first
+// ══════════════════════════════════════════════════════════════════════════════
+async function registerShot(name, src, thumb, date, source) {
+  const dayKey = todayKey();
+  const id     = shotId(name, date);
+
+  // Check DB — skip if already logged
+  const existing = await dbGet(id);
+  if (existing) {
+    // Already in DB — sync to STATE if missing
+    if (!STATE.screenshots.find(s => s.id === id)) {
+      STATE.screenshots.push(existing);
+      renderShotCard(existing);
+    }
+    logDayEntry(`Skip (already logged): ${name}`, 'warn');
+    return existing;
+  }
+
+  const shot = { id, name, src, thumb, date: date || new Date().toISOString(), source, dayKey, processed: false, skipped: false, addedAt: Date.now() };
+  await dbPut(shot);
+  STATE.screenshots.push(shot);
+  STATE.shotCount++;
+  document.getElementById('shot-ct').textContent = STATE.shotCount;
+  renderShotCard(shot);
+  logDayEntry(`New: ${name} [${source}]`, 'ok');
+  return shot;
+}
+
+async function markProcessed(id) {
+  const shot = STATE.screenshots.find(s => s.id === id);
+  if (!shot) return;
+  shot.processed = true;
+  shot.processedAt = Date.now();
+  await dbPut(shot);
+  updateShotCard(shot);
+}
+
+async function skipShot(id) {
+  const shot = STATE.screenshots.find(s => s.id === id);
+  if (!shot) return;
+  shot.skipped = true;
+  await dbPut(shot);
+  updateShotCard(shot);
+  logDayEntry(`Skipped: ${shot.name}`, 'warn');
+}
+
+async function processShotManual(id) {
+  const shot = STATE.screenshots.find(s => s.id === id);
+  if (!shot || shot.processed || shot.skipped) return;
+  logDayEntry(`Processing: ${shot.name}…`, 'info');
+  // Inject into chat as incoming message with image
+  addMessage({
+    platform:  shot.source === 'gdrive' ? 'google' : shot.source === 'icloud' ? 'icloud' : 'local',
+    commType:  'Screenshot',
+    username:  '@' + STATE.identity,
+    alias:     STATE.identity,
+    content:   `[Screenshot] ${shot.name}`,
+    img:       shot.src || shot.thumb,
+    origin:    shot.source,
+    origDate:  shot.date,
+  });
+  await markProcessed(id);
+  logDayEntry(`Done: ${shot.name} → chat`, 'ok');
+  showToast(`Screenshot processed: ${shot.name}`, 'ok');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOM-BRIDGE USERSCRIPT INJECTOR
+// Injects a <script> into the current page that:
+//   • Writes a heartbeat to localStorage('guardian_dom_bridge')
+//   • Listens for window.postMessage('GUARDIAN_SEND') and writes the payload
+//     to localStorage('guardian_outbox'), which the module polls every second
+//   • Writes incoming messages from localStorage('guardian_inbox') back to
+//     window via postMessage('GUARDIAN_RECV') so the target page can read them
+// This bypasses the bridge/extension dependency entirely — works on any page
+// opened in the same browser origin, or via same-origin iframes.
+// ══════════════════════════════════════════════════════════════════════════════
+function injectUserscript() {
+  const BRIDGE_KEY_HEARTBEAT = 'guardian_dom_bridge';
+  const BRIDGE_KEY_OUTBOX    = 'guardian_outbox';
+  const BRIDGE_KEY_INBOX     = 'guardian_inbox';
+
+  // The userscript code that runs in the page context
+  const scriptSrc = `(function(){
+  const HB = 'guardian_dom_bridge';
+  const OUT = 'guardian_outbox';
+  const IN  = 'guardian_inbox';
+  let lastInbox = null;
+
+  // Heartbeat every 2s
+  const hb = setInterval(() => {
+    try { localStorage.setItem(HB, JSON.stringify({alive:true,ts:Date.now(),origin:location.href})); } catch(e) {}
+  }, 2000);
+
+  // Relay window.postMessage('GUARDIAN_SEND',…) → localStorage outbox
+  window.addEventListener('message', (e) => {
+    if (e.data?.type !== 'GUARDIAN_SEND') return;
+    try {
+      const q = JSON.parse(localStorage.getItem(OUT)||'[]');
+      q.push({...e.data.payload, _ts:Date.now()});
+      localStorage.setItem(OUT, JSON.stringify(q.slice(-50)));
+    } catch(err) {}
+  });
+
+  // Poll inbox every 800ms and relay to page via postMessage
+  setInterval(() => {
+    try {
+      const raw = localStorage.getItem(IN);
+      if (!raw || raw === lastInbox) return;
+      lastInbox = raw;
+      const msgs = JSON.parse(raw);
+      if (Array.isArray(msgs)) msgs.forEach(m => window.postMessage({type:'GUARDIAN_RECV',payload:m}, '*'));
+    } catch(err) {}
+  }, 800);
+
+  console.log('[Guardian DOM-Bridge] active on', location.href);
+})();`;
+
+  // Inject into the page by creating a blob script URL
+  // Works in same-origin context; in extension context we could use executeScript
+  const blob = new Blob([scriptSrc], { type: 'application/javascript' });
+  const url  = URL.createObjectURL(blob);
+  const el   = document.createElement('script');
+  el.src     = url;
+  el.onload  = () => URL.revokeObjectURL(url);
+  (document.head || document.documentElement).appendChild(el);
+
+  // Set up local polling: read outbox every 1s
+  STATE._domBridge = true;
+  localStorage.setItem(BRIDGE_KEY_HEARTBEAT, JSON.stringify({ alive: true, ts: Date.now(), origin: location.href }));
+
+  const pollOutbox = () => {
+    if (!STATE._domBridge) return;
+    try {
+      const raw = localStorage.getItem(BRIDGE_KEY_OUTBOX);
+      if (!raw) return;
+      const msgs = JSON.parse(raw);
+      if (!Array.isArray(msgs) || !msgs.length) return;
+      localStorage.removeItem(BRIDGE_KEY_OUTBOX);
+      msgs.forEach(m => {
+        handleGuardianEvent({ type: 'incoming', platform: 'dom-bridge', user: m.identity || '@dom', text: m.text || JSON.stringify(m), tags: ['dom-bridge'] });
+      });
+    } catch(e) {}
+  };
+
+  STATE._domBridgeTimer = setInterval(pollOutbox, 1000);
+
+  // Status update
+  const statusEl = document.getElementById('us-status');
+  if (statusEl) { statusEl.textContent = 'injected ✓'; statusEl.style.color = 'var(--accent2)'; statusEl.style.borderColor = 'rgba(44,182,125,.4)'; }
+  const injectBtn = document.getElementById('us-inject-btn');
+  if (injectBtn) { injectBtn.textContent = '⚡ Re-inject'; }
+
+  logDayEntry('DOM-bridge userscript injected — localStorage relay active', 'ok');
+  showToast('Guardian DOM-bridge active', 'ok');
+  addStreamEvent({ type: 'scan', platform: 'nexus', user: 'guardian',
+    text: 'DOM-bridge injected — localStorage relay bypasses bridge dependency',
+    meta: ['dom-bridge', 'userscript', 'localStorage'] });
+}
+
+// Helper: send a message into the DOM-bridge inbox (for any page listening via postMessage)
+function domBridgeSend(payload) {
+  try {
+    const existing = JSON.parse(localStorage.getItem('guardian_inbox') || '[]');
+    existing.push({ ...payload, _ts: Date.now() });
+    localStorage.setItem('guardian_inbox', JSON.stringify(existing.slice(-50)));
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOCAL SCREENSHOT SCANNER (File System Access API)
+// ══════════════════════════════════════════════════════════════════════════════
+async function scanLocalScreenshots() {
+  navTo('screenshots', null);
+  switchRTab('screenshots', document.querySelector('[data-rt="screenshots"]'));
+  logDayEntry('Scanning local files via File System Access API…', 'info');
+  try {
+    const dirHandle = await window.showDirectoryPicker({ id: 'guardian-screenshots', mode: 'read' });
+    await scanDirHandle(dirHandle, 'local');
+    showToast('Local scan complete', 'ok');
+    logDayEntry('Local scan complete', 'ok');
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      logDayEntry('Local scan error: ' + e.message, 'err');
+      showToast('Local scan failed — ' + e.message, 'warn');
+    }
+  }
+}
+
+async function scanDirHandle(dirHandle, source) {
+  const IMAGE_EXT = /\.(png|jpg|jpeg|webp|gif|bmp)$/i;
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind !== 'file') continue;
+    if (!IMAGE_EXT.test(entry.name)) continue;
+    const file    = await entry.getFile();
+    const date    = new Date(file.lastModified).toISOString();
+    const id      = shotId(entry.name, date);
+    const existing = await dbGet(id);
+    if (existing?.processed || existing?.skipped) {
+      logDayEntry(`Skip (flagged): ${entry.name}`, 'warn');
+      continue;
+    }
+    // Read as data URL for thumbnail
+    const reader  = await readFileAsDataURL(file);
+    await registerShot(entry.name, reader, reader, date, source);
+  }
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOOGLE DRIVE INTEGRATION
+// OAuth2 implicit flow → Drive Files API → filter images in specified folder
+// ══════════════════════════════════════════════════════════════════════════════
+const GDRIVE_CLIENT_ID = ''; // Set your OAuth2 client ID here
+const GDRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.readonly';
+
+function connectGoogleDrive() {
+  navTo('screenshots', null);
+  switchRTab('screenshots', document.querySelector('[data-rt="screenshots"]'));
+
+  if (!GDRIVE_CLIENT_ID) {
+    logDayEntry('Google Drive: set GDRIVE_CLIENT_ID in source to enable OAuth', 'warn');
+    showToast('Configure GDRIVE_CLIENT_ID first', 'warn');
+    // Demo mode: simulate a Drive listing
+    simulateDrivePhotos();
+    return;
+  }
+
+  // OAuth2 implicit grant — opens popup, gets token, then calls Drive API
+  const redirectUri = location.origin + location.pathname;
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GDRIVE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(GDRIVE_SCOPE)}&prompt=select_account`;
+
+  const popup = window.open(authUrl, 'guardian-gdrive-auth', 'width=500,height=600,popup=1');
+  const check = setInterval(() => {
+    try {
+      const hash = popup.location.hash;
+      if (!hash) return;
+      const params = new URLSearchParams(hash.slice(1));
+      const token  = params.get('access_token');
+      if (token) {
+        clearInterval(check);
+        popup.close();
+        STATE._gdriveToken = token;
+        document.getElementById('gdrive-btn').textContent = '✓ Drive';
+        document.getElementById('gdrive-btn').style.color = 'var(--accent2)';
+        logDayEntry('Google Drive connected — scanning…', 'ok');
+        pollGoogleDrive();
+      }
+    } catch(e) { /* cross-origin during redirect — normal */ }
+  }, 500);
+}
+
+async function pollGoogleDrive() {
+  if (!STATE._gdriveToken) return;
+  const folder = document.getElementById('shot-folder-key')?.value || 'screenshots';
+  logDayEntry(`Drive: searching for images (query: "${folder}")…`, 'info');
+
+  try {
+    // Search for image files — optionally in a named folder
+    let q = `mimeType contains 'image/' and trashed=false`;
+    const listRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,modifiedTime,thumbnailLink,webContentLink)&pageSize=50`,
+      { headers: { Authorization: 'Bearer ' + STATE._gdriveToken } }
+    );
+    if (!listRes.ok) throw new Error('Drive API ' + listRes.status);
+    const data = await listRes.json();
+    const files = data.files || [];
+    logDayEntry(`Drive: ${files.length} image(s) found`, files.length ? 'ok' : 'warn');
+
+    for (const f of files) {
+      const thumb = f.thumbnailLink || null;
+      await registerShot(f.name, f.webContentLink || thumb, thumb, f.modifiedTime, 'gdrive');
+    }
+
+    // Start periodic polling every 5 minutes
+    if (STATE._shotPollTimer) clearInterval(STATE._shotPollTimer);
+    STATE._shotPollTimer = setInterval(pollGoogleDrive, 5 * 60 * 1000);
+    logDayEntry('Drive: polling every 5 min for new screenshots', 'ok');
+  } catch(e) {
+    logDayEntry('Drive error: ' + e.message, 'err');
+    showToast('Drive error: ' + e.message, 'warn');
+  }
+}
+
+function simulateDrivePhotos() {
+  logDayEntry('Drive: running in demo mode (no client ID)', 'warn');
+  const demos = [
+    { name: 'Screenshot 2026-05-10 09.14.22.png', date: new Date(Date.now()-3600000*3).toISOString() },
+    { name: 'Screenshot 2026-05-10 11.47.01.png', date: new Date(Date.now()-3600000).toISOString() },
+    { name: 'Screenshot 2026-05-09 22.03.55.png', date: new Date(Date.now()-3600000*13).toISOString() },
+  ];
+  demos.forEach(d => registerShot(d.name, null, null, d.date, 'gdrive'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ICLOUD DRIVE INTEGRATION
+// Uses File System Access API showDirectoryPicker() pointed at iCloud Drive.
+// On macOS Safari / Chrome ≥ 86, iCloud Drive appears in the directory picker
+// as a standard directory — no OAuth needed.
+// ══════════════════════════════════════════════════════════════════════════════
+async function connectICloud() {
+  navTo('screenshots', null);
+  switchRTab('screenshots', document.querySelector('[data-rt="screenshots"]'));
+  logDayEntry('iCloud: opening directory picker — navigate to iCloud Drive > Screenshots…', 'info');
+  showToast('Select your iCloud Screenshots folder', 'info');
+
+  try {
+    const dirHandle = await window.showDirectoryPicker({ id: 'guardian-icloud', mode: 'read' });
+    STATE._icloudDirHandle = dirHandle;
+    STATE._icloudReady     = true;
+    document.getElementById('icloud-btn').textContent = '✓ iCloud';
+    document.getElementById('icloud-btn').style.color = 'var(--accent2)';
+    logDayEntry(`iCloud: "${dirHandle.name}" selected — scanning…`, 'ok');
+    await scanDirHandle(dirHandle, 'icloud');
+
+    // Poll every 3 minutes for new files in the same handle
+    if (STATE._shotPollTimer) clearInterval(STATE._shotPollTimer);
+    STATE._shotPollTimer = setInterval(async () => {
+      if (STATE._icloudDirHandle) {
+        logDayEntry('iCloud: polling for new screenshots…', 'info');
+        await scanDirHandle(STATE._icloudDirHandle, 'icloud');
+      }
+    }, 3 * 60 * 1000);
+    logDayEntry('iCloud: polling every 3 min for new screenshots', 'ok');
+    showToast('iCloud connected', 'ok');
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      logDayEntry('iCloud error: ' + e.message, 'err');
+      showToast('iCloud error — ' + e.message, 'warn');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RESTORE DB STATE ON INIT — load today's already-logged shots from IndexedDB
+// ══════════════════════════════════════════════════════════════════════════════
+async function restoreShotsFromDB() {
+  const grid = document.getElementById('shot-grid');
+  if (grid && !grid.children.length) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'shot-placeholder';
+    placeholder.style.cssText = 'grid-column:1/-1;text-align:center;padding:24px;font-family:var(--fm);font-size:10px;color:var(--fg4)';
+    placeholder.innerHTML = '📸 No screenshots yet<br><span style="font-size:9px">Connect Google Drive, iCloud, or scan local folder</span>';
+    grid.appendChild(placeholder);
+  }
+
+  try {
+    const all = await dbGetAll();
+    if (!all.length) { logDayEntry('No prior screenshots in DB', 'info'); return; }
+    const today = todayKey();
+    let restored = 0;
+    for (const shot of all) {
+      if (!STATE.screenshots.find(s => s.id === shot.id)) {
+        STATE.screenshots.push(shot);
+        renderShotCard(shot);
+        restored++;
+      }
+    }
+    STATE.shotCount = STATE.screenshots.length;
+    document.getElementById('shot-ct').textContent = STATE.shotCount;
+    logDayEntry(`Restored ${restored} screenshots from DB (today: ${today})`, 'ok');
+  } catch(e) {
+    logDayEntry('DB restore error: ' + e.message, 'err');
+  }
+}
+
+function init() {
+  updateChatHeader();
+
+  // Seed a few demo messages
+  const demos = [
+    {platform:'twitter',commType:'DM',username:'@jonathan.bailey',content:'SISO bridge looking solid. The sigma engine changes held. Ready when you are.',origDate:new Date(Date.now()-3600000*2).toISOString(),origin:'twitter.com/messages'},
+    {platform:'twitter',commType:'Mention',username:'@signal_raven',content:'Has anyone been following @erosmancer\u2019s local-first OS work? The NEXUS architecture is doing something genuinely different.',origDate:new Date(Date.now()-3600000).toISOString(),origin:'twitter.com/notifications'},
+    {platform:'discord',commType:'DM',username:'@dev.oracle',content:'Guardian SSE pipe is clean. Callto/callback routing confirmed on LAN.',origDate:new Date(Date.now()-1800000).toISOString(),origin:'discord.com/channels'},
+  ];
+
+  // Add Twitter platform as active
+  STATE.activePlatforms.add('twitter');
+
+  demos.forEach(m => {
+    m.scanDate = new Date().toISOString();
+    m.id = 'msg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+    m.scanResult = autoScan(m);
+    STATE.messages.push(m);
+    addLogEntry(m);
+  });
+
+  filterMessages();
+  document.getElementById('msg-count').textContent = STATE.messages.length;
+
+  // Restore persisted screenshot log from IndexedDB
+  restoreShotsFromDB();
+
+  // If DOM-bridge heartbeat detected in localStorage, re-activate quietly
+  try {
+    const hb = JSON.parse(localStorage.getItem('guardian_dom_bridge') || 'null');
+    if (hb?.alive && (Date.now() - hb.ts) < 10000) {
+      STATE._domBridge = true;
+      const statusEl = document.getElementById('us-status');
+      if (statusEl) { statusEl.textContent = 'active ✓'; statusEl.style.color = 'var(--accent2)'; }
+    }
+  } catch(e) {}
+}
+
+init();
+</script>
+</body>
+</html>

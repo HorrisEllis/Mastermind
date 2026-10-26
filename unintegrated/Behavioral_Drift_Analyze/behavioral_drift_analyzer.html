@@ -1,0 +1,578 @@
+
+<h2 class="sr-only">Behavioral drift analyzer — paste timestamped text entries and receive signal tracking, gap detection, and Claude's interpretation of behavioral drift patterns.</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+.bda { padding: 1rem 0; }
+
+.top-bar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem;
+}
+.top-bar h1 {
+  font-size: 18px; font-weight: 500; color: var(--color-text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.badge {
+  font-size: 11px; padding: 2px 8px; border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary); color: var(--color-text-secondary);
+  border: 0.5px solid var(--color-border-tertiary); font-weight: 400;
+}
+
+.pane-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+.card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 1rem 1.25rem;
+}
+.card-label {
+  font-size: 12px; color: var(--color-text-secondary); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.card-label i { font-size: 14px; }
+
+.entry-list { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+.entry-item {
+  display: flex; gap: 10px; padding: 8px 10px;
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md); cursor: pointer;
+  border: 0.5px solid transparent;
+  transition: border-color 0.1s;
+}
+.entry-item:hover { border-color: var(--color-border-secondary); }
+.entry-item.active { border-color: #1D9E75; background: #E1F5EE; }
+@media (prefers-color-scheme: dark) { .entry-item.active { background: #04342C; } }
+.entry-ts { font-size: 11px; color: var(--color-text-secondary); min-width: 52px; padding-top: 2px; font-family: var(--font-mono); }
+.entry-preview { font-size: 13px; color: var(--color-text-primary); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entry-regime { font-size: 11px; font-weight: 500; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+
+.add-area { display: flex; flex-direction: column; gap: 8px; }
+.add-row { display: flex; gap: 8px; align-items: flex-end; }
+.add-row input[type=text] { width: 100px; }
+textarea {
+  width: 100%; min-height: 80px; resize: vertical; font-size: 13px;
+  font-family: var(--font-sans); line-height: 1.5;
+}
+button { cursor: pointer; font-size: 13px; }
+.btn-add {
+  background: #1D9E75; color: #fff; border: none;
+  border-radius: var(--border-radius-md); padding: 7px 16px; font-weight: 500;
+  white-space: nowrap;
+}
+.btn-add:hover { background: #0F6E56; }
+.btn-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent; border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md); padding: 6px 12px; color: var(--color-text-secondary);
+}
+.btn-ghost:hover { background: var(--color-background-secondary); }
+
+.signals-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.sig-card {
+  background: var(--color-background-secondary); border-radius: var(--border-radius-md);
+  padding: 10px 8px; text-align: center;
+  border: 0.5px solid var(--color-border-tertiary);
+}
+.sig-name { font-size: 10px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.sig-val { font-size: 20px; font-weight: 500; }
+.sig-bar-wrap { height: 3px; background: var(--color-border-tertiary); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.sig-bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+.regime-banner {
+  padding: 10px 14px; border-radius: var(--border-radius-md);
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.regime-name { font-size: 15px; font-weight: 500; }
+.regime-sub { font-size: 12px; opacity: 0.85; }
+.regime-sigma { font-family: var(--font-mono); font-size: 22px; font-weight: 500; }
+
+.drift-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.metric-card {
+  background: var(--color-background-secondary); border-radius: var(--border-radius-md);
+  padding: 10px 12px;
+}
+.metric-label { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.metric-val { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.metric-hint { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+.chart-wrap { position: relative; width: 100%; height: 140px; margin-bottom: 8px; }
+.chart-legend { display: flex; gap: 14px; font-size: 11px; color: var(--color-text-secondary); }
+.chart-legend span { display: flex; align-items: center; gap: 4px; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.gaps-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.gap-item {
+  padding: 8px 10px; border-radius: var(--border-radius-md);
+  border-left: 3px solid;
+  background: var(--color-background-secondary);
+}
+.gap-type { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.gap-desc { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; line-height: 1.4; }
+.gap-score { font-size: 11px; font-family: var(--font-mono); }
+
+.narr-box {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md); padding: 14px;
+  font-size: 13px; line-height: 1.7; color: var(--color-text-primary);
+  min-height: 80px; white-space: pre-wrap;
+}
+.narr-loading { color: var(--color-text-secondary); font-style: italic; }
+.narr-cursor { display: inline-block; width: 8px; height: 13px; background: #1D9E75; vertical-align: -2px; animation: blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.empty-state { text-align: center; padding: 2rem; color: var(--color-text-secondary); font-size: 13px; }
+.empty-state i { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.4; }
+
+.tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 12px; }
+.tab { font-size: 12px; padding: 6px 14px; color: var(--color-text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -0.5px; }
+.tab.active { color: #1D9E75; border-bottom-color: #1D9E75; }
+.tab:hover { color: var(--color-text-primary); }
+
+.full-card { grid-column: 1 / -1; }
+</style>
+
+<div class="bda">
+  <div class="top-bar">
+    <h1><i class="ti ti-wave-sine" aria-hidden="true"></i> Behavioral drift analyzer <span class="badge">Pendulum + Liminal + Claude</span></h1>
+  </div>
+
+  <div class="pane-row">
+    <!-- LEFT: entry log -->
+    <div class="card">
+      <div class="card-label"><i class="ti ti-list" aria-hidden="true"></i> Signal entries</div>
+      <div class="entry-list" id="entry-list">
+        <div class="empty-state"><i class="ti ti-pencil-plus"></i>Add your first entry below</div>
+      </div>
+    </div>
+    <!-- RIGHT: add entry -->
+    <div class="card">
+      <div class="card-label"><i class="ti ti-plus" aria-hidden="true"></i> Add entry</div>
+      <div class="add-area">
+        <textarea id="entry-text" placeholder="Paste or type a message, note, or excerpt…"></textarea>
+        <div class="add-row">
+          <input type="text" id="entry-label" placeholder="Label (optional)" style="flex:1;" />
+          <input type="text" id="entry-date" placeholder="Date, e.g. Jan 3" style="width:100px;" />
+          <button class="btn-add" id="btn-add" onclick="addEntry()">Add <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- signals row -->
+  <div class="card" style="margin-bottom:12px;" id="signals-section">
+    <div class="card-label"><i class="ti ti-radar" aria-hidden="true"></i> Signal read — latest entry</div>
+    <div class="signals-grid" id="signals-grid">
+      <div class="empty-state" style="grid-column:1/-1;padding:1rem;"><i class="ti ti-dots"></i>Waiting for entries</div>
+    </div>
+  </div>
+
+  <div class="pane-row">
+    <!-- drift engine -->
+    <div class="card">
+      <div class="card-label"><i class="ti ti-activity" aria-hidden="true"></i> Drift engine</div>
+      <div id="drift-panel">
+        <div class="empty-state"><i class="ti ti-chart-line"></i>Need 2+ entries for drift analysis</div>
+      </div>
+    </div>
+    <!-- gaps -->
+    <div class="card">
+      <div class="card-label"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Gap detection</div>
+      <div class="gaps-list" id="gaps-list">
+        <div class="empty-state"><i class="ti ti-circle-dashed"></i>No gaps detected yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- narrative -->
+  <div class="card">
+    <div class="card-label" style="justify-content:space-between;">
+      <span><i class="ti ti-message-circle-2" aria-hidden="true"></i> Claude's interpretation</span>
+      <button class="btn-ghost" id="btn-interpret" onclick="runInterpretation()" disabled>Interpret drift ↗</button>
+    </div>
+    <div class="narr-box narr-loading" id="narr-box">Add entries, then click "Interpret drift" for Claude's analysis.</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const REGIME_META = {
+  STABLE:       { label:'STABLE',       bg:'#E1F5EE', text:'#085041', hint:'System coherent. Signal consistent.' },
+  ACTIVATING:   { label:'ACTIVATING',   bg:'#EAF3DE', text:'#27500A', hint:'Arousal rising. Watch trajectory.' },
+  OSCILLATING:  { label:'OSCILLATING',  bg:'#FAEEDA', text:'#633806', hint:'Cycling without resolution.' },
+  UNGROUNDED:   { label:'UNGROUNDED',   bg:'#FAECE7', text:'#4A1B0C', hint:'Coherence breaking. High delta.' },
+  DYSREGULATED: { label:'DYSREGULATED', bg:'#FCEBEB', text:'#501313', hint:'Severe drift. Intervention zone.' },
+  COLLAPSING:   { label:'COLLAPSING',   bg:'#F7C1C1', text:'#501313', hint:'System collapse trajectory.' },
+};
+
+const SIG_COLORS = { valence:'#1D9E75', certainty:'#7F77DD', openness:'#378ADD', tension:'#E24B4A', selfref:'#EF9F27' };
+const SIG_LABELS = { valence:'Valence', certainty:'Certainty', openness:'Openness', tension:'Tension', selfref:'Self-ref' };
+
+let entries = [];
+let driftChart = null;
+
+function extractSignals(text) {
+  const t = text.toLowerCase();
+  const words = t.split(/\W+/).filter(Boolean);
+  const n = words.length || 1;
+
+  const posWords = ['happy','love','great','wonderful','excited','good','beautiful','grateful','joy','amazing','wonderful','hope','proud','better','yes'];
+  const negWords = ['sad','hate','terrible','awful','bad','horrible','wrong','angry','hurt','pain','worst','never','can\'t','won\'t','dead','lost'];
+  const certWords = ['definitely','certainly','always','never','absolutely','must','will','know','sure','clearly','obviously'];
+  const uncertWords = ['maybe','perhaps','might','could','unsure','possibly','not sure','don\'t know','guess','think','feel like'];
+  const openWords = ['open','curious','wondering','exploring','thinking','interesting','learning','trying','see','feel'];
+  const closeWords = ['decided','final','done','over','finished','end','no more','stop','never again','that\'s it'];
+  const tensionWords = ['but','however','except','still','yet','though','although','despite','unless','if only','should','shouldn\'t'];
+  const selfWords = ['i ','i\'m','my','me','myself','i\'ve','i\'d','i\'ll','i was','i am','i feel','i think'];
+
+  function score(pos, neg) {
+    const p = words.filter(w => pos.some(x => w.includes(x))).length;
+    const nn = words.filter(w => neg.some(x => w.includes(x))).length;
+    return Math.min(1, Math.max(0, 0.5 + (p - nn) / (2 * Math.sqrt(n))));
+  }
+
+  const valence   = score(posWords, negWords);
+  const certainty = score(certWords, uncertWords);
+  const openness  = score(openWords, closeWords);
+  const tension   = Math.min(1, words.filter(w => tensionWords.includes(w)).length / Math.max(1, n * 0.3));
+  const selfref   = Math.min(1, (text.match(/\bi\b|\bmy\b|\bme\b|\bmyself\b/gi)||[]).length / Math.max(1, n * 0.5));
+
+  return { valence, certainty, openness, tension, selfref };
+}
+
+function linearRegression(vals) {
+  const n = vals.length;
+  if (n < 2) return 0;
+  const mx = (n-1)/2, my = vals.reduce((a,b)=>a+b,0)/n;
+  let num=0, den=0;
+  for (let i=0;i<n;i++){num+=(i-mx)*(vals[i]-my);den+=(i-mx)**2;}
+  return den===0?0:num/den;
+}
+
+function computePendulum(observations) {
+  if (observations.length < 2) return null;
+  const vals = observations.map(o=>o.value);
+  const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+
+  const window = vals.slice(-20);
+  let sigma = 1.0;
+  if (window.length >= 2) {
+    const variance = window.reduce((a,v)=>a+(v-mean)**2,0)/window.length;
+    sigma = Math.max(0, 1 - variance * 2);
+  }
+
+  const slope = linearRegression(vals);
+  const delta = Math.min(1, Math.abs(slope) * 5);
+
+  const thresholds = [
+    {r:'STABLE',       minS:0.85, maxD:0.05},
+    {r:'ACTIVATING',   minS:0.75, maxD:0.15},
+    {r:'OSCILLATING',  minS:0.65, maxD:99},
+    {r:'UNGROUNDED',   minS:0.45, maxD:99},
+    {r:'DYSREGULATED', minS:0.25, maxD:99},
+    {r:'COLLAPSING',   minS:-99,  maxD:99},
+  ];
+  let regime = 'COLLAPSING';
+  for (const t of thresholds) {
+    if (sigma >= t.minS && delta <= t.maxD) { regime = t.r; break; }
+  }
+
+  const half = Math.floor(vals.length/2);
+  let damping = 'neutral';
+  if (vals.length >= 6) {
+    const amp = arr => { const m=arr.reduce((a,b)=>a+b,0)/arr.length; return Math.max(...arr.map(v=>Math.abs(v-m))); };
+    const a1=amp(vals.slice(0,half)), a2=amp(vals.slice(half));
+    if (a1>0) { const r=a2/a1; damping = r<0.92?'damping':r>1.08?'amplifying':'neutral'; }
+  }
+
+  const zc = [];
+  for (let i=1;i<vals.length;i++){
+    const p=vals[i-1]-mean, c=vals[i]-mean;
+    if(p<0&&c>=0) zc.push('up'); else if(p>=0&&c<0) zc.push('down');
+  }
+  const phase = vals[vals.length-1] > mean ? 'peak' : 'trough';
+
+  return { sigma: +sigma.toFixed(3), delta: +delta.toFixed(3), regime, damping, phase, slope: +slope.toFixed(4), mean: +mean.toFixed(3) };
+}
+
+function detectGaps(text, signals) {
+  const t = text.toLowerCase();
+  const gaps = [];
+
+  const patterns = [
+    { rx:/\b(that never happened|you're imagining|i never said that|you made that up)\b/i, type:'EVIDENTIAL', label:'Event denial', crit:0.95, color:'#E24B4A' },
+    { rx:/\b(you're overreacting|too sensitive|making a big deal|stop exaggerating)\b/i, type:'EVIDENTIAL', label:'Impact minimization', crit:0.90, color:'#E24B4A' },
+    { rx:/\b(your memory is|you always get things wrong|you misunderstood)\b/i, type:'REFERENCE', label:'Memory attack', crit:0.90, color:'#D85A30' },
+    { rx:/\b(you're too emotional|being irrational|you're crazy|you're paranoid)\b/i, type:'IDENTITY_ATTACK', label:'Pathologizing', crit:0.95, color:'#E24B4A' },
+    { rx:/\b(after everything i've done|look what you made me|because of you|if you cared)\b/i, type:'COERCION', label:'Guilt induction', crit:0.85, color:'#D85A30' },
+    { rx:/\b(you owe me|after all i did|i sacrificed|i gave up everything)\b/i, type:'OBLIGATION', label:'Obligation manufacture', crit:0.90, color:'#D85A30' },
+    { rx:/\b(maybe we shouldn't|i'm not sure about us|you're pushing me away)\b/i, type:'OSCILLATORY', label:'Love withdrawal', crit:0.85, color:'#EF9F27' },
+    { rx:/\b(fine|whatever|doesn't matter|never mind|forget it)\b/i, type:'REVERSAL', label:'Reversal marker', crit:0.65, color:'#EF9F27' },
+    { rx:/\b(i suppose|i guess|probably|maybe|might be|not sure if)\b/i, type:'ASSUMPTION', label:'Uncertainty cluster', crit:0.50, color:'#7F77DD' },
+    { rx:/\b(always|never|every time|all the time|constantly|you always|you never)\b/i, type:'LOGICAL', label:'Absolutist framing', crit:0.70, color:'#378ADD' },
+    { rx:/\b(nobody understands|no one gets it|everyone agrees|they all think)\b/i, type:'REFERENCE', label:'Unverifiable consensus', crit:0.80, color:'#D85A30' },
+    { rx:/\b(but|however|except|although|despite|yet still)\b/gi, type:'CONTRASTIVE', label:'High contrast density', crit: null, color:'#888780' },
+  ];
+
+  for (const p of patterns) {
+    const matches = (text.match(p.rx)||[]).length;
+    if (!matches) continue;
+    let crit = p.crit;
+    if (crit === null) { crit = Math.min(0.9, matches * 0.1); }
+    if (crit < 0.4) continue;
+    gaps.push({ type: p.type, label: p.label, score: +crit.toFixed(2), color: p.color, matches });
+  }
+
+  if (signals.tension > 0.6) gaps.push({ type:'FIELD', label:'Elevated tension field', score: +signals.tension.toFixed(2), color:'#EF9F27', matches:1 });
+  if (signals.valence < 0.3 && signals.certainty > 0.6) gaps.push({ type:'SHADOW', label:'Certain-but-low valence', score:0.75, color:'#D85A30', matches:1 });
+  if (signals.selfref > 0.6 && signals.valence < 0.4) gaps.push({ type:'EXISTENTIAL', label:'High self-ref + low valence', score:0.70, color:'#7F77DD', matches:1 });
+
+  return gaps.sort((a,b)=>b.score-a.score).slice(0,8);
+}
+
+function addEntry() {
+  const text = document.getElementById('entry-text').value.trim();
+  if (!text) return;
+  const label = document.getElementById('entry-label').value.trim() || `Entry ${entries.length+1}`;
+  const dateStr = document.getElementById('entry-date').value.trim() || `T${entries.length+1}`;
+
+  const signals = extractSignals(text);
+  const entry = { id: Date.now(), text, label, dateStr, signals, ts: Date.now() };
+  entries.push(entry);
+
+  document.getElementById('entry-text').value = '';
+  document.getElementById('entry-label').value = '';
+  document.getElementById('entry-date').value = '';
+
+  render();
+  document.getElementById('btn-interpret').disabled = entries.length < 2;
+}
+
+function render() {
+  renderEntryList();
+  if (entries.length > 0) renderSignals(entries[entries.length-1].signals);
+  if (entries.length >= 2) renderDrift();
+  if (entries.length > 0) renderGaps();
+}
+
+function renderEntryList() {
+  const list = document.getElementById('entry-list');
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state"><i class="ti ti-pencil-plus"></i>Add your first entry below</div>';
+    return;
+  }
+
+  const sigKeys = ['valence','certainty','openness','tension','selfref'];
+  list.innerHTML = entries.map((e,i) => {
+    const mean = sigKeys.reduce((a,k)=>a+e.signals[k],0)/5;
+    const drift = i>0 ? sigKeys.reduce((a,k)=>a+Math.abs(e.signals[k]-entries[i-1].signals[k]),0)/5 : 0;
+    const driftBadge = drift > 0.2 ? `<span class="entry-regime" style="background:#FAEEDA;color:#633806;">Δ${drift.toFixed(2)}</span>` : '';
+    return `<div class="entry-item" onclick="selectEntry(${i})">
+      <div class="entry-ts">${e.dateStr}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="entry-preview">${e.text.slice(0,60)}${e.text.length>60?'…':''}</div>
+        <div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px;">${e.label} · σ=${mean.toFixed(2)}</div>
+      </div>
+      ${driftBadge}
+    </div>`;
+  }).join('');
+}
+
+function selectEntry(i) {
+  const e = entries[i];
+  renderSignals(e.signals);
+  renderGaps(e);
+}
+
+function renderSignals(signals) {
+  const grid = document.getElementById('signals-grid');
+  grid.innerHTML = Object.entries(signals).map(([k,v]) => {
+    const pct = Math.round(v*100);
+    const col = SIG_COLORS[k];
+    return `<div class="sig-card">
+      <div class="sig-name">${SIG_LABELS[k]}</div>
+      <div class="sig-val" style="color:${col}">${pct}</div>
+      <div class="sig-bar-wrap"><div class="sig-bar" style="width:${pct}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderDrift() {
+  const panel = document.getElementById('drift-panel');
+  const sigKeys = ['valence','certainty','openness','tension','selfref'];
+
+  const aggregated = entries.map(e => sigKeys.reduce((a,k)=>a+e.signals[k],0)/5);
+  const observations = aggregated.map((v,i)=>({value:v, i}));
+  const pend = computePendulum(observations);
+
+  const meta = REGIME_META[pend.regime];
+
+  panel.innerHTML = `
+    <div class="regime-banner" style="background:${meta.bg};color:${meta.text};margin-bottom:10px;">
+      <div>
+        <div class="regime-name">${meta.label}</div>
+        <div class="regime-sub">${meta.hint}</div>
+      </div>
+      <div class="regime-sigma">σ ${pend.sigma}</div>
+    </div>
+    <div class="drift-row">
+      <div class="metric-card">
+        <div class="metric-label">Delta</div>
+        <div class="metric-val" style="color:${pend.delta>0.3?'#E24B4A':pend.delta>0.15?'#EF9F27':'#1D9E75'}">${pend.delta}</div>
+        <div class="metric-hint">Rate of sigma change</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Damping</div>
+        <div class="metric-val" style="color:${pend.damping==='amplifying'?'#E24B4A':pend.damping==='damping'?'#1D9E75':'#888780'}">${pend.damping}</div>
+        <div class="metric-hint">Swing trend</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Phase</div>
+        <div class="metric-val">${pend.phase}</div>
+        <div class="metric-hint">Cycle position</div>
+      </div>
+    </div>
+    <div class="chart-legend" style="margin-bottom:6px;">
+      <span><span class="leg-dot" style="background:#1D9E75"></span>signal mean</span>
+      <span><span class="leg-dot" style="background:#7F77DD"></span>tension</span>
+    </div>
+    <div class="chart-wrap" id="drift-chart-wrap">
+      <canvas id="drift-chart" role="img" aria-label="Signal drift over ${entries.length} entries">Signal mean and tension trend across entries.</canvas>
+    </div>
+  `;
+
+  if (driftChart) { driftChart.destroy(); driftChart = null; }
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridCol = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const textCol = isDark ? '#888780' : '#888780';
+
+  driftChart = new Chart(document.getElementById('drift-chart'), {
+    type: 'line',
+    data: {
+      labels: entries.map(e=>e.dateStr),
+      datasets: [
+        {
+          label: 'Signal mean', data: aggregated.map(v=>+v.toFixed(3)),
+          borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0.08)',
+          tension:0.4, fill:true, pointRadius:4, pointBackgroundColor:'#1D9E75',
+          borderDash: []
+        },
+        {
+          label: 'Tension', data: entries.map(e=>+e.signals.tension.toFixed(3)),
+          borderColor:'#7F77DD', backgroundColor:'transparent',
+          tension:0.4, fill:false, pointRadius:3, pointBackgroundColor:'#7F77DD',
+          borderDash: [4,3]
+        }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ grid:{color:gridCol}, ticks:{color:textCol,font:{size:11}}, border:{display:false} },
+        y:{ min:0, max:1, grid:{color:gridCol}, ticks:{color:textCol,font:{size:11},stepSize:0.25}, border:{display:false} }
+      }
+    }
+  });
+}
+
+function renderGaps(entry) {
+  const e = entry || entries[entries.length-1];
+  const list = document.getElementById('gaps-list');
+  const gaps = detectGaps(e.text, e.signals);
+
+  if (!gaps.length) {
+    list.innerHTML = '<div class="empty-state"><i class="ti ti-circle-check"></i>No significant gaps detected</div>';
+    return;
+  }
+
+  list.innerHTML = gaps.map(g => `
+    <div class="gap-item" style="border-left-color:${g.color}">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="gap-type" style="color:${g.color}">${g.type}</span>
+        <span class="gap-score" style="color:${g.color}">${g.score}</span>
+      </div>
+      <div class="gap-desc">${g.label}</div>
+    </div>
+  `).join('');
+}
+
+async function runInterpretation() {
+  if (entries.length < 2) return;
+
+  const btn = document.getElementById('btn-interpret');
+  const box = document.getElementById('narr-box');
+  btn.disabled = true;
+  box.className = 'narr-box';
+  box.innerHTML = '<span class="narr-cursor"></span>';
+
+  const sigKeys = ['valence','certainty','openness','tension','selfref'];
+  const aggregated = entries.map(e => sigKeys.reduce((a,k)=>a+e.signals[k],0)/5);
+  const pend = computePendulum(aggregated.map((v,i)=>({value:v,i})));
+
+  const allGaps = entries.flatMap(e => detectGaps(e.text, e.signals));
+  const topGaps = [...new Map(allGaps.map(g=>[g.label,g])).values()].slice(0,5);
+
+  const summary = entries.map((e,i) => `Entry ${i+1} (${e.dateStr}): valence=${e.signals.valence.toFixed(2)}, certainty=${e.signals.certainty.toFixed(2)}, tension=${e.signals.tension.toFixed(2)}, selfref=${e.signals.selfref.toFixed(2)} — "${e.text.slice(0,120)}"`).join('\n');
+
+  const prompt = `You are a behavioral drift analyst using Pendulum (rhythm/sigma tracking) and Liminal (gap detection) engines.
+
+Signal summary across ${entries.length} entries:
+${summary}
+
+Pendulum analysis:
+- Sigma (coherence): ${pend.sigma} | Regime: ${pend.regime}
+- Delta (rate of change): ${pend.delta} | Damping: ${pend.damping}
+- Phase: ${pend.phase} | Slope: ${pend.slope}
+
+Detected gaps: ${topGaps.map(g=>`${g.type}:${g.label}(${g.score})`).join(', ')||'none'}
+
+Write a 3-4 sentence behavioral drift interpretation. Be precise, not clinical. Name what the signals show — the direction of drift, what the rhythm says, what gaps mean in context. If there are concerning patterns (amplifying + low sigma + coercion gaps) say so plainly. Speak to the human behind the data.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        stream:true,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let text = '';
+    box.innerHTML = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      const lines = dec.decode(value).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const j = JSON.parse(data);
+          if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') {
+            text += j.delta.text;
+            box.textContent = text;
+          }
+        } catch {}
+      }
+    }
+    if (!text) box.textContent = 'No response received.';
+  } catch(e) {
+    box.textContent = `Error: ${e.message}`;
+  }
+
+  btn.disabled = false;
+}
+</script>

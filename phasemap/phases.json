@@ -1,0 +1,131 @@
+{
+  "version": 3,
+  "updated": "2026-08-17",
+  "thesis": "Reduce cognitive load. Reduce overwhelm.",
+  "phases": [
+    {
+      "id": "P0",
+      "name": "Ground \u2014 durability and truth",
+      "state": "open",
+      "pct": 99,
+      "note": "One clean create \u2192 restart \u2192 unlock \u2192 save \u2192 restart cycle on real hardware. Five field bugs found and fixed; every one was an integration fault no unit test could see.",
+      "blocks": [
+        "P1"
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Substrate \u2014 node envelope + event log",
+      "state": "partial",
+      "pct": 40,
+      "note": "Schemas done (provenance and mode required). The append-only event log is not built, and it is what everything above waits on.",
+      "blocks": [
+        "P2",
+        "P6",
+        "P11"
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Module contract \u2014 decoupling",
+      "state": "partial",
+      "pct": 20,
+      "note": "Spec and one manifest written; nothing loads it. Voice-lattice logic is clean (0 DOM refs in 3 of 4 files); its UI lives in the 6,500-line monolith.",
+      "blocks": [
+        "P8"
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "Lattice primitives",
+      "state": "done",
+      "pct": 100,
+      "note": "Auto-tag, association with speech-tuned stopwords, loop detection, word bank, seeds. Better than v7 \u2014 4% edge density on content words vs v7's 33% hairball."
+    },
+    {
+      "id": "P3-UI",
+      "name": "Lattice interface",
+      "state": "done",
+      "pct": 100,
+      "note": "Capture surface: orb with three rings, live waveform from real amplitude, always-visible force-directed lattice, three-column layout. Detail panel (full content, associated nodes by score, delete), node-list filters (domain, word-cloud click, live search), and a heuristic phrase tester that dry-runs the real matcher without touching fireCount/lastFired. 33 tests render the real panels.",
+      "blocks": []
+    },
+    {
+      "id": "P4",
+      "name": "Capture transport",
+      "state": "done",
+      "pct": 100,
+      "note": "Local Whisper, ordered buffer, voice-note and video import, YIN pitch, clarity, voicing. Delivers into the lattice."
+    },
+    {
+      "id": "P5",
+      "name": "Lexicon and grammar",
+      "state": "done",
+      "pct": 100,
+      "note": "PPMI context vectors, tag-transition grammar, ambiguity reduction, Whisper prompt seeding. Abstains below ~200 utterances."
+    },
+    {
+      "id": "P6",
+      "name": "Taxonomy \u2014 mapping intelligence",
+      "state": "partial",
+      "pct": 55,
+      "note": "Classifier seeded from your March corpus. Domain, intelligence, intuition, reasoning. No map view and no correction UI, so it currently learns from nothing."
+    },
+    {
+      "id": "P7",
+      "name": "AI as navigator",
+      "state": "partial",
+      "pct": 45,
+      "note": "Contract, schemas, options and 37 tests done. No transport \u2014 nothing calls a model. Its job is reducing decisions, not generating content."
+    },
+    {
+      "id": "P8",
+      "name": "The bridge \u2014 cross-module flow",
+      "state": "planned",
+      "pct": 0,
+      "note": "v7 had this working. Tags become the system-wide index: one vocabulary, every module reading it."
+    },
+    {
+      "id": "P9",
+      "name": "Heuristics library",
+      "state": "planned",
+      "pct": 10,
+      "note": "Content salvaged. saveClusterAsHeuristic is the closed loop and nothing currently does it. Every heuristic carries its counter."
+    },
+    {
+      "id": "P10",
+      "name": "Ideation \u2014 spatial void",
+      "state": "planned",
+      "pct": 0,
+      "note": "Add idea \u2192 wonder \u2192 logic. The screen sequence IS the schema."
+    },
+    {
+      "id": "P11",
+      "name": "Compartments \u2014 epistemics",
+      "state": "planned",
+      "pct": 15,
+      "note": "v7's epistemic register never updates. Adding the review trigger is the whole of Bayesian updating; P6 already detects unresolved beliefs."
+    },
+    {
+      "id": "P12",
+      "name": "ALM \u2014 feedback loops, compression",
+      "state": "planned",
+      "pct": 5,
+      "note": "Nine mutation operators already specified in the salvage, each a pure node\u2192node function."
+    },
+    {
+      "id": "P13",
+      "name": "Horizon \u2014 embodiment",
+      "state": "planned",
+      "pct": 0,
+      "note": "Seeds promote into plans. The obstacle step is non-skippable \u2014 mental contrasting, not positive fantasy."
+    },
+    {
+      "id": "P14",
+      "name": "Intelligence system",
+      "state": "planned",
+      "pct": 0,
+      "note": "The domain map maintained over time, generating open loops from gaps."
+    }
+  ]
+}

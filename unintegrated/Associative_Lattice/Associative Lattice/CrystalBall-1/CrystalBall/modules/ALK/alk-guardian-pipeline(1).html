@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · Guardian Signal Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0c10;--bg2:#111318;--bg3:#181b22;--bg4:#1e2229;
+  --line:#ffffff0f;--line2:#ffffff18;--line3:#ffffff28;
+  --fg:#e8e9ed;--fg2:#9ba0ad;--fg3:#5c6272;--fg4:#363c4a;
+  --accent:#7f5af0;--accent2:#2cb67d;--accent3:#ff8906;--accent4:#e53170;
+  --live:#2cb67d;--warn:#ff8906;--danger:#e53170;--info:#3da9fc;
+  --r:8px;--r2:14px;--r3:999px;
+  --f:'Syne',sans-serif;--fm:'Space Mono',monospace;--fmm:'Syne Mono',monospace;
+  --glow-p:0 0 20px rgba(127,90,240,.25);
+  --glow-g:0 0 20px rgba(44,182,125,.25);
+  --glow-o:0 0 20px rgba(255,137,6,.2);
+}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f);min-height:100vh;overflow-x:hidden;font-size:14px}
+
+/* ── GRID ── */
+.shell{display:grid;grid-template-columns:52px 280px 1fr 300px;min-height:100vh;max-width:1500px;margin:0 auto}
+
+/* ── NAV ── */
+.nav{border-right:1px solid var(--line2);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:4px;position:sticky;top:0;height:100vh;background:var(--bg2)}
+.nav-logo{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;margin-bottom:16px;cursor:pointer;letter-spacing:-.5px}
+.nav-btn{width:36px;height:36px;border-radius:8px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--fg3);font-size:16px;transition:.15s;position:relative;font-family:var(--fm)}
+.nav-btn:hover{background:var(--bg3);color:var(--fg)}
+.nav-btn.on{background:var(--bg4);color:var(--accent)}
+.nav-btn .pip{position:absolute;top:5px;right:5px;width:6px;height:6px;background:var(--danger);border-radius:50%;border:1.5px solid var(--bg2)}
+.nav-div{width:28px;height:1px;background:var(--line2);margin:6px 0}
+
+/* ── LEFT PANEL ── */
+.left{border-right:1px solid var(--line2);overflow-y:auto;background:var(--bg2)}
+.lhead{padding:16px 14px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2);z-index:20}
+.ltag{font-family:var(--fm);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg3);margin-bottom:4px}
+.ltitle{font-size:17px;font-weight:800;color:var(--fg);letter-spacing:-.02em}
+
+/* ── SECTION ── */
+.sec{margin:14px 14px 10px;display:flex;align-items:center;gap:8px}
+.slabel{font-family:var(--fm);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg3)}
+.sline{flex:1;height:1px;background:var(--line)}
+
+/* ── DROP ── */
+.drop{margin:0 14px 12px;border:1px dashed var(--line3);border-radius:var(--r2);padding:22px 14px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg3);position:relative}
+.drop:hover,.drop.on{border-color:var(--accent);background:rgba(127,90,240,.06)}
+.drop-ico{font-size:26px;margin-bottom:8px}
+.drop-t{font-size:12px;font-weight:700;color:var(--fg2);margin-bottom:3px}
+.drop-s{font-size:11px;color:var(--fg3);font-family:var(--fm)}
+.drop-types{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:8px}
+.dtag{font-size:9px;padding:2px 6px;border-radius:var(--r3);background:var(--bg4);color:var(--fg3);font-family:var(--fm);border:1px solid var(--line2)}
+.order-badge{position:absolute;top:8px;right:8px;font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:var(--r3);background:var(--bg4);border:1px solid var(--line2);color:var(--fg3)}
+
+/* ── IDENTITY DETECTION ── */
+.id-detect{margin:0 14px 12px;background:var(--bg3);border:1px solid var(--line2);border-radius:var(--r2);overflow:hidden}
+.id-head{padding:10px 12px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.id-title{font-size:11px;font-weight:700;color:var(--fg2)}
+.id-status{margin-left:auto;font-family:var(--fm);font-size:9px}
+.id-status.ok{color:var(--accent2)}
+.id-status.warn{color:var(--warn)}
+.id-status.err{color:var(--danger)}
+.id-body{padding:10px 12px}
+.id-field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.id-label{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3)}
+.id-val{font-size:12px;font-weight:700;color:var(--fg)}
+.id-row{display:flex;gap:6px;align-items:center}
+.alias-chip{font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:var(--r3);background:var(--bg4);border:1px solid var(--line2);color:var(--fg2)}
+.self-warn{padding:6px 10px;background:rgba(255,137,6,.08);border:1px solid rgba(255,137,6,.25);border-radius:8px;font-size:11px;color:var(--warn);display:flex;align-items:center;gap:6px;margin-top:6px}
+
+/* ── URL INDEXER ── */
+.url-box{margin:0 14px 12px}
+.url-label{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg3);margin-bottom:6px}
+.url-row{display:flex;gap:5px}
+.url-in{flex:1;font-family:var(--fm);font-size:11px;padding:7px 9px;border:1px solid var(--line2);border-radius:8px;background:var(--bg3);color:var(--fg);outline:none;transition:.15s}
+.url-in:focus{border-color:var(--accent);background:var(--bg4)}
+.url-in::placeholder{color:var(--fg4)}
+.url-go{padding:7px 11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;font-family:var(--f)}
+.url-go:hover{opacity:.85}
+.index-methods{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.im-chip{font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:var(--r3);border:1px solid var(--line2);color:var(--fg3);cursor:pointer;transition:.15s;background:transparent}
+.im-chip.on{border-color:var(--accent);color:var(--accent);background:rgba(127,90,240,.1)}
+
+/* ── SCREENSHOT ── */
+.ss-row{display:flex;gap:5px;margin:0 14px 12px}
+.ss-btn{flex:1;padding:8px 10px;background:var(--bg3);border:1px solid var(--line2);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:var(--fg2);transition:.15s;font-family:var(--f);display:flex;align-items:center;justify-content:center;gap:5px}
+.ss-btn:hover{border-color:var(--fg3);color:var(--fg)}
+.ss-btn.primary{background:var(--bg4);border-color:var(--accent);color:var(--accent)}
+
+/* ── PIPELINE ── */
+.pipe-wrap{margin:0 14px 12px;display:flex;flex-direction:column;gap:4px}
+.pipe-step{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg3);transition:.2s;position:relative;overflow:hidden}
+.pipe-step.running{border-color:var(--accent)}
+.pipe-step.done{border-color:var(--accent2)}
+.pipe-step.fail{border-color:var(--danger)}
+.pipe-prog{position:absolute;bottom:0;left:0;height:2px;transition:width .4s ease}
+.pipe-prog.running{background:var(--accent)}
+.pipe-prog.done{background:var(--accent2)}
+.pipe-num{width:20px;height:20px;border-radius:50%;background:var(--bg4);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--fg3);flex-shrink:0;font-family:var(--fm)}
+.pipe-step.running .pipe-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.pipe-step.done .pipe-num{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.pipe-step.fail .pipe-num{background:var(--danger);border-color:var(--danger);color:#fff}
+.pipe-name{font-size:12px;font-weight:700;color:var(--fg)}
+.pipe-sub{font-size:10px;color:var(--fg3);font-family:var(--fm)}
+.pipe-stat{margin-left:auto;font-size:9px;font-family:var(--fm);color:var(--fg3);flex-shrink:0}
+.pipe-step.running .pipe-stat{color:var(--accent)}
+.pipe-step.done .pipe-stat{color:var(--accent2)}
+.pipe-step.fail .pipe-stat{color:var(--danger)}
+.pipe-arrow{text-align:center;color:var(--fg4);font-size:11px;margin:-1px 0}
+
+/* ── USER CHIPS ── */
+.u-chips{display:flex;flex-wrap:wrap;gap:4px;margin:0 14px 12px}
+.u-chip{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:var(--r3);border:1px solid var(--line2);background:var(--bg3);cursor:pointer;font-size:11px;font-weight:700;color:var(--fg3);transition:.15s;user-select:none;font-family:var(--fm)}
+.u-chip:hover{border-color:var(--fg3)}
+.u-chip.on{border-color:var(--accent);color:var(--accent);background:rgba(127,90,240,.1)}
+.u-dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0}
+
+/* ── RUN BTN ── */
+.run-btn{margin:0 14px 16px;width:calc(100% - 28px);padding:11px;border:none;border-radius:var(--r);background:var(--accent);color:#fff;font-family:var(--f);font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.2s;letter-spacing:.01em}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.45;cursor:not-allowed}
+.run-btn.live{background:var(--accent4);animation:pulse-r 1.5s ease infinite}
+@keyframes pulse-r{0%,100%{opacity:1}50%{opacity:.75}}
+.spin{display:inline-block;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── FEED ── */
+.feed{overflow-y:auto;background:var(--bg)}
+.fhead{padding:16px 18px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:10;display:flex;align-items:center;gap:10px}
+.ftabs{display:flex;gap:3px;background:var(--bg3);border-radius:8px;padding:3px}
+.ftab{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--fg3);transition:.15s;font-family:var(--fm)}
+.ftab.on{background:var(--bg4);color:var(--fg)}
+.ftitle{font-size:17px;font-weight:800;flex:1;letter-spacing:-.02em}
+.live-pip{width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(44,182,125,.5);animation:livepip 2s ease infinite;margin-left:auto}
+@keyframes livepip{0%,100%{box-shadow:0 0 0 0 rgba(44,182,125,.5)}50%{box-shadow:0 0 0 5px rgba(44,182,125,0)}}
+
+/* ── POST ── */
+.post{border-bottom:1px solid var(--line);padding:14px 18px;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.post-hdr{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.post-ava{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;border:1.5px solid var(--line2)}
+.post-meta{flex:1}
+.post-name{font-size:12px;font-weight:800;color:var(--fg);letter-spacing:-.01em}
+.post-handle{font-family:var(--fm);font-size:10px;color:var(--fg3)}
+.post-ts{font-family:var(--fm);font-size:9px;color:var(--fg4);margin-left:auto;text-align:right}
+.post-scan{font-family:var(--fm);font-size:9px;color:var(--accent2);margin-left:auto}
+
+/* PLATFORM BADGE */
+.platform-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:var(--r3);font-family:var(--fm);font-size:9px;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.pb-instagram{background:rgba(229,49,112,.12);color:var(--accent4);border:1px solid rgba(229,49,112,.2)}
+.pb-whatsapp{background:rgba(44,182,125,.1);color:var(--accent2);border:1px solid rgba(44,182,125,.2)}
+.pb-threads{background:rgba(127,90,240,.1);color:var(--accent);border:1px solid rgba(127,90,240,.2)}
+.pb-rheon{background:rgba(61,169,252,.1);color:var(--info);border:1px solid rgba(61,169,252,.2)}
+.pb-url{background:rgba(255,137,6,.1);color:var(--warn);border:1px solid rgba(255,137,6,.2)}
+.pb-screenshot{background:rgba(255,255,255,.07);color:var(--fg2);border:1px solid var(--line2)}
+
+/* SOURCE PREVIEW */
+.source-preview{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-family:var(--fm);font-size:11px;color:var(--fg2);line-height:1.6;max-height:80px;overflow:hidden;position:relative}
+.source-preview::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,var(--bg2))}
+
+/* VIDEO */
+.vid-wrap{border-radius:10px;overflow:hidden;background:#000;margin-bottom:10px;aspect-ratio:16/9;position:relative}
+.vid-wrap video,.vid-wrap iframe{width:100%;height:100%;border:none;object-fit:contain}
+.vid-url-bar{position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-family:var(--fm);font-size:9px;color:rgba(255,255,255,.6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* INDEX RESULT */
+.index-result{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.ir-url{font-family:var(--fm);font-size:10px;color:var(--accent);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.ir-chip{font-family:var(--fm);font-size:9px;padding:2px 6px;border-radius:var(--r3);background:var(--bg3);color:var(--fg3);border:1px solid var(--line)}
+.ir-title{font-size:12px;font-weight:700;color:var(--fg);margin-bottom:3px}
+.ir-desc{font-size:11px;color:var(--fg2);line-height:1.5}
+
+/* SCORES */
+.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+.sc{background:var(--bg2);border-radius:8px;padding:7px 9px;border:1px solid var(--line)}
+.sc-l{font-family:var(--fm);font-size:9px;color:var(--fg3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em}
+.sc-v{font-size:17px;font-weight:800;color:var(--fg);line-height:1}
+.sc-bar{height:2px;background:var(--line2);border-radius:var(--r3);margin-top:5px;overflow:hidden}
+.sc-fill{height:100%;border-radius:var(--r3);transition:width .7s ease}
+
+/* OSCILLATION */
+.osc-row{display:flex;gap:6px;margin-bottom:8px}
+.osc-card{flex:1;background:var(--bg2);border-radius:8px;padding:7px 9px;border:1px solid var(--line)}
+.osc-l{font-family:var(--fm);font-size:9px;color:var(--fg3);margin-bottom:3px;text-transform:uppercase}
+.osc-wave{height:24px;display:flex;align-items:center;gap:1px}
+.osc-bar-w{width:3px;border-radius:1px;transition:height .3s ease}
+
+/* SAFETY / VULNERABILITY */
+.safety-row{display:flex;gap:6px;margin-bottom:8px}
+.safety-card{flex:1;padding:7px 9px;border-radius:8px;border:1px solid;font-size:11px;font-weight:700}
+.safety-card.safe{background:rgba(44,182,125,.06);border-color:rgba(44,182,125,.2);color:var(--accent2)}
+.safety-card.mid{background:rgba(255,137,6,.06);border-color:rgba(255,137,6,.2);color:var(--warn)}
+.safety-card.low{background:rgba(229,49,112,.06);border-color:rgba(229,49,112,.2);color:var(--danger)}
+.safety-sub{font-size:9px;font-family:var(--fm);font-weight:400;margin-top:2px;opacity:.7}
+
+/* MATCH */
+.match-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--r3);font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px}
+.mb-mirror{background:rgba(127,90,240,.15);color:var(--accent);border:1px solid rgba(127,90,240,.3)}
+.mb-complementary{background:rgba(44,182,125,.12);color:var(--accent2);border:1px solid rgba(44,182,125,.25)}
+.mb-friction{background:rgba(255,137,6,.12);color:var(--warn);border:1px solid rgba(255,137,6,.25)}
+.mb-dissonant{background:rgba(229,49,112,.12);color:var(--danger);border:1px solid rgba(229,49,112,.25)}
+
+/* INSIGHTS */
+.insights{margin-bottom:8px}
+.insight{font-size:11px;color:var(--fg2);padding:5px 9px;background:var(--bg2);border-radius:7px;border-left:2px solid var(--accent);margin-bottom:3px;line-height:1.55;font-style:italic}
+
+/* FINGERPRINT */
+.fp-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.fp-mode{font-family:var(--fm);font-size:10px;font-weight:700;color:var(--fg);background:var(--bg3);border:1px solid var(--line2);padding:2px 8px;border-radius:var(--r3)}
+.fp-drift{font-family:var(--fm);font-size:9px;padding:2px 7px;border-radius:var(--r3);font-weight:700}
+.fp-drift.shift{background:rgba(229,49,112,.12);color:var(--danger)}
+.fp-drift.stable{background:rgba(44,182,125,.1);color:var(--accent2)}
+
+/* IDENTITY DNA */
+.id-dna{background:var(--bg2);border-radius:8px;padding:7px 10px;margin-bottom:8px;border:1px solid var(--line)}
+.dna-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.dna-label{font-family:var(--fm);font-size:9px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em;width:60px;flex-shrink:0}
+.dna-val{font-family:var(--fm);font-size:10px;color:var(--fg2)}
+.dna-connections{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.conn-chip{font-family:var(--fm);font-size:9px;padding:2px 6px;border-radius:var(--r3);background:var(--bg3);color:var(--accent);border:1px solid rgba(127,90,240,.25)}
+
+/* POST ACTIONS */
+.post-acts{display:flex;align-items:center;gap:12px;padding-top:8px;border-top:1px solid var(--line)}
+.pact{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--fg3);cursor:pointer;background:none;border:none;font-family:var(--f);transition:.15s}
+.pact:hover{color:var(--fg)}
+.pact.liked{color:var(--danger)}
+.proute{font-family:var(--fm);font-size:9px;color:var(--fg4);margin-left:auto;padding:2px 6px;background:var(--bg3);border-radius:var(--r3);border:1px solid var(--line)}
+
+/* ── RIGHT PANEL ── */
+.right{border-left:1px solid var(--line2);overflow-y:auto;background:var(--bg2)}
+.rsec{padding:14px;border-bottom:1px solid var(--line)}
+.rtitle{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--fg3);margin-bottom:10px}
+
+/* COMPARE BARS */
+.cmp-block{margin-bottom:10px}
+.cmp-axis{font-family:var(--fm);font-size:9px;color:var(--fg3);text-transform:uppercase;margin-bottom:4px}
+.cmp-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.cmp-name{font-family:var(--fm);font-size:10px;color:var(--fg2);width:64px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-track{flex:1;height:5px;background:var(--bg4);border-radius:var(--r3);overflow:hidden}
+.cmp-fill{height:100%;border-radius:var(--r3);transition:width .6s ease}
+.cmp-val{font-family:var(--fm);font-size:10px;font-weight:700;color:var(--fg);width:26px;text-align:right}
+
+/* RADAR */
+.radar-wrap{display:flex;justify-content:center;padding:4px 0}
+canvas.radar{display:block}
+
+/* OSC CHART */
+canvas.osc-chart{display:block;width:100%;height:80px}
+
+/* IDENTITY LOG */
+.id-log-list{display:flex;flex-direction:column;gap:6px}
+.idl-entry{display:flex;gap:8px;padding:7px 9px;background:var(--bg3);border-radius:8px;border:1px solid var(--line)}
+.idl-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0}
+.idl-body{flex:1;min-width:0}
+.idl-name{font-size:11px;font-weight:700;color:var(--fg)}
+.idl-action{font-family:var(--fm);font-size:10px;color:var(--fg3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.idl-dates{font-family:var(--fm);font-size:9px;color:var(--fg4);margin-top:2px}
+.idl-social{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.idl-soc-chip{font-family:var(--fm);font-size:8px;padding:1px 5px;border-radius:var(--r3);background:var(--bg4);color:var(--fg3);border:1px solid var(--line)}
+
+/* API DOCS */
+.api-doc{background:var(--bg3);border-radius:10px;overflow:hidden;margin-bottom:8px}
+.api-method{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.api-verb{font-family:var(--fm);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
+.verb-post{background:rgba(127,90,240,.15);color:var(--accent)}
+.verb-get{background:rgba(44,182,125,.12);color:var(--accent2)}
+.api-path{font-family:var(--fm);font-size:11px;color:var(--fg)}
+.api-body{padding:8px 10px;font-family:var(--fm);font-size:10px;color:var(--fg2);line-height:1.6;display:none;border-top:1px solid var(--line)}
+.api-body.open{display:block}
+.api-code{background:var(--bg);padding:8px;border-radius:6px;font-size:10px;color:var(--accent2);white-space:pre-wrap;word-break:break-all;margin-top:6px;overflow-x:auto}
+
+/* ERR LOG */
+.err-log{background:var(--bg);border-radius:8px;padding:10px;max-height:140px;overflow-y:auto;font-family:var(--fm);font-size:10px}
+.el{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03);line-height:1.6}
+.el-t{color:var(--fg4);margin-right:6px}
+.el-info{color:var(--info)}
+.el-warn{color:var(--warn)}
+.el-err{color:var(--danger)}
+.el-ok{color:var(--accent2)}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:1000;pointer-events:none}
+.toast{padding:9px 14px;border-radius:9px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;pointer-events:all;animation:tIn .25s ease}
+.toast-info{background:var(--bg4);color:var(--fg);border:1px solid var(--line2)}
+.toast-ok{background:rgba(44,182,125,.2);color:var(--accent2);border:1px solid rgba(44,182,125,.3)}
+.toast-warn{background:rgba(255,137,6,.15);color:var(--warn);border:1px solid rgba(255,137,6,.25)}
+.toast-err{background:rgba(229,49,112,.15);color:var(--danger);border:1px solid rgba(229,49,112,.25)}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* CONFIRM PROMPT */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;display:none}
+.confirm-overlay.open{display:flex}
+.confirm-box{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r2);padding:20px 22px;max-width:340px;width:90%}
+.confirm-title{font-size:14px;font-weight:800;color:var(--fg);margin-bottom:6px}
+.confirm-body{font-size:12px;color:var(--fg2);line-height:1.6;margin-bottom:14px;font-family:var(--fm)}
+.confirm-acts{display:flex;gap:8px;justify-content:flex-end}
+.confirm-acts button{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:var(--f)}
+.confirm-ok{background:var(--accent);color:#fff}
+.confirm-cancel{background:var(--bg3);color:var(--fg2);border:1px solid var(--line2)}
+
+/* ORDER PROMPT */
+.order-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;display:none}
+.order-overlay.open{display:flex}
+.order-box{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r2);padding:20px 22px;max-width:380px;width:90%}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line3);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo" title="ALK Guardian">A</div>
+  <button class="nav-btn on" title="Feed">⬡</button>
+  <button class="nav-btn" title="Upload">↑</button>
+  <button class="nav-btn" title="Identities">◈</button>
+  <button class="nav-btn" title="API">⊛</button>
+  <div class="nav-div"></div>
+  <button class="nav-btn" title="Screenshot" onclick="triggerScreenshot()">⬚</button>
+  <button class="nav-btn" id="listen-btn" title="Guardian Listener" onclick="toggleListener()">◉</button>
+  <div class="nav-div"></div>
+  <button class="nav-btn" title="Errors" style="margin-top:auto"><span class="pip" id="err-pip" style="display:none"></span>⚡</button>
+</nav>
+
+<!-- LEFT PANEL -->
+<aside class="left">
+  <div class="lhead">
+    <div class="ltag">Guardian · Signal Input</div>
+    <div class="ltitle">ALK Console</div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div class="sec"><span class="slabel">Upload</span><div class="sline"></div></div>
+  <div class="drop" id="dropzone" onclick="document.getElementById('file-in').click()" role="button" tabindex="0">
+    <div class="drop-ico">⬡</div>
+    <div class="drop-t">Drop file · click · paste screenshot</div>
+    <div class="drop-s">Routes: codec → resonance → ASE</div>
+    <div class="drop-types">
+      <span class="dtag">.mp4</span><span class="dtag">.mp3</span><span class="dtag">.wav</span>
+      <span class="dtag">.txt</span><span class="dtag">.json</span><span class="dtag">.png</span>
+      <span class="dtag">.jpg</span><span class="dtag">.pdf</span>
+    </div>
+    <div class="order-badge" id="order-badge" style="display:none">⟳ ordering</div>
+  </div>
+  <input type="file" id="file-in" style="display:none" multiple accept="*/*">
+
+  <!-- IDENTITY DETECTION -->
+  <div class="sec"><span class="slabel">Identity DNA</span><div class="sline"></div></div>
+  <div class="id-detect">
+    <div class="id-head">
+      <div class="id-title">Detected Identity</div>
+      <div class="id-status" id="id-detect-status">—</div>
+    </div>
+    <div class="id-body" id="id-detect-body">
+      <div style="font-size:11px;color:var(--fg3);padding:4px 0">Upload a file or index a URL to detect identity…</div>
+    </div>
+  </div>
+
+  <!-- URL INDEXER -->
+  <div class="sec"><span class="slabel">URL Indexer</span><div class="sline"></div></div>
+  <div class="url-box">
+    <div class="url-label">Cross-domain signal index</div>
+    <div class="url-row">
+      <input class="url-in" id="url-in" type="url" placeholder="https://… instagram, threads, rheon.world, any URL">
+      <button class="url-go" onclick="indexURL()">Index</button>
+    </div>
+    <div class="index-methods" id="index-methods">
+      <div class="im-chip on" data-method="meta">OG meta</div>
+      <div class="im-chip on" data-method="ld">JSON-LD</div>
+      <div class="im-chip on" data-method="rss">RSS/atom</div>
+      <div class="im-chip" data-method="seo">SEO text</div>
+      <div class="im-chip" data-method="oEmbed">oEmbed</div>
+      <div class="im-chip" data-method="wayback">Wayback</div>
+      <div class="im-chip" data-method="webmention">Webmention</div>
+      <div class="im-chip on" data-method="cors">CORS proxy</div>
+    </div>
+  </div>
+
+  <!-- SCREENSHOT -->
+  <div class="ss-row">
+    <button class="ss-btn primary" onclick="triggerScreenshot()">⬚ Screenshot → pipeline</button>
+    <button class="ss-btn" onclick="pasteFromClipboard()">⎘ Paste</button>
+  </div>
+
+  <!-- USER ATTRIBUTION -->
+  <div class="sec"><span class="slabel">Attribute to</span><div class="sline"></div></div>
+  <div class="u-chips" id="u-chips"></div>
+
+  <!-- PIPELINE -->
+  <div class="sec"><span class="slabel">Pipeline</span><div class="sline"></div></div>
+  <div class="pipe-wrap">
+    <div class="pipe-step" id="ps-codec">
+      <div class="pipe-num">1</div>
+      <div><div class="pipe-name">Codec / ALK</div><div class="pipe-sub">associative lattice</div></div>
+      <div class="pipe-stat" id="ps-codec-s">idle</div>
+      <div class="pipe-prog" id="ps-codec-p" style="width:0%"></div>
+    </div>
+    <div class="pipe-arrow">↓</div>
+    <div class="pipe-step" id="ps-index">
+      <div class="pipe-num">2</div>
+      <div><div class="pipe-name">Router + IRS</div><div class="pipe-sub">gap·edge·inversion</div></div>
+      <div class="pipe-stat" id="ps-index-s">idle</div>
+      <div class="pipe-prog" id="ps-index-p" style="width:0%"></div>
+    </div>
+    <div class="pipe-arrow">↓</div>
+    <div class="pipe-step" id="ps-res">
+      <div class="pipe-num">3</div>
+      <div><div class="pipe-name">Resonance API</div><div class="pipe-sub">/api/resonance/query</div></div>
+      <div class="pipe-stat" id="ps-res-s">idle</div>
+      <div class="pipe-prog" id="ps-res-p" style="width:0%"></div>
+    </div>
+    <div class="pipe-arrow">↓</div>
+    <div class="pipe-step" id="ps-ase">
+      <div class="pipe-num">4</div>
+      <div><div class="pipe-name">ASE API</div><div class="pipe-sub">/api/signature/:userId</div></div>
+      <div class="pipe-stat" id="ps-ase-s">idle</div>
+      <div class="pipe-prog" id="ps-ase-p" style="width:0%"></div>
+    </div>
+    <div class="pipe-arrow">↓</div>
+    <div class="pipe-step" id="ps-log">
+      <div class="pipe-num">5</div>
+      <div><div class="pipe-name">Identity Log</div><div class="pipe-sub">DNA · scan date · social</div></div>
+      <div class="pipe-stat" id="ps-log-s">idle</div>
+      <div class="pipe-prog" id="ps-log-p" style="width:0%"></div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runPipeline()">▶ Run Pipeline</button>
+</aside>
+
+<!-- FEED -->
+<main class="feed">
+  <div class="fhead">
+    <span class="ftitle">Signal Feed</span>
+    <div class="ftabs">
+      <button class="ftab on" onclick="setTab('all',this)">All</button>
+      <button class="ftab" onclick="setTab('screenshot',this)">Screens</button>
+      <button class="ftab" onclick="setTab('url',this)">URLs</button>
+      <button class="ftab" onclick="setTab('file',this)">Files</button>
+    </div>
+    <span class="live-pip" id="live-pip"></span>
+  </div>
+  <div id="feed-el">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;gap:10px;color:var(--fg3)">
+      <div style="font-size:36px;opacity:.3">⬡</div>
+      <div style="font-size:14px;font-weight:700;color:var(--fg2)">No signals yet</div>
+      <div style="font-size:12px;font-family:var(--fm)">Upload · screenshot · index a URL · paste text</div>
+    </div>
+  </div>
+</main>
+
+<!-- RIGHT PANEL -->
+<aside class="right">
+
+  <!-- SCORE COMPARE -->
+  <div class="rsec">
+    <div class="rtitle">Score Compare</div>
+    <div id="cmp-el"><div style="font-size:11px;color:var(--fg3)">Run pipeline to populate</div></div>
+  </div>
+
+  <!-- RADAR -->
+  <div class="rsec">
+    <div class="rtitle">Signal Radar</div>
+    <div class="radar-wrap">
+      <canvas class="radar" id="radar" width="260" height="200" role="img" aria-label="Signal radar showing 5 axes"></canvas>
+    </div>
+  </div>
+
+  <!-- OSC FLOW -->
+  <div class="rsec">
+    <div class="rtitle">Oscillation Flow</div>
+    <canvas class="osc-chart" id="osc-chart" height="80" role="img" aria-label="Oscillation chart"></canvas>
+  </div>
+
+  <!-- IDENTITY LOG -->
+  <div class="rsec">
+    <div class="rtitle">Identity Log</div>
+    <div class="id-log-list" id="id-log-el">
+      <div style="font-size:11px;color:var(--fg3)">Awaiting signals…</div>
+    </div>
+  </div>
+
+  <!-- API REFERENCE -->
+  <div class="rsec">
+    <div class="rtitle">API Endpoints</div>
+    <div id="api-docs"></div>
+  </div>
+
+  <!-- ERROR LOG -->
+  <div class="rsec">
+    <div class="rtitle">Error Log <span id="err-ct" style="color:var(--fg4)">(0)</span></div>
+    <div class="err-log" id="err-log">
+      <div class="el"><span class="el-t">00:00:00</span><span class="el-info">[init]</span> ALK Guardian console ready</div>
+    </div>
+  </div>
+
+</aside>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- SELF-IDENTITY CONFIRM -->
+<div class="confirm-overlay" id="self-confirm">
+  <div class="confirm-box">
+    <div class="confirm-title">⚠ Identity alignment check</div>
+    <div class="confirm-body" id="self-confirm-body">This signal may originate from the current user's identity. Ingesting self-signals can contaminate the model. Continue?</div>
+    <div class="confirm-acts">
+      <button class="confirm-cancel" onclick="selfConfirmCancel()">Cancel · discard</button>
+      <button class="confirm-ok" onclick="selfConfirmOK()">Yes · log separately</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER PROMPT -->
+<div class="order-overlay" id="order-overlay">
+  <div class="order-box">
+    <div class="confirm-title">📎 Multiple files detected</div>
+    <div class="confirm-body" style="font-family:var(--fm);font-size:11px;color:var(--fg2);line-height:1.6;margin:8px 0 14px">Are these files in chronological order? If they're conversation screenshots or sequential signals, ordering matters for the trajectory model.</div>
+    <div id="order-file-list" style="margin-bottom:14px;display:flex;flex-direction:column;gap:4px"></div>
+    <div class="confirm-acts">
+      <button class="confirm-cancel" onclick="orderCancel()">They're random</button>
+      <button class="confirm-ok" onclick="orderConfirm()">Yes, in order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────
+const BASE_URL = 'http://localhost:4747/api'; // Resonance server
+
+const USERS = [
+  {id:'erosmancer',name:'James',handle:'@erosmancer',aliases:['jamesdemontaigne','james.brooks','erosmancer'],color:'#7f5af0',initials:'JB',platforms:['instagram','threads','rheon']},
+  {id:'raven',name:'Raven',handle:'@raven',aliases:['raven','rav'],color:'#e53170',initials:'RV',platforms:['instagram']},
+  {id:'jonathan',name:'Jonathan',handle:'@jonathan_h',aliases:['jonathan','jonathanb','jonathan_hall'],color:'#2cb67d',initials:'JH',platforms:['whatsapp']},
+  {id:'psi_fee',name:'Psychee',handle:'@psi.fee',aliases:['psi.fee','psychee','psifee','fairestofall888'],color:'#ff8906',initials:'PF',platforms:['instagram','threads']},
+  {id:'anon',name:'Unknown',handle:'@anon',aliases:[],color:'#5c6272',initials:'??',platforms:[]},
+];
+
+const CURRENT_USER_ID = 'erosmancer';
+const METHODS_ACTIVE = new Set(['meta','ld','rss','cors']);
+
+let selectedUser = USERS[0];
+let currentFiles = [];
+let currentURL = null;
+let currentTab = 'all';
+let feedItems = [];
+let userScores = {};
+let oscHistory = {};
+let errCount = 0;
+let pendingPipelineResolve = null;
+let selfConfirmResolve = null;
+let listenerActive = false;
+let lastResult = null;
+
+// ── INIT ────────────────────────────────────────────────────────
+function init() {
+  renderUserChips();
+  renderAPIDoc();
+  drawRadarEmpty();
+  drawOscEmpty();
+  setupDrop();
+  setupMethodChips();
+  setupPaste();
+}
+
+// ── USER CHIPS ──────────────────────────────────────────────────
+function renderUserChips() {
+  document.getElementById('u-chips').innerHTML = USERS.map(u => `
+    <div class="u-chip ${u.id===selectedUser.id?'on':''}" onclick="selectUser('${u.id}')">
+      <div class="u-dot" style="background:${u.color}">${u.initials}</div>${u.id==='anon'?'unknown':u.name}
+    </div>`).join('');
+}
+function selectUser(id) { selectedUser=USERS.find(u=>u.id===id)||USERS[0]; renderUserChips(); }
+
+// ── METHOD CHIPS ──────────────────────────────────────────────
+function setupMethodChips() {
+  document.querySelectorAll('.im-chip').forEach(el => {
+    el.addEventListener('click', () => {
+      const m = el.dataset.method;
+      if (METHODS_ACTIVE.has(m)) { METHODS_ACTIVE.delete(m); el.classList.remove('on'); }
+      else { METHODS_ACTIVE.add(m); el.classList.add('on'); }
+    });
+  });
+}
+
+// ── DROP / FILE ────────────────────────────────────────────────
+function setupDrop() {
+  const dz = document.getElementById('dropzone');
+  ['dragenter','dragover'].forEach(e => dz.addEventListener(e, ev=>{ev.preventDefault();dz.classList.add('on')}));
+  ['dragleave','drop'].forEach(e => dz.addEventListener(e, ev=>{ev.preventDefault();dz.classList.remove('on')}));
+  dz.addEventListener('drop', ev => handleFiles(Array.from(ev.dataTransfer.files)));
+  document.getElementById('file-in').addEventListener('change', ev => handleFiles(Array.from(ev.target.files)));
+}
+
+function setupPaste() {
+  document.addEventListener('paste', async ev => {
+    const items = Array.from(ev.clipboardData.items);
+    const imgItem = items.find(i => i.type.startsWith('image'));
+    if (imgItem) {
+      const blob = imgItem.getAsFile();
+      const file = new File([blob], `screenshot-${Date.now()}.png`, {type:'image/png'});
+      handleFiles([file], true);
+    }
+  });
+}
+
+async function handleFiles(files, isScreenshot=false) {
+  if (!files.length) return;
+  if (files.length > 1) {
+    await promptOrder(files);
+  } else {
+    currentFiles = files;
+    currentURL = null;
+    updateDropUI(files[0], isScreenshot);
+    detectIdentityFromFile(files[0]);
+  }
+}
+
+function updateDropUI(file, isScreenshot=false) {
+  const dz = document.getElementById('dropzone');
+  dz.querySelector('.drop-ico').textContent = isScreenshot ? '⬚' : getIcon(file.name, file.type);
+  dz.querySelector('.drop-t').textContent = file.name;
+  dz.querySelector('.drop-s').textContent = fmtSize(file.size) + ' · ' + detectRoute(file.name, file.type);
+  showToast(`${isScreenshot?'⬚':'📎'} ${file.name}`, 'info');
+  elog('info', `file loaded: ${file.name} (${fmtSize(file.size)})`);
+}
+
+// ── ORDER PROMPT ─────────────────────────────────────────────
+async function promptOrder(files) {
+  return new Promise(resolve => {
+    const ol = document.getElementById('order-overlay');
+    const fl = document.getElementById('order-file-list');
+    fl.innerHTML = files.map((f,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:7px;border:1px solid var(--line)">
+        <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">${i+1}</span>
+        <span style="font-size:11px;font-family:var(--fm);color:var(--fg2)">${getIcon(f.name,f.type)} ${f.name}</span>
+      </div>`).join('');
+    ol.classList.add('open');
+    pendingPipelineResolve = (ordered) => {
+      ol.classList.remove('open');
+      currentFiles = ordered ? files : Array.from(files).sort(()=>Math.random()-.5);
+      currentURL = null;
+      document.getElementById('order-badge').style.display = 'block';
+      document.getElementById('order-badge').textContent = `${files.length} files ${ordered?'⟳ ordered':'shuffled'}`;
+      detectIdentityFromFile(currentFiles[0]);
+      showToast(`${files.length} files loaded${ordered?' (ordered)':''}`, 'info');
+      resolve();
+    };
+  });
+}
+function orderConfirm() { if(pendingPipelineResolve) pendingPipelineResolve(true); }
+function orderCancel()  { if(pendingPipelineResolve) pendingPipelineResolve(false); }
+
+// ── IDENTITY DETECTION FROM FILE ─────────────────────────────
+function detectIdentityFromFile(file) {
+  const name = file.name.toLowerCase();
+  const detected = detectIdentityFromText(name);
+  renderIdentityDetect(detected, 'file');
+}
+
+function detectIdentityFromText(text) {
+  const lower = text.toLowerCase();
+  // Try each user's aliases
+  for (const u of USERS.filter(u=>u.id!=='anon')) {
+    for (const alias of [u.id, ...u.aliases, u.handle.replace('@','')]) {
+      if (lower.includes(alias.toLowerCase())) return {user:u, confidence:0.85, method:'alias-match', alias};
+    }
+  }
+  // Platform heuristics
+  if (/instagram|ig_|_ig/.test(lower)) return {user:USERS.find(u=>u.id==='erosmancer'),confidence:0.4,method:'platform-guess'};
+  if (/whatsapp|wa_/.test(lower)) return {user:USERS.find(u=>u.id==='jonathan'),confidence:0.4,method:'platform-guess'};
+  return {user:USERS.find(u=>u.id==='anon'),confidence:0.1,method:'none'};
+}
+
+function renderIdentityDetect(det, source) {
+  const u = det.user;
+  const isSelf = u.id === CURRENT_USER_ID;
+  const statusEl = document.getElementById('id-detect-status');
+  statusEl.textContent = det.confidence > 0.7 ? '● confirmed' : det.confidence > 0.4 ? '● probable' : '● unknown';
+  statusEl.className = 'id-status ' + (det.confidence > 0.7 ? 'ok' : det.confidence > 0.4 ? 'warn' : 'err');
+
+  const aliasChips = u.aliases.slice(0,4).map(a=>`<span class="alias-chip">${a}</span>`).join('');
+  const platformChips = u.platforms.map(p=>`<span class="alias-chip" style="color:var(--accent)">${p}</span>`).join('');
+  const selfWarn = isSelf ? `<div class="self-warn">⚠ Current user detected — pipeline will prompt before ingesting</div>` : '';
+
+  document.getElementById('id-detect-body').innerHTML = `
+    <div class="id-field">
+      <div class="id-label">Primary ID</div>
+      <div class="id-val">${u.name} <span style="font-family:var(--fm);font-size:10px;color:var(--fg3)">${u.handle}</span></div>
+    </div>
+    <div class="id-field">
+      <div class="id-label">Aliases</div>
+      <div class="id-row">${aliasChips||'<span style="font-size:10px;color:var(--fg3)">none mapped</span>'}</div>
+    </div>
+    <div class="id-field">
+      <div class="id-label">Platforms</div>
+      <div class="id-row">${platformChips||'<span style="font-size:10px;color:var(--fg3)">unknown</span>'}</div>
+    </div>
+    <div class="id-field">
+      <div class="id-label">Confidence</div>
+      <div style="font-family:var(--fm);font-size:11px;color:var(--fg2)">${(det.confidence*100).toFixed(0)}% · ${det.method}</div>
+    </div>
+    ${selfWarn}`;
+
+  // Auto-select the chip
+  if (u.id !== 'anon') { selectedUser = u; renderUserChips(); }
+}
+
+// ── SELF CONFIRM ──────────────────────────────────────────────
+async function checkSelfContamination() {
+  if (selectedUser.id !== CURRENT_USER_ID) return true;
+  return new Promise(resolve => {
+    selfConfirmResolve = resolve;
+    document.getElementById('self-confirm-body').textContent =
+      `Signal attributed to ${selectedUser.name} (${selectedUser.handle}), who matches the current user identity. Self-signals are logged in a separate partition and excluded from relational model training. Continue?`;
+    document.getElementById('self-confirm').classList.add('open');
+  });
+}
+function selfConfirmOK()     { document.getElementById('self-confirm').classList.remove('open'); if(selfConfirmResolve) selfConfirmResolve(true); }
+function selfConfirmCancel() { document.getElementById('self-confirm').classList.remove('open'); if(selfConfirmResolve) selfConfirmResolve(false); }
+
+// ── URL INDEXER ───────────────────────────────────────────────
+async function indexURL() {
+  const val = document.getElementById('url-in').value.trim();
+  if (!val) return;
+  currentURL = val;
+  currentFiles = [];
+  showToast('🔗 Indexing URL…', 'info');
+  elog('info', `url index start: ${val}`);
+
+  const result = await simulateCrossDomainIndex(val);
+  renderIndexResult(result);
+  detectIdentityFromIndexResult(result);
+  elog('ok', `url indexed: platform=${result.platform} identity=${result.detectedUsername||'unknown'}`);
+}
+
+async function simulateCrossDomainIndex(url) {
+  await delay(400 + rand(600));
+  const platform = detectPlatform(url);
+  const username = extractUsernameFromURL(url);
+  const det = username ? detectIdentityFromText(username) : {user:USERS[4],confidence:0.1,method:'none'};
+
+  return {
+    url,
+    platform,
+    detectedUsername: username,
+    identity: det,
+    title: `${username||'Unknown'} on ${platform}`,
+    description: `Signal indexed from ${platform} via cross-domain indexer`,
+    methods: Array.from(METHODS_ACTIVE),
+    extractedText: `Sample text extracted from ${url} using ${Array.from(METHODS_ACTIVE).join(', ')} methods`,
+    ogImage: null,
+    publishedAt: new Date(Date.now() - rand(86400000*30)).toISOString(),
+    indexedAt: new Date().toISOString(),
+    signals: {
+      hasVideo: url.includes('video') || url.includes('reel') || url.includes('youtube'),
+      hasText: true,
+      hasImage: url.includes('photo') || url.includes('img') || url.includes('.jpg'),
+    },
+    crossDomainLinks: generateCrossLinks(url, platform, username),
+  };
+}
+
+function detectPlatform(url) {
+  if (/instagram\.com/.test(url)) return 'instagram';
+  if (/threads\.net/.test(url)) return 'threads';
+  if (/rheon\.world/.test(url)) return 'rheon';
+  if (/youtube\.com|youtu\.be/.test(url)) return 'youtube';
+  if (/twitter\.com|x\.com/.test(url)) return 'twitter';
+  if (/tiktok\.com/.test(url)) return 'tiktok';
+  if (/vimeo\.com/.test(url)) return 'vimeo';
+  return 'web';
+}
+
+function extractUsernameFromURL(url) {
+  // Instagram: /@username/ or /username/
+  let m = url.match(/instagram\.com\/@?([\w.]+)/);
+  if (m) return m[1];
+  m = url.match(/threads\.net\/@?([\w.]+)/);
+  if (m) return m[1];
+  m = url.match(/rheon\.world\/([\w]+)/);
+  if (m) return m[1];
+  m = url.match(/twitter\.com\/@?([\w]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+function generateCrossLinks(url, platform, username) {
+  if (!username) return [];
+  return [
+    {platform:'instagram',url:`https://instagram.com/${username}`},
+    {platform:'threads',url:`https://threads.net/@${username}`},
+    {platform:'rheon',url:`https://rheon.world/${username}`},
+  ].filter(l => !url.includes(l.platform));
+}
+
+function detectIdentityFromIndexResult(result) {
+  renderIdentityDetect(result.identity, 'url');
+}
+
+function renderIndexResult(r) {
+  // Will be embedded in the post card
+  currentIndexResult = r;
+}
+let currentIndexResult = null;
+
+// ── SCREENSHOT ────────────────────────────────────────────────
+async function triggerScreenshot() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    showToast('Screen capture API not available in this context', 'warn');
+    // Fallback: prompt user to paste
+    showToast('Press Ctrl+V to paste a screenshot', 'info');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({video:{mediaSource:'screen'}});
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    await new Promise(r => video.onloadedmetadata = () => { video.play(); r(); });
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    canvas.toBlob(async blob => {
+      const file = new File([blob], `screenshot-${Date.now()}.png`, {type:'image/png'});
+      handleFiles([file], true);
+      showToast('⬚ Screenshot captured → pipeline', 'ok');
+      elog('ok', `screenshot captured: ${fmtSize(blob.size)}`);
+    }, 'image/png');
+  } catch (e) {
+    elog('warn', `screenshot: ${e.message}`);
+    showToast('Paste a screenshot (Ctrl+V)', 'warn');
+  }
+}
+
+async function pasteFromClipboard() {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      for (const type of item.types) {
+        if (type.startsWith('image')) {
+          const blob = await item.getType(type);
+          const file = new File([blob], `paste-${Date.now()}.png`, {type});
+          handleFiles([file], true);
+          return;
+        }
+        if (type === 'text/plain') {
+          const text = await navigator.clipboard.readText();
+          if (text.startsWith('http')) { document.getElementById('url-in').value=text; indexURL(); }
+          else { ingestTextSignal(text); }
+          return;
+        }
+      }
+    }
+  } catch (e) { elog('warn', `paste: ${e.message}`); showToast('Paste manually (Ctrl+V)', 'warn'); }
+}
+
+async function ingestTextSignal(text) {
+  currentFiles = [new File([text], `text-${Date.now()}.txt`, {type:'text/plain'})];
+  detectIdentityFromText(text.slice(0,100));
+  elog('info', `text signal ingested: ${text.slice(0,40)}…`);
+}
+
+// ── LISTENER / GUARDIAN MODE ──────────────────────────────────
+function toggleListener() {
+  listenerActive = !listenerActive;
+  const btn = document.getElementById('listen-btn');
+  const pip = document.getElementById('live-pip');
+  if (listenerActive) {
+    btn.classList.add('on');
+    btn.style.color = 'var(--danger)';
+    pip.style.background = 'var(--danger)';
+    showToast('◉ Guardian listener active — BroadcastChannel open', 'ok');
+    elog('ok', 'guardian listener started — listening on alk.guardian.signal');
+    startBroadcastListener();
+  } else {
+    btn.classList.remove('on');
+    btn.style.color = '';
+    pip.style.background = 'var(--live)';
+    showToast('◎ Listener stopped', 'info');
+    elog('info', 'guardian listener stopped');
+  }
+}
+
+function startBroadcastListener() {
+  // BroadcastChannel IPC — same as NEXUS/Guardian architecture
+  try {
+    const bc = new BroadcastChannel('alk.guardian.signal');
+    bc.onmessage = async (ev) => {
+      const { type, payload } = ev.data || {};
+      elog('info', `guardian event: ${type}`);
+      if (type === 'signal.text' && payload?.text) {
+        await ingestTextSignal(payload.text);
+        runPipeline();
+      }
+      if (type === 'signal.url' && payload?.url) {
+        document.getElementById('url-in').value = payload.url;
+        await indexURL();
+        runPipeline();
+      }
+      if (type === 'signal.screenshot' && payload?.dataUrl) {
+        // Convert dataUrl to file
+        const res = await fetch(payload.dataUrl);
+        const blob = await res.blob();
+        handleFiles([new File([blob],'guardian-screenshot.png',{type:'image/png'})], true);
+      }
+    };
+    if (!listenerActive) bc.close();
+  } catch(e) { elog('warn', `BroadcastChannel: ${e.message}`); }
+}
+
+// ── PIPELINE ──────────────────────────────────────────────────
+async function runPipeline() {
+  if (!currentFiles.length && !currentURL) {
+    showToast('Upload a file or index a URL first', 'warn'); return;
+  }
+
+  // Self-contamination check
+  const proceed = await checkSelfContamination();
+  if (!proceed) { showToast('Cancelled — signal discarded', 'info'); return; }
+
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('live'); btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⟳</span> Running…';
+
+  resetSteps();
+  elog('info', `pipeline start → user:${selectedUser.id} source:${currentURL||currentFiles[0]?.name||'?'}`);
+
+  try {
+    // STEP 1 — ALK CODEC
+    const codec = await runStep('codec', async () => {
+      await delay(500+rand(400));
+      const result = alkCodecAPI(currentFiles[0]||currentURL, currentFiles);
+      elog('ok', `alk codec → route:${result.route} entropy:${result.entropy.toFixed(2)} confidence:${result.confidence.toFixed(2)}`);
+      return result;
+    });
+
+    // STEP 2 — IRS ROUTER
+    const irs = await runStep('index', async () => {
+      await delay(300+rand(250));
+      const result = irsAPI(codec, selectedUser);
+      elog('ok', `irs → gap:${result.gap.toFixed(3)} edge:${result.edge.toFixed(3)} inversion:${result.inversion}`);
+      return result;
+    });
+
+    // STEP 3 — RESONANCE API
+    const resonance = await runStep('res', async () => {
+      // Real API call attempt, fall back to simulation
+      try {
+        const resp = await fetchWithTimeout(`${BASE_URL}/resonance/query`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({userA: selectedUser.id, userB:'field', window:20})
+        }, 1500);
+        if (resp.ok) { const r = await resp.json(); elog('ok',`resonance api hit: total=${r.total?.toFixed(3)}`); return enrichResonance(r, codec, selectedUser); }
+      } catch {}
+      // Simulation
+      await delay(600+rand(500));
+      const r = simulateResonance(codec, selectedUser, irs);
+      elog('ok', `resonance sim → total:${r.total.toFixed(3)} match:${r.matchType} osc:${r.oscillation.toFixed(3)}`);
+      return r;
+    });
+
+    // STEP 4 — ASE API
+    const ase = await runStep('ase', async () => {
+      try {
+        const resp = await fetchWithTimeout(`${BASE_URL}/signature/${selectedUser.id}`, {}, 1500);
+        if (resp.ok) { const r = await resp.json(); elog('ok',`ase api hit: mode=${r.fingerprint?.dominantMode}`); return r; }
+      } catch {}
+      await delay(500+rand(400));
+      const r = simulateASE(codec, selectedUser);
+      elog('ok', `ase sim → mode:${r.fingerprint.dominantMode} drift:${r.drift.isShifting} samples:${r.sampleSize}`);
+      return r;
+    });
+
+    // STEP 5 — LOG
+    await runStep('log', async () => {
+      await delay(200);
+      const post = buildPost(codec, irs, resonance, ase, selectedUser);
+      feedItems.unshift(post);
+      renderFeed();
+      updateCompare(selectedUser, resonance, ase, codec);
+      updateRadar(codec);
+      updateOscChart(resonance);
+      addIdentityLog(selectedUser, codec, resonance, ase);
+      elog('ok', `logged → ${selectedUser.handle} · ${codec.route}`);
+      return {ok:true};
+    });
+
+    showToast('✓ Pipeline complete', 'ok');
+
+  } catch(e) {
+    elog('err', `pipeline error: ${e.message}`);
+    showToast('Pipeline error — check log', 'err');
+  }
+
+  btn.classList.remove('live'); btn.disabled = false;
+  btn.innerHTML = '▶ Run Pipeline';
+}
+
+// ── STEP RUNNER ───────────────────────────────────────────────
+let stepResults = {};
+async function runStep(id, fn) {
+  const step = document.getElementById(`ps-${id}`);
+  const stat = document.getElementById(`ps-${id}-s`);
+  const prog = document.getElementById(`ps-${id}-p`);
+  step.classList.add('running');
+  step.querySelector('.pipe-prog').classList.add('running');
+  stat.textContent = 'running…';
+  let pct = 0;
+  const t = setInterval(() => { pct = Math.min(pct+rand(15)+5, 85); prog.style.width=pct+'%'; }, 80);
+  const result = await fn();
+  clearInterval(t); prog.style.width='100%';
+  await delay(80);
+  step.classList.remove('running'); step.classList.add('done');
+  step.querySelector('.pipe-prog').classList.remove('running');
+  step.querySelector('.pipe-prog').classList.add('done');
+  stat.textContent = 'done';
+  stepResults[id] = result;
+  return result;
+}
+
+function resetSteps() {
+  ['codec','index','res','ase','log'].forEach(id => {
+    const s = document.getElementById(`ps-${id}`);
+    s.classList.remove('running','done','fail');
+    document.getElementById(`ps-${id}-s`).textContent='idle';
+    const p = document.getElementById(`ps-${id}-p`);
+    p.style.width='0%';
+    p.classList.remove('running','done');
+  });
+  stepResults = {};
+}
+
+// ── ALK CODEC API ─────────────────────────────────────────────
+function alkCodecAPI(source, files=[]) {
+  const name = source instanceof File ? source.name : (typeof source==='string' ? source : '?');
+  const type = source instanceof File ? source.type : 'url';
+  const route = detectRoute(name, type);
+  return {
+    route,
+    entropy: 0.3+rand(0.6), intensity: 0.4+rand(0.5),
+    cognition: {abstractionLevel:rand(1),linearity:rand(1),recursionDepth:rand(1),systemThinking:rand(1),compression:rand(1)},
+    affect:    {valence:rand(1),volatility:rand(1),attachmentLoad:rand(1),urgency:rand(1),somaticDensity:rand(1)},
+    language:  {metaphorDensity:rand(1),symbolicUsage:rand(1),poeticness:rand(1),analyticalness:rand(1),narrativeStructure:rand(1)},
+    confidence:0.72+rand(0.26),
+    timestamp:Date.now(),
+    fileCount:files.length||1,
+  };
+}
+
+// ── IRS API ─────────────────────────────────────────────────────
+function irsAPI(codec, user) {
+  // GAP = sigma deviation above tolerance
+  const sigmaFields = [...Object.values(codec.cognition),...Object.values(codec.affect),...Object.values(codec.language)];
+  const mean = sigmaFields.reduce((a,b)=>a+b,0)/sigmaFields.length;
+  const variance = sigmaFields.reduce((s,v)=>s+(v-mean)**2,0)/sigmaFields.length;
+  const sigma_n = Math.sqrt(variance); // noise scale
+  const sigma_t = 0.1+rand(0.4);      // temporal drift
+  const sigma_s = 0.05+rand(0.35);    // structural deviation
+  const sigma_r = 0.1+rand(0.5);      // relational asymmetry
+
+  const gap = Math.min(1, sigma_n*2 + sigma_s*1.5);
+  const edge = Math.max(0, 1 - gap - sigma_r*0.5);
+  const inversion = gap > 0.55 ? 'epistemic' : gap > 0.35 ? 'structural' : 'none';
+  const baseline_deviation = Math.abs(gap - 0.3); // deviation from expected ~0.3
+
+  return { gap, edge, inversion, sigma_n, sigma_t, sigma_s, sigma_r, baseline_deviation,
+    state: baseline_deviation > 0.3 ? 'rupture' : baseline_deviation > 0.15 ? 'drift' : 'stable',
+    conditions_valid: sigma_n < 0.5 && variance > 0.005 };
+}
+
+// ── RESONANCE SIMULATION ──────────────────────────────────────
+function simulateResonance(codec, user, irs) {
+  const structural = 0.5+rand(0.45);
+  const oscillation = 0.45+rand(0.5);
+  const temporal = 0.4+rand(0.55);
+  const safety = computeSafety(codec, irs);
+  const vulnerability = computeVulnerability(codec);
+  const total = structural*0.45 + oscillation*0.45 + temporal*0.10;
+  const matchType = total>0.72?'mirror':total>0.55?'complementary':total>0.40?'friction':'dissonant';
+  const INSIGHTS = [
+    'High abstraction alignment — conversation will accelerate and stay conceptual.',
+    'Oscillation patterns closely matched — rhythm of engagement syncs naturally.',
+    'Shared poetic-symbolic register — language will feel mutual without effort.',
+    'Mirror resonance: immediate mutual recognition likely.',
+    'Complementary resonance: one grounds, one lifts — balanced dynamic.',
+    'Phase misalignment — better timing may improve resonance significantly.',
+    'Emotional processing patterns aligned — similar volatility and recovery arc.',
+    'Friction pattern: shared cognition, divergent affect — generative tension.',
+  ];
+  return {
+    structural, oscillation, temporal, total, matchType,
+    safety, vulnerability,
+    insights: shuffle(INSIGHTS).slice(0,2+Math.floor(rand(2))),
+    axes:{cognition:0.5+rand(0.45),affect:0.5+rand(0.45),language:0.5+rand(0.45)},
+    computedAt: Date.now(),
+    oscillationFlow: Array.from({length:20},()=>rand(1)),
+  };
+}
+
+function computeSafety(codec, irs) {
+  // Safety = coherence + low volatility + low suppression signal + low gap
+  const volatility = codec.affect.volatility;
+  const coherence = 1 - irs.sigma_s;
+  const gapPenalty = irs.gap;
+  return Math.max(0, Math.min(1, coherence*(1-volatility*0.5)*(1-gapPenalty*0.4)));
+}
+
+function computeVulnerability(codec) {
+  // Vulnerability = attachment load + emotional openness + somatic density
+  return Math.min(1, (codec.affect.attachmentLoad + codec.affect.somaticDensity + (1-codec.affect.volatility)*0.3) / 2.3);
+}
+
+function enrichResonance(r, codec, user) {
+  return {...r, safety:computeSafety(codec,{gap:0.3,sigma_s:0.2}), vulnerability:computeVulnerability(codec), oscillationFlow:Array.from({length:20},()=>rand(1))};
+}
+
+// ── ASE SIMULATION ────────────────────────────────────────────
+function simulateASE(codec, user) {
+  const MODES = ['systems-architect','symbolic-poet','deep-internal-processor',
+    'somatic-emotive','analytical-structured','relational-narrator',
+    'high-entropy-synthesizer','high-intensity-driver','adaptive-generalist'];
+  const dom = MODES[Math.floor(rand(MODES.length))];
+  return {
+    userId:user.id, version:Math.floor(rand(12))+1, sampleSize:Math.floor(rand(30))+5,
+    core:{cognition:codec.cognition,affect:codec.affect,language:codec.language,entropy:codec.entropy,intensity:codec.intensity},
+    fingerprint:{dominantMode:dom, secondaryMode:MODES.filter(m=>m!==dom)[Math.floor(rand(MODES.length-1))],
+      highVarianceAxes:shuffle(['cog.abstraction','aff.volatility','lang.poeticness','aff.urgency']).slice(0,2),
+      lowVarianceAxes:shuffle(['cog.linearity','lang.analyticalness','aff.valence']).slice(0,2)},
+    drift:{magnitude:rand(0.5),direction:shuffle(['cognition.systemThinking','affect.volatility']).slice(0,1),
+      lastShiftAt:rand(1)>.5?Date.now()-rand(86400000):null, isShifting:rand(1)>.6},
+    createdAt:Date.now()-rand(604800000), updatedAt:Date.now(),
+  };
+}
+
+// ── BUILD POST ────────────────────────────────────────────────
+function buildPost(codec, irs, resonance, ase, user) {
+  const isScreen = currentFiles[0]?.name?.includes('screenshot') || currentFiles[0]?.type?.includes('image');
+  const tab = currentURL ? 'url' : isScreen ? 'screenshot' : 'file';
+  return {
+    id:crypto.randomUUID(), user, codec, irs, resonance, ase,
+    ts:Date.now(), scanDate:Date.now(), convDate: currentFiles[0]?.lastModified || Date.now(),
+    file:currentFiles[0]||null, url:currentURL||null,
+    indexResult:currentIndexResult, tab,
+    likes:0, liked:false,
+    platform:currentURL ? detectPlatform(currentURL) : (isScreen?'screenshot':'file'),
+  };
+}
+
+// ── RENDER FEED ───────────────────────────────────────────────
+function setTab(t,el) {
+  currentTab=t;
+  document.querySelectorAll('.ftab').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  renderFeed();
+}
+
+function renderFeed() {
+  const el = document.getElementById('feed-el');
+  const items = currentTab==='all' ? feedItems : feedItems.filter(p=>p.tab===currentTab);
+  if (!items.length) { el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:60px 24px;gap:10px;color:var(--fg3)"><div style="font-size:36px;opacity:.3">⬡</div><div style="font-size:13px;font-family:var(--fm)">No ${currentTab} signals yet</div></div>`; return; }
+  el.innerHTML = items.map(renderPost).join('');
+}
+
+function renderPost(p) {
+  const u = p.user;
+  const r = p.resonance;
+  const irs = p.irs;
+  const ase = p.ase;
+  const codec = p.codec;
+
+  const platform = p.platform;
+  const pbClass = `pb-${platform}`;
+  const platformLabel = platform.toUpperCase();
+
+  const scLabel = s => `<div class="sl" style="font-family:var(--fm);font-size:9px;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">${s}</div>`;
+
+  const bar = (v,c) => `<div class="sc-bar"><div class="sc-fill" style="width:${(v*100).toFixed(0)}%;background:${c}"></div></div>`;
+
+  // Oscillation wave bars
+  const waveH = (r.oscillationFlow||[]).slice(0,12).map(v=>
+    `<div class="osc-bar-w" style="height:${Math.max(3,v*20)}px;background:var(--accent);opacity:${0.4+v*0.6}"></div>`).join('');
+
+  // Safety rating
+  const safetyClass = r.safety > 0.65 ? 'safe' : r.safety > 0.35 ? 'mid' : 'low';
+  const safetyLabel = r.safety > 0.65 ? '● Safe' : r.safety > 0.35 ? '◑ Moderate' : '○ Low safety';
+  const vulnClass = r.vulnerability > 0.65 ? 'low' : r.vulnerability > 0.35 ? 'mid' : 'safe';
+  const vulnLabel = r.vulnerability > 0.65 ? '● High vulnerability' : r.vulnerability > 0.35 ? '◑ Moderate' : '○ Low';
+
+  // IRS state
+  const irsState = irs.state;
+  const irsColor = irsState==='rupture'?'var(--danger)':irsState==='drift'?'var(--warn)':'var(--accent2)';
+
+  // Index result
+  const indexHTML = p.indexResult ? `
+    <div class="index-result">
+      <div class="ir-url">${p.indexResult.url}</div>
+      <div class="ir-meta">
+        ${p.indexResult.methods.map(m=>`<span class="ir-chip">${m}</span>`).join('')}
+        ${p.indexResult.crossDomainLinks.map(l=>`<span class="ir-chip" style="color:var(--accent);border-color:rgba(127,90,240,.2)">${l.platform}</span>`).join('')}
+      </div>
+      <div class="ir-title">${p.indexResult.title}</div>
+      <div class="ir-desc">${p.indexResult.description}</div>
+    </div>` : '';
+
+  // Video block
+  const videoHTML = p.url ? renderVideo(p.url) : '';
+
+  // File block
+  const fileHTML = p.file ? `
+    <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;margin-bottom:8px;border:1px solid var(--line);display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">${getIcon(p.file.name,p.file.type)}</span>
+      <div>
+        <div style="font-family:var(--fm);font-size:11px;color:var(--fg2)">${p.file.name}</div>
+        <div style="font-family:var(--fm);font-size:9px;color:var(--fg3)">${fmtSize(p.file.size)} · ${codec.route}</div>
+      </div>
+    </div>` : '';
+
+  return `<div class="post" data-id="${p.id}">
+    <div class="post-hdr">
+      <div class="post-ava" style="background:${u.color}">${u.initials}</div>
+      <div class="post-meta">
+        <div class="post-name">${u.name}</div>
+        <div class="post-handle">${u.handle}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto">
+        <div class="post-ts">conv: ${fmtDate(p.convDate)}</div>
+        <div class="post-scan">scan: ${fmtDate(p.scanDate)}</div>
+      </div>
+    </div>
+
+    <span class="platform-badge ${pbClass}">${platformLabel}</span>
+
+    ${fileHTML}${videoHTML}${indexHTML}
+
+    <div class="score-grid">
+      <div class="sc">${scLabel('Resonance')}<div class="sc-v">${(r.total*100).toFixed(0)}</div>${bar(r.total,'var(--accent)')}</div>
+      <div class="sc">${scLabel('Structural')}<div class="sc-v">${(r.structural*100).toFixed(0)}</div>${bar(r.structural,'var(--accent4)')}</div>
+      <div class="sc">${scLabel('Oscillation')}<div class="sc-v">${(r.oscillation*100).toFixed(0)}</div>${bar(r.oscillation,'var(--accent2)')}</div>
+      <div class="sc">${scLabel('Temporal')}<div class="sc-v">${(r.temporal*100).toFixed(0)}</div>${bar(r.temporal,'var(--accent3)')}</div>
+    </div>
+
+    <div class="osc-row">
+      <div class="osc-card">
+        ${scLabel('Oscillation / Flow')}
+        <div class="osc-wave">${waveH}</div>
+      </div>
+    </div>
+
+    <div class="safety-row">
+      <div class="safety-card ${safetyClass}">${safetyLabel}<div class="safety-sub">relational safety</div></div>
+      <div class="safety-card ${vulnClass}">${vulnLabel}<div class="safety-sub">shared vulnerability</div></div>
+      <div class="safety-card ${irsState==='stable'?'safe':irsState==='drift'?'mid':'low'}" style="border-color:${irsColor}22;color:${irsColor}">
+        IRS: ${irsState}<div class="safety-sub">gap:${(irs.gap*100).toFixed(0)} edge:${(irs.edge*100).toFixed(0)}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <span class="match-badge mb-${r.matchType}">${r.matchType}</span>
+      <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">conf ${(codec.confidence*100).toFixed(0)}%</span>
+      <span style="font-family:var(--fm);font-size:9px;color:${irsColor}">σ-inv:${irs.inversion}</span>
+    </div>
+
+    <div class="insights">${r.insights.slice(0,2).map(i=>`<div class="insight">${i}</div>`).join('')}</div>
+
+    <div class="fp-row">
+      <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">mode</span>
+      <span class="fp-mode">${ase.fingerprint.dominantMode}</span>
+      <span class="fp-drift ${ase.drift.isShifting?'shift':'stable'}">${ase.drift.isShifting?'drifting':'stable'}</span>
+    </div>
+
+    <div class="id-dna">
+      <div class="dna-row"><span class="dna-label">Identity</span><span class="dna-val">${u.name} ${u.handle}</span></div>
+      <div class="dna-row"><span class="dna-label">Aliases</span><span class="dna-val">${u.aliases.slice(0,3).join(', ')||'—'}</span></div>
+      <div class="dna-row"><span class="dna-label">Conv date</span><span class="dna-val">${fmtDate(p.convDate)}</span></div>
+      <div class="dna-row"><span class="dna-label">Scan date</span><span class="dna-val">${fmtDate(p.scanDate)}</span></div>
+      <div class="dna-connections">
+        ${u.platforms.map(pl=>`<span class="conn-chip">${pl}</span>`).join('')}
+        ${u.aliases.map(a=>`<span class="conn-chip" style="color:var(--fg3);border-color:var(--line2)">${a}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="post-acts">
+      <button class="pact ${p.liked?'liked':''}" onclick="toggleLike('${p.id}')">♥ ${p.likes}</button>
+      <button class="pact" onclick="rerun('${p.id}')">↻ re-run</button>
+      <span class="proute">${codec.route}</span>
+    </div>
+  </div>`;
+}
+
+function renderVideo(url) {
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (yt) return `<div class="vid-wrap"><iframe src="https://www.youtube.com/embed/${yt[1]}?rel=0" allow="fullscreen"></iframe></div>`;
+  if (vm) return `<div class="vid-wrap"><iframe src="https://player.vimeo.com/video/${vm[1]}" allow="fullscreen"></iframe></div>`;
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) return `<div class="vid-wrap"><video src="${url}" controls preload="metadata"></video><div class="vid-url-bar">${url}</div></div>`;
+  return '';
+}
+
+function toggleLike(id) { const p=feedItems.find(x=>x.id===id); if(!p)return; p.liked=!p.liked; p.likes+=p.liked?1:-1; renderFeed(); }
+function rerun(id) { const p=feedItems.find(x=>x.id===id); if(!p)return; currentFiles=p.file?[p.file]:[]; currentURL=p.url; selectedUser=p.user; renderUserChips(); runPipeline(); }
+
+// ── COMPARE BARS ──────────────────────────────────────────────
+function updateCompare(user, res, ase, codec) {
+  if (!userScores[user.id]) userScores[user.id] = [];
+  userScores[user.id].push({user,resonance:res.total,structural:res.structural,oscillation:res.oscillation,temporal:res.temporal,safety:res.safety,vulnerability:res.vulnerability});
+
+  const el = document.getElementById('cmp-el');
+  const axes = ['resonance','structural','oscillation','temporal','safety','vulnerability'];
+  const users = Object.entries(userScores).map(([id,sc])=>({user:sc[sc.length-1].user,sc:sc[sc.length-1]}));
+  if (!users.length) return;
+  el.innerHTML = axes.map(ax => `
+    <div class="cmp-block">
+      <div class="cmp-axis">${ax}</div>
+      ${users.map(({user:u,sc}) => `
+        <div class="cmp-row">
+          <span class="cmp-name">${u.name}</span>
+          <div class="cmp-track"><div class="cmp-fill" style="width:${((sc[ax]||0)*100).toFixed(0)}%;background:${u.color}"></div></div>
+          <span class="cmp-val">${((sc[ax]||0)*100).toFixed(0)}</span>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// ── RADAR ─────────────────────────────────────────────────────
+function drawRadarEmpty() { drawRadar({cognition:.2,affect:.2,language:.2,entropy:.2,intensity:.2},'rgba(127,90,240,.3)',null); }
+function updateRadar(codec) {
+  drawRadar({
+    cognition:avg(Object.values(codec.cognition)), affect:avg(Object.values(codec.affect)),
+    language:avg(Object.values(codec.language)), entropy:codec.entropy, intensity:codec.intensity
+  }, selectedUser.color, selectedUser.name);
+}
+function drawRadar(vals, color, label) {
+  const c=document.getElementById('radar'); const ctx=c.getContext('2d');
+  const cx=130,cy=100,r=72; const axes=['cognition','affect','language','entropy','intensity']; const n=axes.length;
+  ctx.clearRect(0,0,260,200);
+  const gridC='rgba(255,255,255,.06)';
+  [.25,.5,.75,1].forEach(ring=>{
+    ctx.beginPath();
+    axes.forEach((_,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2; const x=cx+Math.cos(a)*r*ring; const y=cy+Math.sin(a)*r*ring; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.closePath(); ctx.strokeStyle=gridC; ctx.lineWidth=1; ctx.stroke();
+  });
+  axes.forEach((_,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); ctx.strokeStyle=gridC; ctx.lineWidth=1; ctx.stroke(); });
+  ctx.beginPath();
+  axes.forEach((k,i)=>{ const v=vals[k]||0; const a=(i/n)*Math.PI*2-Math.PI/2; const x=cx+Math.cos(a)*r*v; const y=cy+Math.sin(a)*r*v; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.closePath(); ctx.fillStyle=color+'22'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  axes.forEach((k,i)=>{ const v=vals[k]||0; const a=(i/n)*Math.PI*2-Math.PI/2; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*r*v,cy+Math.sin(a)*r*v,3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); });
+  ctx.font='9px Space Mono,monospace'; ctx.fillStyle='rgba(255,255,255,.4)'; ctx.textAlign='center';
+  axes.forEach((k,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2; const x=cx+Math.cos(a)*(r+14); const y=cy+Math.sin(a)*(r+14); ctx.fillText(k,x,y+3); });
+}
+
+// ── OSC CHART ─────────────────────────────────────────────────
+function drawOscEmpty() { drawOscChart(Array.from({length:20},()=>.3)); }
+function updateOscChart(res) { drawOscChart(res.oscillationFlow||[]); }
+function drawOscChart(data) {
+  const c=document.getElementById('osc-chart'); const ctx=c.getContext('2d');
+  const w=c.clientWidth||260; const h=80; c.width=w; c.height=h;
+  ctx.clearRect(0,0,w,h);
+  if (!data.length) return;
+  const step=w/data.length;
+  ctx.beginPath();
+  data.forEach((v,i)=>{ const x=i*step; const y=h-(v*(h-8))-4; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.strokeStyle='rgba(127,90,240,.7)'; ctx.lineWidth=1.5; ctx.stroke();
+  const grad=ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(127,90,240,.2)'); grad.addColorStop(1,'rgba(127,90,240,0)');
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+}
+
+// ── IDENTITY LOG ──────────────────────────────────────────────
+function addIdentityLog(user, codec, res, ase) {
+  const el = document.getElementById('id-log-el');
+  if (el.querySelector('div[style]')) el.innerHTML='';
+  const entry=document.createElement('div');
+  entry.className='idl-entry';
+  entry.innerHTML=`
+    <div class="idl-dot" style="background:${user.color}">${user.initials}</div>
+    <div class="idl-body">
+      <div class="idl-name">${user.name} <span style="font-family:var(--fm);font-size:9px;color:var(--fg3)">${user.handle}</span></div>
+      <div class="idl-action">${codec.route} · ${res.matchType} · ${ase.fingerprint.dominantMode}</div>
+      <div class="idl-dates">conv: ${fmtDate(Date.now()-rand(86400000))} · scan: ${fmtDate(Date.now())}</div>
+      <div class="idl-social">${user.platforms.map(p=>`<span class="idl-soc-chip">${p}</span>`).join('')}
+        ${user.aliases.slice(0,3).map(a=>`<span class="idl-soc-chip">${a}</span>`).join('')}</div>
+    </div>`;
+  el.insertBefore(entry,el.firstChild);
+}
+
+// ── API DOCS ──────────────────────────────────────────────────
+const API_ENDPOINTS = [
+  {verb:'POST',path:'/api/signal/ingest',desc:'Ingest text signal for a user',body:`{"userId":"erosmancer","text":"…","forceLLM":false}`},
+  {verb:'GET', path:'/api/trajectory/:userId',desc:'Get full signal trajectory + oscillation'},
+  {verb:'GET', path:'/api/oscillation/:userId',desc:'Oscillation profile only'},
+  {verb:'POST',path:'/api/resonance/query',desc:'Compute resonance between two users',body:`{"userA":"erosmancer","userB":"raven","window":20}`},
+  {verb:'POST',path:'/api/resonance/batch',desc:'Batch resonance against many targets',body:`{"userId":"erosmancer","targets":["raven","jonathan"]}`},
+  {verb:'GET', path:'/api/signature/:userId',desc:'Get ASE authorship signature'},
+  {verb:'GET', path:'/api/signature/distance/:a/:b',desc:'Cognitive distance between two users'},
+  {verb:'GET', path:'/api/idl/:userId',desc:'Intimacy Dynamics Layer vector'},
+  {verb:'POST',path:'/api/idl/dynamic',desc:'Relational dynamic between two users',body:`{"userA":"erosmancer","userB":"raven"}`},
+  {verb:'POST',path:'/api/feed/generate',desc:'Generate resonance feed',body:`{"userId":"erosmancer","limit":20,"weightPreset":"balanced"}`},
+  {verb:'GET', path:'/api/health',desc:'Server health check'},
+];
+
+function renderAPIDoc() {
+  const el = document.getElementById('api-docs');
+  el.innerHTML = API_ENDPOINTS.map((ep,i) => `
+    <div class="api-doc">
+      <div class="api-method" onclick="toggleAPI(${i})">
+        <span class="api-verb ${ep.verb==='POST'?'verb-post':'verb-get'}">${ep.verb}</span>
+        <span class="api-path">${ep.path}</span>
+      </div>
+      <div class="api-body" id="api-body-${i}">
+        ${ep.desc}
+        ${ep.body ? `<div class="api-code">${ep.body}</div>` : ''}
+        <div style="margin-top:6px">
+          <button style="padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;font-family:var(--fm)" onclick="callAPI(${i})">▶ Test call</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleAPI(i) { const b=document.getElementById(`api-body-${i}`); b.classList.toggle('open'); }
+
+async function callAPI(i) {
+  const ep = API_ENDPOINTS[i];
+  elog('info', `api test: ${ep.verb} ${ep.path}`);
+  showToast(`Testing ${ep.verb} ${ep.path}`, 'info');
+  try {
+    const url = `${BASE_URL}${ep.path.replace(':userId',selectedUser.id).replace(':a','erosmancer').replace(':b','raven')}`;
+    const opts = ep.verb==='POST' ? {method:'POST',headers:{'Content-Type':'application/json'},body:ep.body} : {};
+    const resp = await fetchWithTimeout(url, opts, 2000);
+    const data = await resp.json();
+    elog('ok', `api response: ${JSON.stringify(data).slice(0,80)}…`);
+    showToast('✓ API responded', 'ok');
+  } catch(e) {
+    elog('warn', `api offline (${e.message}) — using simulation`);
+    showToast('Server offline — using simulation', 'warn');
+  }
+}
+
+// ── ERROR LOG ─────────────────────────────────────────────────
+function elog(type, msg) {
+  const el=document.getElementById('err-log');
+  const d=document.createElement('div'); d.className='el';
+  const t=new Date().toTimeString().slice(0,8);
+  const cls=type==='err'?'el-err':type==='ok'?'el-ok':type==='warn'?'el-warn':'el-info';
+  d.innerHTML=`<span class="el-t">${t}</span><span class="${cls}">[${type}]</span> ${msg}`;
+  el.insertBefore(d,el.firstChild);
+  if (type==='err') { errCount++; document.getElementById('err-ct').textContent=`(${errCount})`; document.getElementById('err-pip').style.display='block'; }
+  while(el.children.length>100) el.removeChild(el.lastChild);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+  const w=document.getElementById('toast-wrap');
+  const t=document.createElement('div');
+  t.className=`toast toast-${type==='ok'?'ok':type==='warn'?'warn':type==='err'?'err':'info'}`;
+  t.textContent=msg; w.appendChild(t);
+  setTimeout(()=>t.style.opacity='0',2800);
+  setTimeout(()=>t.remove(),3100);
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function rand(n){return Math.random()*n;}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+function avg(arr){return arr.reduce((a,b)=>a+b,0)/arr.length;}
+function shuffle(a){return [...a].sort(()=>Math.random()-.5);}
+function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';return (b/1048576).toFixed(1)+' MB';}
+function fmtDate(ts){return new Date(ts).toLocaleDateString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}
+function detectRoute(name,type){
+  const e=(name.split('.').pop()||'').toLowerCase();
+  if(['mp4','webm','mov'].includes(e)||type.startsWith('video'))return 'video-module';
+  if(['mp3','wav','ogg'].includes(e)||type.startsWith('audio'))return 'text-module';
+  if(['jpg','jpeg','png','gif','webp'].includes(e)||type.startsWith('image'))return 'expression-engine';
+  if(['txt','md','json','csv'].includes(e))return 'text-module';
+  if(e==='pdf')return 'htl';
+  return 'behavior-module';
+}
+function getIcon(name,type){
+  const e=(name.split('.').pop()||'').toLowerCase();
+  if(['mp4','webm','mov'].includes(e)||type.startsWith('video'))return '🎬';
+  if(['mp3','wav','ogg'].includes(e)||type.startsWith('audio'))return '🎵';
+  if(['jpg','jpeg','png','gif','webp'].includes(e)||type.startsWith('image'))return '🖼';
+  if(e==='pdf')return '📄';
+  if(['json','js','ts','py','md'].includes(e))return '⌗';
+  return '📎';
+}
+async function fetchWithTimeout(url, opts={}, ms=3000) {
+  const ctrl=new AbortController();
+  const id=setTimeout(()=>ctrl.abort(),ms);
+  try { const r=await fetch(url,{...opts,signal:ctrl.signal}); clearTimeout(id); return r; }
+  catch(e) { clearTimeout(id); throw e; }
+}
+
+// ── START ─────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

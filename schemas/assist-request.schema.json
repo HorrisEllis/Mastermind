@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastermind/assist-request.schema.json",
+  "title": "Assist request",
+  "description": "Everything that is about to leave the process, and nothing else. This object IS the egress boundary: if it is not in here it does not go, and the receipt hashes exactly this. Built only by AssistContract.buildRequest, which enforces the allowlist — never hand-constructed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "intent", "requestedBy", "reason", "content", "budget", "createdAt"],
+  "properties": {
+    "requestId":   { "type": "string" },
+    "createdAt":   { "type": "string", "format": "date-time" },
+    "intent": {
+      "type": "string",
+      "enum": ["disambiguate", "suggest-tags", "propose-edges", "expand", "compress", "question", "summarise"],
+      "description": "A closed set. An open 'prompt' field would make the boundary unauditable, because nobody could say afterwards what the assistant was asked to do."
+    },
+    "requestedBy": { "type": "string", "description": "Which module asked. Carried from emergence's LLM_CONTRACT: no untraceable calls." },
+    "reason":      { "type": "string", "minLength": 4, "description": "Human-readable why. Shown to the person before sending." },
+    "content": {
+      "type": "array",
+      "description": "The only text that leaves. Each item was explicitly handed over; nothing here was read from the vault or swept from the lattice.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "text"],
+        "properties": {
+          "field":  { "type": "string", "description": "Which allowlisted field this came from." },
+          "text":   { "type": "string" },
+          "nodeId": { "type": ["string", "null"], "description": "Local reference only. Never sent — stripped before transport, kept for mapping the response back." }
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxChars"],
+      "properties": {
+        "maxChars":    { "type": "integer", "minimum": 1, "maximum": 20000 },
+        "maxItems":    { "type": "integer", "minimum": 1 },
+        "maxTokens":   { "type": ["integer", "null"] },
+        "timeoutMs":   { "type": ["integer", "null"] }
+      }
+    },
+    "provider": { "type": "string", "enum": ["local", "cloud"], "default": "local", "description": "Local first. Cloud is never the default path." }
+  }
+}

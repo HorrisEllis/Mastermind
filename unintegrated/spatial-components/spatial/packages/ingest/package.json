@@ -1,0 +1,15 @@
+{
+  "name": "@spatial/ingest",
+  "version": "1.0.0",
+  "description": "File upload, Notion import, and social media ingestion. Text flows to @spatial/kernel text module. No platform lock-in. §P1 behavioral geometry only.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./file": "./src/file.js",
+    "./notion": "./src/notion.js",
+    "./social": "./src/social.js"
+  },
+  "peerDependencies": { "@spatial/bus": "^1.0.0" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

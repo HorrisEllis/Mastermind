@@ -1,0 +1,26 @@
+{
+  "cpt": {
+    "name": "CPT Reframe",
+    "desc": "Identify the core belief. Challenge its evidence. Develop a balanced perspective."
+  },
+  "sovereignty": {
+    "name": "Sovereignty Method",
+    "desc": "Reclaim agency. What is actually within your control?"
+  },
+  "contrast": {
+    "name": "Contrast Thinking",
+    "desc": "What is this NOT? The contrast reveals the structure."
+  },
+  "existential": {
+    "name": "Existential Rewrite",
+    "desc": "What fundamental question does this situation point to?"
+  },
+  "invert": {
+    "name": "Inversion",
+    "desc": "Assume the opposite is true. What does that reveal?"
+  },
+  "meaning": {
+    "name": "Meaning Making",
+    "desc": "What does this experience mean? What does it point toward?"
+  }
+}

@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — SNR Gate 3D</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'Courier New',monospace; }
+
+#canvas3d { position:fixed; inset:0; }
+
+/* HUD */
+#hud {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  pointer-events:none; z-index:10;
+}
+
+/* Top bar */
+.topbar {
+  position:absolute; top:0; left:0; right:0; height:48px;
+  background:linear-gradient(180deg,rgba(0,0,0,.85) 0%,transparent 100%);
+  display:flex; align-items:center; padding:0 20px; gap:16px;
+}
+.logo { font-size:11px; font-weight:700; letter-spacing:.3em; color:#ff6b35; }
+.logo-sub { font-size:8px; color:rgba(255,107,53,.5); letter-spacing:.15em; }
+.sep { width:1px; height:18px; background:rgba(255,255,255,.1); }
+.stat { display:flex; flex-direction:column; align-items:center; }
+.stat-v { font-size:14px; font-weight:700; line-height:1; }
+.stat-l { font-size:7px; color:rgba(255,255,255,.4); letter-spacing:.08em; margin-top:1px; }
+.spacer { flex:1; }
+.version { font-size:8px; color:rgba(255,255,255,.25); letter-spacing:.1em; }
+
+/* Gate readout — center */
+.gate-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; pointer-events:none;
+}
+.gate-id {
+  font-size:9px; color:rgba(255,107,53,.6); letter-spacing:.2em;
+  margin-bottom:6px; font-family:'Courier New',monospace;
+}
+.gate-result {
+  font-size:32px; font-weight:700; letter-spacing:.1em;
+  text-shadow:0 0 40px currentColor;
+  transition:all .3s;
+}
+.gate-result.pass  { color:#00e5a0; }
+.gate-result.block { color:#ff4060; }
+.gate-result.idle  { color:rgba(255,255,255,.15); }
+.gate-fidelity {
+  font-size:11px; letter-spacing:.15em; margin-top:6px;
+  color:rgba(255,255,255,.4);
+}
+.gate-reason {
+  font-size:8px; color:rgba(255,255,255,.3); margin-top:4px;
+  letter-spacing:.08em; max-width:300px;
+}
+
+/* Right panel */
+.rpanel {
+  position:absolute; top:60px; right:16px; width:220px;
+  display:flex; flex-direction:column; gap:8px;
+  pointer-events:all;
+}
+.panel-block {
+  background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.07);
+  border-radius:2px; padding:10px 12px;
+  backdrop-filter:blur(4px);
+}
+.pb-title {
+  font-size:8px; letter-spacing:.15em; color:rgba(255,255,255,.35);
+  text-transform:uppercase; margin-bottom:8px;
+}
+.pb-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+.pb-k { font-size:8px; color:rgba(255,255,255,.35); }
+.pb-v { font-size:9px; font-weight:700; }
+.pb-v.g { color:#00e5a0; }
+.pb-v.r { color:#ff4060; }
+.pb-v.o { color:#ffd740; }
+.pb-v.b { color:#4fc3f7; }
+
+/* Check input */
+.check-input-wrap {
+  background:rgba(0,0,0,.7); border:1px solid rgba(255,107,53,.3);
+  border-radius:2px; display:flex; align-items:center; gap:6px; padding:6px 10px;
+}
+.check-input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:#fff; font-family:'Courier New',monospace; font-size:10px;
+}
+.check-input::placeholder { color:rgba(255,255,255,.2); }
+.check-btn {
+  padding:4px 10px; background:rgba(255,107,53,.15); border:1px solid rgba(255,107,53,.4);
+  color:#ff6b35; font-family:'Courier New',monospace; font-size:9px; font-weight:700;
+  letter-spacing:.1em; cursor:pointer; border-radius:1px; transition:all .15s;
+}
+.check-btn:hover { background:rgba(255,107,53,.25); }
+
+/* Rule list */
+.rule-list { max-height:160px; overflow-y:auto; }
+.rule-list::-webkit-scrollbar { width:2px; }
+.rule-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); }
+.rule-item { display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+.ri-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.ri-name { font-size:8px; color:rgba(255,255,255,.5); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ri-type { font-size:7px; color:rgba(255,255,255,.25); }
+.ri-del { cursor:pointer; color:rgba(255,64,96,.4); font-size:10px; padding:0 2px; flex-shrink:0; }
+.ri-del:hover { color:#ff4060; }
+
+/* Add rule */
+.add-rule-form { display:flex; flex-direction:column; gap:5px; }
+.ar-row { display:flex; gap:5px; }
+.ar-in, .ar-sel {
+  flex:1; padding:4px 6px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  color:#fff; font-family:'Courier New',monospace; font-size:9px; border-radius:1px; outline:none;
+}
+.ar-sel option { background:#111; }
+.ar-in::placeholder { color:rgba(255,255,255,.2); }
+.ar-in:focus, .ar-sel:focus { border-color:rgba(255,107,53,.4); }
+.ar-go {
+  padding:4px 8px; background:rgba(0,229,160,.1); border:1px solid rgba(0,229,160,.3);
+  color:#00e5a0; font-family:'Courier New',monospace; font-size:8px; font-weight:700;
+  letter-spacing:.08em; cursor:pointer; border-radius:1px; transition:all .15s; width:100%;
+}
+.ar-go:hover { background:rgba(0,229,160,.18); }
+
+/* Log strip — bottom */
+.log-strip {
+  position:absolute; bottom:0; left:0; right:0; height:28px;
+  background:linear-gradient(0deg,rgba(0,0,0,.85) 0%,transparent 100%);
+  display:flex; align-items:center; padding:0 16px; gap:16px; overflow:hidden;
+}
+.log-entry {
+  font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.06em; white-space:nowrap;
+  animation:logfade 8s ease forwards;
+}
+.log-entry.pass  { color:rgba(0,229,160,.5); }
+.log-entry.block { color:rgba(255,64,96,.5); }
+@keyframes logfade { 0%{opacity:.8}70%{opacity:.8}100%{opacity:0} }
+
+/* Preset buttons */
+.preset-row { display:flex; gap:4px; flex-wrap:wrap; }
+.preset-btn {
+  padding:3px 8px; border:1px solid rgba(255,255,255,.1); background:transparent;
+  color:rgba(255,255,255,.4); font-family:'Courier New',monospace; font-size:8px;
+  cursor:pointer; border-radius:1px; transition:all .15s; letter-spacing:.06em;
+}
+.preset-btn:hover { border-color:rgba(255,255,255,.3); color:rgba(255,255,255,.8); }
+.preset-btn.act { border-color:#ff6b35; color:#ff6b35; background:rgba(255,107,53,.08); }
+
+/* Fidelity slider */
+input[type=range] {
+  width:100%; height:2px; background:rgba(255,255,255,.1); outline:none;
+  -webkit-appearance:none; cursor:pointer; border-radius:1px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:10px; height:10px; border-radius:50%;
+  background:#ff6b35; cursor:pointer;
+}
+
+
+/* Bridge status bar */
+.bridge-bar {
+  position:absolute; top:48px; left:0; right:0; height:24px;
+  display:flex; align-items:center; padding:0 20px; gap:12px;
+  background:rgba(0,0,0,.6); backdrop-filter:blur(4px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  pointer-events:none;
+}
+.bridge-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:#333; flex-shrink:0;
+  transition:background .3s;
+}
+.bridge-dot.live { background:#00e5a0; box-shadow:0 0 6px #00e5a0; }
+.bridge-dot.demo { background:#ffd740; box-shadow:0 0 6px #ffd740; }
+.bridge-dot.connecting { background:#4fc3f7; animation:pulse-dot 1s ease infinite; }
+.bridge-label { font-size:8px; letter-spacing:.15em; color:rgba(255,255,255,.35); }
+.bridge-label.live { color:#00e5a0; }
+.bridge-label.demo { color:#ffd740; }
+.bridge-port { font-size:8px; color:rgba(255,255,255,.2); margin-left:auto; }
+.webrtc-dot { width:5px; height:5px; border-radius:50%; background:#333; }
+.webrtc-dot.open { background:#9b6bff; box-shadow:0 0 5px #9b6bff; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Demo mode overlay pulse */
+.demo-ramp {
+  position:fixed; inset:0; pointer-events:none; z-index:5;
+  border:2px solid transparent; transition:border-color .1s;
+}
+.demo-ramp.active { border-color:rgba(255,215,64,.15); }
+
+/* Toast */
+.toast {
+  position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
+  padding:6px 16px; background:rgba(0,0,0,.9); border:1px solid rgba(255,255,255,.1);
+  font-size:9px; color:rgba(255,255,255,.6); letter-spacing:.1em;
+  border-radius:2px; pointer-events:none; z-index:100;
+  animation:toastin .2s ease, toastout .3s 2.5s ease forwards;
+}
+@keyframes toastin  { from{opacity:0;transform:translateX(-50%) translateY(5px)}to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes toastout { to{opacity:0} }
+</style>
+</head>
+<body>
+
+<canvas id="canvas3d"></canvas>
+
+<div id="hud">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="logo">⬡ SNR GATE</div>
+      <div class="logo-sub">SIGNAL / NOISE RATIO ENGINE</div>
+    </div>
+    <div class="sep"></div>
+    <div class="stat"><div class="stat-v" style="color:#00e5a0" id="s-pass">0</div><div class="stat-l">PASSED</div></div>
+    <div class="stat"><div class="stat-v" style="color:#ff4060" id="s-block">0</div><div class="stat-l">BLOCKED</div></div>
+    <div class="stat"><div class="stat-v" style="color:#4fc3f7" id="s-rules">0</div><div class="stat-l">RULES</div></div>
+    <div class="stat"><div class="stat-v" style="color:#ffd740" id="s-pct">—</div><div class="stat-l">PASS RATE</div></div>
+    <div class="spacer"></div>
+    <div class="version">v1.0.1 · UUID: snr-filter-module-v1000</div>
+  </div>
+
+  <!-- BRIDGE STATUS BAR -->
+  <div class="bridge-bar" id="bridge-bar">
+    <div class="bridge-dot" id="bridge-dot"></div>
+    <div class="bridge-label" id="bridge-label">SCANNING BRIDGE...</div>
+    <div class="bridge-port" id="bridge-port"></div>
+    <div class="webrtc-dot" id="webrtc-dot" title="WebRTC P2P"></div>
+    <div style="font-size:8px;color:rgba(255,255,255,.15);letter-spacing:.1em" id="webrtc-label">P2P</div>
+  </div>
+  <div class="demo-ramp" id="demo-ramp"></div>
+
+  <!-- GATE CENTER -->
+  <div class="gate-center">
+    <div class="gate-id" id="gate-id">GATE ID: —</div>
+    <div class="gate-result idle" id="gate-result">READY</div>
+    <div class="gate-fidelity" id="gate-fidelity">FIDELITY — / 10</div>
+    <div class="gate-reason" id="gate-reason">run a check to activate the gate</div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="rpanel">
+
+    <!-- CHECK -->
+    <div class="panel-block">
+      <div class="pb-title">GATE CHECK</div>
+      <div class="check-input-wrap">
+        <input class="check-input" id="check-input" placeholder="url, domain, or ip..." value="https://doubleclick.net/ad"/>
+      </div>
+      <div style="margin-top:6px">
+        <button class="ar-go" onclick="runCheck()">⬡ GATE CHECK</button>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="panel-block">
+      <div class="pb-title">GATE STATS</div>
+      <div class="pb-row"><div class="pb-k">Checked</div><div class="pb-v b" id="st-checked">0</div></div>
+      <div class="pb-row"><div class="pb-k">Passed</div><div class="pb-v g" id="st-passed">0</div></div>
+      <div class="pb-row"><div class="pb-k">Blocked</div><div class="pb-v r" id="st-blocked">0</div></div>
+      <div class="pb-row"><div class="pb-k">Rules</div><div class="pb-v b" id="st-rules">0</div></div>
+      <div class="pb-row" style="border:none"><div class="pb-k">Errors</div><div class="pb-v o" id="st-errors">0</div></div>
+    </div>
+
+    <!-- PRESETS -->
+    <div class="panel-block">
+      <div class="pb-title">PRESETS</div>
+      <div class="preset-row">
+        <button class="preset-btn" id="pre-adblocker" onclick="applyPreset('adblocker')">ADBLOCKER</button>
+        <button class="preset-btn" id="pre-privacy"   onclick="applyPreset('privacy')">PRIVACY</button>
+        <button class="preset-btn" id="pre-security"  onclick="applyPreset('security')">SECURITY</button>
+        <button class="preset-btn" id="pre-permissive" onclick="applyPreset('permissive')">PERMISSIVE</button>
+      </div>
+      <div style="margin-top:8px">
+        <div class="pb-k" style="margin-bottom:4px">THRESHOLD (≥ = PASS)</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" min="0" max="10" step="0.5" value="5" id="threshold-slider" oninput="updateThreshold(this.value)"/>
+          <div class="pb-v b" id="threshold-val">5</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD RULE -->
+    <div class="panel-block">
+      <div class="pb-title">ADD RULE</div>
+      <div class="add-rule-form">
+        <input class="ar-in" id="ar-pattern" placeholder="pattern (domain, url, regex, hash, ip)"/>
+        <div class="ar-row">
+          <select class="ar-sel" id="ar-type">
+            <option value="domain">domain</option>
+            <option value="url">url</option>
+            <option value="regex">regex</option>
+            <option value="hash">hash</option>
+            <option value="ip">ip</option>
+            <option value="content">content</option>
+            <option value="intent">intent</option>
+          </select>
+          <select class="ar-sel" id="ar-signal">
+            <option value="false">BLOCK</option>
+            <option value="true">ALLOW</option>
+          </select>
+        </div>
+        <div class="ar-row">
+          <div style="font-size:8px;color:rgba(255,255,255,.35);flex:1">Fidelity</div>
+          <input type="range" min="0" max="10" step="1" value="7" id="ar-fidelity" style="flex:2" oninput="document.getElementById('ar-fid-val').textContent=this.value"/>
+          <div class="pb-v b" id="ar-fid-val" style="min-width:16px;text-align:right">7</div>
+        </div>
+        <button class="ar-go" onclick="addCustomRule()">＋ ADD RULE</button>
+      </div>
+    </div>
+
+    <!-- ACTIVE RULES -->
+    <div class="panel-block">
+      <div class="pb-title" style="display:flex;justify-content:space-between">
+        ACTIVE RULES <span id="rule-count" style="color:#4fc3f7">0</span>
+      </div>
+      <div class="rule-list" id="rule-list"></div>
+      <button class="ar-go" style="margin-top:6px;background:rgba(255,64,96,.08);border-color:rgba(255,64,96,.2);color:rgba(255,64,96,.7)" onclick="clearAllRules()">✕ CLEAR ALL</button>
+    </div>
+
+  </div>
+
+  <!-- LOG STRIP -->
+  <div class="log-strip" id="log-strip"></div>
+</div>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SNR FILTER — Browser-embedded v1.0.1 (Node APIs shimmed)
+// ═══════════════════════════════════════════════════════════════
+
+// ── Node API shims for browser ──────────────────────────────
+const crypto = {
+  randomUUID: () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);}),
+  randomBytes: (n) => { const b=new Uint8Array(n); crypto.getRandomValues(b); return { toString:(enc)=>Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('') }; },
+  getRandomValues: (arr) => { for(let i=0;i<arr.length;i++) arr[i]=Math.floor(Math.random()*256); return arr; },
+  scryptSync: (pwd,salt,n) => { /* stub — encryption disabled in browser mode */ return new Uint8Array(32); },
+  createCipheriv: () => ({ update:(d)=>d, final:()=>'', getAuthTag:()=>({toString:()=>''}) }),
+  createDecipheriv: () => ({ setAuthTag:()=>{}, update:(d)=>d, final:()=>'' }),
+};
+// Override with real browser crypto UUID
+if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+  crypto.randomUUID = () => window.crypto.randomUUID();
+}
+const fs = {
+  existsSync:()=>false, readFileSync:()=>'', writeFileSync:()=>{}, appendFileSync:()=>{},
+  statSync:()=>({size:0}), renameSync:()=>{}, unlinkSync:()=>{}, mkdirSync:()=>{}
+};
+const path = { join:(...a)=>a.join('/'), dirname:(p)=>p.split('/').slice(0,-1).join('/') };
+
+// ═══════════════════════════════════════════════════════════════
+// SNR FILTER CORE — v1.0.1 embedded
+// ═══════════════════════════════════════════════════════════════
+const VERSION             = '1.0.1';
+const MODULE_UUID         = 'snr-filter-module-v1000-0000-000000000001';
+const FIDELITY_SIGNAL_MIN = 5;
+const FIDELITY_MAX        = 10;
+const FIDELITY_MIN        = 0;
+const MAX_MEM_LOGS        = 1000;
+const DEFAULT_ACTION      = 'pass';
+
+const PATCH_ALLOWLIST = new Set(['name','pattern','fidelity','signal','enabled','priority','source','tags']);
+const VALID_RULE_TYPES = new Set(['domain','url','regex','hash','ip','content','intent','uuid']);
+
+const HOOKS = {
+  CHECK:'snr.gate.check', RULE_ADD:'snr.rule.add', RULE_REMOVE:'snr.rule.remove',
+  IMPORT:'snr.import', LOG_ENTRY:'snr.log.entry', PRIORITY_SET:'snr.priority.set',
+  FIDELITY_SET:'snr.fidelity.set', PROFILE_SAVE:'snr.profile.save',
+  PROFILE_LOAD:'snr.profile.load', PERSIST:'snr.persist', ERROR:'snr.error',
+};
+const RULE_TYPES = { DOMAIN:'domain', URL:'url', REGEX:'regex', HASH:'hash', IP:'ip', CONTENT:'content', INTENT:'intent', UUID:'uuid' };
+
+function safeStringify(obj) {
+  try { return JSON.stringify(obj); }
+  catch { const s=new WeakSet(); return JSON.stringify(obj,(k,v)=>{if(typeof v==='object'&&v!==null){if(s.has(v))return'[Circular]';s.add(v);}return v;}); }
+}
+function safeRegexTest(regex, input, maxLen=5000) {
+  if (!regex) return false;
+  const safe = typeof input==='string'?input.slice(0,maxLen):String(input||'').slice(0,maxLen);
+  try { return regex.test(safe); } catch { return false; }
+}
+function isHighRiskRegex(pattern) {
+  return /(\(.*\+\)|\(.*\*\)).*\+/.test(pattern)||/(\.\*){2,}/.test(pattern)||/\([^)]+\)\{[0-9]*,/.test(pattern);
+}
+
+class SNRFilter {
+  constructor(opts={}) {
+    this.id            = opts.id      || 'snr:'+crypto.randomUUID().slice(0,8);
+    this.uuid          = MODULE_UUID;
+    this.name          = opts.name    || 'SNR Filter';
+    this.version       = VERSION;
+    this.rules         = new Map();
+    this.profiles      = new Map();
+    this.logs          = [];
+    this.maxLogs       = opts.maxLogs || MAX_MEM_LOGS;
+    this.defaultAction = opts.defaultAction || DEFAULT_ACTION;
+    this._stats        = {checked:0,passed:0,blocked:0,errors:0};
+    this._hooks        = new Map();
+    this._busEmit      = null;
+    this._threshold    = opts.threshold ?? FIDELITY_SIGNAL_MIN;
+  }
+
+  connectBus(fn) { this._busEmit = typeof fn==='function'?fn:null; }
+  _bus(type,data,level='INFO') { if(this._busEmit)try{this._busEmit('snr:'+type,data,level);}catch{} }
+  on(hookId,fn) {
+    if(!this._hooks.has(hookId))this._hooks.set(hookId,[]);
+    this._hooks.get(hookId).push(fn);
+    return ()=>this._hooks.set(hookId,(this._hooks.get(hookId)||[]).filter(f=>f!==fn));
+  }
+  _emit(hookId,data) {
+    const ts=Date.now();
+    const fire=arr=>arr.forEach(fn=>{try{fn({hookId,data,ts});}catch{}});
+    fire(this._hooks.get(hookId)||[]); fire(this._hooks.get('*')||[]);
+  }
+
+  get size() { return this.rules.size; }
+
+  setThreshold(v) { this._threshold = Math.max(0,Math.min(10,Number(v)||5)); }
+
+  addRule(rule) {
+    if(!rule||typeof rule!=='object')throw new Error('addRule: rule object required');
+    const id   = rule.id||'rule:'+crypto.randomUUID().slice(0,12);
+    const type = rule.type||RULE_TYPES.DOMAIN;
+    if(!VALID_RULE_TYPES.has(type)) this._emitError('unknown_rule_type',`type "${type}" unknown`,id);
+    const r = {
+      id, uuid:rule.uuid||'snr:rule:'+id, name:rule.name||id, type,
+      pattern:rule.pattern||'*', fidelity:this._clamp(rule.fidelity??7),
+      signal:rule.signal!==false, enabled:rule.enabled!==false, priority:rule.priority??50,
+      source:rule.source||'manual', tags:Array.isArray(rule.tags)?[...rule.tags]:[],
+      created:rule.created||new Date().toISOString(), hitCount:rule.hitCount||0,
+    };
+    if(r.type===RULE_TYPES.REGEX) {
+      if(isHighRiskRegex(r.pattern)){this._emitError('redos_risk',`Pattern matches ReDoS heuristic — DISABLED`,id);r._regex=null;}
+      else{try{r._regex=new RegExp(r.pattern,'i');}catch{r._regex=null;}}
+    }
+    if(r.type===RULE_TYPES.DOMAIN) r._domainPattern=r.pattern.replace(/^\*\./,'').toLowerCase();
+    this.rules.set(id,r);
+    this._emit(HOOKS.RULE_ADD,r);
+    this._bus('rule.add',{id,name:r.name,fidelity:r.fidelity,signal:r.signal});
+    return id;
+  }
+
+  removeRule(id) {
+    const r=this.rules.get(id); if(!r)return false;
+    this.rules.delete(id); this._emit(HOOKS.RULE_REMOVE,{id}); return true;
+  }
+
+  check(data) {
+    if(this._stats.checked<Number.MAX_SAFE_INTEGER) this._stats.checked++;
+    const ctx    = this._normalise(data);
+    const gateId = 'gate:'+crypto.randomUUID().slice(0,8);
+    const ts     = Date.now();
+    const threshold = this._threshold;
+
+    const sorted = [...this.rules.values()].filter(r=>r.enabled).sort((a,b)=>(b.priority-a.priority)||(b.fidelity-a.fidelity));
+
+    for(const rule of sorted) {
+      if(!this._matches(rule,ctx)) continue;
+      if(rule.hitCount<Number.MAX_SAFE_INTEGER) rule.hitCount++;
+      const pass = rule.signal && rule.fidelity >= threshold;
+      const result = {
+        pass, fidelity:rule.fidelity,
+        rule:{id:rule.id,name:rule.name,uuid:rule.uuid,fidelity:rule.fidelity,signal:rule.signal,type:rule.type},
+        reason: pass
+          ? `Signal: fidelity ${rule.fidelity} ≥ ${threshold} — PASS`
+          : `Noise: ${rule.signal?'fidelity '+rule.fidelity+' < '+threshold:'rule marked NOISE'} — BLOCK`,
+        gateId, ctx, ts,
+      };
+      if(pass){if(this._stats.passed<Number.MAX_SAFE_INTEGER)this._stats.passed++;}
+      else    {if(this._stats.blocked<Number.MAX_SAFE_INTEGER)this._stats.blocked++;}
+      this._emit(HOOKS.CHECK,result);
+      this._bus('gate.check',{gateId,pass,fidelity:rule.fidelity,ruleId:rule.id});
+      return result;
+    }
+
+    const defaultPass = this.defaultAction!=='block';
+    if(defaultPass){if(this._stats.passed<Number.MAX_SAFE_INTEGER)this._stats.passed++;}
+    else           {if(this._stats.blocked<Number.MAX_SAFE_INTEGER)this._stats.blocked++;}
+    const result = { pass:defaultPass, fidelity:threshold, rule:null, reason:`No rule matched — default ${defaultPass?'PASS':'BLOCK'}`, gateId, ctx, ts };
+    this._emit(HOOKS.CHECK,result);
+    return result;
+  }
+
+  _normalise(data) {
+    if(typeof data==='string'){
+      if(data.startsWith('http://')||data.startsWith('https://')){
+        try{const u=new URL(data);return{url:data,domain:u.hostname,path:u.pathname,intent:null,ip:null,hash:null,uuid:null,content:null,raw:data};}catch{}
+      }
+      return{url:null,domain:data,path:null,intent:null,ip:null,hash:null,uuid:null,content:null,raw:data};
+    }
+    if(!data||typeof data!=='object')return{url:null,domain:null,path:null,intent:null,ip:null,hash:null,uuid:null,content:null,raw:String(data||'')};
+    return{url:data.url||null,domain:data.domain||null,path:data.path||null,intent:data.intent||null,ip:data.ip||null,hash:data.hash||null,uuid:data.uuid||null,content:data.content||null,raw:safeStringify(data)};
+  }
+
+  _matches(rule,ctx) {
+    const p=(rule.pattern||'').toLowerCase();
+    switch(rule.type){
+      case RULE_TYPES.DOMAIN:{
+        if(!ctx.domain)return false;
+        const d=ctx.domain.toLowerCase(),isW=rule.pattern.startsWith('*.');
+        if(p==='*')return true;
+        if(isW)return d.endsWith('.'+rule._domainPattern);
+        return d===rule._domainPattern||d.endsWith('.'+rule._domainPattern);
+      }
+      case RULE_TYPES.URL:     return ctx.url?ctx.url.toLowerCase().includes(p):false;
+      case RULE_TYPES.REGEX:   return safeRegexTest(rule._regex,ctx.raw||'');
+      case RULE_TYPES.HASH:    return ctx.hash?ctx.hash.toLowerCase()===p:false;
+      case RULE_TYPES.IP:      return ctx.ip?this._ipMatches(ctx.ip,rule.pattern):false;
+      case RULE_TYPES.CONTENT: return ctx.content?ctx.content.toLowerCase().includes(p):false;
+      case RULE_TYPES.INTENT:  return ctx.intent?ctx.intent.toLowerCase()===p:false;
+      case RULE_TYPES.UUID:    return ctx.uuid?ctx.uuid===rule.pattern:false;
+      default: return false;
+    }
+  }
+
+  _ipMatches(ip,pattern){
+    if(!ip||!pattern)return false;
+    if(ip===pattern)return true;
+    if(pattern.endsWith('*'))return ip.startsWith(pattern.slice(0,-1));
+    if(pattern.includes('/')){
+      const[net,b]=pattern.split('/'),bits=parseInt(b,10);
+      if(net.includes('.')&&ip.includes('.')){
+        const ti=a=>a.split('.').reduce((acc,x,i)=>acc|(parseInt(x,10)<<(24-8*i)),0)|0;
+        const mask=bits===0?0:~((1<<(32-bits))-1);
+        return(ti(ip)&mask)===(ti(net)&mask);
+      }
+    }
+    return false;
+  }
+
+  importBlacklist(domains,opts={}){return this._bulk(domains,false,{fidelity:6,source:'blacklist',priority:50,...opts});}
+  importWhitelist(domains,opts={}){return this._bulk(domains,true,{fidelity:10,source:'whitelist',priority:100,...opts});}
+  _bulk(domains,signal,opts){
+    const list=Array.isArray(domains)?domains:String(domains).split(/[\n,\s]+/).filter(Boolean);
+    let imported=0;
+    for(const d of list){const domain=d.trim();if(!domain)continue;const type=domain.startsWith('/')?'regex':domain.includes('/')&&!domain.includes('.')?'url':'domain';this.addRule({name:`${signal?'white':'black'}:${domain}`,type,pattern:domain,fidelity:opts.fidelity||7,signal,source:opts.source||'manual',priority:opts.priority||50,tags:opts.tags||[]});imported++;}
+    return{imported};
+  }
+
+  stats(){
+    const t=this._stats.checked||0;
+    return{...this._stats,rules:this.rules.size,passRate:t?Math.round(this._stats.passed/t*100)+'%':'—',blockRate:t?Math.round(this._stats.blocked/t*100)+'%':'—'};
+  }
+  listRules(){return[...this.rules.values()].sort((a,b)=>(b.priority-a.priority)||(b.fidelity-a.fidelity));}
+
+  _clamp(v){const n=Number(v);return isNaN(n)?7:Math.max(FIDELITY_MIN,Math.min(FIDELITY_MAX,n));}
+  _emitError(code,msg,ctx=null){if(this._stats.errors<Number.MAX_SAFE_INTEGER)this._stats.errors++;this._emit(HOOKS.ERROR,{code,message:msg,context:ctx});this._bus('error',{code,message:msg,context:ctx},'ERROR');}
+}
+
+SNRFilter.PRESETS = {
+  adblocker:(f)=>{f.defaultAction='pass';['doubleclick.net','googlesyndication.com','adservice.google.com','ads.twitter.com','facebook.net','scorecardresearch.com','quantserve.com','amazon-adsystem.com','moatads.com','pubmatic.com','rubiconproject.com','openx.net','criteo.com','taboola.com','outbrain.com','adsrvr.org','advertising.com','adnxs.com'].forEach(d=>f.addRule({name:`ad:${d}`,type:'domain',pattern:d,fidelity:8,signal:false,source:'preset:ads',priority:70,tags:['ads','preset']}));},
+  privacy:(f)=>{['google-analytics.com','googletagmanager.com','hotjar.com','mixpanel.com','amplitude.com','segment.io','heap.io','fullstory.com','logrocket.com','mouseflow.com','clarity.ms','newrelic.com','datadog.com','sentry.io','bugsnag.com','rollbar.com','intercom.io'].forEach(d=>f.addRule({name:`tracker:${d}`,type:'domain',pattern:d,fidelity:8,signal:false,source:'preset:privacy',priority:70,tags:['trackers','privacy','preset']}));},
+  security:(f)=>{f.defaultAction='pass';[{name:'sec:suspicious-exec',pattern:'(eval|exec|cmd\\.exe|powershell)',fidelity:6},{name:'sec:sql-injection',pattern:"(union\\s+select|drop\\s+table|insert\\s+into)",fidelity:8},{name:'sec:xss',pattern:'<script[\\s\\S]*?>',fidelity:8},{name:'sec:path-traversal',pattern:'\\.\\./|%2e%2e/',fidelity:7}].forEach(r=>f.addRule({...r,type:'regex',signal:false,source:'preset:security',priority:80,tags:['security','preset']}));},
+  permissive:(f)=>{f.defaultAction='pass';['malware.com','phishing.net','ransomware.io'].forEach(d=>f.addRule({name:`block:${d}`,type:'domain',pattern:d,fidelity:10,signal:false,source:'preset:permissive',priority:100,tags:['malware','preset']}));},
+};
+SNRFilter.HOOKS      = HOOKS;
+SNRFilter.RULE_TYPES = RULE_TYPES;
+
+
+// ═══════════════════════════════════════════════════════════════
+// BRIDGE CONNECTION — real HTTP poll + SSE + WebRTC
+// ═══════════════════════════════════════════════════════════════
+
+const BRIDGE_PORTS   = [3747, 3748, 3749, 3750];
+const BRIDGE_HOST    = '127.0.0.1';
+const POLL_INTERVAL  = 5000;   // health re-check ms
+const SSE_RETRY      = 3000;   // SSE reconnect ms
+
+let bridgeUrl     = null;  // 'http://127.0.0.1:3747'
+let bridgePort    = null;
+let sseSource     = null;
+let rtcPeer       = null;
+let rtcChannel    = null;
+let bridgeLive    = false;
+let demoActive    = false;
+let demoInterval  = null;
+let demoRate      = 1;          // checks/sec, ramps up
+let demoStartTime = 0;
+const DEMO_MAX_RATE = 20;
+const DEMO_RAMP_SEC = 30;
+
+// ── UI state helpers ──────────────────────────────────────────
+function setBridgeUI(state, label, port) {
+  const dot   = document.getElementById('bridge-dot');
+  const lbl   = document.getElementById('bridge-label');
+  const portEl= document.getElementById('bridge-port');
+  dot.className  = 'bridge-dot ' + state;
+  lbl.className  = 'bridge-label ' + state;
+  lbl.textContent = label;
+  portEl.textContent = port ? ':' + port : '';
+}
+
+function setWebRTCUI(open) {
+  const d = document.getElementById('webrtc-dot');
+  const l = document.getElementById('webrtc-label');
+  d.className = 'webrtc-dot' + (open ? ' open' : '');
+  l.style.color = open ? 'rgba(155,107,255,.7)' : 'rgba(255,255,255,.15)';
+}
+
+// ── Bridge discovery ──────────────────────────────────────────
+async function tryPort(port) {
+  try {
+    const r = await fetch(`http://${BRIDGE_HOST}:${port}/health`, { signal: AbortSignal.timeout(1200) });
+    if (r.ok) return await r.json();
+  } catch {}
+  return null;
+}
+
+async function discoverBridge() {
+  setBridgeUI('connecting', 'SCANNING BRIDGE...', null);
+  for (const port of BRIDGE_PORTS) {
+    const health = await tryPort(port);
+    if (health) {
+      bridgeUrl  = `http://${BRIDGE_HOST}:${port}`;
+      bridgePort = port;
+      bridgeLive = true;
+      setBridgeUI('live', '⬡ BRIDGE LIVE', port);
+      onBridgeConnected(health);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function onBridgeConnected(health) {
+  stopDemo();
+  connectSSE();
+  fetchP2PInfo();
+  // Push local SNR rules to bridge (background — non-blocking)
+  syncRulesToBridge().catch(() => {});
+}
+
+// ── SSE event stream → 3D mesh ────────────────────────────────
+function connectSSE() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  if (!bridgeUrl) return;
+
+  sseSource = new EventSource(`${bridgeUrl}/events`);
+
+  sseSource.onmessage = (e) => {
+    try {
+      const evt = JSON.parse(e.data);
+      // SNR gate check events from bridge
+      if (evt.type && (evt.type.startsWith('snr:') || evt.type === 'gate:check')) {
+        const d = evt.data || {};
+        if (typeof d.pass !== 'undefined') {
+          // Synthesize a result compatible with on3DGateEvent
+          on3DGateEvent({
+            pass:     d.pass,
+            fidelity: d.fidelity ?? 5,
+            gateId:   d.gateId  ?? ('gate:' + Math.random().toString(16).slice(2,10)),
+            reason:   d.pass ? 'Signal (bridge)' : 'Noise (bridge)',
+            ctx:      { url: d.url || null, domain: d.domain || null },
+          });
+        }
+      }
+    } catch {}
+  };
+
+  sseSource.onerror = () => {
+    // SSE dropped — check if bridge is still up
+    sseSource.close(); sseSource = null;
+    setTimeout(async () => {
+      const ok = await tryPort(bridgePort);
+      if (ok) {
+        connectSSE();
+      } else {
+        onBridgeLost();
+      }
+    }, SSE_RETRY);
+  };
+}
+
+function onBridgeLost() {
+  bridgeLive = false; bridgeUrl = null; bridgePort = null;
+  setBridgeUI('demo', 'NO BRIDGE — DEMO MODE', null);
+  setWebRTCUI(false);
+  closeRTC();
+  startDemo();
+  // Keep polling for bridge to come back
+  scheduleBridgePoll();
+}
+
+function scheduleBridgePoll() {
+  setTimeout(async () => {
+    const found = await discoverBridge();
+    if (!found) scheduleBridgePoll();
+  }, POLL_INTERVAL);
+}
+
+// ── SNR check — real bridge or local fallback ─────────────────
+async function bridgeCheck(input) {
+  if (!bridgeLive) {
+    // Local SNR (already wired via hook)
+    return snr.check(input);
+  }
+  try {
+    const body = typeof input === 'string'
+      ? { url: input.startsWith('http') ? input : null, domain: input }
+      : input;
+    const r = await fetch(`${bridgeUrl}/snr/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (r.ok) {
+      const result = await r.json();
+      // Also trigger 3D animation for real bridge results
+      on3DGateEvent(result);
+      updateStats();
+      addLog(result);
+      return result;
+    }
+  } catch {}
+  // Bridge unreachable — fall through to local
+  return snr.check(input);
+}
+
+async function syncRulesToBridge() {
+  if (!bridgeLive) return;
+  // GET current bridge rules
+  const r = await fetch(`${bridgeUrl}/snr/rules`, { signal: AbortSignal.timeout(2000) });
+  if (!r.ok) return;
+  // Bridge already has rules — don't overwrite, just update stats
+  const data = await r.json();
+  // Could merge here; for now just reflect bridge rule count
+  const el = document.getElementById('s-rules');
+  if (el && data.rules !== undefined) el.textContent = data.rules;
+}
+
+// ── TURN / WebRTC ─────────────────────────────────────────────
+async function fetchP2PInfo() {
+  if (!bridgeUrl) return;
+  try {
+    const r = await fetch(`${bridgeUrl}/p2p/info`, { signal: AbortSignal.timeout(2000) });
+    if (!r.ok) return;
+    const info = await r.json();
+    buildRTCPeer(info);
+  } catch {}
+}
+
+function buildRTCPeer(p2pInfo) {
+  closeRTC();
+
+  // Build ICE server list from bridge /p2p/info
+  const iceServers = [];
+
+  // STUN
+  if (p2pInfo.stun) {
+    iceServers.push({ urls: p2pInfo.stun });
+  } else {
+    // Public fallback STUN only — no data sent to Google, just NAT probe
+    iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
+  }
+
+  // TURN (only if bridge provides credentials)
+  if (p2pInfo.turn) {
+    const t = p2pInfo.turn;
+    iceServers.push({
+      urls:       t.url || `turn:${BRIDGE_HOST}:3478`,
+      username:   t.username   || t.user || '',
+      credential: t.credential || t.password || '',
+    });
+  }
+  // TLS TURN fallback
+  if (p2pInfo.turnTls) {
+    const t = p2pInfo.turnTls;
+    iceServers.push({
+      urls:       t.url || `turns:${BRIDGE_HOST}:5349`,
+      username:   t.username   || t.user || '',
+      credential: t.credential || t.password || '',
+    });
+  }
+
+  try {
+    rtcPeer = new RTCPeerConnection({ iceServers });
+
+    // Data channel for mesh signaling
+    rtcChannel = rtcPeer.createDataChannel('snr-mesh', {
+      ordered: false, maxRetransmits: 0  // unreliable/fast for mesh events
+    });
+
+    rtcChannel.onopen  = () => setWebRTCUI(true);
+    rtcChannel.onclose = () => setWebRTCUI(false);
+
+    rtcChannel.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'gate:check') on3DGateEvent(msg.result);
+      } catch {}
+    };
+
+    rtcPeer.oniceconnectionstatechange = () => {
+      if (rtcPeer.iceConnectionState === 'failed' ||
+          rtcPeer.iceConnectionState === 'disconnected') {
+        setWebRTCUI(false);
+      }
+    };
+
+    // ICE candidate → POST to bridge signaling endpoint
+    rtcPeer.onicecandidate = async (e) => {
+      if (!e.candidate || !bridgeUrl) return;
+      try {
+        await fetch(`${bridgeUrl}/p2p/signal`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'candidate', candidate: e.candidate }),
+          signal: AbortSignal.timeout(2000),
+        });
+      } catch {}
+    };
+
+    // Create offer and send to bridge
+    rtcPeer.createOffer().then(offer => {
+      rtcPeer.setLocalDescription(offer);
+      if (!bridgeUrl) return;
+      return fetch(`${bridgeUrl}/p2p/signal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'offer', sdp: offer }),
+        signal: AbortSignal.timeout(2000),
+      });
+    }).catch(() => {});
+
+  } catch (e) {
+    // WebRTC not available in this context
+    setWebRTCUI(false);
+  }
+}
+
+function closeRTC() {
+  if (rtcChannel) { try { rtcChannel.close(); } catch {} rtcChannel = null; }
+  if (rtcPeer)    { try { rtcPeer.close();    } catch {} rtcPeer    = null; }
+  setWebRTCUI(false);
+}
+
+// ── Demo mode — escalating when bridge is absent ──────────────
+const DEMO_DOMAINS = [
+  'https://doubleclick.net/ad/banner',
+  'https://api.myapp.com/v1/users',
+  'https://google-analytics.com/collect?tid=UA-1234',
+  'https://legitimate-service.io/api/data',
+  'https://tracking.evil.com/pixel.gif',
+  'https://cdn.trusted.io/lib.js',
+  'https://adnxs.com/getuid',
+  'https://secure.mybank.com/login',
+  'https://spam-network.ru/click',
+  'https://cloudflare.com/cdn-cgi/scripts',
+  'https://malware-dist.xyz/payload.exe',
+  'https://github.com/api/v3/repos',
+  '192.168.0.0/24',
+  'eval(atob(payload))',
+  'https://facebook.net/fbevents.js',
+  'https://opensource.org/licenses/MIT',
+  'https://phishing-site.tk/login',
+  'https://stripe.com/v1/charges',
+  'http://randomsite-' + Math.random().toString(36).slice(2) + '.io',
+];
+
+function startDemo() {
+  if (demoActive) return;
+  demoActive   = true;
+  demoRate     = 1;
+  demoStartTime = Date.now();
+  document.getElementById('demo-ramp').classList.add('active');
+  setBridgeUI('demo', 'DEMO MODE — BRIDGE OFFLINE', null);
+  scheduleDemoCheck();
+}
+
+function stopDemo() {
+  demoActive = false;
+  clearTimeout(demoInterval);
+  document.getElementById('demo-ramp').classList.remove('active');
+}
+
+function scheduleDemoCheck() {
+  if (!demoActive) return;
+
+  // Ramp rate from 1/sec to DEMO_MAX_RATE/sec over DEMO_RAMP_SEC seconds
+  const elapsed = (Date.now() - demoStartTime) / 1000;
+  const t = Math.min(elapsed / DEMO_RAMP_SEC, 1);
+  demoRate = 1 + (DEMO_MAX_RATE - 1) * t * t;  // quadratic ramp
+
+  // Fire a check
+  const domain = DEMO_DOMAINS[Math.floor(Math.random() * DEMO_DOMAINS.length)];
+  const result = snr.check(domain);
+  // on3DGateEvent called by hook
+
+  // Also occasionally inject chaos: random fidelity override
+  if (Math.random() < 0.15 * t) {
+    const chaosResult = {
+      pass:     Math.random() > 0.5,
+      fidelity: Math.floor(Math.random() * 10),
+      gateId:   'gate:chaos' + Math.random().toString(16).slice(2,8),
+      reason:   'Chaos injection',
+      ctx:      { domain: 'chaos.demo' },
+    };
+    on3DGateEvent(chaosResult);
+  }
+
+  const delay = Math.max(50, 1000 / demoRate);
+  demoInterval = setTimeout(scheduleDemoCheck, delay);
+}
+
+// ── Boot sequence ─────────────────────────────────────────────
+(async () => {
+  const found = await discoverBridge();
+  if (!found) {
+    setBridgeUI('demo', 'NO BRIDGE FOUND — DEMO MODE', null);
+    startDemo();
+    scheduleBridgePoll();
+  }
+})();
+
+
+// ═══════════════════════════════════════════════════════════════
+// INIT SNR
+// ═══════════════════════════════════════════════════════════════
+const snr = new SNRFilter({ name: 'Bridge SNR Gate', defaultAction: 'pass' });
+
+// Default security preset loaded
+SNRFilter.PRESETS.security(snr);
+
+// Hook for 3D reactions
+let lastResult = null;
+snr.on(HOOKS.CHECK, ({data}) => { lastResult = data; on3DGateEvent(data); });
+snr.on(HOOKS.RULE_ADD,    () => updateRuleList());
+snr.on(HOOKS.RULE_REMOVE, () => updateRuleList());
+
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS 3D SCENE
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 1);
+renderer.shadowMap.enabled = true;
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 14);
+
+// ── Fog ──────────────────────────────────────────────────────
+scene.fog = new THREE.FogExp2(0x000000, 0.04);
+
+// ── Ambient + lights ─────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x111122, 2));
+
+const pointLight1 = new THREE.PointLight(0xff6b35, 4, 30);
+pointLight1.position.set(0, 0, 8);
+scene.add(pointLight1);
+
+const pointLight2 = new THREE.PointLight(0x00e5a0, 2, 20);
+pointLight2.position.set(-8, 4, 0);
+scene.add(pointLight2);
+
+const pointLight3 = new THREE.PointLight(0x4fc3f7, 2, 20);
+pointLight3.position.set(8, -4, 0);
+scene.add(pointLight3);
+
+// Gate pulse light (changes on check result)
+const gateLight = new THREE.PointLight(0xffffff, 0, 15);
+gateLight.position.set(0, 0, 5);
+scene.add(gateLight);
+
+// ── Gate Rings ────────────────────────────────────────────────
+const rings = [];
+const ringCount = 7;
+const ringColors = [0xff6b35, 0x00e5a0, 0x4fc3f7, 0xff4060, 0xffd740, 0xcc44ff, 0x00c8ff];
+
+for (let i = 0; i < ringCount; i++) {
+  const radius = 1.5 + i * 0.8;
+  const geo    = new THREE.TorusGeometry(radius, 0.018, 8, 120);
+  const mat    = new THREE.MeshBasicMaterial({
+    color:       ringColors[i % ringColors.length],
+    transparent: true,
+    opacity:     0.15 + (ringCount - i) * 0.04,
+  });
+  const ring = new THREE.Mesh(geo, mat);
+  ring.rotation.x = Math.PI / 2 * (i % 3 === 0 ? 1 : i % 3 === 1 ? 0.3 : 0.6);
+  ring.rotation.y = (i / ringCount) * Math.PI;
+  ring._baseRotX = ring.rotation.x;
+  ring._baseRotY = ring.rotation.y;
+  ring._speed    = 0.003 + i * 0.001;
+  ring._radius   = radius;
+  ring._idx      = i;
+  scene.add(ring);
+  rings.push(ring);
+}
+
+// ── Gate Core — icosahedron ───────────────────────────────────
+const coreGeo = new THREE.IcosahedronGeometry(1.0, 2);
+const coreMat = new THREE.MeshPhongMaterial({
+  color:       0xff6b35,
+  emissive:    0x331100,
+  transparent: true,
+  opacity:     0.7,
+  wireframe:   false,
+  shininess:   100,
+});
+const core = new THREE.Mesh(coreGeo, coreMat);
+scene.add(core);
+
+// ── Core wireframe overlay ────────────────────────────────────
+const wireGeo = new THREE.IcosahedronGeometry(1.02, 2);
+const wireMat = new THREE.MeshBasicMaterial({ color: 0xff6b35, wireframe: true, transparent: true, opacity: 0.25 });
+const wire    = new THREE.Mesh(wireGeo, wireMat);
+scene.add(wire);
+
+// ── Gate plane — semi-transparent hex gate ────────────────────
+const planeGeo = new THREE.CircleGeometry(2.5, 6);
+const planeMat = new THREE.MeshBasicMaterial({
+  color:       0xff6b35,
+  transparent: true,
+  opacity:     0.03,
+  side:        THREE.DoubleSide,
+});
+const plane = new THREE.Mesh(planeGeo, planeMat);
+scene.add(plane);
+
+// ── Particle field ────────────────────────────────────────────
+const particleCount = 1200;
+const pPositions    = new Float32Array(particleCount * 3);
+const pVelocities   = [];
+const pColors       = new Float32Array(particleCount * 3);
+
+for (let i = 0; i < particleCount; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi   = Math.acos(2 * Math.random() - 1);
+  const r     = 5 + Math.random() * 12;
+  pPositions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+  pPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+  pPositions[i*3+2] = r * Math.cos(phi);
+  pVelocities.push({
+    vx: (Math.random()-.5) * 0.012,
+    vy: (Math.random()-.5) * 0.012,
+    vz: (Math.random()-.5) * 0.012,
+  });
+  const c = new THREE.Color().setHSL(Math.random() * 0.15 + 0.05, 0.8, 0.6);
+  pColors[i*3]=c.r; pColors[i*3+1]=c.g; pColors[i*3+2]=c.b;
+}
+
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+pGeo.setAttribute('color',    new THREE.BufferAttribute(pColors, 3));
+const pMat = new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.6 });
+const particles = new THREE.Points(pGeo, pMat);
+scene.add(particles);
+
+// ── Signal packets — flying dots toward gate ──────────────────
+const packets = [];
+
+function spawnPacket(color = 0xff6b35) {
+  const theta = Math.random() * Math.PI * 2;
+  const r     = 14;
+  const geo   = new THREE.SphereGeometry(0.06, 4, 4);
+  const mat   = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+  const mesh  = new THREE.Mesh(geo, mat);
+  mesh.position.set(
+    r * Math.cos(theta) * (Math.random() * 0.4 + 0.8),
+    (Math.random() - 0.5) * 8,
+    r * Math.sin(theta) * (Math.random() * 0.4 + 0.8)
+  );
+  const speed = 0.08 + Math.random() * 0.06;
+  const dir   = mesh.position.clone().negate().normalize().multiplyScalar(speed);
+  mesh._vel   = dir;
+  mesh._life  = 0;
+  mesh._color = color;
+  scene.add(mesh);
+  packets.push(mesh);
+  return mesh;
+}
+
+// ── Gate event flash ──────────────────────────────────────────
+let gateFlash = { active: false, t: 0, pass: true };
+
+function on3DGateEvent(result) {
+  gateFlash = { active: true, t: 0, pass: result.pass };
+
+  // Flash light
+  gateLight.color.setHex(result.pass ? 0x00e5a0 : 0xff4060);
+  gateLight.intensity = 8;
+
+  // Core color
+  coreMat.color.setHex(result.pass ? 0x00e5a0 : 0xff4060);
+  coreMat.emissive.setHex(result.pass ? 0x002211 : 0x220011);
+  wireMat.color.setHex(result.pass ? 0x00e5a0 : 0xff4060);
+
+  // Ring burst
+  rings.forEach((r, i) => {
+    r.material.opacity = 0.6 + i * 0.05;
+  });
+
+  // Spawn packets
+  const pkColor = result.pass ? 0x00e5a0 : 0xff4060;
+  for (let i = 0; i < 8; i++) {
+    setTimeout(() => spawnPacket(pkColor), i * 60);
+  }
+
+  // Update HUD
+  const elRes = document.getElementById('gate-result');
+  elRes.textContent = result.pass ? 'SIGNAL' : 'NOISE';
+  elRes.className   = 'gate-result ' + (result.pass ? 'pass' : 'block');
+  document.getElementById('gate-id').textContent       = 'GATE: ' + result.gateId;
+  document.getElementById('gate-fidelity').textContent = `FIDELITY ${result.fidelity} / 10`;
+  document.getElementById('gate-reason').textContent   = result.reason;
+
+  updateStats();
+  addLog(result);
+}
+
+// ── Camera orbit state ────────────────────────────────────────
+let camTheta = 0, camPhi = Math.PI / 6;
+let isDragging = false, lastMouse = { x: 0, y: 0 };
+let camDist = 14;
+
+canvas.addEventListener('mousedown', e => { isDragging=true; lastMouse={x:e.clientX,y:e.clientY}; });
+window.addEventListener('mouseup',   () => isDragging=false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMouse.x;
+  const dy = e.clientY - lastMouse.y;
+  camTheta += dx * 0.006;
+  camPhi    = Math.max(-Math.PI/3, Math.min(Math.PI/3, camPhi + dy * 0.006));
+  lastMouse = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('wheel', e => {
+  camDist = Math.max(5, Math.min(25, camDist + e.deltaY * 0.02));
+}, { passive: true });
+
+// Touch
+let lastTouch = null;
+canvas.addEventListener('touchstart', e => { if(e.touches.length===1)lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY}; }, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if(e.touches.length===1&&lastTouch){
+    const dx=e.touches[0].clientX-lastTouch.x, dy=e.touches[0].clientY-lastTouch.y;
+    camTheta+=dx*0.006; camPhi=Math.max(-Math.PI/3,Math.min(Math.PI/3,camPhi+dy*0.006));
+    lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', () => lastTouch=null, { passive: true });
+
+// ── RENDER LOOP ───────────────────────────────────────────────
+let frame = 0;
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t   = clock.getElapsedTime();
+  const dt  = clock.getDelta();
+  frame++;
+
+  // Camera orbit
+  camera.position.x = camDist * Math.cos(camPhi) * Math.sin(camTheta);
+  camera.position.y = camDist * Math.sin(camPhi);
+  camera.position.z = camDist * Math.cos(camPhi) * Math.cos(camTheta);
+  camera.lookAt(0, 0, 0);
+
+  // Core pulse
+  const pulse = 1 + Math.sin(t * 2.4) * 0.06;
+  core.scale.setScalar(pulse);
+  wire.scale.setScalar(pulse);
+  core.rotation.y = t * 0.3;
+  core.rotation.z = t * 0.15;
+  wire.rotation.y = -t * 0.2;
+
+  // Rings orbit
+  rings.forEach((r, i) => {
+    r.rotation.x = r._baseRotX + t * r._speed * (i % 2 === 0 ? 1 : -1);
+    r.rotation.y = r._baseRotY + t * r._speed * 0.7;
+    r.rotation.z = t * r._speed * 0.4;
+    // Breathing opacity
+    r.material.opacity = Math.max(0.05, (0.1 + (ringCount-i) * 0.04) + Math.sin(t * 1.5 + i) * 0.04);
+  });
+
+  // Gate flash decay
+  if (gateFlash.active) {
+    gateFlash.t += 0.04;
+    gateLight.intensity = Math.max(0, 8 - gateFlash.t * 8);
+    if (gateFlash.t > 1.5) {
+      gateFlash.active = false;
+      gateLight.intensity = 0;
+      // Fade core back
+      const passColor = 0xff6b35;
+      coreMat.color.setHex(passColor);
+      coreMat.emissive.setHex(0x221100);
+      wireMat.color.setHex(passColor);
+      rings.forEach(r => { r.material.opacity = 0.15 + (ringCount - r._idx) * 0.04; });
+    }
+  }
+
+  // Plane gate pulse
+  plane.material.opacity = 0.02 + Math.sin(t * 1.2) * 0.015;
+  plane.rotation.z = t * 0.08;
+
+  // Particles drift
+  const pos = pGeo.attributes.position.array;
+  for (let i = 0; i < particleCount; i++) {
+    pos[i*3]   += pVelocities[i].vx;
+    pos[i*3+1] += pVelocities[i].vy;
+    pos[i*3+2] += pVelocities[i].vz;
+    const d = Math.sqrt(pos[i*3]**2 + pos[i*3+1]**2 + pos[i*3+2]**2);
+    if (d > 20 || d < 3) { pVelocities[i].vx *= -1; pVelocities[i].vy *= -1; pVelocities[i].vz *= -1; }
+  }
+  pGeo.attributes.position.needsUpdate = true;
+  particles.rotation.y = t * 0.015;
+
+  // Signal packets
+  for (let i = packets.length - 1; i >= 0; i--) {
+    const p = packets[i];
+    p.position.add(p._vel);
+    p._life += 0.04;
+    p.material.opacity = Math.max(0, 1 - p._life * 0.6);
+    const d = p.position.length();
+    if (d < 0.8 || p._life > 2.5) {
+      scene.remove(p);
+      p.geometry.dispose();
+      p.material.dispose();
+      packets.splice(i, 1);
+    }
+  }
+
+  // Ambient packet spawn
+  if (frame % 45 === 0) spawnPacket(0xff6b35);
+
+  // Lights drift
+  pointLight1.position.x = Math.sin(t * 0.5) * 4;
+  pointLight1.position.y = Math.cos(t * 0.4) * 3;
+  pointLight2.position.x = Math.cos(t * 0.6) * 8;
+  pointLight2.position.z = Math.sin(t * 0.5) * 8;
+  pointLight3.position.x = Math.sin(t * 0.7 + 2) * 8;
+  pointLight3.position.y = Math.cos(t * 0.4 + 1) * 6;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// UI LOGIC
+// ═══════════════════════════════════════════════════════════════
+const appliedPresets = new Set();
+
+function applyPreset(name) {
+  if (appliedPresets.has(name)) {
+    toast('Preset already applied: ' + name.toUpperCase());
+    return;
+  }
+  SNRFilter.PRESETS[name](snr);
+  appliedPresets.add(name);
+  document.getElementById('pre-' + name)?.classList.add('act');
+  updateRuleList();
+  updateStats();
+  toast('Preset applied: ' + name.toUpperCase() + ' · ' + snr.size + ' rules active');
+}
+
+function runCheck() {
+  const input = document.getElementById('check-input').value.trim();
+  if (!input) return;
+  bridgeCheck(input);  // uses bridge if live, falls back to local SNR
+  updateStats();
+}
+
+function addCustomRule() {
+  const pattern = document.getElementById('ar-pattern').value.trim();
+  if (!pattern) { toast('Enter a pattern'); return; }
+  const type     = document.getElementById('ar-type').value;
+  const signal   = document.getElementById('ar-signal').value === 'true';
+  const fidelity = parseInt(document.getElementById('ar-fidelity').value);
+  try {
+    snr.addRule({ type, pattern, signal, fidelity, source: 'manual', name: `${signal?'allow':'block'}:${pattern}` });
+    document.getElementById('ar-pattern').value = '';
+    updateStats();
+    toast(`Rule added: ${signal?'ALLOW':'BLOCK'} · ${pattern}`);
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+function clearAllRules() {
+  [...snr.rules.keys()].forEach(id => snr.removeRule(id));
+  appliedPresets.clear();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('act'));
+  updateRuleList();
+  updateStats();
+  toast('All rules cleared');
+}
+
+function updateThreshold(v) {
+  snr.setThreshold(parseFloat(v));
+  document.getElementById('threshold-val').textContent = v;
+  toast('Threshold: ≥ ' + v + ' = PASS');
+}
+
+function updateStats() {
+  const s = snr.stats();
+  document.getElementById('s-pass').textContent    = s.passed;
+  document.getElementById('s-block').textContent   = s.blocked;
+  document.getElementById('s-rules').textContent   = s.rules;
+  document.getElementById('s-pct').textContent     = s.passRate;
+  document.getElementById('st-checked').textContent = s.checked;
+  document.getElementById('st-passed').textContent  = s.passed;
+  document.getElementById('st-blocked').textContent = s.blocked;
+  document.getElementById('st-rules').textContent   = s.rules;
+  document.getElementById('st-errors').textContent  = s.errors;
+}
+
+function updateRuleList() {
+  const el    = document.getElementById('rule-list');
+  const rules = snr.listRules();
+  document.getElementById('rule-count').textContent = rules.length;
+  el.innerHTML = rules.slice(0, 40).map(r => {
+    const color = r.signal ? '#00e5a0' : '#ff4060';
+    const abbr  = (r.name || r.pattern).slice(0, 26);
+    return `<div class="rule-item">
+      <div class="ri-dot" style="background:${color}"></div>
+      <div class="ri-name" title="${r.pattern}">${abbr}</div>
+      <div class="ri-type">${r.type}</div>
+      <div class="ri-del" onclick="snr.removeRule('${r.id}');updateRuleList();updateStats();">✕</div>
+    </div>`;
+  }).join('') + (rules.length > 40 ? `<div style="font-size:8px;color:rgba(255,255,255,.3);padding:4px 0">+${rules.length-40} more</div>` : '');
+}
+
+function addLog(result) {
+  const strip = document.getElementById('log-strip');
+  const el    = document.createElement('div');
+  el.className = 'log-entry ' + (result.pass ? 'pass' : 'block');
+  const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  el.textContent = `${ts}  ${result.gateId}  ${result.pass?'SIGNAL':'NOISE'}  f=${result.fidelity}  ${(result.ctx?.domain||result.ctx?.url||'').slice(0,30)}`;
+  strip.appendChild(el);
+  while (strip.children.length > 5) strip.removeChild(strip.firstChild);
+  setTimeout(() => el.remove(), 8000);
+}
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// Keyboard shortcut: Enter to check
+document.getElementById('check-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runCheck();
+});
+
+// Initial state
+updateStats();
+updateRuleList();
+
+// Demo mode is now managed by the bridge connection system above.
+// Manual gate check still works via the input panel.
+</script>
+</body>
+</html>

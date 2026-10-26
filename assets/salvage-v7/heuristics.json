@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Inversion",
+    "domain": "COGNITIVE",
+    "strength": 9,
+    "body": "Flip the problem. Instead of asking how to succeed, ask what guarantees failure. Eliminate those. Work the negative space.",
+    "example": "Instead of how do I stay motivated — ask what kills my motivation. Remove those conditions.",
+    "triggers": "stuck,loop,friction,decision paralysis",
+    "counter": "Forward Projection",
+    "fireCount": 0
+  },
+  {
+    "name": "First Principles",
+    "domain": "STRATEGIC",
+    "strength": 10,
+    "body": "Strip away assumptions until you hit bedrock truths. Rebuild from there. Borrowed frameworks are other people's first principles — not yours.",
+    "example": "Questioning whether a meeting needs to exist at all, not how to run it better.",
+    "triggers": "complexity,overengineering,inherited assumption",
+    "counter": "Analogy Reasoning",
+    "fireCount": 0
+  },
+  {
+    "name": "Slope Amplifier",
+    "domain": "STRATEGIC",
+    "strength": 9,
+    "body": "Leverage = Tension x Weight x f(slope). The slope is the multiplier. Not linear. Small improvements in trajectory compound aggressively.",
+    "example": "Shifting from 2% weekly growth to 3% weekly growth becomes a 1.7x difference after 6 months.",
+    "triggers": "plateau,optimization,compounding",
+    "counter": "Ceiling Detection",
+    "fireCount": 0
+  },
+  {
+    "name": "Signal vs Noise Filter",
+    "domain": "COGNITIVE",
+    "strength": 8,
+    "body": "Before acting on any signal: ask if it is signal or noise. Noise is random variation. Signal has structure, repeatability, predictive power.",
+    "example": "A single off-day is noise. Three consecutive off-days in the same context is signal.",
+    "triggers": "ambiguity,pattern,data,behavior",
+    "counter": "False Signal Trap",
+    "fireCount": 0
+  },
+  {
+    "name": "Somatic Validation",
+    "domain": "SOMATIC",
+    "strength": 9,
+    "body": "The body resolves what the mind loops on. Physical sensation is a parallel processing channel — tightness, lightness, pulse changes are data.",
+    "example": "Chest tightness when reviewing a decision already framed as yes — the body knows something the mind has not caught.",
+    "triggers": "decision,uncertainty,loop,internal conflict",
+    "counter": "Somatic Bias",
+    "fireCount": 0
+  },
+  {
+    "name": "Horizontal Contamination",
+    "domain": "CREATIVE",
+    "strength": 8,
+    "body": "Borrow methods from adjacent domains. A solution in ecology may solve a systems design problem. Cross-domain transfer is high-leverage.",
+    "example": "Using supply chain thinking to redesign a writing workflow.",
+    "triggers": "creative block,new domain,problem stuck",
+    "counter": "Domain Purity",
+    "fireCount": 0
+  }
+]

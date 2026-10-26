@@ -1,0 +1,66 @@
+[
+  {
+    "id": "C001",
+    "type": "LAW",
+    "title": "Leverage = Tension x Weight x f(Slope)",
+    "body": "Every high-leverage action sits at the intersection of maximum tension, maximum weight, and an ascending slope. The slope is an amplifier — it multiplies everything downstream.",
+    "origin": "High-Leverage Problem Solving Framework v4",
+    "fires": "Any strategic decision, prioritization, resource allocation",
+    "counter": "When urgency overrides slope — pure tension without trajectory",
+    "tags": [
+      "leverage",
+      "framework",
+      "core"
+    ],
+    "status": "ACTIVE",
+    "activations": 0
+  },
+  {
+    "id": "C002",
+    "type": "PRINCIPLE",
+    "title": "Reciprocation Is Not Mimicry",
+    "body": "True reciprocation is mutual investment with independent initiative. Mimicry is pattern-matching behavior without autonomous motivation. The difference is detectable — mimicry has latency and requires priming.",
+    "origin": "Relational framework — signal/noise analysis",
+    "fires": "Reading relationship dynamics, evaluating partnership quality",
+    "counter": "Early-stage asymmetry is not disqualifying",
+    "tags": [
+      "relationships",
+      "signal",
+      "discernment"
+    ],
+    "status": "ACTIVE",
+    "activations": 0
+  },
+  {
+    "id": "C003",
+    "type": "MAXIM",
+    "title": "Process Is Not Living",
+    "body": "The framework serves the life. When processing substitutes for living — analyzing substitutes for acting, mapping substitutes for moving — the tool has become the trap.",
+    "origin": "Claude analysis — infinite regress risk flag",
+    "fires": "When in meta-processing loops exceeding 20 min with no output",
+    "counter": "Some processing IS the work — strategy, architecture, design",
+    "tags": [
+      "meta",
+      "caution",
+      "balance"
+    ],
+    "status": "ACTIVE",
+    "activations": 0
+  },
+  {
+    "id": "C004",
+    "type": "RULE",
+    "title": "Capture First, Filter Never",
+    "body": "During externalization mode, the filter is disabled. Every fragment, half-thought, and raw signal gets captured. Filtering during capture kills insight. Filter only in integration.",
+    "origin": "NEXUS Multi-Modal Capture Framework v5",
+    "fires": "Any recording session, especially unstructured ones",
+    "counter": "In NOTE-TAKING mode, structured capture is appropriate",
+    "tags": [
+      "capture",
+      "externalization",
+      "recording"
+    ],
+    "status": "ACTIVE",
+    "activations": 0
+  }
+]

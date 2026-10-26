@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>IRS · Integrative Relational Systems</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:#080c0e;--void2:#0e1517;--void3:#141c1f;--void4:#1c2529;
+  --panel:#111820;--panel2:#162028;
+  --ink:#e8f0f2;--ink2:#a8bec4;--ink3:#607880;--ink4:#3a5058;
+  --gap:#e85c3a;--gap2:rgba(232,92,58,0.15);
+  --edge:#00d4aa;--edge2:rgba(0,212,170,0.12);
+  --inv:#c084fc;--inv2:rgba(192,132,252,0.12);
+  --res:#f0c94a;--res2:rgba(240,201,74,0.10);
+  --noise:#60a8e8;--struct:#e85c3a;--temporal:#f0c94a;--asym:#00d4aa;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --f-head:'Syne',sans-serif;
+  --f-mono:'Space Mono',monospace;
+  --f-sm:'Syne Mono',monospace;
+}
+html{font-size:14px}
+body{background:var(--void);color:var(--ink);font-family:var(--f-head);min-height:100vh;overflow-x:hidden;line-height:1.5}
+
+/* ── TOP BAR ── */
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--void2);position:sticky;top:0;z-index:100}
+.tb-logo{font-size:16px;font-weight:800;letter-spacing:.06em;color:var(--ink);display:flex;align-items:center;gap:8px}
+.tb-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--edge);animation:livepulse 2s ease infinite}
+@keyframes livepulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,212,170,.4)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(0,212,170,0)}}
+.tb-tag{font-size:10px;font-family:var(--f-mono);color:var(--ink3);padding:3px 8px;border:1px solid var(--border2);border-radius:3px}
+.tb-sep{flex:1}
+.tb-stat{font-size:10px;font-family:var(--f-mono);color:var(--ink3);display:flex;align-items:center;gap:6px}
+.tb-stat .val{color:var(--ink);font-weight:700}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:1fr 1fr 340px;min-height:calc(100vh - 48px);gap:0}
+
+/* ── PANELS ── */
+.col{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.col:last-child{border-right:none}
+.col-head{padding:16px 20px 12px;border-bottom:1px solid var(--border);background:var(--panel)}
+.col-label{font-size:10px;font-family:var(--f-mono);color:var(--ink3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.col-title{font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+.col-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+
+/* ── URL INDEXER ── */
+.url-box{background:var(--panel);border:1px solid var(--border2);border-radius:4px;padding:14px}
+.url-row{display:flex;gap:8px;margin-bottom:10px}
+.url-input{flex:1;background:var(--void3);border:1px solid var(--border2);color:var(--ink);font-family:var(--f-mono);font-size:11px;padding:9px 12px;border-radius:3px;outline:none;transition:.15s}
+.url-input:focus{border-color:var(--edge);background:var(--void4)}
+.url-input::placeholder{color:var(--ink4)}
+.btn{padding:9px 14px;border:1px solid;border-radius:3px;font-family:var(--f-head);font-size:12px;font-weight:700;cursor:pointer;transition:.15s;letter-spacing:.02em;white-space:nowrap}
+.btn-edge{background:transparent;border-color:var(--edge);color:var(--edge)}
+.btn-edge:hover{background:var(--edge2)}
+.btn-gap{background:transparent;border-color:var(--gap);color:var(--gap)}
+.btn-gap:hover{background:var(--gap2)}
+.btn-inv{background:transparent;border-color:var(--inv);color:var(--inv)}
+.btn-inv:hover{background:var(--inv2)}
+.btn-res{background:transparent;border-color:var(--res);color:var(--res)}
+.btn-res:hover{background:var(--res2)}
+.btn-ghost{background:transparent;border-color:var(--border2);color:var(--ink3)}
+.btn-ghost:hover{color:var(--ink);border-color:var(--border2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* QUICK TARGETS */
+.quick-targets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.qt-chip{font-size:10px;font-family:var(--f-mono);padding:4px 9px;border-radius:2px;border:1px solid var(--border);color:var(--ink3);cursor:pointer;transition:.1s;background:var(--void3)}
+.qt-chip:hover{color:var(--ink);border-color:var(--border2)}
+.qt-chip.platform{border-color:var(--edge);color:var(--edge)}
+
+/* EXTRACTOR STATUS */
+.ex-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ex-card{background:var(--void3);border:1px solid var(--border);border-radius:3px;padding:8px 10px;display:flex;align-items:center;gap:8px;transition:.2s}
+.ex-card.ok{border-color:rgba(0,212,170,.3);background:var(--edge2)}
+.ex-card.fail{border-color:rgba(232,92,58,.2)}
+.ex-card.running{border-color:rgba(240,201,74,.3);animation:pulsecard 1s ease infinite}
+@keyframes pulsecard{0%,100%{opacity:1}50%{opacity:.7}}
+.ex-dot{width:7px;height:7px;border-radius:50%;background:var(--ink4);flex-shrink:0}
+.ex-card.ok .ex-dot{background:var(--edge)}
+.ex-card.fail .ex-dot{background:var(--gap)}
+.ex-card.running .ex-dot{background:var(--res);animation:spin .6s linear infinite}
+.ex-name{font-size:10px;font-family:var(--f-mono);color:var(--ink2);flex:1}
+.ex-conf{font-size:10px;font-family:var(--f-mono);color:var(--ink3)}
+
+/* RESULT CARD */
+.result-card{background:var(--panel2);border:1px solid var(--border2);border-radius:4px;overflow:hidden;animation:fadeup .3s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rc-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.rc-img{width:48px;height:48px;border-radius:3px;object-fit:cover;background:var(--void3);flex-shrink:0}
+.rc-meta{flex:1;min-width:0}
+.rc-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-author{font-size:11px;font-family:var(--f-mono);color:var(--edge)}
+.rc-platform{font-size:10px;color:var(--ink3);margin-top:2px}
+.rc-body{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.rc-desc{font-size:12px;color:var(--ink2);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.rc-tags{display:flex;flex-wrap:wrap;gap:4px}
+.rc-tag{font-size:10px;font-family:var(--f-mono);padding:2px 7px;border-radius:2px;border:1px solid var(--border);color:var(--ink3)}
+.rc-tag.edge-tag{border-color:var(--edge);color:var(--edge)}
+
+/* EXTRACTORS BREAKDOWN */
+.ex-breakdown{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px}
+.ex-b-item{text-align:center;padding:5px;background:var(--void3);border-radius:2px;border:1px solid var(--border);font-size:9px;font-family:var(--f-mono)}
+.ex-b-item.ok{border-color:rgba(0,212,170,.3);color:var(--edge)}
+.ex-b-item.fail{color:var(--ink4)}
+
+/* ── IRS PANEL ── */
+.sigma-field{background:var(--void3);border:1px solid var(--border);border-radius:4px;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sig-scale{display:flex;flex-direction:column;gap:4px}
+.sig-label{font-size:10px;font-family:var(--f-mono);color:var(--ink3);letter-spacing:.05em}
+.sig-val{font-size:22px;font-weight:800;font-family:var(--f-mono);letter-spacing:-.03em}
+.sig-bar{height:3px;background:var(--border);border-radius:0;margin-top:3px;overflow:hidden}
+.sig-fill{height:100%;transition:width .5s ease}
+.sig-n .sig-val,.sig-n .sig-fill{color:var(--noise);background:var(--noise)}
+.sig-t .sig-val,.sig-t .sig-fill{color:var(--temporal);background:var(--temporal)}
+.sig-s .sig-val,.sig-s .sig-fill{color:var(--struct);background:var(--struct)}
+.sig-r .sig-val,.sig-r .sig-fill{color:var(--asym);background:var(--asym)}
+.sig-sub{font-size:10px;color:var(--ink3);font-family:var(--f-mono)}
+
+/* GAP DISPLAY */
+.gap-card{border:1px solid var(--gap);background:var(--gap2);border-radius:4px;padding:12px;animation:fadeup .3s ease}
+.gap-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.gap-badge{font-size:10px;font-weight:700;font-family:var(--f-mono);padding:3px 8px;border-radius:2px;letter-spacing:.06em}
+.gap-G0{background:rgba(96,168,232,.2);color:var(--noise);border:1px solid rgba(96,168,232,.3)}
+.gap-G1{background:rgba(240,201,74,.15);color:var(--temporal);border:1px solid rgba(240,201,74,.3)}
+.gap-G2{background:rgba(232,92,58,.2);color:var(--gap);border:1px solid var(--gap)}
+.gap-title{font-size:12px;font-weight:700;color:var(--ink);flex:1}
+.gap-mag{font-size:11px;font-family:var(--f-mono);color:var(--ink3)}
+.gap-resolution{font-size:11px;font-family:var(--f-mono);color:var(--ink2);padding:6px 8px;background:var(--void3);border-radius:2px;margin-top:6px;border-left:2px solid var(--gap)}
+
+/* EDGE DISPLAY */
+.edge-card{border:1px solid var(--border2);border-radius:4px;padding:12px;transition:.2s}
+.edge-card.ESTABLISHED{border-color:var(--edge);background:var(--edge2)}
+.edge-card.STRESSED{border-color:var(--temporal);background:rgba(240,201,74,.08)}
+.edge-card.MISALIGNED{border-color:var(--gap);background:var(--gap2)}
+.edge-card.DISSOLVED{border-color:var(--border);background:var(--void3);opacity:.6}
+.edge-card.NASCENT{border-color:rgba(96,168,232,.3);background:rgba(96,168,232,.06)}
+.edge-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.edge-type{font-size:10px;font-family:var(--f-mono);font-weight:700;letter-spacing:.06em}
+.ESTABLISHED .edge-type{color:var(--edge)}
+.STRESSED .edge-type{color:var(--temporal)}
+.MISALIGNED .edge-type{color:var(--gap)}
+.DISSOLVED .edge-type{color:var(--ink4)}
+.NASCENT .edge-type{color:var(--noise)}
+.edge-agents{font-size:11px;font-family:var(--f-mono);color:var(--ink2);flex:1}
+.edge-bidir{font-size:18px;font-weight:800;font-family:var(--f-mono)}
+.ESTABLISHED .edge-bidir{color:var(--edge)}
+.STRESSED .edge-bidir{color:var(--temporal)}
+.MISALIGNED .edge-bidir{color:var(--gap)}
+.edge-sigma-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.edge-sigma-label{font-size:10px;font-family:var(--f-mono);color:var(--ink3)}
+.edge-sigma-val{font-size:10px;font-family:var(--f-mono);color:var(--ink2)}
+
+/* INVERSION DISPLAY */
+.inv-card{border-radius:4px;padding:12px;animation:fadeup .3s ease}
+.inv-card.fired{border:1px solid var(--inv);background:var(--inv2)}
+.inv-card.blocked{border:1px solid var(--border);background:var(--void3)}
+.inv-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.inv-type{font-size:10px;font-family:var(--f-mono);font-weight:700;letter-spacing:.06em;color:var(--inv)}
+.inv-status{font-size:10px;font-family:var(--f-mono);padding:2px 7px;border-radius:2px}
+.inv-status.fired{background:rgba(192,132,252,.2);color:var(--inv);border:1px solid rgba(192,132,252,.3)}
+.inv-status.blocked{background:var(--void);color:var(--ink4);border:1px solid var(--border)}
+.inv-desc{font-size:11px;color:var(--ink2);line-height:1.6;font-family:var(--f-mono);margin-top:4px}
+.inv-conditions{display:flex;flex-direction:column;gap:3px;margin-top:8px}
+.inv-cond{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--f-mono)}
+.inv-cond .c-key{color:var(--inv);width:20px;flex-shrink:0}
+.inv-cond .c-pass{color:var(--edge)}
+.inv-cond .c-fail{color:var(--gap)}
+.inv-cond .c-reason{color:var(--ink3);flex:1}
+
+/* SCORE PROFILE */
+.score-composite{text-align:center;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:12px}
+.score-big{font-size:56px;font-weight:800;font-family:var(--f-mono);letter-spacing:-.04em;line-height:1}
+.score-label{font-size:11px;font-family:var(--f-mono);color:var(--ink3);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
+.score-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.score-comp{background:var(--void3);border-radius:3px;padding:8px;border:1px solid var(--border)}
+.score-comp-label{font-size:9px;font-family:var(--f-mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.score-comp-val{font-size:16px;font-weight:800;font-family:var(--f-mono)}
+.score-flags{display:flex;flex-direction:column;gap:4px}
+.flag-item{display:flex;align-items:center;gap:8px;font-size:11px;font-family:var(--f-mono);padding:6px 8px;background:var(--void3);border-radius:2px}
+.flag-item.high{border-left:2px solid var(--gap);color:var(--gap)}
+.flag-item.medium{border-left:2px solid var(--temporal);color:var(--temporal)}
+.flag-primary{font-size:11px;color:var(--ink2);padding:8px 10px;background:var(--void3);border-radius:3px;border-left:2px solid var(--edge);line-height:1.6;font-family:var(--f-mono)}
+
+/* RESONANCE */
+.res-trajectory{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--void3);border-radius:3px;margin-bottom:8px;border:1px solid var(--border)}
+.traj-label{font-size:10px;font-family:var(--f-mono);color:var(--ink3);margin-right:4px}
+.traj-val{font-size:12px;font-weight:700;font-family:var(--f-mono)}
+.traj-deepening{color:var(--edge)}
+.traj-retreating{color:var(--gap)}
+.traj-stable{color:var(--ink2)}
+.res-insight{font-size:11px;color:var(--ink2);padding:7px 10px;background:var(--void3);border-radius:3px;border-left:2px solid var(--res);line-height:1.6;font-family:var(--f-head);font-style:italic}
+
+/* BASELINE BAR */
+.baseline-section{display:flex;flex-direction:column;gap:5px}
+.bl-row{display:flex;align-items:center;gap:8px}
+.bl-key{font-size:10px;font-family:var(--f-mono);color:var(--ink3);width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl-track{flex:1;height:4px;background:var(--border);border-radius:0;overflow:hidden}
+.bl-fill{height:100%;background:var(--edge);border-radius:0;transition:width .4s ease}
+.bl-val{font-size:10px;font-family:var(--f-mono);color:var(--ink2);width:32px;text-align:right;flex-shrink:0}
+
+/* ERR LOG */
+.err-log{background:var(--void);border:1px solid var(--border);border-radius:3px;padding:10px;max-height:140px;overflow-y:auto;font-family:var(--f-mono);font-size:10px}
+.err-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03);color:var(--ink4);line-height:1.6}
+.err-line.ok{color:var(--edge)}
+.err-line.warn{color:var(--temporal)}
+.err-line.error{color:var(--gap)}
+.err-t{margin-right:8px;color:var(--ink4)}
+
+/* SECTION LABEL */
+.sec-label{font-size:10px;font-family:var(--f-mono);color:var(--ink4);letter-spacing:.1em;text-transform:uppercase;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px}
+
+/* META */
+.meta-loop{padding:8px 10px;background:rgba(192,132,252,.08);border:1px solid rgba(192,132,252,.3);border-radius:3px;font-size:11px;font-family:var(--f-mono);color:var(--inv);line-height:1.6;animation:fadeup .3s ease}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--void4)}
+
+/* AGENT SELECTOR */
+.agent-row{display:flex;gap:6px;align-items:center}
+.agent-chip{padding:5px 10px;font-size:11px;font-family:var(--f-mono);border-radius:2px;border:1px solid var(--border2);color:var(--ink3);cursor:pointer;transition:.1s}
+.agent-chip.sel{border-color:var(--edge);color:var(--edge);background:var(--edge2)}
+.agent-chip:hover:not(.sel){color:var(--ink);border-color:var(--border2)}
+
+/* SPIN */
+.spin{display:inline-block;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-logo"><div class="dot"></div>IRS</div>
+  <span class="tb-tag">v1.0.0</span>
+  <span class="tb-tag">ALK · Integrative Relational Systems</span>
+  <div class="tb-sep"></div>
+  <div class="tb-stat">GAPS <span class="val" id="tb-gaps">0</span></div>
+  <div class="tb-stat" style="margin-left:16px">EDGES <span class="val" id="tb-edges">0</span></div>
+  <div class="tb-stat" style="margin-left:16px">INVERSIONS <span class="val" id="tb-inv">0/0</span></div>
+  <div class="tb-stat" style="margin-left:16px">BASELINE <span class="val" id="tb-bl">—</span></div>
+</div>
+
+<div class="layout">
+
+<!-- ── COL 1: URL INDEXER ── -->
+<div class="col">
+  <div class="col-head">
+    <div class="col-label">Cross-Domain Indexer</div>
+    <div class="col-title">URL Index</div>
+  </div>
+  <div class="col-body">
+
+    <div class="url-box">
+      <div class="url-row">
+        <input class="url-input" id="url-input" type="url" placeholder="https://… any URL, social link, or profile">
+        <button class="btn btn-edge" id="index-btn" onclick="runIndex()">⬡ Index</button>
+      </div>
+      <div class="sec-label">Quick targets</div>
+      <div class="quick-targets" id="quick-targets">
+        <span class="qt-chip platform" onclick="setURL('https://www.youtube.com/watch?v=dQw4w9WgXcQ')">YouTube</span>
+        <span class="qt-chip platform" onclick="setURL('https://soundcloud.com/nocopyrightsounds')">SoundCloud</span>
+        <span class="qt-chip platform" onclick="setURL('https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT')">Spotify</span>
+        <span class="qt-chip platform" onclick="setURL('https://vimeo.com/76979871')">Vimeo</span>
+        <span class="qt-chip platform" onclick="setURL('https://reddit.com/r/MachineLearning')">Reddit</span>
+        <span class="qt-chip platform" onclick="setURL('https://github.com/anthropics/anthropic-sdk-python')">GitHub</span>
+        <span class="qt-chip platform" onclick="setURL('https://mastodon.social/@Mastodon')">Mastodon</span>
+        <span class="qt-chip platform" onclick="setURL('https://medium.com/@karpathy')">Medium</span>
+        <span class="qt-chip" onclick="setURL('https://www.bbc.com/news')">BBC</span>
+        <span class="qt-chip" onclick="setURL('https://substack.com')">Substack</span>
+      </div>
+    </div>
+
+    <div class="sec-label">Extractor status</div>
+    <div class="ex-grid" id="ex-grid">
+      <!-- populated by JS -->
+    </div>
+
+    <div id="index-result" style="display:none">
+      <!-- result populated here -->
+    </div>
+
+    <div class="sec-label">Index log</div>
+    <div class="err-log" id="index-log">
+      <div class="err-line"><span class="err-t">--:--:--</span>system ready — paste any URL</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── COL 2: IRS ENGINE ── -->
+<div class="col">
+  <div class="col-head">
+    <div class="col-label">Integrative Relational Systems</div>
+    <div class="col-title">GAP · EDGE · INV</div>
+  </div>
+  <div class="col-body">
+
+    <!-- AGENT PAIR -->
+    <div>
+      <div class="sec-label">Agent pair</div>
+      <div class="agent-row" id="agent-row">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- SIGMA FIELD -->
+    <div>
+      <div class="sec-label">Multi-scale σ field</div>
+      <div class="sigma-field">
+        <div class="sig-scale sig-n">
+          <div class="sig-label">σₙ noise</div>
+          <div class="sig-val" id="sig-n">0.00</div>
+          <div class="sig-bar"><div class="sig-fill" id="sig-n-bar" style="width:0%"></div></div>
+          <div class="sig-sub" id="sig-n-sub">micro fluctuations</div>
+        </div>
+        <div class="sig-scale sig-t">
+          <div class="sig-label">σₜ temporal</div>
+          <div class="sig-val" id="sig-t">0.00</div>
+          <div class="sig-bar"><div class="sig-fill" id="sig-t-bar" style="width:0%"></div></div>
+          <div class="sig-sub" id="sig-t-sub">slow drift</div>
+        </div>
+        <div class="sig-scale sig-s">
+          <div class="sig-label">σₛ structural</div>
+          <div class="sig-val" id="sig-s">0.00</div>
+          <div class="sig-bar"><div class="sig-fill" id="sig-s-bar" style="width:0%"></div></div>
+          <div class="sig-sub" id="sig-s-sub">system shift</div>
+        </div>
+        <div class="sig-scale sig-r">
+          <div class="sig-label">σᵣ asymmetry</div>
+          <div class="sig-val" id="sig-r">0.00</div>
+          <div class="sig-bar"><div class="sig-fill" id="sig-r-bar" style="width:0%"></div></div>
+          <div class="sig-sub" id="sig-r-sub">bidirectional</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-gap" onclick="injectGap()">⚡ Inject GAP</button>
+      <button class="btn btn-edge" onclick="injectEdge()">⬡ Measure EDGE</button>
+      <button class="btn btn-inv" onclick="attemptInversion()">⟳ Attempt INV</button>
+      <button class="btn btn-res" onclick="injectResonance()">◎ Run Resonance</button>
+      <button class="btn btn-ghost" onclick="simulateCycle()">▶ Full Cycle</button>
+    </div>
+
+    <!-- GAP DISPLAY -->
+    <div id="gap-area">
+      <div class="sec-label">Gap analysis</div>
+      <div id="gap-content" style="color:var(--ink4);font-size:11px;font-family:var(--f-mono);padding:8px 0">No gaps detected</div>
+    </div>
+
+    <!-- EDGE DISPLAY -->
+    <div id="edge-area">
+      <div class="sec-label">Edge engine</div>
+      <div id="edge-content" style="color:var(--ink4);font-size:11px;font-family:var(--f-mono);padding:8px 0">No edges measured</div>
+    </div>
+
+    <!-- INVERSION DISPLAY -->
+    <div id="inv-area">
+      <div class="sec-label">Inversion operator</div>
+      <div id="inv-content" style="color:var(--ink4);font-size:11px;font-family:var(--f-mono);padding:8px 0">No inversions attempted</div>
+    </div>
+
+    <!-- META-RELATIONAL -->
+    <div id="meta-area" style="display:none">
+      <div class="sec-label">Meta-relational</div>
+      <div id="meta-content"></div>
+    </div>
+
+    <!-- ERR LOG -->
+    <div class="sec-label">IRS log</div>
+    <div class="err-log" id="irs-log">
+      <div class="err-line"><span class="err-t">--:--:--</span>IRS engine initialized</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── COL 3: SCORE PROFILE + RESONANCE ── -->
+<div class="col">
+  <div class="col-head">
+    <div class="col-label">Score Profile + Resonance</div>
+    <div class="col-title">Field View</div>
+  </div>
+  <div class="col-body">
+
+    <!-- COMPOSITE SCORE -->
+    <div>
+      <div class="sec-label">Composite relational score</div>
+      <div class="score-composite">
+        <div class="score-big" id="score-composite">—</div>
+        <div class="score-label" id="score-label">awaiting data</div>
+      </div>
+      <div class="score-grid" id="score-grid">
+        <!-- components -->
+      </div>
+    </div>
+
+    <!-- PRIMARY SIGNAL -->
+    <div id="primary-signal" style="display:none">
+      <div class="sec-label">Primary signal</div>
+      <div class="flag-primary" id="primary-signal-text"></div>
+    </div>
+
+    <!-- FLAGS -->
+    <div id="flags-area" style="display:none">
+      <div class="sec-label">Active flags</div>
+      <div class="score-flags" id="flags-content"></div>
+    </div>
+
+    <!-- RESONANCE -->
+    <div id="resonance-area" style="display:none">
+      <div class="sec-label">Resonance field</div>
+      <div id="resonance-content"></div>
+    </div>
+
+    <!-- ADAPTIVE BASELINE -->
+    <div>
+      <div class="sec-label">Adaptive invariant baseline</div>
+      <div class="baseline-section" id="baseline-section">
+        <div style="font-size:11px;font-family:var(--f-mono);color:var(--ink4);padding:4px 0">Baseline adapts as signals arrive</div>
+      </div>
+    </div>
+
+    <!-- SIGMA CANVAS -->
+    <div>
+      <div class="sec-label">σ field history</div>
+      <canvas id="sigma-canvas" width="300" height="120" style="width:100%;border:1px solid var(--border);border-radius:3px;background:var(--void3)" role="img" aria-label="Sigma field history chart"></canvas>
+    </div>
+
+    <!-- IRS ERR LOG -->
+    <div class="sec-label">Error log</div>
+    <div class="err-log" id="err-log">
+      <div class="err-line"><span class="err-t">--:--:--</span>system nominal</div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- end layout -->
+
+<script>
+// ── AGENTS ──────────────────────────────────────────────────────────────────
+const AGENTS = [
+  {id:'erosmancer',name:'Erosmancer',color:'#c084fc'},
+  {id:'raven',name:'Raven',color:'#00d4aa'},
+  {id:'jonathan',name:'Jonathan',color:'#f0c94a'},
+  {id:'field',name:'Field',color:'#607880'},
+];
+let agentA = AGENTS[0];
+let agentB = AGENTS[1];
+
+// ── IRS STATE ────────────────────────────────────────────────────────────────
+const state = {
+  baseline: { coherence:.5, reciprocity:.5, semantic:.5, suppression:0,
+    'latent.valence':0,'latent.arousal':0,'latent.coherence':.5,'latent.suppression':0,'latent.engagement':0 },
+  sigmas: { n:0, t:0, s:0, r:0 },
+  sigmaHistory: {n:[],t:[],s:[],r:[]},
+  gaps: [], edges: [],
+  inversions: { fired:0, blocked:0 },
+  resonance: null,
+  score: null,
+  lastInversionAt: null,
+};
+
+// ── EXTRACTORS ───────────────────────────────────────────────────────────────
+const EXTRACTORS = [
+  {name:'og-meta',     conf:.95},
+  {name:'json-ld',     conf:.90},
+  {name:'oembed',      conf:.92},
+  {name:'rss-atom',    conf:.75},
+  {name:'archive-cdx', conf:.70},
+  {name:'webfinger-ap',conf:.80},
+  {name:'dns-doh',     conf:.60},
+  {name:'cert-trans',  conf:.55},
+  {name:'sitemap',     conf:.65},
+  {name:'platform',    conf:.85},
+];
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  renderAgentRow();
+  renderExtractorGrid('idle');
+  drawSigmaCanvas();
+  renderScoreGrid(null);
+}
+
+// ── AGENT ROW ─────────────────────────────────────────────────────────────────
+function renderAgentRow() {
+  const el = document.getElementById('agent-row');
+  el.innerHTML = AGENTS.map(a => `
+    <span class="agent-chip ${a.id===agentA.id||a.id===agentB.id?'sel':''}"
+      onclick="toggleAgent('${a.id}')" style="${(a.id===agentA.id||a.id===agentB.id)?'border-color:'+a.color+';color:'+a.color:''}">${a.name}</span>
+  `).join('');
+}
+
+function toggleAgent(id) {
+  const a = AGENTS.find(x=>x.id===id);
+  if (!a) return;
+  if (agentA.id===id) { agentA=AGENTS[0]; }
+  else if (agentB.id===id) { agentB=AGENTS[1]; }
+  else { agentB=a; }
+  renderAgentRow();
+}
+
+// ── URL INDEXER ──────────────────────────────────────────────────────────────
+function setURL(url) {
+  document.getElementById('url-input').value = url;
+}
+
+function renderExtractorGrid(status, results=[]) {
+  const el = document.getElementById('ex-grid');
+  el.innerHTML = EXTRACTORS.map(ex => {
+    const r = results.find(x=>x.name===ex.name);
+    const cls = status==='idle' ? '' : r ? (r.ok?'ok':'fail') : (status==='running'?'running':'');
+    return `<div class="ex-card ${cls}">
+      <div class="ex-dot"></div>
+      <div class="ex-name">${ex.name}</div>
+      <div class="ex-conf">${(ex.conf*100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+}
+
+async function runIndex() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) return;
+
+  const btn = document.getElementById('index-btn');
+  btn.innerHTML = '<span class="spin">⟳</span>';
+  btn.disabled = true;
+
+  idxLog(`indexing: ${url}`);
+  renderExtractorGrid('running');
+
+  // Simulate parallel extraction with staggered resolution
+  const results = await simulateExtraction(url);
+  renderExtractorGrid('done', results);
+
+  const ok = results.filter(r=>r.ok);
+  const merged = buildMergedResult(url, results);
+
+  renderIndexResult(merged, results);
+  idxLog(`done — ${ok.length}/${results.length} extractors succeeded`, 'ok');
+
+  btn.innerHTML = '⬡ Index';
+  btn.disabled = false;
+}
+
+async function simulateExtraction(url) {
+  const host = (() => { try { return new URL(url).hostname; } catch { return ''; }})();
+
+  // Real extractors: OG, oEmbed, Archive CDX — others simulated
+  const results = [];
+
+  // OG meta — fetch via CORS proxy (simulated in this standalone UI)
+  await delay(200 + rand(300));
+  results.push(simulateOG(url, host));
+
+  // oEmbed — try real endpoint
+  const oembed = await tryOEmbed(url, host);
+  results.push(oembed);
+
+  // Archive CDX — real request
+  const archive = await tryArchive(url);
+  results.push(archive);
+
+  // WebFinger — real for mastodon URLs
+  const wf = await tryWebFinger(url, host);
+  results.push(wf);
+
+  // Rest simulated
+  await delay(100 + rand(200));
+  results.push({name:'json-ld',  ok: rand(1)>.3, conf:.90, fields:{type:'Article',publisher:host}});
+  results.push({name:'rss-atom', ok: rand(1)>.4, conf:.75, fields:{feedUrl: url+'/feed'}});
+  results.push({name:'dns-doh',  ok: rand(1)>.5, conf:.60, fields:{domain:host, platformVerifications:[]}});
+  results.push({name:'cert-trans',ok:rand(1)>.4, conf:.55, fields:{subdomains:['www.'+host,'api.'+host]}});
+  results.push({name:'sitemap',  ok: rand(1)>.5, conf:.65, fields:{indexedPages: Math.floor(rand(5000))+100}});
+  results.push(simulatePlatform(url, host));
+
+  return results;
+}
+
+function simulateOG(url, host) {
+  const titles = {
+    'youtube.com':'YouTube · Video',
+    'reddit.com':'Reddit · Community post',
+    'github.com':'GitHub · Repository',
+    'medium.com':'Medium · Article',
+    'soundcloud.com':'SoundCloud · Track',
+    'spotify.com':'Spotify · Track',
+    'mastodon.social':'Mastodon · Profile',
+  };
+  const title = Object.entries(titles).find(([k])=>host.includes(k))?.[1] || `${host} · Page`;
+  return {
+    name:'og-meta', ok:true, conf:.95,
+    fields:{
+      title, description:`Fetched from ${host} via OG meta extraction.`,
+      image:`https://picsum.photos/seed/${host}/100/100`,
+      siteName: host, type:'website', url,
+    }
+  };
+}
+
+async function tryOEmbed(url, host) {
+  const providers = {
+    'youtube.com': u => `https://www.youtube.com/oembed?url=${encodeURIComponent(u)}&format=json`,
+    'youtu.be':    u => `https://www.youtube.com/oembed?url=${encodeURIComponent(u)}&format=json`,
+    'vimeo.com':   u => `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(u)}`,
+    'spotify.com': u => `https://open.spotify.com/oembed?url=${encodeURIComponent(u)}`,
+    'soundcloud.com': u => `https://soundcloud.com/oembed?url=${encodeURIComponent(u)}&format=json`,
+    'tiktok.com':  u => `https://www.tiktok.com/oembed?url=${encodeURIComponent(u)}`,
+    'reddit.com':  u => `https://www.reddit.com/oembed?url=${encodeURIComponent(u)}`,
+  };
+  const builder = Object.entries(providers).find(([k])=>host.includes(k))?.[1];
+  if (!builder) return {name:'oembed', ok:false, error:'no provider'};
+  try {
+    const r = await fetch(builder(url), {signal: AbortSignal.timeout(6000)});
+    if (!r.ok) return {name:'oembed', ok:false, error:`HTTP ${r.status}`};
+    const data = await r.json();
+    return {name:'oembed', ok:true, conf:.92, fields:{
+      title:data.title, author:data.author_name, provider:data.provider_name,
+      thumbnail:data.thumbnail_url, width:data.width, height:data.height,
+    }};
+  } catch(e) { return {name:'oembed', ok:false, error:e.message}; }
+}
+
+async function tryArchive(url) {
+  try {
+    const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=timestamp,statuscode&limit=3&fastLatest=true`;
+    const r = await fetch(cdx, {signal: AbortSignal.timeout(8000)});
+    if (!r.ok) return {name:'archive-cdx', ok:false, error:`HTTP ${r.status}`};
+    const rows = await r.json();
+    const [header,...data] = rows;
+    return {name:'archive-cdx', ok:true, conf:.70,
+      fields:{snapshots:data.length, firstSeen:data[0]?.[0]}};
+  } catch(e) { return {name:'archive-cdx', ok:false, error:e.message}; }
+}
+
+async function tryWebFinger(url, host) {
+  const apHosts = ['mastodon','pixelfed','pleroma','misskey','calckey','akkoma'];
+  const isAP = apHosts.some(p=>host.includes(p));
+  if (!isAP) return {name:'webfinger-ap', ok:false, error:'not ActivityPub'};
+  const match = url.match(/\/@([^\/\?]+)/);
+  if (!match) return {name:'webfinger-ap', ok:false, error:'no handle'};
+  try {
+    const wf = `https://${host}/.well-known/webfinger?resource=acct:${match[1]}@${host}`;
+    const r = await fetch(wf, {headers:{Accept:'application/jrd+json'}, signal:AbortSignal.timeout(6000)});
+    if (!r.ok) return {name:'webfinger-ap', ok:false, error:`HTTP ${r.status}`};
+    const data = await r.json();
+    return {name:'webfinger-ap', ok:true, conf:.80, fields:{acct:data.subject, links:data.links?.length}};
+  } catch(e) { return {name:'webfinger-ap', ok:false, error:e.message}; }
+}
+
+function simulatePlatform(url, host) {
+  const platforms = {
+    'youtube.com':{name:'YouTube',views:'1.2M views',channel:'Creator'},
+    'reddit.com':{name:'Reddit',subreddit:'r/general',score:Math.floor(rand(10000))},
+    'github.com':{name:'GitHub',stars:Math.floor(rand(5000)),language:'JavaScript'},
+    'medium.com':{name:'Medium',claps:Math.floor(rand(1000))},
+    'twitter.com':{name:'Twitter/X',note:'API restricted since 2023'},
+    'instagram.com':{name:'Instagram',note:'Login required — OG tags extracted'},
+  };
+  const match = Object.entries(platforms).find(([k])=>host.includes(k));
+  if (match) return {name:'platform', ok:true, conf:.85, fields:{...match[1]}};
+  return {name:'platform', ok:false, error:'no platform scraper'};
+}
+
+function buildMergedResult(url, results) {
+  const ok = results.filter(r=>r.ok).sort((a,b)=>(b.conf||0)-(a.conf||0));
+  const merged = {url, title:null, description:null, image:null, author:null, provider:null, extra:[]};
+  ok.forEach(r => {
+    const f = r.fields||{};
+    if (!merged.title       && f.title)       merged.title       = f.title;
+    if (!merged.description && f.description) merged.description = f.description;
+    if (!merged.image       && (f.image||f.thumbnail)) merged.image = f.image||f.thumbnail;
+    if (!merged.author      && f.author)      merged.author      = f.author;
+    if (!merged.provider    && f.provider)    merged.provider    = f.provider;
+    merged.extra.push({source:r.name, fields:f});
+  });
+  return merged;
+}
+
+function renderIndexResult(merged, results) {
+  const el = document.getElementById('index-result');
+  el.style.display = 'block';
+  const ok = results.filter(r=>r.ok);
+  el.innerHTML = `
+    <div class="result-card">
+      <div class="rc-head">
+        ${merged.image ? `<img class="rc-img" src="${merged.image}" onerror="this.style.display='none'">` : ''}
+        <div class="rc-meta">
+          <div class="rc-title">${merged.title || 'Untitled'}</div>
+          <div class="rc-author">${merged.author || merged.provider || '—'}</div>
+          <div class="rc-platform">${merged.provider || new URL(merged.url||'http://x').hostname}</div>
+        </div>
+        <div style="font-size:11px;font-family:var(--f-mono);color:var(--edge);margin-left:auto;flex-shrink:0">${ok.length}/${results.length}</div>
+      </div>
+      <div class="rc-body">
+        ${merged.description ? `<div class="rc-desc">${merged.description}</div>` : ''}
+        <div class="rc-tags">
+          ${ok.map(r=>`<span class="rc-tag edge-tag">${r.name}</span>`).join('')}
+          ${results.filter(r=>!r.ok).map(r=>`<span class="rc-tag">${r.name}</span>`).join('')}
+        </div>
+        ${renderExtraFields(merged.extra)}
+      </div>
+    </div>`;
+}
+
+function renderExtraFields(extra) {
+  const fields = [];
+  extra.forEach(e => {
+    const f = e.fields;
+    if (f.snapshots) fields.push(`archive: ${f.snapshots} snapshots`);
+    if (f.stars)     fields.push(`★ ${f.stars}`);
+    if (f.views)     fields.push(f.views);
+    if (f.score)     fields.push(`↑${f.score}`);
+    if (f.acct)      fields.push(f.acct);
+    if (f.subdomains?.length) fields.push(`${f.subdomains.length} subdomains`);
+    if (f.indexedPages) fields.push(`~${f.indexedPages} pages`);
+  });
+  if (!fields.length) return '';
+  return `<div class="rc-tags">${fields.map(f=>`<span class="rc-tag">${f}</span>`).join('')}</div>`;
+}
+
+// ── IRS ENGINE ───────────────────────────────────────────────────────────────
+
+// Adaptive baseline update
+function baselineUpdate(axis, value) {
+  const alpha = 0.08;
+  const prev  = state.baseline[axis] ?? 0.5;
+  const next  = prev + alpha * (value - prev);
+  state.baseline[axis] = next;
+  return { baseline: next, deviation: value - prev, absDeviation: Math.abs(value - prev) };
+}
+
+function computeSigmas(coherence, reciprocity, semanticAlignment, suppression) {
+  const cDev = baselineUpdate('coherence',    coherence).absDeviation;
+  const rDev = baselineUpdate('reciprocity',  reciprocity).absDeviation;
+  const sDev = baselineUpdate('semantic',     semanticAlignment).absDeviation;
+  const pDev = baselineUpdate('suppression',  suppression).absDeviation;
+
+  // σₙ — noise: mean of immediate deviations
+  const sn = r4(mean([cDev, rDev, sDev]) * 3);
+
+  // σₜ — temporal: drift from long-run mean
+  const histC = state.sigmaHistory.n.slice(-10);
+  const st = r4(histC.length > 2 ? Math.abs(mean(histC) - sn) * 2 : 0);
+
+  // σₛ — structural: Z-score approximation
+  const allDevs = state.sigmaHistory.n.slice(-20);
+  const mu = mean(allDevs.length ? allDevs : [sn]);
+  const sd = stddev(allDevs.length > 2 ? allDevs : [sn, sn*0.8, sn*1.2]);
+  const ss = r4(sd > 0 ? Math.abs(sn - mu) / sd : 0);
+
+  // σᵣ — asymmetry: invest delta between agents (simulated as |reciprocity - 0.5| * 2)
+  const sr = r4(Math.abs(reciprocity - 0.5) * 2);
+
+  return {n: sn, t: st, s: ss, r: sr};
+}
+
+function updateSigmaDisplay(sigmas) {
+  state.sigmas = sigmas;
+  ['n','t','s','r'].forEach(k => {
+    const v = sigmas[k];
+    state.sigmaHistory[k].push(v);
+    if (state.sigmaHistory[k].length > 60) state.sigmaHistory[k].shift();
+    const maxV = k==='s' ? 4 : 1;
+    document.getElementById(`sig-${k}`).textContent = v.toFixed(2);
+    document.getElementById(`sig-${k}-bar`).style.width = Math.min(100, (v/maxV)*100).toFixed(0)+'%';
+  });
+  drawSigmaCanvas();
+  document.getElementById('tb-bl').textContent = r4(mean(Object.values(state.baseline).filter(v=>v!==undefined))).toFixed(2);
+}
+
+function injectGap() {
+  const coherence = rand(0.6);
+  const reciprocity = 0.3 + rand(0.4);
+  const semantic = 0.3 + rand(0.5);
+  const suppression = rand(0.8);
+
+  const sigmas = computeSigmas(coherence, reciprocity, semantic, suppression);
+  updateSigmaDisplay(sigmas);
+
+  // Classify gap
+  const gapType = sigmas.s > 2.0 ? 'G2_ALIGNMENT'
+                : sigmas.r > 0.25 ? 'G1_RECIPROCITY'
+                : 'G0_CREATION';
+
+  const magnitude = r4(clamp(mean([sigmas.n, sigmas.t, sigmas.s/4, sigmas.r]) , 0, 1));
+
+  const gap = {
+    id: `gap-${Date.now()}`,
+    gapType, magnitude,
+    sigmas,
+    dominantScale: sigmas.s > sigmas.n && sigmas.s > sigmas.t ? 'σₛ'
+                 : sigmas.t > sigmas.n ? 'σₜ' : 'σₙ',
+    resolution: gapType==='G0_CREATION' ? 'edge_creation'
+              : gapType==='G1_RECIPROCITY' ? 'reciprocity_completion'
+              : 'alignment_repair',
+    detectedAt: Date.now(),
+  };
+  state.gaps.push(gap);
+  document.getElementById('tb-gaps').textContent = state.gaps.length;
+
+  renderGap(gap);
+  irsLog(`GAP detected: ${gapType} | dominant: ${gap.dominantScale} | magnitude: ${magnitude.toFixed(3)}`, gap.magnitude > 0.6 ? 'warn' : 'ok');
+
+  // Trigger meta check
+  if (state.edges.length > 0 && gapType === 'G2_ALIGNMENT') {
+    const loop = detectStructuralLoop(gapType, state.edges[state.edges.length-1]?.edgeType);
+    if (loop) renderMeta(loop);
+  }
+}
+
+function injectEdge() {
+  const coherence         = 0.4 + rand(0.55);
+  const mutualElaboration = 0.3 + rand(0.6);
+  const responseRatio     = 0.35 + rand(0.6);
+  const sharedVocab       = 0.4 + rand(0.5);
+
+  const bidir = r4(clamp(coherence*.35 + mutualElaboration*.30 + responseRatio*.25 + sharedVocab*.10, 0, 1));
+  const avgBidir = state.edges.length > 0
+    ? r4((mean(state.edges.map(e=>e.bidir)) + bidir) / 2)
+    : bidir;
+  const sigmaVal = state.edges.length > 1 ? r4(stddev(state.edges.map(e=>e.bidir))) : 0.05;
+
+  const asymmetry = r4(Math.abs(responseRatio - 0.5));
+
+  const edgeType = avgBidir >= 0.70 && sigmaVal < 0.12 ? 'ESTABLISHED'
+                 : avgBidir >= 0.55 ? (sigmaVal > 0.30 ? 'STRESSED' : 'NASCENT')
+                 : avgBidir < 0.25 ? 'DISSOLVED'
+                 : 'NASCENT';
+
+  const edge = {
+    id:         `edge-${agentA.id}::${agentB.id}-${Date.now()}`,
+    agentA:     agentA.id, agentB: agentB.id,
+    edgeType, bidir, avgBidir, sigma: sigmaVal, asymmetry,
+    measuredAt: Date.now(),
+    previousType: state.edges.length>0 ? state.edges[state.edges.length-1].edgeType : null,
+  };
+  state.edges.push(edge);
+  document.getElementById('tb-edges').textContent = state.edges.length;
+
+  renderEdge(edge);
+  irsLog(`EDGE measured: ${edgeType} | bidir: ${bidir.toFixed(3)} | σ: ${sigmaVal.toFixed(3)} | σᵣ: ${asymmetry.toFixed(3)}`,
+    edgeType==='ESTABLISHED' ? 'ok' : edgeType==='DISSOLVED'||edgeType==='MISALIGNED' ? 'warn' : 'ok');
+
+  const sigmas = computeSigmas(coherence, responseRatio, sharedVocab, 0);
+  updateSigmaDisplay(sigmas);
+}
+
+function attemptInversion() {
+  const sigmas = state.sigmas;
+  const sigmaScores = {n:sigmas.n, t:sigmas.t, s:sigmas.s, r:sigmas.r};
+
+  // 5-condition gate
+  const entries = Object.values(sigmaScores).filter(v=>v!=null);
+  const max = Math.max(...entries);
+  const sorted = entries.slice().sort((a,b)=>b-a);
+  const C1pass = max > sorted[1]*1.5;
+  const C2pass = sigmas.s < 3.0;
+  const C3pass = sigmas.n > 0.01 ? (sigmas.s / sigmas.n) > 1.5 : false;
+  const recentN = state.sigmaHistory.n.slice(-5);
+  const C4pass = recentN.length > 2 ? stddev(recentN) < 0.20 : true;
+  const C5pass = !state.lastInversionAt || (Date.now() - state.lastInversionAt) > 60000;
+
+  const allPass = C1pass && C2pass && C3pass && C4pass && C5pass;
+
+  const TYPES = ['EPISTEMIC','TEMPORAL','FRAME','POLARITY'];
+  const invType = TYPES[Math.floor(rand(TYPES.length))];
+
+  const conditions = {
+    C1:{pass:C1pass, reason: C1pass?'dominant scale identified':'ambiguous σ scale'},
+    C2:{pass:C2pass, reason: C2pass?'baseline stable':`structural σ=${sigmas.s.toFixed(2)} too high`},
+    C3:{pass:C3pass, reason: C3pass?`SNR ${sigmas.n>0?(sigmas.s/sigmas.n).toFixed(2):'∞'} above floor`:'noise-dominated'},
+    C4:{pass:C4pass, reason: C4pass?'regime stable':'regime shifting'},
+    C5:{pass:C5pass, reason: C5pass?'no cooldown':'cooldown active'},
+  };
+
+  const inv = {
+    fired: allPass, invType, conditions,
+    fromState: 'current-model', toState: 'reinterpreted-sigma-frame',
+    desc: allPass
+      ? `σ mapping reinterpreted [${invType}]: model updates; world-state unchanged.`
+      : `Inversion blocked — conditions not met.`,
+    ts: Date.now(),
+  };
+
+  if (allPass) {
+    state.lastInversionAt = Date.now();
+    state.inversions.fired++;
+  } else {
+    state.inversions.blocked++;
+  }
+
+  document.getElementById('tb-inv').textContent = `${state.inversions.fired}/${state.inversions.fired+state.inversions.blocked}`;
+  renderInversion(inv);
+  irsLog(`INV ${allPass?'FIRED':'BLOCKED'} [${invType}] — ${Object.values(conditions).filter(c=>!c.pass).map(c=>c.reason).join('; ')||'all conditions met'}`,
+    allPass ? 'ok' : 'warn');
+}
+
+function injectResonance() {
+  const structural = 0.5 + rand(0.45);
+  const oscillation = 0.45 + rand(0.5);
+  const temporal = 0.4 + rand(0.55);
+  const total = r4(structural * 0.45 + oscillation * 0.45 + temporal * 0.10);
+
+  const MATCH_TYPES = total > 0.72 ? 'mirror'
+                    : total > 0.55 ? 'complementary'
+                    : total > 0.4  ? 'friction'
+                    : 'dissonant';
+
+  const TRAJECTORIES = ['deepening','stable','retreating'];
+  const trajectory = state.resonance
+    ? (total > state.resonance.total ? 'deepening' : total < state.resonance.total ? 'retreating' : 'stable')
+    : TRAJECTORIES[Math.floor(rand(3))];
+
+  const INSIGHTS = [
+    'High abstraction alignment — conversation moves fast.',
+    'Oscillation patterns closely matched — rhythm syncs naturally.',
+    'Shared poetic register — language feels mutual without effort.',
+    'Complementary resonance: ground + movement.',
+    'Phase misalignment — timing affects quality of contact.',
+    'Emotional amplitude asymmetry — one stabilizes the other.',
+  ];
+
+  state.resonance = { total, structural, oscillation, temporal,
+    matchType: MATCH_TYPES, trajectory,
+    insights: shuffleArr(INSIGHTS).slice(0,2),
+    userA: agentA.id, userB: agentB.id, ts: Date.now() };
+
+  renderResonance(state.resonance);
+  computeScore();
+  irsLog(`RESONANCE: ${total.toFixed(3)} | ${MATCH_TYPES} | ${trajectory}`, 'ok');
+}
+
+function simulateCycle() {
+  injectGap();
+  setTimeout(injectEdge, 400);
+  setTimeout(injectResonance, 800);
+  setTimeout(attemptInversion, 1200);
+}
+
+// ── RENDER HELPERS ────────────────────────────────────────────────────────────
+
+function renderGap(gap) {
+  const typeLabels = {G0_CREATION:'G₀ CREATION',G1_RECIPROCITY:'G₁ RECIPROCITY',G2_ALIGNMENT:'G₂ ALIGNMENT'};
+  const resCopy = {
+    edge_creation:'Reduce uncertainty by introducing new edge between agents.',
+    reciprocity_completion:'Complete bidirectional feedback — one-sided engagement detected.',
+    alignment_repair:'Alignment repair required — connection exists, mapping broken.',
+  };
+  const typeClass = gap.gapType.replace('_','').replace('CREATION','G0').replace('RECIPROCITY','G1').replace('ALIGNMENT','G2');
+
+  document.getElementById('gap-content').innerHTML = `
+    <div class="gap-card">
+      <div class="gap-header">
+        <span class="gap-badge gap-${gap.gapType.split('_')[0]}">${typeLabels[gap.gapType]||gap.gapType}</span>
+        <span class="gap-title">Dominant: ${gap.dominantScale}</span>
+        <span class="gap-mag">mag ${gap.magnitude.toFixed(3)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+        ${['n','t','s','r'].map(k=>{
+          const labels={n:'σₙ',t:'σₜ',s:'σₛ',r:'σᵣ'};
+          const colors={n:'var(--noise)',t:'var(--temporal)',s:'var(--struct)',r:'var(--asym)'};
+          return `<div style="text-align:center;background:var(--void3);padding:6px;border-radius:2px;border:1px solid var(--border)">
+            <div style="font-size:10px;font-family:var(--f-mono);color:var(--ink3)">${labels[k]}</div>
+            <div style="font-size:14px;font-weight:800;font-family:var(--f-mono);color:${colors[k]}">${gap.sigmas[k].toFixed(2)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="gap-resolution">${resCopy[gap.resolution]||gap.resolution}</div>
+    </div>`;
+}
+
+function renderEdge(edge) {
+  const typeColors = {ESTABLISHED:'var(--edge)',STRESSED:'var(--temporal)',MISALIGNED:'var(--gap)',DISSOLVED:'var(--ink4)',NASCENT:'var(--noise)'};
+  const transitionText = edge.previousType && edge.previousType !== edge.edgeType
+    ? `<div style="font-size:10px;font-family:var(--f-mono);color:var(--inv);margin-top:6px">⟳ transition: ${edge.previousType} → ${edge.edgeType}</div>`
+    : '';
+
+  document.getElementById('edge-content').innerHTML = `
+    <div class="edge-card ${edge.edgeType}">
+      <div class="edge-header">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span class="edge-type">${edge.edgeType}</span>
+          <span class="edge-agents">${edge.agentA} ↔ ${edge.agentB}</span>
+        </div>
+        <div class="edge-bidir">${(edge.bidir*100).toFixed(0)}<span style="font-size:12px;font-weight:400">%</span></div>
+      </div>
+      <div class="edge-sigma-row">
+        <span class="edge-sigma-label">bidir avg</span>
+        <span class="edge-sigma-val">${edge.avgBidir.toFixed(3)}</span>
+        <span class="edge-sigma-label" style="margin-left:10px">σ</span>
+        <span class="edge-sigma-val">${edge.sigma.toFixed(3)}</span>
+        <span class="edge-sigma-label" style="margin-left:10px">σᵣ</span>
+        <span class="edge-sigma-val">${edge.asymmetry.toFixed(3)}</span>
+      </div>
+      ${transitionText}
+    </div>`;
+}
+
+function renderInversion(inv) {
+  const condKeys = ['C1','C2','C3','C4','C5'];
+  const condLabels = {
+    C1:'Scale validity',C2:'Baseline stability',
+    C3:'Noise floor',C4:'Regime stability',C5:'Temporal integrity'
+  };
+  document.getElementById('inv-content').innerHTML = `
+    <div class="inv-card ${inv.fired?'fired':'blocked'}">
+      <div class="inv-header">
+        <span class="inv-type">${inv.invType||'EPISTEMIC'}</span>
+        <span class="inv-status ${inv.fired?'fired':'blocked'}">${inv.fired?'FIRED':'BLOCKED'}</span>
+      </div>
+      <div class="inv-desc">${inv.desc}</div>
+      <div class="inv-conditions">
+        ${condKeys.map(k => {
+          const c = inv.conditions[k];
+          return `<div class="inv-cond">
+            <span class="c-key">${k}</span>
+            <span class="${c.pass?'c-pass':'c-fail'}">${c.pass?'✓':'✗'}</span>
+            <span class="c-reason">${c.reason}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function renderResonance(res) {
+  document.getElementById('resonance-area').style.display='block';
+  document.getElementById('resonance-content').innerHTML = `
+    <div class="res-trajectory">
+      <span class="traj-label">match</span>
+      <span class="traj-val" style="color:${res.matchType==='mirror'?'var(--inv)':res.matchType==='complementary'?'var(--edge)':res.matchType==='friction'?'var(--temporal)':'var(--gap)'}">${res.matchType}</span>
+      <span class="traj-label" style="margin-left:12px">traj</span>
+      <span class="traj-val traj-${res.trajectory}">${res.trajectory}</span>
+      <span class="traj-label" style="margin-left:12px">total</span>
+      <span class="traj-val" style="color:var(--res)">${(res.total*100).toFixed(0)}</span>
+    </div>
+    ${res.insights.map(i=>`<div class="res-insight" style="margin-bottom:6px">${i}</div>`).join('')}
+  `;
+}
+
+function detectStructuralLoop(gapType, edgeType) {
+  if (!gapType || !edgeType) return null;
+  const pattern = `${gapType}+${edgeType}`;
+  const all = state.gaps.map(g=>g.gapType).filter(t=>t===gapType);
+  if (all.length >= 3) {
+    return {
+      isRecursive: true,
+      pattern,
+      count: all.length,
+      description: `Structural loop: pattern "${pattern}" has occurred ${all.length} times. The relationship is cycling.`,
+    };
+  }
+  return null;
+}
+
+function renderMeta(loop) {
+  document.getElementById('meta-area').style.display='block';
+  document.getElementById('meta-content').innerHTML = `
+    <div class="meta-loop">◈ ${loop.description}</div>`;
+}
+
+function computeScore() {
+  const edge = state.edges.length>0 ? state.edges[state.edges.length-1] : null;
+  const res  = state.resonance;
+  const gap  = state.gaps.length>0 ? state.gaps[state.gaps.length-1] : null;
+  const inv  = state.inversions;
+
+  const gapScore       = gap  ? r4(1 - clamp(gap.magnitude,0,1)) : 0.5;
+  const edgeScore      = edge ? r4(edge.avgBidir) : 0.5;
+  const resonanceScore = res  ? r4(res.total) : 0.5;
+  const stabilityScore = edge ? r4(1 - clamp(edge.sigma*3,0,1)) : 0.5;
+  const alignmentScore = (!gap||gap.gapType!=='G2_ALIGNMENT')
+    ? r4(edgeScore*.6+resonanceScore*.4)
+    : r4(edgeScore*.3+resonanceScore*.3);
+  const invLoad = inv.fired>0 ? 0.1 : 0;
+
+  const composite = r4(clamp(
+    gapScore*.20 + edgeScore*.25 + resonanceScore*.25 + stabilityScore*.15 + alignmentScore*.15 - invLoad,
+    0,1
+  ));
+
+  state.score = {composite, components:{gap:gapScore,edge:edgeScore,resonance:resonanceScore,stability:stabilityScore,alignment:alignmentScore,invLoad}};
+
+  const scoreColor = composite>=.7?'var(--edge)':composite>=.5?'var(--res)':composite>=.3?'var(--temporal)':'var(--gap)';
+  document.getElementById('score-composite').textContent = (composite*100).toFixed(0);
+  document.getElementById('score-composite').style.color = scoreColor;
+  document.getElementById('score-label').textContent = composite>=.7?'field coherent':composite>=.5?'moderate alignment':composite>=.3?'stress detected':'critical gap';
+
+  renderScoreGrid(state.score.components);
+
+  // Primary signal
+  const psEl = document.getElementById('primary-signal');
+  psEl.style.display='block';
+  const sig = gap?.gapType==='G2_ALIGNMENT' ? 'Connection present but alignment broken — G₂ structural gap active'
+            : edge?.edgeType==='DISSOLVED' ? 'Edge dissolved — feedback loop broken'
+            : res?.trajectory==='deepening' ? 'Resonance deepening — approach motivation active'
+            : res?.trajectory==='retreating' ? 'Resonance retreating — withdrawal emerging'
+            : gap?.gapType==='G1_RECIPROCITY' ? 'Asymmetric — reciprocity completion needed'
+            : edge?.edgeType==='ESTABLISHED' ? 'Edge established — stable channel'
+            : 'System within baseline tolerance';
+  document.getElementById('primary-signal-text').textContent = sig;
+
+  // Flags
+  const flags=[];
+  if(gap?.gapType==='G2_ALIGNMENT') flags.push({code:'G2_MISALIGNMENT',sev:'high'});
+  if(edge?.edgeType==='DISSOLVED') flags.push({code:'EDGE_DISSOLVED',sev:'high'});
+  if(edge?.asymmetry>.35) flags.push({code:'ASYMMETRY_HIGH',sev:'medium'});
+  if(res?.trajectory==='retreating') flags.push({code:'RESONANCE_RETREATING',sev:'medium'});
+
+  if(flags.length){
+    document.getElementById('flags-area').style.display='block';
+    document.getElementById('flags-content').innerHTML = flags.map(f=>
+      `<div class="flag-item ${f.sev}">⚡ ${f.code}</div>`
+    ).join('');
+  }
+
+  renderBaseline();
+}
+
+function renderScoreGrid(components) {
+  const el = document.getElementById('score-grid');
+  if (!components) { el.innerHTML=''; return; }
+  const items = [
+    {k:'gap',      label:'gap',       color:'var(--gap)'},
+    {k:'edge',     label:'edge',      color:'var(--edge)'},
+    {k:'resonance',label:'resonance', color:'var(--res)'},
+    {k:'stability',label:'stability', color:'var(--noise)'},
+    {k:'alignment',label:'alignment', color:'var(--inv)'},
+    {k:'invLoad',  label:'inv load',  color:'var(--temporal)'},
+  ];
+  el.innerHTML = items.map(i=>`
+    <div class="score-comp">
+      <div class="score-comp-label">${i.label}</div>
+      <div class="score-comp-val" style="color:${i.color}">${((components[i.k]||0)*100).toFixed(0)}</div>
+    </div>`).join('');
+}
+
+function renderBaseline() {
+  const el = document.getElementById('baseline-section');
+  const entries = Object.entries(state.baseline).slice(0, 8);
+  el.innerHTML = entries.map(([k,v]) => `
+    <div class="bl-row">
+      <span class="bl-key">${k}</span>
+      <div class="bl-track"><div class="bl-fill" style="width:${(clamp(v,0,1)*100).toFixed(0)}%"></div></div>
+      <span class="bl-val">${v.toFixed(3)}</span>
+    </div>`).join('');
+}
+
+function drawSigmaCanvas() {
+  const canvas = document.getElementById('sigma-canvas');
+  const ctx = canvas.getContext('2d');
+  const W=300, H=120;
+  ctx.clearRect(0,0,W,H);
+
+  const COLORS = {n:'#60a8e8',t:'#f0c94a',s:'#e85c3a',r:'#00d4aa'};
+  const MAXVALS = {n:1,t:1,s:4,r:1};
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.05)';
+  ctx.lineWidth=1;
+  [0.25,0.5,0.75].forEach(frac => {
+    ctx.beginPath();
+    ctx.moveTo(0, H*frac);
+    ctx.lineTo(W, H*frac);
+    ctx.stroke();
+  });
+
+  // Lines
+  ['n','t','s','r'].forEach(k => {
+    const hist = state.sigmaHistory[k];
+    if (hist.length < 2) return;
+    const maxV = MAXVALS[k];
+    ctx.beginPath();
+    hist.forEach((v,i) => {
+      const x = (i/(Math.max(hist.length-1,1)))*(W-1);
+      const y = H - (v/maxV)*H*0.9 - H*0.05;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = COLORS[k];
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Legend
+  ctx.font='9px Space Mono, monospace';
+  Object.entries(COLORS).forEach(([k,c],i) => {
+    ctx.fillStyle=c;
+    ctx.fillRect(4+i*68,4,8,3);
+    ctx.fillStyle='rgba(200,220,224,.5)';
+    ctx.fillText({n:'σₙ',t:'σₜ',s:'σₛ',r:'σᵣ'}[k], 16+i*68, 12);
+  });
+}
+
+// ── LOG HELPERS ───────────────────────────────────────────────────────────────
+function irsLog(msg, type='') {
+  const el = document.getElementById('irs-log');
+  const line = document.createElement('div');
+  line.className = `err-line ${type}`;
+  line.innerHTML = `<span class="err-t">${ts()}</span>${msg}`;
+  el.insertBefore(line, el.firstChild);
+  while(el.children.length>60) el.removeChild(el.lastChild);
+}
+function idxLog(msg, type='') {
+  const el = document.getElementById('index-log');
+  const line = document.createElement('div');
+  line.className = `err-line ${type}`;
+  line.innerHTML = `<span class="err-t">${ts()}</span>${msg}`;
+  el.insertBefore(line, el.firstChild);
+  while(el.children.length>40) el.removeChild(el.lastChild);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function rand(n) { return Math.random()*n; }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function stddev(arr) {
+  if(arr.length<2) return 0;
+  const m=mean(arr);
+  return Math.sqrt(arr.reduce((s,v)=>s+(v-m)**2,0)/arr.length);
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function r4(n){ return Math.round((n??0)*10000)/10000; }
+function shuffleArr(a){ return [...a].sort(()=>Math.random()-.5); }
+function ts(){ return new Date().toTimeString().slice(0,8); }
+
+init();
+</script>
+</body>
+</html>

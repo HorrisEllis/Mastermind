@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · DEVTOOLS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#020705;--signal:#39ff6a;--glow:rgba(57,255,106,.12);
+  --dim:#1e4a2a;--mid:#2e6640;--muted:#4a9960;--bright:#b4e8c0;
+  --rose:#ff4455;--amber:#ffcc00;--cyan:#00ffee;--violet:#cc88ff;
+  --mono:'Courier New',Courier,monospace;
+  --panel-border:rgba(57,255,106,.12);
+}
+html,body{
+  width:100%;height:100vh;overflow:hidden;
+  background:var(--ink);color:var(--bright);
+  font-family:var(--mono);font-size:11px;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(57,255,106,.012) 2px,rgba(57,255,106,.012) 3px);
+}
+
+/* ── Layout ── */
+#shell{
+  position:relative;z-index:1;
+  display:grid;
+  grid-template-rows:40px 1fr;
+  grid-template-columns:1fr 320px;
+  height:100vh;
+  gap:0;
+}
+
+/* ── Header ── */
+#header{
+  grid-column:1/-1;
+  display:flex;align-items:center;gap:16px;
+  padding:0 16px;
+  border-bottom:1px solid var(--panel-border);
+  background:rgba(2,7,5,.98);
+}
+.logo{
+  display:flex;align-items:center;gap:8px;
+  font-size:10px;letter-spacing:4px;color:var(--signal);text-transform:uppercase;
+}
+.logo-hex{
+  width:20px;height:20px;border:1px solid var(--signal);
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  animation:hexglow 3s ease-in-out infinite;
+}
+@keyframes hexglow{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 12px var(--signal),inset 0 0 6px rgba(57,255,106,.15)}}
+.sep{color:var(--dim);margin:0 4px;}
+#header-status{
+  display:flex;gap:16px;margin-left:auto;font-size:9px;letter-spacing:1px;color:var(--mid);
+}
+.status-pill{
+  display:flex;align-items:center;gap:5px;
+}
+.status-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--dim);
+  transition:background .3s;
+}
+.status-dot.live{background:var(--signal);box-shadow:0 0 6px var(--signal);}
+.status-dot.warn{background:var(--amber);}
+.status-dot.err {background:var(--rose);}
+
+/* ── Log panel ── */
+#log-panel{
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--panel-border);
+  overflow:hidden;
+}
+#log-toolbar{
+  display:flex;align-items:center;gap:0;
+  border-bottom:1px solid var(--panel-border);
+  background:rgba(57,255,106,.03);
+  flex-shrink:0;
+}
+.toolbar-label{
+  padding:7px 12px;font-size:8px;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;border-right:1px solid var(--panel-border);
+}
+.filter-btn{
+  padding:7px 10px;font-size:8px;letter-spacing:1px;
+  background:none;border:none;border-right:1px solid var(--panel-border);
+  color:var(--dim);cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;transition:all .15s;
+}
+.filter-btn.active{color:var(--signal);background:var(--glow);}
+.filter-btn:hover{color:var(--muted);}
+#clear-btn{
+  margin-left:auto;padding:7px 12px;font-size:8px;letter-spacing:2px;
+  background:none;border:none;border-left:1px solid var(--panel-border);
+  color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;
+}
+#clear-btn:hover{color:var(--rose);}
+#log-scroll{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  scroll-behavior:smooth;
+}
+#log-scroll::-webkit-scrollbar{width:3px;}
+#log-scroll::-webkit-scrollbar-track{background:transparent;}
+#log-scroll::-webkit-scrollbar-thumb{background:var(--dim);}
+
+.log-entry{
+  display:grid;
+  grid-template-columns:52px 180px 1fr;
+  gap:0;
+  border-bottom:1px solid rgba(57,255,106,.04);
+  padding:4px 0;
+  font-size:9px;line-height:1.5;
+  opacity:0;animation:fadein .15s forwards;
+  cursor:pointer;
+  transition:background .1s;
+}
+.log-entry:hover{background:rgba(57,255,106,.04);}
+@keyframes fadein{to{opacity:1}}
+.log-t{
+  padding:0 8px;color:var(--mid);
+  border-right:1px solid rgba(57,255,106,.06);
+  display:flex;align-items:flex-start;padding-top:2px;
+}
+.log-ch{
+  padding:0 8px;
+  border-right:1px solid rgba(57,255,106,.06);
+  display:flex;align-items:flex-start;padding-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.log-body{padding:0 8px;color:var(--bright);word-break:break-all;}
+
+/* channel color coding */
+.ch-latent  {color:var(--signal);}
+.ch-signal  {color:var(--cyan);}
+.ch-expr    {color:var(--violet);}
+.ch-audio   {color:var(--amber);}
+.ch-video   {color:#ff9944;}
+.ch-landscape{color:#44ddff;}
+.ch-mesh    {color:#ff88aa;}
+.ch-kernel  {color:var(--muted);}
+.ch-sim     {color:var(--rose);}
+
+/* log detail drawer */
+#log-detail{
+  border-top:1px solid var(--panel-border);
+  background:rgba(57,255,106,.02);
+  max-height:160px;overflow-y:auto;
+  flex-shrink:0;
+  display:none;
+}
+#log-detail.open{display:block;}
+#log-detail pre{
+  padding:10px 12px;font-size:9px;line-height:1.7;
+  color:var(--bright);white-space:pre-wrap;word-break:break-all;
+}
+
+/* ── Right panel ── */
+#right-panel{
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── State display ── */
+#state-panel{
+  border-bottom:1px solid var(--panel-border);
+  flex-shrink:0;
+}
+#state-header{
+  padding:7px 12px;font-size:8px;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;
+  border-bottom:1px solid var(--panel-border);
+  background:rgba(57,255,106,.03);
+}
+#state-body{padding:12px;}
+.dim-row{
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+}
+.dim-label{
+  font-size:8px;letter-spacing:1px;color:var(--mid);
+  text-transform:uppercase;width:80px;flex-shrink:0;
+}
+.dim-bar-wrap{
+  flex:1;height:3px;background:rgba(57,255,106,.08);position:relative;
+}
+.dim-bar{
+  position:absolute;top:0;height:100%;
+  transition:left .3s ease,width .3s ease;
+  background:var(--signal);
+}
+.dim-val{
+  font-size:9px;color:var(--signal);width:36px;text-align:right;flex-shrink:0;
+}
+
+/* ── Simulator ── */
+#sim-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#sim-header{
+  padding:7px 12px;font-size:8px;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;
+  border-bottom:1px solid var(--panel-border);
+  background:rgba(57,255,106,.03);
+  display:flex;align-items:center;gap:8px;
+}
+#sim-header span{flex:1;}
+#sim-mode-toggle{
+  font-size:7px;letter-spacing:1px;
+  padding:2px 6px;border:1px solid var(--panel-border);
+  background:none;color:var(--mid);cursor:pointer;font-family:var(--mono);
+  text-transform:uppercase;
+}
+#sim-mode-toggle.running{border-color:var(--rose);color:var(--rose);}
+
+#sim-body{flex:1;overflow-y:auto;padding:10px 12px;}
+#sim-body::-webkit-scrollbar{width:3px;}
+#sim-body::-webkit-scrollbar-thumb{background:var(--dim);}
+
+.sim-section-label{
+  font-size:7px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;
+  margin:10px 0 6px;border-bottom:1px solid var(--panel-border);padding-bottom:4px;
+}
+.sim-section-label:first-child{margin-top:0;}
+
+.obs-btn{
+  display:inline-block;margin:2px;padding:4px 7px;
+  font-size:7px;letter-spacing:1px;text-transform:uppercase;
+  border:1px solid rgba(57,255,106,.15);background:none;
+  color:var(--mid);cursor:pointer;font-family:var(--mono);
+  transition:all .12s;
+}
+.obs-btn:hover,.obs-btn:active{
+  border-color:var(--signal);color:var(--signal);background:var(--glow);
+}
+.obs-btn.expr  {border-color:rgba(204,136,255,.2);color:rgba(204,136,255,.7);}
+.obs-btn.expr:hover{border-color:var(--violet);color:var(--violet);background:rgba(204,136,255,.06);}
+.obs-btn.micro {border-color:rgba(255,68,85,.2);color:rgba(255,68,85,.6);}
+.obs-btn.micro:hover{border-color:var(--rose);color:var(--rose);background:rgba(255,68,85,.06);}
+.obs-btn.sig   {border-color:rgba(0,255,238,.2);color:rgba(0,255,238,.6);}
+.obs-btn.sig:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,238,.06);}
+.obs-btn.cue   {border-color:rgba(255,204,0,.2);color:rgba(255,204,0,.6);}
+.obs-btn.cue:hover{border-color:var(--amber);color:var(--amber);background:rgba(255,204,0,.06);}
+.obs-btn.audio {border-color:rgba(255,153,68,.2);color:rgba(255,153,68,.6);}
+.obs-btn.audio:hover{border-color:#ff9944;color:#ff9944;background:rgba(255,153,68,.06);}
+
+/* strength slider */
+#strength-wrap{
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:12px;padding-bottom:10px;
+  border-bottom:1px solid var(--panel-border);
+}
+#strength-label{font-size:8px;letter-spacing:1px;color:var(--mid);width:60px;}
+#strength-slider{
+  flex:1;-webkit-appearance:none;height:2px;
+  background:linear-gradient(to right,var(--signal) 0%,var(--signal) var(--pct,70%),rgba(57,255,106,.15) var(--pct,70%));
+  outline:none;border:none;
+}
+#strength-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;
+  border-radius:50%;background:var(--signal);cursor:pointer;
+  box-shadow:0 0 6px var(--signal);
+}
+#strength-val{font-size:9px;color:var(--signal);width:28px;text-align:right;}
+
+/* sequence runner */
+#seq-wrap{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--panel-border);
+}
+#seq-label{font-size:7px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:8px;}
+.seq-preset{
+  width:100%;padding:6px 8px;margin-bottom:4px;text-align:left;
+  font-size:8px;letter-spacing:1px;text-transform:uppercase;
+  border:1px solid rgba(57,255,106,.12);background:none;
+  color:var(--muted);cursor:pointer;font-family:var(--mono);
+  transition:all .12s;
+}
+.seq-preset:hover{border-color:var(--signal);color:var(--signal);background:var(--glow);}
+
+/* flash on inject */
+@keyframes flash{0%{background:rgba(57,255,106,.2)}100%{background:transparent}}
+.flashed{animation:flash .4s ease-out;}
+
+/* log count badge */
+#log-count{
+  margin-left:auto;margin-right:8px;
+  font-size:8px;color:var(--dim);
+}
+</style>
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- Header -->
+  <div id="header">
+    <div class="logo">
+      <div class="logo-hex">⬡</div>
+      ALK <span class="sep">·</span> DEVTOOLS
+    </div>
+    <div id="header-status">
+      <div class="status-pill">
+        <div class="status-dot" id="dot-bus"></div>
+        <span>BUS</span>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot" id="dot-latent"></div>
+        <span>LATENT</span>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot" id="dot-sim"></div>
+        <span>SIM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log panel -->
+  <div id="log-panel">
+    <div id="log-toolbar">
+      <div class="toolbar-label">EVENT LOG</div>
+      <button class="filter-btn active" data-filter="all">ALL</button>
+      <button class="filter-btn" data-filter="latent">LATENT</button>
+      <button class="filter-btn" data-filter="signal">SIGNAL</button>
+      <button class="filter-btn" data-filter="expr">EXPR</button>
+      <button class="filter-btn" data-filter="sim">SIM</button>
+      <span id="log-count">0 events</span>
+      <button id="clear-btn">CLEAR</button>
+    </div>
+    <div id="log-scroll"></div>
+    <div id="log-detail">
+      <pre id="log-detail-pre"></pre>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div id="right-panel">
+
+    <!-- Latent state display -->
+    <div id="state-panel">
+      <div id="state-header">LATENT STATE</div>
+      <div id="state-body">
+        <div class="dim-row">
+          <div class="dim-label">VALENCE</div>
+          <div class="dim-bar-wrap">
+            <div class="dim-bar" id="bar-valence" style="left:50%;width:0%;background:var(--signal)"></div>
+          </div>
+          <div class="dim-val" id="val-valence">0.00</div>
+        </div>
+        <div class="dim-row">
+          <div class="dim-label">AROUSAL</div>
+          <div class="dim-bar-wrap">
+            <div class="dim-bar" id="bar-arousal" style="left:0%;width:0%"></div>
+          </div>
+          <div class="dim-val" id="val-arousal">0.00</div>
+        </div>
+        <div class="dim-row">
+          <div class="dim-label">SUPPRESSION</div>
+          <div class="dim-bar-wrap">
+            <div class="dim-bar" id="bar-suppression" style="left:0%;width:0%;background:var(--rose)"></div>
+          </div>
+          <div class="dim-val" id="val-suppression">0.00</div>
+        </div>
+        <div class="dim-row">
+          <div class="dim-label">COHERENCE</div>
+          <div class="dim-bar-wrap">
+            <div class="dim-bar" id="bar-coherence" style="left:0%;width:0%;background:var(--cyan)"></div>
+          </div>
+          <div class="dim-val" id="val-coherence">0.00</div>
+        </div>
+        <div class="dim-row" style="margin-bottom:0">
+          <div class="dim-label">ENGAGEMENT</div>
+          <div class="dim-bar-wrap">
+            <div class="dim-bar" id="bar-engagement" style="left:50%;width:0%;background:var(--violet)"></div>
+          </div>
+          <div class="dim-val" id="val-engagement">0.00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulator -->
+    <div id="sim-panel">
+      <div id="sim-header">
+        <span>RESONANCE SIM</span>
+        <button id="sim-mode-toggle" onclick="toggleAuto()">AUTO OFF</button>
+      </div>
+      <div id="sim-body">
+
+        <!-- Strength -->
+        <div id="strength-wrap">
+          <div id="strength-label">STRENGTH</div>
+          <input type="range" id="strength-slider" min="0" max="100" value="70"
+            oninput="updateStrength(this.value)" style="--pct:70%">
+          <div id="strength-val">0.70</div>
+        </div>
+
+        <!-- Expression -->
+        <div class="sim-section-label">Expression</div>
+        <button class="obs-btn expr" onclick="inject('expr.JOY_GENUINE')">JOY</button>
+        <button class="obs-btn expr" onclick="inject('expr.JOY_SOCIAL')">JOY SOCIAL</button>
+        <button class="obs-btn expr" onclick="inject('expr.FEAR')">FEAR</button>
+        <button class="obs-btn expr" onclick="inject('expr.ANGER')">ANGER</button>
+        <button class="obs-btn expr" onclick="inject('expr.DISGUST')">DISGUST</button>
+        <button class="obs-btn expr" onclick="inject('expr.CONTEMPT')">CONTEMPT</button>
+        <button class="obs-btn expr" onclick="inject('expr.SADNESS')">SADNESS</button>
+        <button class="obs-btn expr" onclick="inject('expr.SURPRISE')">SURPRISE</button>
+
+        <!-- Micro-expressions -->
+        <div class="sim-section-label">Micro-expression (suppressed)</div>
+        <button class="obs-btn micro" onclick="inject('micro.FEAR')">μ FEAR</button>
+        <button class="obs-btn micro" onclick="inject('micro.ANGER')">μ ANGER</button>
+        <button class="obs-btn micro" onclick="inject('micro.DISGUST')">μ DISGUST</button>
+        <button class="obs-btn micro" onclick="inject('micro.CONTEMPT')">μ CONTEMPT</button>
+        <button class="obs-btn micro" onclick="inject('micro.SADNESS')">μ SADNESS</button>
+        <button class="obs-btn micro" onclick="inject('micro.SURPRISE')">μ SURPRISE</button>
+
+        <!-- Signal composites -->
+        <div class="sim-section-label">Signal composite</div>
+        <button class="obs-btn sig" onclick="inject('sig.STRESS_ACUTE')">STRESS</button>
+        <button class="obs-btn sig" onclick="inject('sig.COGNITIVE_LOAD')">COG LOAD</button>
+        <button class="obs-btn sig" onclick="inject('sig.SOCIAL_MASK')">SOCIAL MASK</button>
+        <button class="obs-btn sig" onclick="inject('sig.GENUINE_ENGAGEMENT')">GENUINE</button>
+        <button class="obs-btn sig" onclick="inject('sig.CONCEALMENT')">CONCEAL</button>
+        <button class="obs-btn sig" onclick="inject('sig.CONTEMPT_LEAK')">CONTEMPT LEAK</button>
+        <button class="obs-btn sig" onclick="inject('sig.DISSONANCE')">DISSONANCE</button>
+        <button class="obs-btn sig" onclick="inject('sig.APPROACH')">APPROACH</button>
+        <button class="obs-btn sig" onclick="inject('sig.WITHDRAWAL')">WITHDRAWAL</button>
+        <button class="obs-btn sig" onclick="inject('sig.FREEZE')">FREEZE</button>
+
+        <!-- Nonverbal cues -->
+        <div class="sim-section-label">Nonverbal cue</div>
+        <button class="obs-btn cue" onclick="inject('cue.gaze_aversion')">GAZE AVERT</button>
+        <button class="obs-btn cue" onclick="inject('cue.eye_contact')">EYE CONTACT</button>
+        <button class="obs-btn cue" onclick="inject('cue.shoulder_raise')">SHOULDER ↑</button>
+        <button class="obs-btn cue" onclick="inject('cue.brow_furrow')">BROW FURROW</button>
+        <button class="obs-btn cue" onclick="inject('cue.smile_social')">SMILE</button>
+        <button class="obs-btn cue" onclick="inject('cue.hand_to_mouth')">HAND MOUTH</button>
+        <button class="obs-btn cue" onclick="inject('cue.head_nod')">HEAD NOD</button>
+        <button class="obs-btn cue" onclick="inject('cue.open_palm')">OPEN PALM</button>
+
+        <!-- Audio -->
+        <div class="sim-section-label">Audio / speech</div>
+        <button class="obs-btn audio" onclick="inject('audio.energy_high')">ENERGY HIGH</button>
+        <button class="obs-btn audio" onclick="inject('audio.energy_low')">ENERGY LOW</button>
+        <button class="obs-btn audio" onclick="inject('audio.energy_anomaly')">ANOMALY</button>
+        <button class="obs-btn audio" onclick="inject('speech.friction')">FRICTION</button>
+        <button class="obs-btn audio" onclick="inject('speech.positive')">POSITIVE</button>
+        <button class="obs-btn audio" onclick="inject('speech.negative')">NEGATIVE</button>
+        <button class="obs-btn audio" onclick="inject('speech.baseline_alert')">ALERT</button>
+
+        <!-- Sequences -->
+        <div id="seq-wrap">
+          <div id="seq-label">Sequences</div>
+          <button class="seq-preset" onclick="runSeq('mask_slip')">MASK SLIP — social mask → contempt leak → freeze</button>
+          <button class="seq-preset" onclick="runSeq('escalation')">ESCALATION — low arousal → stress → acute fear</button>
+          <button class="seq-preset" onclick="runSeq('genuine_open')">GENUINE OPEN — approach → joy genuine → engagement</button>
+          <button class="seq-preset" onclick="runSeq('shutdown')">SHUTDOWN — withdrawal → sadness → freeze</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+// ══════════════════════════════════════════════════════════════════════════════
+// ALK Devtools — imports real ALK modules from same directory
+// Drop this file next to video-demo.html on your server.
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { SISOBus }               from './siso.js';
+import { LatentModel, OBS_MODELS, DIM } from './modules/signal/latent-model.js';
+
+// ── Bus + model ──────────────────────────────────────────────────────────────
+const bus   = new SISOBus();
+const model = new LatentModel({ bus, stateInterval: 1 });
+
+// ── State ────────────────────────────────────────────────────────────────────
+let logEntries   = [];
+let logCount     = 0;
+let activeFilter = 'all';
+let selectedEntry = null;
+let strength     = 0.70;
+let autoRunning  = false;
+let autoInterval = null;
+
+// ── Status dots ──────────────────────────────────────────────────────────────
+document.getElementById('dot-bus').classList.add('live');
+
+// ── Strength slider ───────────────────────────────────────────────────────────
+window.updateStrength = function(v) {
+  strength = v / 100;
+  document.getElementById('strength-val').textContent = strength.toFixed(2);
+  document.getElementById('strength-slider').style.setProperty('--pct', v + '%');
+};
+
+// ── Channel classifier ────────────────────────────────────────────────────────
+function classify(ch) {
+  if (ch.startsWith('alk.latent'))    return 'latent';
+  if (ch.startsWith('alk.signal'))    return 'signal';
+  if (ch.startsWith('alk.expression'))return 'expr';
+  if (ch.startsWith('alk.audio'))     return 'audio';
+  if (ch.startsWith('alk.video'))     return 'video';
+  if (ch.startsWith('alk.landscape')) return 'landscape';
+  if (ch.startsWith('alk.mesh'))      return 'mesh';
+  if (ch.startsWith('alk.kernel'))    return 'kernel';
+  if (ch.startsWith('sim.'))          return 'sim';
+  return 'kernel';
+}
+
+// ── Log ──────────────────────────────────────────────────────────────────────
+function logEvent(channel, data, isSim = false) {
+  const now   = performance.now();
+  const ms    = now.toFixed(0).padStart(6,' ');
+  const cat   = isSim ? 'sim' : classify(channel);
+  const entry = { id: logCount++, t: ms, ch: channel, cat, data };
+  logEntries.push(entry);
+
+  document.getElementById('log-count').textContent = logCount + ' events';
+
+  if (activeFilter !== 'all' && activeFilter !== cat) return;
+  renderEntry(entry);
+}
+
+function renderEntry(entry) {
+  const scroll = document.getElementById('log-scroll');
+  const atBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 40;
+
+  const row = document.createElement('div');
+  row.className = 'log-entry';
+  row.dataset.id = entry.id;
+
+  const chClass = `ch-${entry.cat}`;
+  const chShort = entry.ch.replace('alk.','');
+
+  // Summarize data inline
+  let summary = '';
+  if (entry.data) {
+    const d = entry.data;
+    if (d.valence !== undefined)
+      summary = `v=${d.valence?.toFixed(2)} a=${d.arousal?.toFixed(2)} s=${d.suppression?.toFixed(2)}`;
+    else if (d.obsKey)
+      summary = `${d.obsKey} @ ${d.strength?.toFixed(2)}`;
+    else if (d.transport)
+      summary = `transport=${d.transport}`;
+    else if (d.label)
+      summary = d.label;
+    else {
+      const keys = Object.keys(d).slice(0,3);
+      summary = keys.map(k => `${k}=${JSON.stringify(d[k])}`).join(' ');
+    }
+  }
+
+  row.innerHTML = `
+    <div class="log-t">${entry.t}</div>
+    <div class="log-ch ${chClass}">${chShort}</div>
+    <div class="log-body">${summary}</div>
+  `;
+
+  row.addEventListener('click', () => selectEntry(entry, row));
+  scroll.appendChild(row);
+
+  if (atBottom) scroll.scrollTop = scroll.scrollHeight;
+}
+
+function selectEntry(entry, row) {
+  document.querySelectorAll('.log-entry').forEach(r => r.style.background = '');
+  row.style.background = 'rgba(57,255,106,.06)';
+  selectedEntry = entry;
+  const detail = document.getElementById('log-detail');
+  const pre    = document.getElementById('log-detail-pre');
+  detail.classList.add('open');
+  pre.textContent = JSON.stringify(entry.data, null, 2);
+}
+
+// ── Filter buttons ────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    rebuildLog();
+  });
+});
+
+function rebuildLog() {
+  const scroll = document.getElementById('log-scroll');
+  scroll.innerHTML = '';
+  const filtered = activeFilter === 'all'
+    ? logEntries
+    : logEntries.filter(e => e.cat === activeFilter);
+  filtered.forEach(renderEntry);
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  logEntries = [];
+  logCount   = 0;
+  document.getElementById('log-scroll').innerHTML = '';
+  document.getElementById('log-count').textContent = '0 events';
+  document.getElementById('log-detail').classList.remove('open');
+});
+
+// ── Subscribe to all ALK bus events ──────────────────────────────────────────
+const ALL_EVENTS = [
+  'alk.latent.update','alk.latent.state','alk.latent.shift','alk.latent.pulse',
+  'alk.signal.composite','alk.signal.state','alk.signal.transition','alk.signal.pulse',
+  'alk.expression.composite','alk.expression.micro','alk.expression.state',
+  'alk.audio.frame',
+  'alk.video.frame.analyzed','alk.video.landmarks.face','alk.video.landmarks.pose',
+  'alk.video.cue.detected','alk.video.cue.released',
+  'alk.landscape.new','alk.landscape.updated','alk.landscape.warmstart',
+  'alk.landscape.attractor.deepened','alk.landscape.attractor.dissolved','alk.landscape.insight',
+  'alk.trajectory.complete',
+  'alk.mesh.transport.ready','alk.mesh.peer.connected','alk.mesh.peer.disconnected',
+  'alk.mesh.handshake.attempt','alk.mesh.handshake.result','alk.mesh.magnet','alk.mesh.pulse',
+  'alk.kernel.error','alk.kernel.pulse',
+];
+
+ALL_EVENTS.forEach(ev => {
+  bus.on(ev, (data) => {
+    logEvent(ev, data);
+    // Update latent dot on activity
+    if (ev.startsWith('alk.latent')) {
+      document.getElementById('dot-latent').classList.add('live');
+    }
+  });
+});
+
+// ── State bars ────────────────────────────────────────────────────────────────
+bus.on('alk.latent.update', (d) => {
+  updateBar('valence',    d.valence,    true);
+  updateBar('arousal',    d.arousal,    false);
+  updateBar('suppression',d.suppression,false);
+  updateBar('coherence',  d.coherence,  false);
+  updateBar('engagement', d.engagement, true);
+});
+
+function updateBar(dim, val, bipolar) {
+  const bar  = document.getElementById(`bar-${dim}`);
+  const label= document.getElementById(`val-${dim}`);
+  if (!bar || val === undefined) return;
+  label.textContent = (val >= 0 ? '+' : '') + val.toFixed(2);
+  if (bipolar) {
+    // [-1,+1] → center at 50%
+    const pct = ((val + 1) / 2) * 100;
+    const mid = 50;
+    if (pct >= mid) {
+      bar.style.left  = mid + '%';
+      bar.style.width = (pct - mid) + '%';
+    } else {
+      bar.style.left  = pct + '%';
+      bar.style.width = (mid - pct) + '%';
+    }
+  } else {
+    // [0,1]
+    bar.style.left  = '0%';
+    bar.style.width = (val * 100) + '%';
+  }
+}
+
+// ── Inject observation ────────────────────────────────────────────────────────
+window.inject = function(obsKey, str) {
+  const s = str ?? strength;
+  model.observe(obsKey, s);
+  model.tick();
+
+  logEvent('sim.inject', { obsKey, strength: s }, true);
+
+  // Flash the button
+  const btns = document.querySelectorAll('.obs-btn');
+  btns.forEach(b => {
+    if (b.textContent.toLowerCase().includes(obsKey.split('.')[1]?.split('_')[0].toLowerCase())) {
+      b.classList.add('flashed');
+      setTimeout(() => b.classList.remove('flashed'), 400);
+    }
+  });
+
+  document.getElementById('dot-sim').classList.add('live');
+  document.getElementById('dot-sim').classList.add('warn');
+  setTimeout(() => document.getElementById('dot-sim').classList.remove('warn'), 600);
+};
+
+// ── Sequences ────────────────────────────────────────────────────────────────
+const SEQUENCES = {
+  mask_slip: [
+    { obs: 'sig.SOCIAL_MASK',    str: 0.8, delay: 0    },
+    { obs: 'sig.SOCIAL_MASK',    str: 0.7, delay: 800  },
+    { obs: 'sig.CONTEMPT_LEAK',  str: 0.9, delay: 1800 },
+    { obs: 'micro.CONTEMPT',     str: 0.8, delay: 2400 },
+    { obs: 'sig.FREEZE',         str: 0.6, delay: 3200 },
+    { obs: 'cue.gaze_aversion',  str: 0.7, delay: 3800 },
+  ],
+  escalation: [
+    { obs: 'audio.energy_low',   str: 0.4, delay: 0    },
+    { obs: 'sig.COGNITIVE_LOAD', str: 0.6, delay: 700  },
+    { obs: 'sig.STRESS_ACUTE',   str: 0.7, delay: 1500 },
+    { obs: 'cue.shoulder_raise', str: 0.8, delay: 2200 },
+    { obs: 'micro.FEAR',         str: 0.9, delay: 3000 },
+    { obs: 'expr.FEAR',          str: 0.8, delay: 3600 },
+    { obs: 'audio.energy_anomaly',str:0.9, delay: 4200 },
+  ],
+  genuine_open: [
+    { obs: 'sig.APPROACH',           str: 0.7, delay: 0    },
+    { obs: 'cue.eye_contact',        str: 0.8, delay: 600  },
+    { obs: 'expr.JOY_GENUINE',       str: 0.9, delay: 1400 },
+    { obs: 'cue.head_nod',           str: 0.7, delay: 2000 },
+    { obs: 'sig.GENUINE_ENGAGEMENT', str: 0.9, delay: 2800 },
+    { obs: 'speech.positive',        str: 0.8, delay: 3400 },
+  ],
+  shutdown: [
+    { obs: 'sig.WITHDRAWAL',    str: 0.7, delay: 0    },
+    { obs: 'cue.gaze_aversion', str: 0.8, delay: 700  },
+    { obs: 'expr.SADNESS',      str: 0.8, delay: 1400 },
+    { obs: 'audio.energy_low',  str: 0.6, delay: 2000 },
+    { obs: 'sig.FREEZE',        str: 0.7, delay: 2800 },
+    { obs: 'micro.SADNESS',     str: 0.6, delay: 3400 },
+  ],
+};
+
+window.runSeq = function(name) {
+  const steps = SEQUENCES[name];
+  if (!steps) return;
+  logEvent('sim.sequence', { name, steps: steps.length }, true);
+  steps.forEach(({ obs, str, delay }) => {
+    setTimeout(() => inject(obs, str), delay);
+  });
+};
+
+// ── Auto mode ─────────────────────────────────────────────────────────────────
+const AUTO_POOL = [
+  'expr.JOY_GENUINE','expr.SURPRISE','sig.COGNITIVE_LOAD',
+  'cue.eye_contact','audio.energy_high','sig.APPROACH',
+  'cue.head_nod','sig.STRESS_ACUTE','micro.FEAR','cue.shoulder_raise',
+];
+
+window.toggleAuto = function() {
+  autoRunning = !autoRunning;
+  const btn = document.getElementById('sim-mode-toggle');
+  if (autoRunning) {
+    btn.textContent = 'AUTO ON';
+    btn.classList.add('running');
+    autoInterval = setInterval(() => {
+      const obs = AUTO_POOL[Math.floor(Math.random() * AUTO_POOL.length)];
+      const s   = 0.3 + Math.random() * 0.6;
+      inject(obs, s);
+    }, 1200);
+    logEvent('sim.auto', { state: 'started', interval_ms: 1200 }, true);
+  } else {
+    btn.textContent = 'AUTO OFF';
+    btn.classList.remove('running');
+    clearInterval(autoInterval);
+    logEvent('sim.auto', { state: 'stopped' }, true);
+  }
+};
+
+// ── Initial tick to populate state ───────────────────────────────────────────
+model.tick(0);
+logEvent('sim.init', { message: 'ALK devtools ready — model live', obs_models: Object.keys(OBS_MODELS).length }, true);
+</script>
+</body>
+</html>

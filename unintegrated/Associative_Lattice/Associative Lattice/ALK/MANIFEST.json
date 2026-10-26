@@ -1,0 +1,38 @@
+{
+  "name": "ALK",
+  "version": "1.9.0",
+  "uuid": "alk-core-0000-1800-0000-000000000001",
+  "description": "Associative Lattice Kernel \u2014 behavioral signal runtime",
+  "entry": "video-demo.html",
+  "foundation": {
+    "eventBus": "siso.js",
+    "persistence": "jaa-browser.js",
+    "kernel": "kernel.js"
+  },
+  "modules": {
+    "video": "modules/video/video-module.js",
+    "cfr": "modules/cfr/alk-gl.js",
+    "expression": "modules/expression/expression-engine.js",
+    "signal": "modules/signal/signal-topology.js",
+    "latent": "modules/signal/latent-model.js",
+    "suppression": "modules/signal/suppression-score.js",
+    "trajectory": "modules/trajectory/trajectory-recorder.js",
+    "landscape": "modules/trajectory/attractor-landscape.js",
+    "portrait": "modules/trajectory/field-portrait.js",
+    "text": "modules/text/text-module.js",
+    "behavior": "modules/behavior/behavior-module.js",
+    "codec-v2": "modules/video/codec-v2.js",
+    "codec": "modules/video/codec.js"
+  },
+  "axioms": [
+    "\u00a71.1",
+    "\u00a71.2",
+    "\u00a72.1",
+    "\u00a73.1",
+    "\u00a74.3",
+    "\u00a75.1",
+    "\u00a75.2",
+    "\u00a75.5",
+    "\u00a75.7"
+  ]
+}

@@ -4,7 +4,7 @@ color 0B
 
 echo.
 echo  ═══════════════════════════════════════════
-echo   MASTERMIND v3.0.5 — DEV LAUNCHER
+echo   MASTERMIND — DEV LAUNCHER
 echo  ═══════════════════════════════════════════
 echo.
 

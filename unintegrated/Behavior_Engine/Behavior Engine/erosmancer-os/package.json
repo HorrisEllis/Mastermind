@@ -1,0 +1,39 @@
+{
+  "name": "erosmancer-os",
+  "version": "0.1.0",
+  "description": "ErosmancerOS — CDP-native browser orchestration engine",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "npx tsx src/api/server.ts",
+    "dev": "npx tsx watch src/api/server.ts",
+    "test": "npx tsx tests/suite.ts",
+    "test:all": "npx tsx tests/suite.ts && npx tsx tests/hostile.test.ts && npx tsx tests/adaptive.test.ts && npx tsx tests/replay.test.ts",
+    "lint": "npx tsc --noEmit",
+    "build": "npx tsc"
+  },
+  "dependencies": {
+    "ws": "^8.17.0",
+    "uuid": "^9.0.1",
+    "eventemitter3": "^5.0.1",
+    "zod": "^3.23.8",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "@types/uuid": "^9.0.8",
+    "@types/node": "^20.12.7",
+    "typescript": "^5.4.5",
+    "tsx": "^4.9.3",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17"
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "types": "src/index.ts"
+}

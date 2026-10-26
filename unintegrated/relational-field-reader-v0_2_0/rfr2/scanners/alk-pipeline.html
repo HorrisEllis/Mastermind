@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · Signal Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d0d0d;--ink2:#2e2e2e;--ink3:#6b6b6b;--ink4:#a8a8a8;
+  --bg:#f7f5f0;--bg2:#efece5;--bg3:#e6e2d8;
+  --me-bg:#1a1a2e;--me-txt:#ffffff;
+  --them-bg:#ffffff;--them-border:rgba(0,0,0,.1);
+  --ig:#e1306c;--sms:#34c759;--email:#0072c6;--dm:#1da1f2;--comment:#ff6b35;--screenshot:#7c4dff;
+  --green:#00b894;--amber:#f39c12;--red:#e74c3c;--accent:#c8522a;
+  --border:rgba(0,0,0,.07);--border2:rgba(0,0,0,.13);
+  --r:14px;--bubble-r:18px;
+  --f:'Bricolage Grotesque',sans-serif;--fm:'DM Mono',monospace;--fs:'Instrument Serif',serif;
+  --sh:0 1px 4px rgba(0,0,0,.06),0 0 1px rgba(0,0,0,.08);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--f)}
+
+/* ── ROOT GRID ─────────────────────────── */
+.root{display:grid;grid-template-rows:58px 1fr;grid-template-columns:288px 1fr 288px;height:100vh}
+
+/* ══════════════════════════════════════════
+   TOP BAR  — 3 zones: ME | CENTRE | THEM
+   Left zone = ME identity (you, left side)
+   Right zone = THEM identity (right side)
+   Both are editable — username drives everything
+══════════════════════════════════════════ */
+.topbar{
+  grid-column:1/-1;
+  display:grid;grid-template-columns:288px 1fr 288px;
+  background:var(--ink);color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  z-index:50
+}
+
+/* ME zone (left of topbar) */
+.tb-me{
+  display:flex;align-items:center;gap:9px;padding:0 14px;
+  border-right:1px solid rgba(255,255,255,.08);
+}
+/* THEM zone (right of topbar) */
+.tb-them{
+  display:flex;align-items:center;gap:9px;padding:0 14px;
+  border-left:1px solid rgba(255,255,255,.08);flex-direction:row-reverse;
+}
+
+/* Avatar bubble — colour+initials auto-derived from name */
+.tb-ava{
+  width:30px;height:30px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;flex-shrink:0;
+  border:2px solid rgba(255,255,255,.18);transition:background .3s
+}
+.tb-meta{flex:1;min-width:0}
+.tb-role{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);font-family:var(--fm);margin-bottom:1px}
+/* Inline editable username — typing changes identity live */
+.tb-name-input{
+  background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.15);
+  color:#fff;font-family:var(--f);font-size:13px;font-weight:700;outline:none;
+  width:100%;padding:1px 0;cursor:text;line-height:1.3
+}
+.tb-name-input::placeholder{color:rgba(255,255,255,.25)}
+.tb-name-input:focus{border-bottom-color:var(--accent)}
+.tb-them .tb-name-input{text-align:right}
+.tb-handle{font-size:10px;color:rgba(255,255,255,.35);font-family:var(--fm);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-them .tb-handle{text-align:right}
+
+/* CENTRE zone — source type tabs */
+.tb-centre{display:flex;align-items:center;justify-content:center;padding:0 8px}
+.src-tabs{display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:10px;padding:3px}
+.src-tab{
+  padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;
+  cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,.4);
+  transition:.15s;white-space:nowrap;font-family:var(--f)
+}
+.src-tab.active{background:rgba(255,255,255,.14);color:#fff}
+
+/* ══════════════════════════════════════════
+   LEFT PANEL — upload + pipeline
+══════════════════════════════════════════ */
+.lp{background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.lp-head{padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.lp-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:2px}
+.lp-sub{font-size:14px;font-weight:800;color:var(--ink)}
+.lp-body{flex:1;overflow-y:auto;padding:10px 0}
+
+/* DROPZONE */
+.dz{
+  margin:0 12px 10px;border:1.5px dashed var(--border2);border-radius:18px;
+  padding:18px 12px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg2)
+}
+.dz:hover,.dz.drag{border-color:var(--accent);background:rgba(200,82,42,.05)}
+.dz.has-file{border-style:solid;border-color:var(--green);background:rgba(0,184,148,.04)}
+.dz-ico{font-size:24px;margin-bottom:5px;display:block}
+.dz-main{font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:2px}
+.dz-sub{font-size:10px;color:var(--ink3);line-height:1.5}
+.dz-tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:7px}
+.dz-tag{font-size:9px;padding:1px 5px;border-radius:99px;background:var(--bg3);color:var(--ink2);font-family:var(--fm);border:1px solid var(--border2)}
+
+/* URL INPUT */
+.url-wrap{margin:0 12px 10px}
+.field-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+.url-row{display:flex;gap:4px}
+.url-inp{flex:1;font-family:var(--fm);font-size:10px;padding:6px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);color:var(--ink);outline:none;min-width:0;transition:.15s}
+.url-inp:focus{border-color:var(--green)}
+.url-go{padding:6px 9px;background:var(--ink);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* SENDER TOGGLE */
+.sender-wrap{margin:0 12px 10px;display:flex;gap:4px}
+.sender-btn{flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--border2);background:transparent;color:var(--ink);font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.2s;text-align:center}
+.sender-btn.me-active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sender-btn.them-active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* SEC HEADER */
+.sec{display:flex;align-items:center;gap:7px;padding:0 12px;margin:8px 0 5px}
+.sec-lbl{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.sec-line{flex:1;height:1px;background:var(--border2)}
+
+/* PIPELINE */
+.pipe{margin:0 12px;display:flex;flex-direction:column;gap:3px}
+.pi{
+  display:flex;align-items:center;gap:7px;padding:7px 9px;
+  border-radius:9px;border:1px solid var(--border);background:var(--bg);
+  transition:.2s;position:relative;overflow:hidden
+}
+.pi.running{border-color:var(--accent);background:rgba(200,82,42,.04)}
+.pi.done{border-color:var(--green);background:rgba(0,184,148,.04)}
+.pi-num{width:18px;height:18px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--ink3);flex-shrink:0;transition:.2s}
+.pi.running .pi-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.pi.done .pi-num{background:var(--green);border-color:var(--green);color:#fff}
+.pi-txt{flex:1;min-width:0}
+.pi-name{font-size:11px;font-weight:700;color:var(--ink)}
+.pi-desc{font-size:9px;color:var(--ink3);font-family:var(--fm)}
+.pi-stat{font-size:9px;font-family:var(--fm);color:var(--ink3);flex-shrink:0}
+.pi-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);transition:width .3s ease}
+.pi.done .pi-bar{background:var(--green)}
+.pi-conn{width:1px;height:6px;background:var(--border2);margin-left:20px}
+
+/* RUN */
+.run-wrap{padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.run-btn{width:100%;padding:10px;border:none;border-radius:var(--r);background:var(--ink);color:#fff;font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.2s}
+.run-btn:hover:not(:disabled){background:var(--ink2);transform:translateY(-1px)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.run-btn.live{background:var(--accent);animation:pbtn 1.4s ease infinite}
+@keyframes pbtn{0%,100%{opacity:1}50%{opacity:.8}}
+.spin{animation:rot .7s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ══════════════════════════════════════════
+   CONVERSATION CANVAS (centre column)
+   Top: identity bar showing both sides
+   Bottom: messages — LEFT=THEM, RIGHT=ME
+══════════════════════════════════════════ */
+.conv{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+/* The identity bar at top of conversation — shows THEM left, ME right */
+.conv-bar{
+  flex-shrink:0;display:flex;align-items:center;
+  padding:9px 18px;border-bottom:1px solid var(--border);background:var(--bg);gap:0
+}
+.cb-them{display:flex;align-items:center;gap:7px}
+.cb-me{display:flex;align-items:center;gap:7px;margin-left:auto}
+.cb-ava{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0}
+.cb-name{font-size:12px;font-weight:700;color:var(--ink)}
+.cb-handle{font-size:10px;color:var(--ink3);font-family:var(--fm)}
+.cb-sep{flex:1;text-align:center;font-size:10px;color:var(--ink4)}
+.type-pill{
+  display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;
+  font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  margin:0 10px;flex-shrink:0
+}
+
+/* MESSAGES */
+.msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+
+/* Message rows — strict spatial model:
+   LEFT = THEM (incoming, their color)
+   RIGHT = ME (outgoing, dark navy) */
+.mrow{display:flex;flex-direction:column;gap:2px}
+.mrow.left{align-self:flex-start;align-items:flex-start;max-width:70%}
+.mrow.right{align-self:flex-end;align-items:flex-end;max-width:70%}
+
+/* Bubble group with optional avatar */
+.mrow-inner{display:flex;align-items:flex-end;gap:6px}
+.mrow.right .mrow-inner{flex-direction:row-reverse}
+
+.m-ava{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0;margin-bottom:2px}
+
+/* BUBBLE */
+.bbl{padding:8px 12px;font-size:13px;line-height:1.55;word-break:break-word;max-width:100%}
+.mrow.left .bbl{background:#fff;border:1px solid rgba(0,0,0,.08);color:var(--ink);border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.mrow.right .bbl{background:var(--me-bg);color:var(--me-txt);border-radius:16px 4px 16px 16px}
+
+/* Sender label */
+.bbl-who{font-size:9px;font-family:var(--fm);font-weight:700;margin-bottom:3px}
+.mrow.left .bbl-who{color:var(--ink3)}
+.mrow.right .bbl-who{color:rgba(255,255,255,.4);text-align:right}
+/* Time stamp */
+.bbl-time{font-size:9px;font-family:var(--fm);margin-top:3px}
+.mrow.left .bbl-time{color:var(--ink4)}
+.mrow.right .bbl-time{color:rgba(255,255,255,.3);text-align:right}
+
+/* INLINE SCORE CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.chip{padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;font-family:var(--fm)}
+.chip-res{background:rgba(124,77,255,.12);color:#7c4dff}
+.chip-str{background:rgba(200,82,42,.12);color:var(--accent)}
+.chip-mirror{background:rgba(0,184,148,.12);color:var(--green)}
+.chip-complementary{background:rgba(243,156,18,.15);color:#856800}
+.chip-friction{background:rgba(231,76,60,.1);color:var(--red)}
+.chip-dissonant{background:rgba(100,100,100,.1);color:var(--ink3)}
+.chip-conf{background:rgba(0,0,0,.06);color:var(--ink3)}
+
+/* SYS MESSAGE */
+.sys{text-align:center;font-size:10px;font-family:var(--fm);color:var(--ink4);padding:2px 0;font-style:italic}
+
+/* MEDIA IN BUBBLE */
+.bbl-img{max-width:240px;border-radius:10px;display:block;margin-bottom:4px}
+.bbl-vid{width:100%;max-width:260px;border-radius:10px;display:block;background:#000;aspect-ratio:16/9}
+.bbl-yt{width:260px;height:146px;border-radius:10px;display:block;border:none}
+
+/* SCREENSHOT */
+.ss-block{border-radius:10px;overflow:hidden;border:1px solid var(--border2);max-width:260px}
+.ss-bar{background:#e8e8e8;padding:5px 8px;font-size:9px;font-family:var(--fm);color:#888;display:flex;align-items:center;gap:4px}
+.ss-dot{width:6px;height:6px;border-radius:50%}
+
+/* EMAIL */
+.email-block{background:var(--bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:270px}
+.email-head{padding:9px 11px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.email-field{font-size:9px;color:var(--ink3);display:flex;gap:5px;margin-bottom:2px;font-family:var(--fm);line-height:1.5}
+.email-field b{color:var(--ink2)}
+.email-subj{font-size:11px;font-weight:700;color:var(--ink);margin-top:4px}
+.email-body{padding:9px 11px;font-size:11px;color:var(--ink2);line-height:1.6}
+
+/* IG POST */
+.ig-block{background:#fff;border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:240px}
+.ig-head{padding:7px 9px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border)}
+.ig-ava-sm{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff}
+.ig-un{font-size:10px;font-weight:700;color:#111}
+.ig-img-area{width:100%;background:var(--bg2);aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--ink3)}
+.ig-cap{padding:7px 9px;font-size:10px;color:#111;line-height:1.5}
+.ig-acts{padding:5px 9px;display:flex;gap:10px;border-top:1px solid var(--border);font-size:12px;color:var(--ink3)}
+
+/* COMMENT */
+.cmt-block{background:var(--bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:260px}
+.cmt-post{background:var(--bg2);padding:7px 9px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.cmt-thumb{width:32px;height:32px;border-radius:6px;background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.cmt-body{padding:7px 9px}
+.cmt-txt{font-size:11px;color:var(--ink);line-height:1.5}
+.cmt-meta{font-size:9px;color:var(--ink3);font-family:var(--fm);margin-top:3px}
+
+/* EMPTY */
+.canvas-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:var(--ink3)}
+.ce-icon{font-size:40px;opacity:.2}
+.ce-title{font-size:13px;font-weight:700;color:var(--ink2)}
+.ce-sub{font-size:11px;color:var(--ink3);text-align:center;max-width:220px;line-height:1.6}
+
+/* ══════════════════════════════════════════
+   RIGHT PANEL — THEM identity + scores + logs
+   Built entirely from their username
+══════════════════════════════════════════ */
+.rp{background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rp-scroll{flex:1;overflow-y:auto}
+.rp-sec{padding:12px 13px;border-bottom:1px solid var(--border)}
+.rp-sec-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px}
+
+/* THEM IDENTITY CARD — top of right panel */
+.them-card{padding:14px 13px;border-bottom:1px solid var(--border)}
+.them-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.them-big-ava{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;border:3px solid var(--border2);transition:background .3s}
+.them-name{font-size:14px;font-weight:800;color:var(--ink)}
+.them-handle{font-size:10px;color:var(--ink3);font-family:var(--fm)}
+.them-mode{display:inline-flex;margin-top:4px;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:rgba(124,77,255,.1);color:#7c4dff;font-family:var(--fm)}
+
+/* AXIS MINI GRID — 2 columns of 3 */
+.ax-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ax-cell{background:var(--bg2);border-radius:7px;padding:6px 8px;border:1px solid var(--border)}
+.ax-lbl{font-size:8px;font-family:var(--fm);color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.ax-val{font-size:13px;font-weight:800;color:var(--ink)}
+.ax-bar{height:2px;border-radius:99px;margin-top:3px;background:var(--bg3);overflow:hidden}
+.ax-fill{height:100%;border-radius:99px;transition:width .5s ease}
+
+/* SCORE ROWS */
+.sc-row{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.sc-lbl{font-size:9px;font-family:var(--fm);color:var(--ink3);width:66px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis}
+.sc-track{flex:1;height:4px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.sc-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.sc-val{font-size:9px;font-family:var(--fm);font-weight:700;color:var(--ink);width:24px;text-align:right}
+
+/* RADAR */
+.radar-wrap{padding:10px 13px;border-bottom:1px solid var(--border)}
+canvas.radar{display:block;margin:0 auto}
+
+/* COMPARE */
+.cmp-section{padding:10px 13px;border-bottom:1px solid var(--border)}
+.cmp-ax{margin-bottom:9px}
+.cmp-ax-name{font-size:8px;font-family:var(--fm);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+
+/* ID LOG */
+.log-section{padding:10px 13px;border-bottom:1px solid var(--border)}
+.log-entry{display:flex;gap:7px;padding:6px 0;border-bottom:1px solid var(--border)}
+.log-entry:last-child{border-bottom:none}
+.log-ava{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0}
+.log-body{flex:1;min-width:0}
+.log-name{font-size:11px;font-weight:700;color:var(--ink)}
+.log-action{font-size:9px;color:var(--ink3);font-family:var(--fm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-ts{font-size:8px;color:var(--ink4);font-family:var(--fm)}
+
+/* ERR LOG */
+.err-section{padding:10px 13px}
+.err-log{background:#0a0a0a;border-radius:9px;padding:9px;max-height:130px;overflow-y:auto;font-family:var(--fm);font-size:9px}
+.el{padding:1px 0;line-height:1.8}
+.el-t{color:#444;margin-right:6px}
+.el-info{color:#00cec9}.el-success{color:#00b894}.el-warn{color:#f39c12}.el-error{color:#e74c3c}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:5px;z-index:999;pointer-events:none}
+.toast{padding:8px 13px;border-radius:9px;font-size:11px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15);animation:tin .2s ease}
+.toast-info{background:var(--ink);color:#fff}
+.toast-success{background:var(--green);color:#fff}
+.toast-error{background:var(--red);color:#fff}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="root">
+
+<!-- ══════════════════════════════════════════════════
+     TOP BAR
+     Left zone = ME (outgoing, left conversation side)
+     Centre = source type
+     Right zone = THEM (incoming, right conversation side)
+══════════════════════════════════════════════════ -->
+<header class="topbar">
+
+  <!-- ME: left side of topbar = left side of conversation -->
+  <div class="tb-me">
+    <div class="tb-ava" id="me-ava">ER</div>
+    <div class="tb-meta">
+      <div class="tb-role">You · left side ←</div>
+      <input class="tb-name-input" id="me-inp" value="Erosmancer" placeholder="your username" oninput="onMe(this.value)">
+      <div class="tb-handle" id="me-hnd">@erosmancer</div>
+    </div>
+  </div>
+
+  <!-- CENTRE: source type -->
+  <div class="tb-centre">
+    <div class="src-tabs">
+      <button class="src-tab active" data-src="dm"         onclick="setSrc('dm',this)">💬 DM</button>
+      <button class="src-tab"        data-src="sms"        onclick="setSrc('sms',this)">📱 SMS</button>
+      <button class="src-tab"        data-src="ig"         onclick="setSrc('ig',this)">📷 IG</button>
+      <button class="src-tab"        data-src="email"      onclick="setSrc('email',this)">✉️ Email</button>
+      <button class="src-tab"        data-src="comment"    onclick="setSrc('comment',this)">💭 Comment</button>
+      <button class="src-tab"        data-src="screenshot" onclick="setSrc('screenshot',this)">🖼 Screenshot</button>
+    </div>
+  </div>
+
+  <!-- THEM: right side of topbar = right side of conversation -->
+  <div class="tb-them">
+    <div class="tb-ava" id="them-ava">UN</div>
+    <div class="tb-meta">
+      <div class="tb-role" style="text-align:right">→ right side · Them</div>
+      <input class="tb-name-input" id="them-inp" value="Unknown" placeholder="their username" oninput="onThem(this.value)">
+      <div class="tb-handle" id="them-hnd" style="text-align:right">@unknown</div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════
+     LEFT PANEL — Upload + Pipeline
+══════════════════════════════════════════════════ -->
+<aside class="lp">
+  <div class="lp-head">
+    <div class="lp-title">Signal Input</div>
+    <div class="lp-sub">ALK Pipeline</div>
+  </div>
+  <div class="lp-body">
+
+    <div class="dz" id="dz" onclick="document.getElementById('fi').click()" role="button" tabindex="0">
+      <span class="dz-ico" id="dz-ico">⬡</span>
+      <div class="dz-main" id="dz-main">Drop file or click to upload</div>
+      <div class="dz-sub" id="dz-sub">Video · Audio · Image · Text · PDF</div>
+      <div class="dz-tags">
+        <span class="dz-tag">mp4</span><span class="dz-tag">mp3</span><span class="dz-tag">jpg</span>
+        <span class="dz-tag">txt</span><span class="dz-tag">pdf</span><span class="dz-tag">json</span>
+        <span class="dz-tag">wav</span><span class="dz-tag">png</span>
+      </div>
+    </div>
+    <input type="file" id="fi" style="display:none">
+
+    <div class="url-wrap">
+      <div class="field-label">Stream URL</div>
+      <div class="url-row">
+        <input class="url-inp" id="url-inp" type="url" placeholder="https://… share link">
+        <button class="url-go" onclick="handleURL()">▶</button>
+      </div>
+    </div>
+
+    <!-- SENDER: who is this signal from? -->
+    <div class="sec"><span class="sec-lbl">Sender</span><div class="sec-line"></div></div>
+    <div class="sender-wrap">
+      <button class="sender-btn me-active" id="snd-me" onclick="setSender('me')">← Me</button>
+      <button class="sender-btn" id="snd-them" onclick="setSender('them')">Them →</button>
+    </div>
+
+    <div class="sec"><span class="sec-lbl">Pipeline</span><div class="sec-line"></div></div>
+    <div class="pipe">
+      <div class="pi" id="pi-codec"><div class="pi-num">1</div><div class="pi-txt"><div class="pi-name">Codec API</div><div class="pi-desc">lattice · extract · route</div></div><div class="pi-stat" id="ps-codec">idle</div><div class="pi-bar" id="pb-codec" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-router"><div class="pi-num">2</div><div class="pi-txt"><div class="pi-name">Router</div><div class="pi-desc">module selection</div></div><div class="pi-stat" id="ps-router">idle</div><div class="pi-bar" id="pb-router" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-resonance"><div class="pi-num">3</div><div class="pi-txt"><div class="pi-name">Resonance API</div><div class="pi-desc">structural · oscillation · temporal</div></div><div class="pi-stat" id="ps-resonance">idle</div><div class="pi-bar" id="pb-resonance" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-ase"><div class="pi-num">4</div><div class="pi-txt"><div class="pi-name">ASE API</div><div class="pi-desc">authorship · drift · fingerprint</div></div><div class="pi-stat" id="ps-ase">idle</div><div class="pi-bar" id="pb-ase" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-log"><div class="pi-num">5</div><div class="pi-txt"><div class="pi-name">Identity Log</div><div class="pi-desc">attributed · timestamped</div></div><div class="pi-stat" id="ps-log">idle</div><div class="pi-bar" id="pb-log" style="width:0"></div></div>
+    </div>
+  </div>
+  <div class="run-wrap">
+    <button class="run-btn" id="run-btn" onclick="runPipeline()">▶ Run Pipeline</button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════
+     CONVERSATION CANVAS
+     Top: identity bar (THEM left ↔ ME right)
+     Messages: LEFT=THEM incoming, RIGHT=ME outgoing
+══════════════════════════════════════════════════ -->
+<main class="conv" id="conv">
+
+  <!-- Identity bar — mirrors topbar but in-conversation context -->
+  <div class="conv-bar">
+    <!-- THEM on LEFT of conversation bar -->
+    <div class="cb-them">
+      <div class="cb-ava" id="cb-them-ava" style="background:#7c4dff">UN</div>
+      <div>
+        <div class="cb-name" id="cb-them-name">Unknown</div>
+        <div class="cb-handle" id="cb-them-handle">@unknown · incoming ←</div>
+      </div>
+    </div>
+
+    <div class="cb-sep">⟷</div>
+
+    <!-- Type pill centre -->
+    <div class="type-pill bg-dm" id="type-pill" style="background:rgba(29,161,242,.12);color:var(--dm)">
+      <span id="tp-icon">💬</span><span id="tp-label">DM</span>
+    </div>
+
+    <!-- ME on RIGHT of conversation bar -->
+    <div class="cb-me">
+      <div>
+        <div class="cb-name" id="cb-me-name" style="text-align:right">Erosmancer</div>
+        <div class="cb-handle" id="cb-me-handle" style="text-align:right">@erosmancer · outgoing →</div>
+      </div>
+      <div class="cb-ava" id="cb-me-ava" style="background:#1a1a2e">ER</div>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div class="msgs" id="msgs">
+    <div class="canvas-empty" id="canvas-empty">
+      <div class="ce-icon">⬡</div>
+      <div class="ce-title">No signals yet</div>
+      <div class="ce-sub">Upload a file or paste a stream URL, choose a sender, then Run Pipeline.</div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════════════════════════════════════
+     RIGHT PANEL — THEM identity card + scores + logs
+     Everything here is derived from their username
+══════════════════════════════════════════════════ -->
+<aside class="rp">
+  <div class="rp-scroll">
+
+    <!-- THEM IDENTITY CARD — built from username typed in topbar -->
+    <div class="them-card">
+      <div class="them-card-top">
+        <div class="them-big-ava" id="rp-them-ava" style="background:#7c4dff">UN</div>
+        <div>
+          <div class="them-name" id="rp-them-name">Unknown</div>
+          <div class="them-handle" id="rp-them-handle">@unknown · right side</div>
+          <div class="them-mode" id="rp-them-mode">–</div>
+        </div>
+      </div>
+      <!-- 6 signal axes derived from their signals -->
+      <div class="ax-grid">
+        <div class="ax-cell"><div class="ax-lbl">Cognition</div><div class="ax-val" id="ax-cog">–</div><div class="ax-bar"><div class="ax-fill" id="axf-cog" style="width:0%;background:#7c4dff"></div></div></div>
+        <div class="ax-cell"><div class="ax-lbl">Affect</div><div class="ax-val" id="ax-aff">–</div><div class="ax-bar"><div class="ax-fill" id="axf-aff" style="width:0%;background:#c8522a"></div></div></div>
+        <div class="ax-cell"><div class="ax-lbl">Language</div><div class="ax-val" id="ax-lan">–</div><div class="ax-bar"><div class="ax-fill" id="axf-lan" style="width:0%;background:#00b894"></div></div></div>
+        <div class="ax-cell"><div class="ax-lbl">Entropy</div><div class="ax-val" id="ax-ent">–</div><div class="ax-bar"><div class="ax-fill" id="axf-ent" style="width:0%;background:#f39c12"></div></div></div>
+        <div class="ax-cell"><div class="ax-lbl">Intensity</div><div class="ax-val" id="ax-int">–</div><div class="ax-bar"><div class="ax-fill" id="axf-int" style="width:0%;background:#e74c3c"></div></div></div>
+        <div class="ax-cell"><div class="ax-lbl">Drift</div><div class="ax-val" id="ax-dft">–</div><div class="ax-bar"><div class="ax-fill" id="axf-dft" style="width:0%;background:#888"></div></div></div>
+      </div>
+    </div>
+
+    <!-- RESONANCE SCORES -->
+    <div class="rp-sec">
+      <div class="rp-sec-title">Resonance Scores</div>
+      <div id="score-rows"><div style="font-size:10px;color:var(--ink3)">Run pipeline to compute.</div></div>
+    </div>
+
+    <!-- RADAR -->
+    <div class="radar-wrap">
+      <div class="rp-sec-title">Signal Radar — Me (dark) vs Them (colour)</div>
+      <canvas class="radar" id="radar" width="258" height="196" role="img" aria-label="Signal radar comparing me and them across cognition, affect, language, entropy, intensity"></canvas>
+    </div>
+
+    <!-- COMPARE ME vs THEM -->
+    <div class="cmp-section">
+      <div class="rp-sec-title">Me vs Them</div>
+      <div id="cmp-rows"><div style="font-size:10px;color:var(--ink3)">Run pipeline to compare.</div></div>
+    </div>
+
+    <!-- IDENTITY LOG -->
+    <div class="log-section">
+      <div class="rp-sec-title">Identity Log</div>
+      <div id="id-log"><div style="font-size:10px;color:var(--ink3);padding:3px 0">Awaiting signals…</div></div>
+    </div>
+
+    <!-- ERROR LOG -->
+    <div class="err-section">
+      <div class="rp-sec-title">Error Log <span id="err-cnt" style="color:var(--ink4)">(0)</span></div>
+      <div class="err-log" id="err-log">
+        <div class="el"><span class="el-t">00:00</span><span class="el-info">[init]</span> ALK pipeline ready</div>
+      </div>
+    </div>
+
+  </div>
+</aside>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const ME_PALETTE   = ['#1a1a2e','#2c3e50','#1a252f','#0d1b2a','#1b2838'];
+const THEM_PALETTE = ['#7c4dff','#c8522a','#00b894','#e74c3c','#f39c12','#0072c6','#e1306c','#1da1f2','#6c3483','#117a65'];
+
+const SRC = {
+  dm:         { icon:'💬', label:'DM',         bg:'rgba(29,161,242,.12)',  fg:'#1da1f2' },
+  sms:        { icon:'📱', label:'SMS',        bg:'rgba(52,199,89,.12)',   fg:'#34c759' },
+  ig:         { icon:'📷', label:'IG Post',    bg:'rgba(225,48,108,.12)',  fg:'#e1306c' },
+  email:      { icon:'✉️', label:'Email',      bg:'rgba(0,114,198,.12)',   fg:'#0072c6' },
+  comment:    { icon:'💭', label:'Comment',    bg:'rgba(255,107,53,.12)',  fg:'#ff6b35' },
+  screenshot: { icon:'🖼', label:'Screenshot', bg:'rgba(124,77,255,.12)',  fg:'#7c4dff' },
+};
+
+const MODES = ['systems-architect','symbolic-poet','deep-internal-processor','somatic-emotive',
+  'analytical-structured','relational-narrator','high-entropy-synthesizer','high-intensity-driver','adaptive-generalist'];
+
+let S = {
+  me:    { name:'Erosmancer', handle:'@erosmancer', color:'#1a1a2e', initials:'ER' },
+  them:  { name:'Unknown',    handle:'@unknown',    color:'#7c4dff', initials:'UN' },
+  src:   'dm',
+  sender:'me',
+  file:  null,
+  url:   null,
+  scores:{ me:{}, them:{} },
+  errCnt:0,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// IDENTITY DERIVATION — username → everything
+// ═══════════════════════════════════════════════════════════════
+function initials(name){
+  const parts=name.trim().split(/[\s_\-\.@]+/).filter(Boolean);
+  if(!parts.length) return '??';
+  if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+function colorFrom(name, palette){
+  let h=0; for(let i=0;i<name.length;i++) h=name.charCodeAt(i)+((h<<5)-h);
+  return palette[Math.abs(h)%palette.length];
+}
+function handle(name){ return '@'+name.trim().toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_'); }
+
+function onMe(v){
+  if(!v.trim()) return;
+  S.me = { name:v.trim(), handle:handle(v), color:colorFrom(v,ME_PALETTE), initials:initials(v) };
+  syncAll();
+}
+function onThem(v){
+  if(!v.trim()) return;
+  S.them = { name:v.trim(), handle:handle(v), color:colorFrom(v,THEM_PALETTE), initials:initials(v) };
+  syncAll();
+}
+
+function syncAll(){
+  // Topbar avatars
+  ava('me-ava',  S.me.color,   S.me.initials);
+  ava('them-ava',S.them.color, S.them.initials);
+  txt('me-hnd',  S.me.handle);
+  txt('them-hnd',S.them.handle);
+
+  // Conv bar — THEM on left, ME on right
+  ava('cb-them-ava', S.them.color, S.them.initials);
+  txt('cb-them-name', S.them.name);
+  txt('cb-them-handle', S.them.handle + ' · incoming ←');
+  ava('cb-me-ava', S.me.color, S.me.initials);
+  txt('cb-me-name', S.me.name);
+  txt('cb-me-handle', S.me.handle + ' · outgoing →');
+
+  // Right panel identity card (THEM only)
+  ava('rp-them-ava', S.them.color, S.them.initials);
+  txt('rp-them-name', S.them.name);
+  txt('rp-them-handle', S.them.handle + ' · right side');
+
+  drawRadar(null);
+}
+
+function ava(id, color, init){
+  const e=document.getElementById(id);
+  if(!e) return;
+  e.style.background=color;
+  e.textContent=init;
+}
+function txt(id, val){
+  const e=document.getElementById(id);
+  if(e) e.textContent=val;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SOURCE TYPE
+// ═══════════════════════════════════════════════════════════════
+function setSrc(type, btn){
+  S.src=type;
+  document.querySelectorAll('.src-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const m=SRC[type];
+  const pill=document.getElementById('type-pill');
+  pill.style.background=m.bg; pill.style.color=m.fg;
+  txt('tp-icon',m.icon); txt('tp-label',m.label);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SENDER
+// ═══════════════════════════════════════════════════════════════
+function setSender(who){
+  S.sender=who;
+  const me=document.getElementById('snd-me'), them=document.getElementById('snd-them');
+  if(who==='me'){
+    me.classList.add('me-active'); them.classList.remove('them-active');
+    me.style.cssText+='background:var(--ink);color:#fff;border-color:var(--ink)';
+    them.style.cssText+='background:transparent;color:var(--ink);border-color:var(--border2)';
+  } else {
+    them.classList.add('them-active'); me.classList.remove('me-active');
+    them.style.cssText+='background:var(--ink);color:#fff;border-color:var(--ink)';
+    me.style.cssText+='background:transparent;color:var(--ink);border-color:var(--border2)';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILE + URL
+// ═══════════════════════════════════════════════════════════════
+function initDrop(){
+  const dz=document.getElementById('dz');
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag')}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag')}));
+  dz.addEventListener('drop',ev=>{if(ev.dataTransfer.files[0]) onFile(ev.dataTransfer.files[0])});
+  document.getElementById('fi').addEventListener('change',ev=>{if(ev.target.files[0]) onFile(ev.target.files[0])});
+}
+function onFile(f){
+  S.file=f; S.url=null;
+  const ico=fIcon(f.name,f.type);
+  txt('dz-ico',ico); txt('dz-main',f.name.length>26?f.name.slice(0,23)+'…':f.name);
+  txt('dz-sub',fmtSz(f.size)+' · '+route(f.name,f.type));
+  document.getElementById('dz').classList.add('has-file');
+  // Auto-detect source type
+  const d=detectSrc(f.name,f.type);
+  if(d){ const b=document.querySelector('.src-tab[data-src="'+d+'"]'); if(b) setSrc(d,b); }
+  elog('info','file: '+f.name+' ('+fmtSz(f.size)+')');
+  toast('📎 '+f.name,'info');
+}
+function handleURL(){
+  const v=document.getElementById('url-inp').value.trim();
+  if(!v) return;
+  S.url=v; S.file=null;
+  txt('dz-ico','🔗'); txt('dz-main','Stream URL'); txt('dz-sub',v.slice(0,36)+'…');
+  elog('info','stream URL: '+v);
+  toast('🔗 URL queued','info');
+}
+function detectSrc(n,t){
+  n=n.toLowerCase();
+  if(n.includes('screenshot')||n.includes('screen')||n.startsWith('img_')) return 'screenshot';
+  if(n.includes('dm')||n.includes('direct')) return 'dm';
+  if(n.includes('sms')||n.includes('text')) return 'sms';
+  if(n.includes('email')||n.endsWith('.eml')) return 'email';
+  if(n.includes('comment')||n.includes('reply')) return 'comment';
+  if(n.includes('ig')||n.includes('instagram')||n.includes('post')) return 'ig';
+  if(t.startsWith('image')) return 'screenshot';
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE
+// ═══════════════════════════════════════════════════════════════
+async function runPipeline(){
+  if(!S.file && !S.url){ toast('Add a file or URL first','error'); return; }
+  const btn=document.getElementById('run-btn');
+  btn.classList.add('live'); btn.innerHTML='<span class="spin">⟳</span> Running…'; btn.disabled=true;
+  resetPipe();
+  elog('info','pipeline start → sender:'+S.sender+' src:'+S.src);
+  try {
+    const codec = await pstep('codec', ()=>apiCodec());
+    const _router= await pstep('router', async()=>{ await dl(200+rn(200)); return{module:codec.route,conf:0.8+rn(0.18)}; });
+    const sender = S.sender==='me'?S.me:S.them;
+    const res   = await pstep('resonance', ()=>apiResonance(codec, sender));
+    const ase   = await pstep('ase',       ()=>apiASE(codec, sender));
+    await pstep('log', async()=>{
+      await dl(100);
+      addMessage(codec, res, ase);
+      updateScores(res, codec);
+      updateThemAxes(codec, ase);
+      addLogEntry(sender, codec, res, ase);
+      drawRadar(codec);
+      txt('rp-them-mode', ase.fingerprint.dominantMode);
+    });
+    toast('✓ Pipeline complete','success');
+    elog('success','done → '+res.matchType+' · '+ase.fingerprint.dominantMode);
+  } catch(e){ elog('error','pipeline error: '+e.message); toast('Pipeline error','error'); }
+  btn.classList.remove('live'); btn.innerHTML='▶ Run Pipeline'; btn.disabled=false;
+}
+
+async function pstep(id, fn){
+  const el=document.getElementById('pi-'+id);
+  const st=document.getElementById('ps-'+id);
+  const pb=document.getElementById('pb-'+id);
+  el.classList.add('running'); st.textContent='…';
+  let pct=0;
+  const tick=setInterval(()=>{ pct=Math.min(pct+rn(10)+3,80); pb.style.width=pct+'%'; },55);
+  const result=await fn();
+  clearInterval(tick); pb.style.width='100%'; await dl(70);
+  el.classList.remove('running'); el.classList.add('done'); st.textContent='✓';
+  return result;
+}
+function resetPipe(){
+  ['codec','router','resonance','ase','log'].forEach(id=>{
+    const el=document.getElementById('pi-'+id);
+    el.classList.remove('running','done','errored');
+    document.getElementById('ps-'+id).textContent='idle';
+    document.getElementById('pb-'+id).style.width='0';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATED APIs
+// ═══════════════════════════════════════════════════════════════
+async function apiCodec(){
+  await dl(450+rn(550));
+  const n=S.file?S.file.name:(S.url||'');
+  const t=S.file?S.file.type:'url';
+  const r=route(n,t);
+  const cog={abstractionLevel:rn(1),linearity:rn(1),recursionDepth:rn(1),systemThinking:rn(1),compression:rn(1)};
+  const aff={valence:rn(1),volatility:rn(1),attachmentLoad:rn(1),urgency:rn(1),somaticDensity:rn(1)};
+  const lang={metaphorDensity:rn(1),symbolicUsage:rn(1),poeticness:rn(1),analyticalness:rn(1),narrativeStructure:rn(1)};
+  elog('success','codec → route:'+r+' entropy:'+rn(1).toFixed(2));
+  return{route:r,cognition:cog,affect:aff,language:lang,entropy:0.3+rn(0.65),intensity:0.35+rn(0.6),confidence:0.70+rn(0.28),src:S.src,ts:Date.now()};
+}
+
+async function apiResonance(codec, sender){
+  await dl(550+rn(600));
+  const structural=0.45+rn(0.5), oscillation=0.40+rn(0.55), temporal=0.35+rn(0.6);
+  const total=structural*0.45+oscillation*0.45+temporal*0.10;
+  const matchType=total>0.72?'mirror':total>0.55?'complementary':total>0.40?'friction':'dissonant';
+  const POOL=['High abstraction alignment — conversation will move fast and stay conceptual.','Oscillation patterns closely matched.','Shared poetic and symbolic register.','Mirror resonance: mutual recognition immediate.','Complementary resonance: one grounds, one moves.','Friction resonance: shared cognition, different affect.','Phase misalignment — timing matters here.','Emotional processing patterns align.','Different abstraction levels — creative tension.'];
+  elog('success','resonance → '+matchType+' total:'+total.toFixed(3));
+  return{structural,oscillation,temporal,total,matchType,insights:shuffle(POOL).slice(0,2+Math.floor(rn(2))),axes:{cognition:0.45+rn(0.5),affect:0.45+rn(0.5),language:0.45+rn(0.5)},computedAt:Date.now()};
+}
+
+async function apiASE(codec, sender){
+  await dl(450+rn(500));
+  const dom=MODES[Math.floor(rn(MODES.length))];
+  const sec=MODES.filter(m=>m!==dom)[Math.floor(rn(MODES.length-1))];
+  const AX=['cognition.abstractionLevel','cognition.systemThinking','affect.volatility','language.poeticness','affect.attachmentLoad','affect.urgency'];
+  elog('success','ase → mode:'+dom);
+  return{userId:sender.handle,version:1+Math.floor(rn(12)),sampleSize:5+Math.floor(rn(30)),core:{cognition:codec.cognition,affect:codec.affect,language:codec.language,entropy:codec.entropy,intensity:codec.intensity},fingerprint:{highVarianceAxes:shuffle(AX).slice(0,3),lowVarianceAxes:shuffle(AX).slice(0,3),dominantMode:dom,secondaryMode:sec},drift:{magnitude:rn(0.6),direction:shuffle(AX).slice(0,2),isShifting:rn(1)>0.6},updatedAt:Date.now()};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONVERSATION RENDERING
+// ═══════════════════════════════════════════════════════════════
+function addMessage(codec, res, ase){
+  const empty=document.getElementById('canvas-empty');
+  if(empty) empty.remove();
+
+  // Spatial model:
+  // sender='me'   → message appears on RIGHT (dark navy, outgoing)
+  // sender='them' → message appears on LEFT  (white card, incoming)
+  const side=S.sender; // 'me'=right, 'them'=left
+  const who=side==='me'?S.me:S.them;
+  const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+  const row=document.createElement('div');
+  row.className='mrow '+side;
+
+  const chips=buildChips(res,codec);
+  const content=buildContent(codec);
+
+  let bubbleHTML=`<div class="bbl">
+    <div class="bbl-who">${who.name} ${who.handle}</div>
+    ${content}
+    ${chips}
+    <div class="bbl-time">${ts}</div>
+  </div>`;
+
+  // THEM (left): show avatar beside bubble
+  if(side==='them'){
+    row.innerHTML=`<div class="mrow-inner">
+      <div class="m-ava" style="background:${who.color}">${who.initials}</div>
+      ${bubbleHTML}
+    </div>`;
+  } else {
+    row.innerHTML=`<div class="mrow-inner">${bubbleHTML}</div>`;
+  }
+
+  const msgs=document.getElementById('msgs');
+  msgs.appendChild(row);
+
+  // System insight below
+  if(res.insights&&res.insights[0]){
+    const s=document.createElement('div');
+    s.className='sys';
+    s.textContent='⬡ '+res.insights[0];
+    msgs.appendChild(s);
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function buildContent(codec){
+  const file=S.file, url=S.url, src=S.src;
+
+  // VIDEO
+  if(url||(file&&file.type.startsWith('video'))) return buildVideo(url||(file?URL.createObjectURL(file):null));
+
+  // IMAGE / SCREENSHOT
+  if(file&&file.type.startsWith('image')){
+    const u=URL.createObjectURL(file);
+    if(src==='screenshot') return `<div class="ss-block">
+      <div class="ss-bar"><div class="ss-dot" style="background:#ff5f57"></div><div class="ss-dot" style="background:#febc2e"></div><div class="ss-dot" style="background:#28c840"></div><span>Screenshot</span></div>
+      <img src="${u}" style="max-width:100%;display:block">
+    </div>`;
+    return `<img src="${u}" class="bbl-img">`;
+  }
+
+  // EMAIL
+  if(src==='email'){
+    const who=S.sender==='me'?S.me:S.them;
+    const to=S.sender==='me'?S.them:S.me;
+    return `<div class="email-block">
+      <div class="email-head">
+        <div class="email-field"><b>From:</b> ${who.name} &lt;${who.handle.replace('@','')}@mail.com&gt;</div>
+        <div class="email-field"><b>To:</b> ${to.name} &lt;${to.handle.replace('@','')}@mail.com&gt;</div>
+        <div class="email-subj">${file?file.name:'Signal Analysis · '+new Date().toLocaleDateString()}</div>
+      </div>
+      <div class="email-body">${file?file.name:url?'Stream: '+url.slice(0,40)+'…':'Content'}</div>
+    </div>`;
+  }
+
+  // IG POST
+  if(src==='ig'){
+    const who=S.sender==='me'?S.me:S.them;
+    return `<div class="ig-block">
+      <div class="ig-head"><div class="ig-ava-sm" style="background:${who.color}">${who.initials}</div><div class="ig-un">${who.handle}</div><span style="margin-left:auto;font-size:10px;color:#aaa">•••</span></div>
+      <div class="ig-img-area">${file?'🖼':'📷'}</div>
+      <div class="ig-cap"><b>${who.handle}</b> ${file?file.name:url?url.slice(0,40):'Signal'}</div>
+      <div class="ig-acts"><span>♥</span><span>💬</span><span>↗</span><span style="margin-left:auto">🔖</span></div>
+    </div>`;
+  }
+
+  // COMMENT
+  if(src==='comment'){
+    const who=S.sender==='me'?S.me:S.them;
+    const on=S.sender==='me'?S.them:S.me;
+    return `<div class="cmt-block">
+      <div class="cmt-post"><div class="cmt-thumb">📷</div><div style="font-size:10px;color:var(--ink2)">Post by ${on.name}</div></div>
+      <div class="cmt-body">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <div style="width:18px;height:18px;border-radius:50%;background:${who.color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff">${who.initials}</div>
+          <span style="font-size:10px;font-weight:700">${who.handle}</span>
+        </div>
+        <div class="cmt-txt">${file?file.name:url?url.slice(0,40):'Comment signal'}</div>
+        <div class="cmt-meta">Reply · Like · ${new Date().toLocaleDateString()}</div>
+      </div>
+    </div>`;
+  }
+
+  // DM / SMS / default — text bubble
+  const label=file?fIcon(file.name,file.type)+' '+file.name:(url?'🔗 '+url.slice(0,50):'Signal');
+  return `<span>${label}</span>`;
+}
+
+function buildVideo(src){
+  if(!src) return '<span>Video signal</span>';
+  const yt=src.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  const vm=src.match(/vimeo\.com\/(\d+)/);
+  if(yt) return `<iframe class="bbl-yt" src="https://www.youtube.com/embed/${yt[1]}?rel=0" allow="fullscreen"></iframe>`;
+  if(vm) return `<iframe class="bbl-yt" src="https://player.vimeo.com/video/${vm[1]}" allow="fullscreen"></iframe>`;
+  return `<video class="bbl-vid" src="${src}" controls preload="metadata"></video>`;
+}
+
+function buildChips(res, codec){
+  const mc='chip-'+res.matchType;
+  return `<div class="chips">
+    <span class="chip chip-res">res ${pct(res.total)}</span>
+    <span class="chip chip-str">str ${pct(res.structural)}</span>
+    <span class="chip ${mc}">${res.matchType}</span>
+    <span class="chip chip-conf">conf ${pct(codec.confidence)}</span>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCORES
+// ═══════════════════════════════════════════════════════════════
+function updateScores(res, codec){
+  const ROWS=[
+    {l:'Total Resonance',v:res.total,c:'#7c4dff'},
+    {l:'Structural',v:res.structural,c:'#c8522a'},
+    {l:'Oscillation',v:res.oscillation,c:'#00b894'},
+    {l:'Temporal',v:res.temporal,c:'#f39c12'},
+    {l:'Entropy',v:codec.entropy,c:'#e74c3c'},
+    {l:'Intensity',v:codec.intensity,c:'#0072c6'},
+  ];
+  document.getElementById('score-rows').innerHTML=ROWS.map(r=>`
+    <div class="sc-row">
+      <span class="sc-lbl">${r.l}</span>
+      <div class="sc-track"><div class="sc-fill" style="width:${pct(r.v)};background:${r.c}"></div></div>
+      <span class="sc-val">${pct(r.v)}</span>
+    </div>`).join('');
+
+  const sndr=S.sender;
+  S.scores[sndr]=S.scores[sndr]||{};
+  ['total','structural','oscillation'].forEach(k=>{ S.scores[sndr][k]=res[k]; });
+
+  // Compare
+  const axes=[{k:'total',l:'Total'},{ k:'structural',l:'Structural'},{k:'oscillation',l:'Oscillation'}];
+  document.getElementById('cmp-rows').innerHTML=axes.map(ax=>`
+    <div class="cmp-ax">
+      <div class="cmp-ax-name">${ax.l}</div>
+      <div class="sc-row">
+        <span class="sc-lbl" style="color:${S.me.color}">${S.me.name.slice(0,8)}</span>
+        <div class="sc-track"><div class="sc-fill" style="width:${pct(S.scores.me?.[ax.k]||0)};background:${S.me.color}"></div></div>
+        <span class="sc-val">${pct(S.scores.me?.[ax.k]||0)}</span>
+      </div>
+      <div class="sc-row">
+        <span class="sc-lbl" style="color:${S.them.color}">${S.them.name.slice(0,8)}</span>
+        <div class="sc-track"><div class="sc-fill" style="width:${pct(S.scores.them?.[ax.k]||0)};background:${S.them.color}"></div></div>
+        <span class="sc-val">${pct(S.scores.them?.[ax.k]||0)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function updateThemAxes(codec, ase){
+  if(S.sender!=='them') return;
+  const c=avg(Object.values(codec.cognition));
+  const a=avg(Object.values(codec.affect));
+  const l=avg(Object.values(codec.language));
+  const e=codec.entropy, i=codec.intensity, d=ase.drift.magnitude;
+  [['ax-cog','axf-cog',c,'#7c4dff'],['ax-aff','axf-aff',a,'#c8522a'],['ax-lan','axf-lan',l,'#00b894'],
+   ['ax-ent','axf-ent',e,'#f39c12'],['ax-int','axf-int',i,'#e74c3c'],['ax-dft','axf-dft',d,'#888']
+  ].forEach(([vid,fid,v,col])=>{
+    txt(vid,pct(v));
+    const f=document.getElementById(fid);
+    if(f){f.style.width=pct(v);f.style.background=col;}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RADAR
+// ═══════════════════════════════════════════════════════════════
+function drawRadar(codec){
+  const canvas=document.getElementById('radar');
+  const ctx=canvas.getContext('2d');
+  const cx=129,cy=98,rad=70;
+  const AXES=['cognition','affect','language','entropy','intensity'];
+  const n=AXES.length;
+  const dark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const gridC=dark?'rgba(255,255,255,.07)':'rgba(0,0,0,.07)';
+  const txtC=dark?'#555':'#aaa';
+  ctx.clearRect(0,0,258,196);
+
+  // Grid
+  [.25,.5,.75,1].forEach(ring=>{
+    ctx.beginPath();
+    AXES.forEach((_,i)=>{
+      const a=(i/n)*Math.PI*2-Math.PI/2,x=cx+Math.cos(a)*rad*ring,y=cy+Math.sin(a)*rad*ring;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    });
+    ctx.closePath(); ctx.strokeStyle=gridC; ctx.lineWidth=1; ctx.stroke();
+  });
+  AXES.forEach((_,i)=>{
+    const a=(i/n)*Math.PI*2-Math.PI/2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);
+    ctx.strokeStyle=gridC; ctx.lineWidth=1; ctx.stroke();
+  });
+
+  const poly=(vals,color)=>{
+    ctx.beginPath();
+    AXES.forEach((k,i)=>{ const v=vals[k]||0,a=(i/n)*Math.PI*2-Math.PI/2; i?ctx.lineTo(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v):ctx.moveTo(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v); });
+    ctx.closePath(); ctx.fillStyle=color+'22'; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+    AXES.forEach((k,i)=>{ const v=vals[k]||0,a=(i/n)*Math.PI*2-Math.PI/2; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v,2.5,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); });
+  };
+
+  // ME (always shown, neutral placeholder)
+  const meVals={cognition:.3,affect:.3,language:.3,entropy:.3,intensity:.3};
+  poly(meVals, S.me.color);
+
+  // THEM (from codec if available)
+  if(codec){
+    const thVals={
+      cognition:avg(Object.values(codec.cognition)),
+      affect:avg(Object.values(codec.affect)),
+      language:avg(Object.values(codec.language)),
+      entropy:codec.entropy,intensity:codec.intensity
+    };
+    poly(thVals, S.them.color);
+  }
+
+  // Labels
+  ctx.font='9px DM Mono,monospace'; ctx.fillStyle=txtC; ctx.textAlign='center';
+  AXES.forEach((k,i)=>{
+    const a=(i/n)*Math.PI*2-Math.PI/2,x=cx+Math.cos(a)*(rad+15),y=cy+Math.sin(a)*(rad+15);
+    ctx.fillText(k,x,y+4);
+  });
+
+  // Legend
+  ctx.font='bold 8px DM Mono,monospace'; ctx.textAlign='left';
+  [[S.me.color,S.me.name,4,192],[S.them.color,S.them.name,80,192]].forEach(([c,l,x,y])=>{
+    ctx.fillStyle=c; ctx.fillRect(x,y-7,7,7);
+    ctx.fillStyle=txtC; ctx.fillText(l.slice(0,10),x+10,y);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IDENTITY LOG
+// ═══════════════════════════════════════════════════════════════
+function addLogEntry(who, codec, res, ase){
+  const el=document.getElementById('id-log');
+  if(el.firstChild&&el.firstChild.style&&el.firstChild.style.padding) el.innerHTML='';
+  const e=document.createElement('div');
+  e.className='log-entry';
+  const drift=ase.drift.isShifting?'⚡ drifting':'· stable';
+  e.innerHTML=`
+    <div class="log-ava" style="background:${who.color}">${who.initials}</div>
+    <div class="log-body">
+      <div class="log-name">${who.name} <span style="color:var(--ink3);font-weight:400">${who.handle}</span></div>
+      <div class="log-action">${codec.route} · ${res.matchType} · ${ase.fingerprint.dominantMode} ${drift}</div>
+      <div class="log-ts">${new Date().toLocaleString()} · ${SRC[S.src].label} · conf ${pct(codec.confidence)}</div>
+    </div>`;
+  el.insertBefore(e,el.firstChild);
+  while(el.children.length>15) el.removeChild(el.lastChild);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ERROR LOG
+// ═══════════════════════════════════════════════════════════════
+function elog(type,msg){
+  const el=document.getElementById('err-log');
+  const d=document.createElement('div');
+  d.className='el';
+  const t=new Date().toTimeString().slice(0,5);
+  const cls=type==='error'?'el-error':type==='success'?'el-success':type==='warn'?'el-warn':'el-info';
+  d.innerHTML=`<span class="el-t">${t}</span><span class="${cls}">[${type}]</span> ${msg}`;
+  el.insertBefore(d,el.firstChild);
+  if(type==='error'){ S.errCnt++; txt('err-cnt','('+S.errCnt+')'); }
+  while(el.children.length>80) el.removeChild(el.lastChild);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+function rn(n){return Math.random()*n}
+function dl(ms){return new Promise(r=>setTimeout(r,ms))}
+function avg(arr){return arr.reduce((a,b)=>a+b,0)/arr.length}
+function shuffle(a){return[...a].sort(()=>Math.random()-.5)}
+function pct(v){return Math.round((v||0)*100)+'%'}
+function fmtSz(b){if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB'}
+function fIcon(n,t){
+  const e=(n.split('.').pop()||'').toLowerCase();
+  if(['mp4','webm','mov'].includes(e)||t.startsWith('video'))return'🎬';
+  if(['mp3','wav','ogg'].includes(e)||t.startsWith('audio'))return'🎵';
+  if(['jpg','jpeg','png','gif','webp'].includes(e)||t.startsWith('image'))return'🖼';
+  if(e==='pdf')return'📄';
+  return'📎';
+}
+function route(n,t){
+  const e=(n.split('.').pop()||'').toLowerCase();
+  if(['mp4','webm','mov'].includes(e)||t.startsWith('video'))return'video-module';
+  if(['mp3','wav','ogg'].includes(e)||t.startsWith('audio'))return'text-module';
+  if(['jpg','jpeg','png','gif','webp'].includes(e)||t.startsWith('image'))return'expression-engine';
+  if(e==='pdf')return'htl';
+  return'behavior-module';
+}
+function toast(msg,type='info'){
+  const w=document.getElementById('toast-wrap');
+  const t=document.createElement('div');
+  t.className='toast toast-'+type; t.textContent=msg; w.appendChild(t);
+  setTimeout(()=>t.style.opacity='0',2000);
+  setTimeout(()=>t.remove(),2300);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+initDrop();
+syncAll();
+</script>
+</body>
+</html>

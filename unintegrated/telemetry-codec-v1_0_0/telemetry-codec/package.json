@@ -1,0 +1,17 @@
+{
+  "name": "telemetry-codec",
+  "version": "1.0.0",
+  "description": "Behavioral signal compression runtime for distributed system observability. Ports the Spatial codec stack to service telemetry.",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --runInBand",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
+    "build": "node scripts/build.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

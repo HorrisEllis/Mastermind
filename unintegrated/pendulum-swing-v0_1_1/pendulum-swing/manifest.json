@@ -1,0 +1,147 @@
+{
+  "name": "pendulum-swing",
+  "version": "0.1.1",
+  "description": "Signal rhythm analysis kernel. Tracks named signals over time and computes period, amplitude, damping, phase, and forced-vs-free properties.",
+  "type": "standalone-kernel",
+  "license": "UNLICENSED",
+  "private": true,
+
+  "runtime": {
+    "engine": "node",
+    "minVersion": "14.0.0",
+    "dependencies": "none"
+  },
+
+  "entrypoint": "src/kernel.js",
+
+  "api": {
+    "init": {
+      "signature": "init(dataPath?: string) => { ok: boolean, signals: Signal[] }",
+      "description": "Must be called before any other method. Loads persisted state from disk.",
+      "required": true
+    },
+    "observe": {
+      "signature": "observe(signalId: string, value: number, source: string, ts?: number) => Profile",
+      "description": "Record a signal observation. Primary intake point. Enforces causal ordering.",
+      "throws": ["PENDULUM: call init() first", "PENDULUM_OBSERVE: out-of-order timestamp"]
+    },
+    "profile": {
+      "signature": "profile(signalId: string) => Profile | null",
+      "description": "Get full rhythm profile for a signal. Returns null if signal not found."
+    },
+    "signals": {
+      "signature": "signals() => Signal[]",
+      "description": "List all tracked signal IDs with observation counts and timestamps."
+    },
+    "compare": {
+      "signature": "compare(signalIdA: string, signalIdB: string) => Comparison | null",
+      "description": "Compare rhythm properties of two signals. Returns phase delta, period ratio, inPhase, inAntiPhase."
+    },
+    "snapshot": {
+      "signature": "snapshot() => State",
+      "description": "Export full state as plain object for backup or external persistence."
+    },
+    "restore": {
+      "signature": "restore(snapshot: State) => { ok: boolean, signals: Signal[] }",
+      "description": "Replace state from a snapshot. Validates structure before accepting."
+    },
+    "remove": {
+      "signature": "remove(signalId: string) => boolean",
+      "description": "Delete a signal and all its observations."
+    }
+  },
+
+  "types": {
+    "Profile": {
+      "signalId": "string",
+      "createdAt": "number (Unix ms)",
+      "updatedAt": "number (Unix ms)",
+      "profile": {
+        "status": "NO_DATA | WARMING | ACTIVE",
+        "observationCount": "number",
+        "timespan": "number (ms)",
+        "mean": "number",
+        "period": {
+          "value": "number (ms) | null",
+          "confidence": "number (0-1)",
+          "sampleSize": "number",
+          "reason": "string (if null)"
+        },
+        "amplitude": {
+          "positive": "number",
+          "negative": "number",
+          "asymmetry": "number | null"
+        },
+        "damping": {
+          "coefficient": "number",
+          "direction": "damping | amplifying | neutral"
+        },
+        "phase": {
+          "current": "number (0-1)",
+          "position": "trough | rising | peak | falling",
+          "nextPeakEstimated": "number (Unix ms)",
+          "confidence": "number (0-1)"
+        },
+        "forced": {
+          "isForced": "boolean",
+          "deviation": "number",
+          "tensionScore": "number (0-1)"
+        }
+      }
+    },
+    "Signal": {
+      "id": "string",
+      "observationCount": "number",
+      "createdAt": "number (Unix ms)",
+      "updatedAt": "number (Unix ms)"
+    },
+    "Comparison": {
+      "signals": "string[]",
+      "periodRatio": "number | null",
+      "amplitudeRatio": "number | null",
+      "phaseDelta": "number (0-1) | null",
+      "inPhase": "boolean",
+      "inAntiPhase": "boolean"
+    }
+  },
+
+  "dataQualityLabels": {
+    "confirmed": "Explicit date present in source document",
+    "estimated": "Inferred from context — treat as provisional"
+  },
+
+  "signalMinimums": {
+    "anyOutput": 1,
+    "reliableAmplitude": 3,
+    "periodEstimate": "2+ full cycles",
+    "highConfidencePeriod": "5+ cycles"
+  },
+
+  "persistence": {
+    "format": "JSON",
+    "writes": "atomic (tmp file + rename)",
+    "location": "pendulum-data.json (default, configurable via init)"
+  },
+
+  "externalConnections": {
+    "policy": "none at v0.1.1",
+    "intakePoint": "kernel.observe()",
+    "note": "Wire any external source to kernel.observe(). No other entry points exist."
+  },
+
+  "files": {
+    "src/math.js": "Pure signal math. No I/O. No side effects.",
+    "src/store.js": "Observation storage. Atomic disk writes. Causality enforcement.",
+    "src/kernel.js": "Public interface. All interaction goes through here.",
+    "test/test.js": "36 tests. Zero external dependencies.",
+    "seed.js": "Historical seeder. Template for loading dated observations.",
+    "pendulum-data.json": "Persisted signal state. Created on first run."
+  },
+
+  "nextModules": {
+    "novelty-gate": "Sits between signal source and kernel.observe(). Drops observations below delta threshold.",
+    "adapter-layer": "Converts raw signal types (DOM, image, audio, text) to numeric values.",
+    "clx-causal": "Causal graph engine. Receives rhythm profiles as node properties.",
+    "guardian-listener": "BroadcastChannel listener. Pipes Guardian scroll events to adapter layer."
+  }
+}

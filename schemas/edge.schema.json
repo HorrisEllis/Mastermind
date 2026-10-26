@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastermind/edge.schema.json",
+  "title": "MASTERMIND edge",
+  "description": "A typed link between two nodes. The vocabulary is adopted from emergence's idea-edge schema, which had it right — most notably 'contradicts'. A lattice whose nodes can only RELATE cannot represent disagreement with yourself, and that is most of what thinking is.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "from", "to", "type", "created", "origin"],
+  "properties": {
+    "id":      { "type": "string" },
+    "from":    { "type": "string" },
+    "to":      { "type": "string" },
+    "created": { "type": "string", "format": "date-time" },
+    "type": {
+      "type": "string",
+      "enum": ["related", "refines", "contradicts", "implements", "spawns", "sequence", "shared-tag"],
+      "description": "related: distributional or tag overlap. refines: a sharper statement of the same thing. contradicts: incompatible with. implements: a concrete realisation of. spawns: caused the existence of. sequence: said immediately after. shared-tag: explicit conceptual overlap."
+    },
+    "weight":  { "type": "number", "minimum": 0, "maximum": 1 },
+    "label":   { "type": ["string", "null"], "description": "The words that carried the link, for association edges." },
+    "origin": {
+      "type": "string",
+      "enum": ["computed", "human", "model"],
+      "description": "Who asserted this edge. A model-proposed 'contradicts' is a very different claim from a computed word-overlap 'related', and they must never be indistinguishable."
+    },
+    "requestId": { "type": ["string", "null"] }
+  },
+  "allOf": [{
+    "if":   { "properties": { "origin": { "const": "model" } } },
+    "then": { "required": ["requestId"] }
+  }]
+}

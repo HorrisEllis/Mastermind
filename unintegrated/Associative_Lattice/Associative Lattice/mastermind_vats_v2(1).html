@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASTERMIND · VATS v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#020705;--surface:#0b180d;--wire:#163320;--wire2:#1f4a2c;
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--glow:rgba(57,255,106,.11);--glow2:rgba(57,255,106,.06);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;--pink:#ff6eb4;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+  --clr-bg:rgba(2,7,5,.88);
+}
+html,body{background:#000;height:100%;overflow:hidden}
+body{font-family:var(--mono);color:var(--bright)}
+
+/* ── LAYOUT ── */
+.root{display:grid;grid-template-columns:220px 1fr 240px;grid-template-rows:40px 28px 1fr 28px;height:100vh;background:var(--ink);overflow:hidden}
+
+/* TOPBAR */
+.tb{grid-column:1/-1;background:rgba(2,7,5,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;gap:10px}
+.lm{width:14px;height:14px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:6px;color:var(--signal);animation:blink 3s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 16px var(--signal)}}
+.lt{font-family:var(--cond);font-size:13px;font-weight:900;letter-spacing:5px;color:var(--white)}
+.sep{width:1px;height:12px;background:var(--wire)}
+.tg{font-size:5.5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.tv{font-size:5.5px;letter-spacing:1px;margin-left:3px}
+.tr{margin-left:auto;display:flex;gap:5px;align-items:center}
+.tbtn{font-size:5.5px;letter-spacing:1.5px;padding:2px 8px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:20px}
+.tbtn:hover{color:var(--white);border-color:var(--muted)}
+.tbtn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+
+/* STATUS BAR */
+.sb{grid-column:1/-1;background:rgba(2,7,5,.82);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;gap:14px;overflow:hidden}
+.sbi{font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;white-space:nowrap}
+.sbv{font-size:5px;letter-spacing:1px;margin-left:4px;white-space:nowrap}
+.hk{font-size:5px;letter-spacing:1px;padding:1px 4px;border:1px solid var(--wire2);color:var(--amber);background:rgba(255,204,0,.06)}
+
+/* BOTTOM STATUS */
+.bs{grid-column:1/-1;background:rgba(2,7,5,.95);border-top:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;gap:14px}
+
+/* ── LEFT PANEL ── */
+.lp{border-right:1px solid var(--wire);display:flex;flex-direction:column;overflow:hidden;background:rgba(2,7,5,.5)}
+.ph{font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;padding:8px 10px 6px;border-bottom:1px solid var(--wire)}
+.psc{flex:1;overflow-y:auto;padding:7px 8px;display:flex;flex-direction:column;gap:5px}
+.psc::-webkit-scrollbar{width:2px}
+.psc::-webkit-scrollbar-track{background:transparent}
+.psc::-webkit-scrollbar-thumb{background:var(--wire)}
+
+/* Zone cards */
+.zcard{border:1px solid var(--wire);background:rgba(11,24,13,.3);padding:7px 8px;cursor:pointer;transition:all .18s;position:relative}
+.zcard:hover,.zcard.on{border-color:var(--signal);background:var(--glow2)}
+.zch{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.zcn{font-family:var(--cond);font-size:10px;font-weight:700;letter-spacing:2px;color:var(--white)}
+.zcc{font-size:4.5px;color:var(--signal)}
+.zacc{font-size:4px;color:var(--cyan);margin-left:6px}
+.zsigs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:3px}
+.zsig{font-size:4px;padding:1px 3px;border:1px solid;letter-spacing:1px;text-transform:uppercase}
+.zsig.s{color:var(--signal);border-color:var(--signal)}
+.zsig.a{color:var(--amber);border-color:var(--amber)}
+.zsig.c{color:var(--cyan);border-color:var(--cyan)}
+.zsig.v{color:var(--violet);border-color:var(--violet)}
+.zsig.p{color:var(--pink);border-color:var(--pink)}
+.zcd{font-size:5px;color:var(--dim);line-height:1.5}
+
+/* ── CENTER PANEL ── */
+.cp{display:flex;flex-direction:column;position:relative;overflow:hidden}
+.vcwrap{flex:1;position:relative;background:#000;overflow:hidden}
+#videoEl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.72}
+#meshCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#clrOverlay{position:absolute;inset:0;pointer-events:none;z-index:10}
+
+/* CLR overlay */
+.clr-panel{position:absolute;top:10px;left:10px;background:var(--clr-bg);border:1px solid var(--signal);padding:8px 10px;min-width:200px;transition:opacity .2s;z-index:20;backdrop-filter:blur(4px)}
+.clr-panel.hidden{opacity:0;pointer-events:none}
+.clr-title{font-size:5px;letter-spacing:3px;color:var(--signal);text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid var(--wire);padding-bottom:4px}
+.clr-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)}
+.clr-lbl{font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.clr-val{font-size:5px;letter-spacing:1px;font-weight:700}
+.clr-bar{height:1px;margin-top:1px;background:var(--wire)}
+.clr-fill{height:100%;transition:width .4s}
+
+/* bone tracking status */
+.mesh-status{position:absolute;bottom:8px;left:10px;font-size:4.5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;z-index:20}
+.rec-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--rose);animation:blink 1s ease-in-out infinite;margin-right:4px;vertical-align:middle}
+
+/* hotkey toast */
+.hk-toast{position:absolute;top:10px;right:10px;background:rgba(2,7,5,.9);border:1px solid var(--amber);padding:5px 10px;font-size:5.5px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;z-index:30;opacity:0;transition:opacity .3s;pointer-events:none}
+.hk-toast.show{opacity:1}
+
+/* video controls bar */
+.vcbar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(2,7,5,.9);border-top:1px solid var(--wire)}
+.vbtn{font-size:5px;letter-spacing:1.5px;padding:2px 7px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .12s}
+.vbtn:hover{color:var(--white);border-color:var(--muted)}
+.vbtn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+.vbtn.warn{color:var(--rose);border-color:var(--rose)}
+.vprog{flex:1;height:3px;background:var(--wire);cursor:pointer;position:relative}
+.vprog-fill{height:100%;background:var(--signal);transition:width .1s linear;pointer-events:none}
+.vtime{font-size:5px;letter-spacing:1px;color:var(--dim);white-space:nowrap}
+
+/* synthesis bar below video */
+.synth-bar{display:flex;gap:6px;padding:5px 8px;background:rgba(2,7,5,.7);border-top:1px solid var(--wire)}
+.syn-mod{flex:1;border:1px solid var(--wire);padding:4px 6px;cursor:pointer;transition:border-color .2s}
+.syn-mod.on{border-color:var(--signal)}
+.syn-mod:hover{border-color:var(--wire2)}
+.syn-label{font-size:4.5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:2px}
+.syn-val{font-size:9px;font-family:var(--cond);font-weight:700;color:var(--white)}
+.syn-sub{font-size:4px;letter-spacing:1px;color:var(--dim);margin-top:1px}
+.syn-bar{height:2px;background:var(--wire);margin-top:3px}
+.syn-fill{height:100%;transition:width .5s}
+
+/* ── RIGHT PANEL ── */
+.rp{border-left:1px solid var(--wire);display:flex;flex-direction:column;overflow:hidden;background:rgba(2,7,5,.5)}
+
+/* PAT log */
+.pat-head{padding:6px 10px;border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between}
+.pat-title{font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase}
+.pat-count{font-size:5px;color:var(--cyan)}
+.pat-feed{flex:1;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:3px}
+.pat-feed::-webkit-scrollbar{width:2px}
+.pat-feed::-webkit-scrollbar-thumb{background:var(--wire)}
+.pe{border:1px solid var(--wire);background:rgba(11,24,13,.25);padding:5px 7px;position:relative;transition:border-color .2s}
+.pe.new{border-color:var(--wire2);animation:fadein .4s ease}
+.pe.dup{border-color:var(--amber);background:rgba(255,204,0,.04)}
+.pe.strong{border-color:var(--signal);background:var(--glow2)}
+@keyframes fadein{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:translateX(0)}}
+.pe-tag{font-size:4px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+.pe-body{font-size:5.5px;color:var(--muted);line-height:1.5}
+.pe-meta{display:flex;justify-content:space-between;margin-top:2px}
+.pe-time{font-size:4px;color:var(--dim)}
+.pe-score{font-size:4px;letter-spacing:1px}
+.pe-rdx{position:absolute;top:4px;right:5px;font-size:4px;padding:1px 3px;border:1px solid var(--amber);color:var(--amber);letter-spacing:1px;text-transform:uppercase}
+
+/* sigma */
+.sig-panel{border-top:1px solid var(--wire);padding:8px}
+.sig-title{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px}
+.sig-row{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)}
+.sig-lbl{font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.sig-val{font-size:5px;font-weight:700}
+.sig-state{margin-top:6px;text-align:center;font-family:var(--cond);font-size:16px;font-weight:900;letter-spacing:4px;padding:6px;border:1px solid var(--wire)}
+
+/* acc panel */
+.acc-panel{border-top:1px solid var(--wire);padding:8px}
+.acc-title{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:5px}
+.acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.acc-cell{text-align:center;border:1px solid var(--wire);padding:4px}
+.acc-zone{font-size:4px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+.acc-pct{font-family:var(--cond);font-size:16px;font-weight:900;color:var(--signal)}
+.acc-trend{font-size:4px;color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="root" id="root">
+
+<!-- TOPBAR -->
+<div class="tb">
+  <div class="lm">M</div>
+  <span class="lt">MASTERMIND</span>
+  <div class="sep"></div>
+  <span class="tg">SESSION</span><span class="tv" style="color:var(--amber)">MIMI·2026·05·12</span>
+  <div class="sep"></div>
+  <span class="tg">VATS</span><span class="tv" style="color:var(--cyan)" id="tb-vats">STANDBY</span>
+  <div class="sep"></div>
+  <span class="tg">NODES</span><span class="tv" style="color:var(--cyan)" id="tb-nodes">0</span>
+  <div class="sep"></div>
+  <span class="tg">STATUS</span><span class="tv" style="color:var(--signal)">● LIVE</span>
+  <div class="tr">
+    <span class="sbi">HOTKEYS:</span>
+    <span class="hk">V</span><span class="sbi" style="margin-left:2px">VATS</span>
+    <span class="hk" style="margin-left:8px">M</span><span class="sbi" style="margin-left:2px">MESH</span>
+    <span class="hk" style="margin-left:8px">C</span><span class="sbi" style="margin-left:2px">CLR</span>
+    <span class="hk" style="margin-left:8px">SPACE</span><span class="sbi" style="margin-left:2px">PLAY/PAUSE</span>
+    <button class="tbtn on" id="btn-vats" onclick="toggleVATS()">VATS OFF</button>
+    <button class="tbtn" id="btn-mesh" onclick="toggleMesh()">MESH OFF</button>
+    <button class="tbtn on" id="btn-clr" onclick="toggleCLR()">CLR ON</button>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="sb">
+  <span class="sbi">VIDEO</span><span class="sbv" style="color:var(--signal)" id="sb-video">SIM · 30fps</span>
+  <span class="sbi" style="margin-left:8px">AUDIO</span><span class="sbv" id="sb-audio" style="color:var(--amber)">SIM · ACTIVE</span>
+  <span class="sbi" style="margin-left:8px">TEXT/WORD</span><span class="sbv" id="sb-text" style="color:var(--violet)">SIM · STREAMING</span>
+  <span class="sbi" style="margin-left:8px">PAT</span><span class="sbv" id="sb-pat" style="color:var(--cyan)">0 ENTRIES</span>
+  <span class="sbi" style="margin-left:8px">SYNTHESIS</span><span class="sbv" id="sb-syn" style="color:var(--signal)">IDLE</span>
+  <span class="sbi" style="margin-left:8px">ACCURACY</span><span class="sbv" id="sb-acc" style="color:var(--signal)">—</span>
+</div>
+
+<!-- LEFT: ZONE CARDS -->
+<div class="lp">
+  <div class="ph">SIGNAL ZONES</div>
+  <div class="psc" id="zone-panel">
+    <div class="zcard on" id="zc-face" onclick="selZone('face')">
+      <div class="zch"><span class="zcn">FACE</span><span class="zcc" id="zconf-face">87%</span><span class="zacc" id="zacc-face">acc 0.72</span></div>
+      <div class="zsigs">
+        <span class="zsig c">gaze·L</span><span class="zsig c">gaze·R</span><span class="zsig a">jaw·ten</span>
+        <span class="zsig v">brow·fur</span><span class="zsig s">blink</span><span class="zsig p">micro·expr</span>
+      </div>
+      <div class="zcd">Primary affect · Gaze = highest value signal</div>
+    </div>
+    <div class="zcard" id="zc-lhand" onclick="selZone('lhand')">
+      <div class="zch"><span class="zcn">L·HAND</span><span class="zcc" id="zconf-lhand">92%</span><span class="zacc" id="zacc-lhand">acc 0.68</span></div>
+      <div class="zsigs">
+        <span class="zsig s">self-touch</span><span class="zsig s">hair</span><span class="zsig a">fidget</span>
+        <span class="zsig c">open·palm</span><span class="zsig v">arm·cross</span>
+      </div>
+      <div class="zcd">Regulatory behavior · self-soothing cluster</div>
+    </div>
+    <div class="zcard" id="zc-rhand" onclick="selZone('rhand')">
+      <div class="zch"><span class="zcn">R·HAND</span><span class="zcc" id="zconf-rhand">78%</span><span class="zacc" id="zacc-rhand">acc 0.61</span></div>
+      <div class="zsigs">
+        <span class="zsig s">pointing</span><span class="zsig c">wave</span><span class="zsig a">grip</span>
+        <span class="zsig v">reach</span><span class="zsig p">signal·gest</span>
+      </div>
+      <div class="zcd">Directive gesture · intent direction</div>
+    </div>
+    <div class="zcard" id="zc-posture" onclick="selZone('posture')">
+      <div class="zch"><span class="zcn">POSTURE</span><span class="zcc" id="zconf-posture">65%</span><span class="zacc" id="zacc-posture">acc 0.55</span></div>
+      <div class="zsigs">
+        <span class="zsig v">collapsed</span><span class="zsig p">lean·in</span>
+        <span class="zsig s">grounded</span><span class="zsig a">prot·cross</span>
+      </div>
+      <div class="zcd">Whole-body state · manual log critical</div>
+    </div>
+    <div class="zcard" id="zc-gaze" onclick="selZone('gaze')">
+      <div class="zch"><span class="zcn">GAZE</span><span class="zcc" id="zconf-gaze">83%</span><span class="zacc" id="zacc-gaze">acc 0.77</span></div>
+      <div class="zsigs">
+        <span class="zsig c">target·lock</span><span class="zsig a">averted</span>
+        <span class="zsig v">dart</span><span class="zsig s">soft·gaze</span>
+      </div>
+      <div class="zcd">Attentional · Dart=threat · Soft=safety</div>
+    </div>
+    <div class="zcard" id="zc-voice" onclick="selZone('voice')">
+      <div class="zch"><span class="zcn">VOICE</span><span class="zcc" id="zconf-voice">—</span><span class="zacc" id="zacc-voice">acc 0.70</span></div>
+      <div class="zsigs">
+        <span class="zsig a">pitch·rise</span><span class="zsig v">tremor</span>
+        <span class="zsig s">flat·affect</span><span class="zsig c">prosody·break</span>
+      </div>
+      <div class="zcd">Audio module · vocal stress · prosody</div>
+    </div>
+    <div class="zcard" id="zc-word" onclick="selZone('word')">
+      <div class="zch"><span class="zcn">WORD</span><span class="zcc" id="zconf-word">—</span><span class="zacc" id="zacc-word">acc 0.64</span></div>
+      <div class="zsigs">
+        <span class="zsig p">hedge</span><span class="zsig a">negation</span>
+        <span class="zsig v">filler·burst</span><span class="zsig c">topic·shift</span>
+      </div>
+      <div class="zcd">Text/word module · semantic markers</div>
+    </div>
+  </div>
+</div>
+
+<!-- CENTER: VIDEO + OVERLAY -->
+<div class="cp">
+  <div class="vcwrap" id="vcwrap">
+    <!-- simulated video canvas -->
+    <canvas id="videoEl" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    <!-- mesh + VATS overlay canvas -->
+    <canvas id="meshCanvas"></canvas>
+    <!-- CLR real-time readout -->
+    <div class="clr-panel" id="clrPanel">
+      <div class="clr-title">CLR · REAL-TIME</div>
+      <div class="clr-row">
+        <span class="clr-lbl">FACE</span>
+        <span class="clr-val" id="clr-face" style="color:var(--cyan)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-face" style="width:0%;background:var(--cyan)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">GAZE</span>
+        <span class="clr-val" id="clr-gaze" style="color:var(--signal)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-gaze" style="width:0%;background:var(--signal)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">L·HAND</span>
+        <span class="clr-val" id="clr-lhand" style="color:var(--amber)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-lhand" style="width:0%;background:var(--amber)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">R·HAND</span>
+        <span class="clr-val" id="clr-rhand" style="color:var(--amber)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-rhand" style="width:0%;background:var(--amber)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">POSTURE</span>
+        <span class="clr-val" id="clr-posture" style="color:var(--violet)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-posture" style="width:0%;background:var(--violet)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">VOICE</span>
+        <span class="clr-val" id="clr-voice" style="color:var(--pink)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-voice" style="width:0%;background:var(--pink)"></div></div>
+      <div class="clr-row" style="margin-top:3px">
+        <span class="clr-lbl">WORD</span>
+        <span class="clr-val" id="clr-word" style="color:var(--violet)">—</span>
+      </div>
+      <div class="clr-bar"><div class="clr-fill" id="clrb-word" style="width:0%;background:var(--violet)"></div></div>
+      <div style="margin-top:5px;padding-top:4px;border-top:1px solid var(--wire)">
+        <div class="clr-row">
+          <span class="clr-lbl">ΣENTROPY</span>
+          <span class="clr-val" id="clr-sigma" style="color:var(--rose)">—</span>
+        </div>
+        <div class="clr-row" style="margin-top:2px">
+          <span class="clr-lbl">PATTERN</span>
+          <span class="clr-val" id="clr-pattern" style="color:var(--signal);font-size:4.5px">SCANNING</span>
+        </div>
+      </div>
+    </div>
+    <!-- VATS reticle when VATS is on -->
+    <div id="vats-active-indicator" style="position:absolute;top:10px;right:10px;display:none;z-index:25">
+      <div style="font-size:5px;letter-spacing:2px;color:var(--signal);border:1px solid var(--signal);padding:3px 7px;background:var(--glow);animation:blink 2s ease-in-out infinite"><span class="rec-dot"></span>VATS ACTIVE</div>
+    </div>
+    <div class="hk-toast" id="hkToast"></div>
+    <div class="mesh-status" id="meshStatus">MESH: STANDBY</div>
+  </div>
+
+  <!-- VIDEO CONTROLS -->
+  <div class="vcbar">
+    <button class="vbtn on" id="playBtn" onclick="togglePlay()">▶ PLAY</button>
+    <button class="vbtn" onclick="stepFrame(-1)">◀◀</button>
+    <button class="vbtn" onclick="stepFrame(1)">▶▶</button>
+    <div class="vprog" id="progBar" onclick="seekTo(event)">
+      <div class="vprog-fill" id="progFill" style="width:0%"></div>
+    </div>
+    <span class="vtime" id="vtime">00:00 / 03:00</span>
+    <button class="vbtn" id="recBtn" onclick="toggleRec()" style="margin-left:4px">⏺ REC</button>
+  </div>
+
+  <!-- SYNTHESIS BAR -->
+  <div class="synth-bar">
+    <div class="syn-mod on" id="synmod-video">
+      <div class="syn-label">VIDEO MODULE</div>
+      <div class="syn-val" id="syn-video-val">0.00</div>
+      <div class="syn-sub" id="syn-video-sub">bone·mesh</div>
+      <div class="syn-bar"><div class="syn-fill" id="synf-video" style="width:0%;background:var(--signal)"></div></div>
+    </div>
+    <div class="syn-mod on" id="synmod-audio">
+      <div class="syn-label">AUDIO MODULE</div>
+      <div class="syn-val" id="syn-audio-val">0.00</div>
+      <div class="syn-sub" id="syn-audio-sub">vocal·stress</div>
+      <div class="syn-bar"><div class="syn-fill" id="synf-audio" style="width:0%;background:var(--amber)"></div></div>
+    </div>
+    <div class="syn-mod on" id="synmod-text">
+      <div class="syn-label">TEXT MODULE</div>
+      <div class="syn-val" id="syn-text-val">0.00</div>
+      <div class="syn-sub" id="syn-text-sub">semantic·stream</div>
+      <div class="syn-bar"><div class="syn-fill" id="synf-text" style="width:0%;background:var(--violet)"></div></div>
+    </div>
+    <div class="syn-mod" id="synmod-synth" style="flex:1.5;border-color:var(--signal)">
+      <div class="syn-label">SYNTHESIS · COHERENCE</div>
+      <div class="syn-val" id="syn-synth-val" style="color:var(--signal)">0.00</div>
+      <div class="syn-sub" id="syn-synth-sub">waiting · 3 modules</div>
+      <div class="syn-bar"><div class="syn-fill" id="synf-synth" style="width:0%;background:var(--signal)"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: PAT LOG + SIGMA + ACCURACY -->
+<div class="rp">
+  <div class="pat-head">
+    <span class="pat-title">.PAT FEED</span>
+    <span class="pat-count" id="pat-count">0 entries</span>
+  </div>
+  <div class="pat-feed" id="patFeed">
+    <!-- entries injected here -->
+  </div>
+
+  <div class="sig-panel">
+    <div class="sig-title">SIGMA · ENTROPY</div>
+    <div class="sig-row"><span class="sig-lbl">SLOPE</span><span class="sig-val" id="sig-slope" style="color:var(--violet)">—</span></div>
+    <div class="sig-row"><span class="sig-lbl">ENTROPY</span><span class="sig-val" id="sig-entropy" style="color:var(--rose)">—</span></div>
+    <div class="sig-row"><span class="sig-lbl">CONF</span><span class="sig-val" id="sig-conf" style="color:var(--amber)">—</span></div>
+    <div class="sig-row"><span class="sig-lbl">RDX·HITS</span><span class="sig-val" id="sig-rdx" style="color:var(--cyan)">0</span></div>
+    <div class="sig-state" id="sigState" style="color:var(--signal)">STABLE</div>
+  </div>
+
+  <div class="acc-panel">
+    <div class="acc-title">ACCURACY · LEARNING OVER TIME</div>
+    <div class="acc-grid">
+      <div class="acc-cell">
+        <div class="acc-zone">FACE</div>
+        <div class="acc-pct" id="acc-face">72%</div>
+        <div class="acc-trend" id="acct-face">→</div>
+      </div>
+      <div class="acc-cell">
+        <div class="acc-zone">GAZE</div>
+        <div class="acc-pct" id="acc-gaze">77%</div>
+        <div class="acc-trend" id="acct-gaze">→</div>
+      </div>
+      <div class="acc-cell">
+        <div class="acc-zone">HANDS</div>
+        <div class="acc-pct" id="acc-hands">65%</div>
+        <div class="acc-trend" id="acct-hands">→</div>
+      </div>
+      <div class="acc-cell">
+        <div class="acc-zone">POSTURE</div>
+        <div class="acc-pct" id="acc-posture">55%</div>
+        <div class="acc-trend" id="acct-posture">→</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM STATUS -->
+<div class="bs">
+  <span class="sbi">LATTICE</span><span class="sbv" id="bs-lattice" style="color:var(--violet)">47 nodes · 114 edges</span>
+  <span class="sbi" style="margin-left:10px">REDUNDANCY</span><span class="sbv" id="bs-rdx" style="color:var(--amber)">0 collapsed</span>
+  <span class="sbi" style="margin-left:10px">PATTERN·LOG</span><span class="sbv" id="bs-pl" style="color:var(--signal)">0 coherent patterns</span>
+  <span class="sbi" style="margin-left:10px">SESSION</span><span class="sbv" style="color:var(--dim)">MIMI-20260512-001</span>
+  <span style="margin-left:auto;font-size:4.5px;letter-spacing:1px;color:var(--dim)">MASTERMIND BEHAVIORAL INTELLIGENCE SUITE · v0.2-VATS</span>
+</div>
+
+</div><!-- /root -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  vatsOn: false,
+  meshOn: false,
+  clrOn: true,
+  playing: false,
+  recording: false,
+  t: 0,           // playback time seconds
+  duration: 180,  // 3 min sim
+  patEntries: [],
+  patCount: 0,
+  rdxCount: 0,
+  coherentPatterns: 0,
+  nodes: 0,
+  accuracy: { face:0.72, gaze:0.77, hands:0.65, posture:0.55, voice:0.70, word:0.64 },
+  // raw signals per frame
+  signals: { face:0, gaze:0, lhand:0, rhand:0, posture:0, voice:0, word:0 },
+  // module scores
+  videoScore: 0,
+  audioScore: 0,
+  textScore: 0,
+  synthScore: 0,
+  sigma: 0,
+  slope: 0,
+  entropy: 0,
+  conf: 0,
+  // body keypoints (normalized 0-1)
+  kp: {
+    nose:{x:.5,y:.12},
+    lEye:{x:.46,y:.10},rEye:{x:.54,y:.10},
+    lEar:{x:.42,y:.13},rEar:{x:.58,y:.13},
+    lShoulder:{x:.35,y:.26},rShoulder:{x:.65,y:.26},
+    lElbow:{x:.28,y:.40},rElbow:{x:.72,y:.40},
+    lWrist:{x:.23,y:.54},rWrist:{x:.77,y:.54},
+    lHip:{x:.38,y:.55},rHip:{x:.62,y:.55},
+    lKnee:{x:.36,y:.72},rKnee:{x:.64,y:.72},
+    lAnkle:{x:.35,y:.90},rAnkle:{x:.65,y:.90},
+  },
+  // face landmarks (normalized)
+  face68: [],
+  // history for accuracy improvement
+  history: [],
+  lastSigma: 0,
+  slopeHistory: [],
+  patternHash: {},
+};
+
+// init face landmarks
+for(let i=0;i<68;i++){
+  const a = (i/68)*Math.PI*2;
+  const r = 0.06 + (i%3)*0.01;
+  S.face68.push({ x:0.5+Math.cos(a)*r*1.4, y:0.12+Math.sin(a)*r, ph:Math.random()*Math.PI*2 });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════════════════════
+const vCanvas = document.getElementById('videoEl');
+const vCtx = vCanvas.getContext('2d');
+const mCanvas = document.getElementById('meshCanvas');
+const mCtx = mCanvas.getContext('2d');
+
+function resizeCanvases(){
+  const w = document.getElementById('vcwrap').clientWidth;
+  const h = document.getElementById('vcwrap').clientHeight;
+  vCanvas.width = w; vCanvas.height = h;
+  mCanvas.width = w; mCanvas.height = h;
+  mCanvas.style.width = w+'px'; mCanvas.style.height = h+'px';
+}
+window.addEventListener('resize', resizeCanvases);
+setTimeout(resizeCanvases, 100);
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATED VIDEO BACKGROUND (procedural "person" silhouette)
+// ═══════════════════════════════════════════════════════════════
+let frameNum = 0;
+function drawVideo(){
+  if(!vCanvas.width) return;
+  const w = vCanvas.width, h = vCanvas.height;
+  vCtx.clearRect(0,0,w,h);
+
+  // background gradient
+  const bg = vCtx.createLinearGradient(0,0,0,h);
+  bg.addColorStop(0,'#050d07');
+  bg.addColorStop(1,'#020503');
+  vCtx.fillStyle=bg;
+  vCtx.fillRect(0,0,w,h);
+
+  // scanline effect
+  vCtx.fillStyle='rgba(57,255,106,0.012)';
+  for(let y=0;y<h;y+=3){ vCtx.fillRect(0,y,w,1); }
+
+  // noise grain
+  const grain = vCtx.createImageData(w,h);
+  for(let i=0;i<grain.data.length;i+=4){
+    const v=Math.random()*6;
+    grain.data[i]=grain.data[i+1]=grain.data[i+2]=v;
+    grain.data[i+3]=18;
+  }
+  vCtx.putImageData(grain,0,0);
+
+  // draw simplified body silhouette
+  drawSilhouette(w,h);
+  frameNum++;
+}
+
+function drawSilhouette(w,h){
+  const kp = S.kp;
+  const px = (k)=>({ x: kp[k].x*w, y: kp[k].y*h });
+
+  vCtx.save();
+  vCtx.strokeStyle='rgba(57,255,106,0.18)';
+  vCtx.lineWidth=1.5;
+
+  // skeleton connections
+  const connections=[
+    ['nose','lEye'],['nose','rEye'],['lEye','lEar'],['rEye','rEar'],
+    ['lShoulder','rShoulder'],['lShoulder','lElbow'],['rShoulder','rElbow'],
+    ['lElbow','lWrist'],['rElbow','rWrist'],
+    ['lShoulder','lHip'],['rShoulder','rHip'],['lHip','rHip'],
+    ['lHip','lKnee'],['rHip','rKnee'],['lKnee','lAnkle'],['rKnee','rAnkle'],
+  ];
+  connections.forEach(([a,b])=>{
+    const pa=px(a),pb=px(b);
+    vCtx.beginPath();
+    vCtx.moveTo(pa.x,pa.y);
+    vCtx.lineTo(pb.x,pb.y);
+    vCtx.stroke();
+  });
+
+  // keypoints
+  Object.values(kp).forEach(k=>{
+    vCtx.beginPath();
+    vCtx.arc(k.x*w,k.y*h,2.5,0,Math.PI*2);
+    vCtx.fillStyle='rgba(57,255,106,0.35)';
+    vCtx.fill();
+  });
+  vCtx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MESH OVERLAY (face + body breathable mesh)
+// ═══════════════════════════════════════════════════════════════
+function drawMesh(){
+  const w = mCanvas.width, h = mCanvas.height;
+  mCtx.clearRect(0,0,w,h);
+  if(!S.meshOn && !S.vatsOn) return;
+
+  // ── FACE MESH ──
+  const face68 = S.face68;
+  const face = face68.map(p=>({ x:p.x*w, y:p.y*h }));
+
+  if(S.meshOn){
+    // draw face mesh triangulation (approximate delaunay)
+    mCtx.strokeStyle='rgba(0,255,238,0.22)';
+    mCtx.lineWidth=0.6;
+    // connect adjacent landmarks
+    for(let i=0;i<face68.length;i++){
+      const a=face[i], b=face[(i+1)%face68.length];
+      if(Math.abs(a.x-b.x)<w*0.06 && Math.abs(a.y-b.y)<h*0.06){
+        mCtx.beginPath(); mCtx.moveTo(a.x,a.y); mCtx.lineTo(b.x,b.y); mCtx.stroke();
+      }
+      // cross-connects for density
+      const c=face[(i+3)%face68.length];
+      if(Math.abs(a.x-c.x)<w*0.05 && Math.abs(a.y-c.y)<h*0.05){
+        mCtx.strokeStyle='rgba(0,255,238,0.10)';
+        mCtx.beginPath(); mCtx.moveTo(a.x,a.y); mCtx.lineTo(c.x,c.y); mCtx.stroke();
+        mCtx.strokeStyle='rgba(0,255,238,0.22)';
+      }
+    }
+    // face landmark dots
+    face68.forEach((p,i)=>{
+      const pulse = 0.5+0.5*Math.sin(p.ph);
+      mCtx.beginPath();
+      mCtx.arc(p.x*w, p.y*h, 1.2+pulse*0.6, 0, Math.PI*2);
+      mCtx.fillStyle=`rgba(0,255,238,${0.3+0.4*pulse})`;
+      mCtx.fill();
+    });
+
+    // ── BODY MESH / BONE MAP ──
+    const kp=S.kp;
+    const boneGroups = [
+      // torso mesh
+      ['lShoulder','rShoulder','rHip','lHip'],
+      // left arm
+      ['lShoulder','lElbow','lWrist'],
+      // right arm
+      ['rShoulder','rElbow','rWrist'],
+      // left leg
+      ['lHip','lKnee','lAnkle'],
+      // right leg
+      ['rHip','rKnee','rAnkle'],
+    ];
+    mCtx.strokeStyle='rgba(57,255,106,0.22)';
+    mCtx.lineWidth=0.7;
+    boneGroups.forEach(grp=>{
+      mCtx.beginPath();
+      grp.forEach((k,i)=>{
+        const p=kp[k];
+        i===0?mCtx.moveTo(p.x*w,p.y*h):mCtx.lineTo(p.x*w,p.y*h);
+      });
+      mCtx.stroke();
+    });
+
+    // mesh fill polygons (breathable)
+    mCtx.fillStyle='rgba(57,255,106,0.035)';
+    mCtx.beginPath();
+    ['lShoulder','rShoulder','rHip','lHip'].forEach((k,i)=>{
+      const p=kp[k];
+      i===0?mCtx.moveTo(p.x*w,p.y*h):mCtx.lineTo(p.x*w,p.y*h);
+    });
+    mCtx.closePath();
+    mCtx.fill();
+
+    // ── ZONE HEAT RINGS (when VATS on) ──
+  }
+
+  if(S.vatsOn){
+    drawVATSRings(w,h);
+  }
+}
+
+function drawVATSRings(w,h){
+  const kp=S.kp;
+  const t=Date.now()/1000;
+
+  // FACE zone ring
+  const faceX=kp.nose.x*w, faceY=kp.nose.y*h;
+  const faceR = w*0.10 + Math.sin(t*2)*w*0.005;
+  const faceColor=getZoneColor('face');
+  drawPulseRing(mCtx, faceX, faceY, faceR, faceColor, S.signals.face);
+
+  // GAZE reticle
+  const gazeX=kp.nose.x*w, gazeY=(kp.lEye.y*h+kp.rEye.y*h)/2;
+  mCtx.strokeStyle=`rgba(57,255,106,${0.3+S.signals.gaze*0.5})`;
+  mCtx.lineWidth=0.7;
+  const gs=w*0.035;
+  mCtx.beginPath(); mCtx.moveTo(gazeX-gs,gazeY); mCtx.lineTo(gazeX+gs,gazeY); mCtx.stroke();
+  mCtx.beginPath(); mCtx.moveTo(gazeX,gazeY-gs); mCtx.lineTo(gazeX,gazeY+gs); mCtx.stroke();
+  mCtx.beginPath(); mCtx.arc(gazeX,gazeY,gs*1.5,0,Math.PI*2);
+  mCtx.strokeStyle=`rgba(57,255,106,${0.2+S.signals.gaze*0.4})`;
+  mCtx.stroke();
+
+  // L HAND zone
+  const lhX=kp.lWrist.x*w, lhY=kp.lWrist.y*h;
+  drawPulseRing(mCtx, lhX, lhY, w*0.055, getZoneColor('lhand'), S.signals.lhand);
+
+  // R HAND zone
+  const rhX=kp.rWrist.x*w, rhY=kp.rWrist.y*h;
+  drawPulseRing(mCtx, rhX, rhY, w*0.055, getZoneColor('rhand'), S.signals.rhand);
+
+  // POSTURE zone (torso rect)
+  const ls=kp.lShoulder, rs=kp.rShoulder, lh=kp.lHip, rh=kp.rHip;
+  const pAlpha = 0.1+S.signals.posture*0.25;
+  mCtx.strokeStyle=`rgba(204,136,255,${0.2+S.signals.posture*0.5})`;
+  mCtx.lineWidth=0.8;
+  mCtx.setLineDash([4,3]);
+  mCtx.strokeRect(ls.x*w-w*0.03, ls.y*h-h*0.02, (rs.x-ls.x)*w+w*0.06, (lh.y-ls.y)*h+h*0.04);
+  mCtx.setLineDash([]);
+
+  // signal strength labels near zones
+  drawZoneLabel(mCtx, faceX, faceY-faceR-8, 'FACE', S.signals.face, getZoneColor('face'));
+  drawZoneLabel(mCtx, lhX-w*0.06, lhY, 'L·H', S.signals.lhand, getZoneColor('lhand'));
+  drawZoneLabel(mCtx, rhX+w*0.01, rhY, 'R·H', S.signals.rhand, getZoneColor('rhand'));
+}
+
+function drawPulseRing(ctx, x, y, r, color, strength){
+  const t=Date.now()/1000;
+  const pulse=0.5+0.5*Math.sin(t*3);
+  const alpha=0.2+strength*0.6;
+  // outer pulse ring
+  ctx.beginPath();
+  ctx.arc(x, y, r*(1+pulse*0.08), 0, Math.PI*2);
+  ctx.strokeStyle=color.replace(')',`,${alpha*0.4})`).replace('rgb','rgba').replace(/,\d+\)$/,`,${alpha*0.4})`);
+  ctx.lineWidth=1;
+  ctx.setLineDash([4,3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // inner solid ring
+  ctx.beginPath();
+  ctx.arc(x, y, r*0.7, 0, Math.PI*2);
+  ctx.strokeStyle=color.replace(')',`,${alpha*0.7})`).replace('rgb','rgba').replace(/,\d+\)$/,`,${alpha*0.7})`);
+  ctx.lineWidth=0.6;
+  ctx.stroke();
+}
+
+function drawZoneLabel(ctx, x, y, label, val, color){
+  ctx.font=`500 9px 'Azeret Mono'`;
+  ctx.fillStyle=color.replace(/,[\d.]+\)$/,',0.7)').replace('rgb(','rgba(');
+  ctx.fillText(`${label} ${(val*100).toFixed(0)}%`, x, y);
+}
+
+function getZoneColor(zone){
+  const m={face:'rgb(0,255,238)',gaze:'rgb(57,255,106)',lhand:'rgb(255,204,0)',rhand:'rgb(255,204,0)',posture:'rgb(204,136,255)',voice:'rgb(255,110,180)',word:'rgb(204,136,255)'};
+  return m[zone]||'rgb(57,255,106)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEYPOINT / LANDMARK ANIMATION
+// ═══════════════════════════════════════════════════════════════
+function animateKeypoints(){
+  const t=Date.now()/1000;
+  const kp=S.kp;
+  // gentle breathing / micro-movement
+  const breathe=Math.sin(t*0.9)*0.008;
+  const sway=Math.sin(t*0.4)*0.004;
+  kp.lShoulder.y=0.26+breathe; kp.rShoulder.y=0.26+breathe;
+  kp.lHip.y=0.55+breathe*0.3; kp.rHip.y=0.55+breathe*0.3;
+  kp.nose.x=0.5+sway; kp.lEye.x=0.46+sway; kp.rEye.x=0.54+sway;
+  kp.lEar.x=0.42+sway; kp.rEar.x=0.58+sway;
+  // hand motion
+  const lhBob=Math.sin(t*1.3+1)*0.015+Math.sin(t*2.1)*0.008;
+  const rhBob=Math.sin(t*1.1+2)*0.012+Math.sin(t*1.8)*0.006;
+  kp.lWrist.y=0.54+lhBob; kp.lElbow.y=0.40+lhBob*0.5;
+  kp.rWrist.y=0.54+rhBob; kp.rElbow.y=0.40+rhBob*0.5;
+
+  // face landmarks subtle pulse
+  S.face68.forEach((p,i)=>{
+    p.ph+=0.018+i*0.0002;
+    const b=Math.sin(t*0.9)*0.002;
+    p.y=p.y+(Math.sin(p.ph)*0.0003);
+    if(p.y<0.05) p.y=0.05; if(p.y>0.22) p.y=0.22;
+    p.x=0.5+Math.cos(i/68*Math.PI*2)*(0.06+(i%3)*0.01)*1.4+sway;
+    p.y=0.12+Math.sin(i/68*Math.PI*2)*(0.06+(i%3)*0.01)+b;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIGNAL SIMULATION — VIDEO + AUDIO + TEXT MODULES
+// ═══════════════════════════════════════════════════════════════
+let sigHistory={face:[],gaze:[],lhand:[],rhand:[],posture:[],voice:[],word:[]};
+
+function stepSignals(){
+  if(!S.playing) return;
+  const t=S.t, r=Math.random;
+
+  // ── VIDEO module signals ──
+  // face: gaze shift, jaw, brow, micro-expression, blink
+  S.signals.face = clamp(S.signals.face + (r()-0.48)*0.12);
+  S.signals.gaze = clamp(S.signals.gaze + (r()-0.5)*0.08 + Math.sin(t*0.7)*0.04);
+  S.signals.lhand = clamp(S.signals.lhand + (r()-0.49)*0.10 + Math.sin(t*1.2)*0.03);
+  S.signals.rhand = clamp(S.signals.rhand + (r()-0.49)*0.10 + Math.cos(t*0.9)*0.03);
+  S.signals.posture = clamp(S.signals.posture + (r()-0.5)*0.06);
+
+  // ── AUDIO module signals ──
+  // pitch rise, tremor, flat affect, prosody break
+  S.signals.voice = clamp(S.signals.voice + (r()-0.48)*0.09 + Math.sin(t*0.5)*0.03);
+
+  // ── TEXT/WORD module signals ──
+  // hedge words, negation bursts, fillers, topic shifts
+  S.signals.word = clamp(S.signals.word + (r()-0.47)*0.08 + (Math.random()<0.03?0.3:0));
+
+  // push history
+  Object.keys(sigHistory).forEach(k=>{
+    sigHistory[k].push(S.signals[k]);
+    if(sigHistory[k].length>60) sigHistory[k].shift();
+  });
+
+  // ── MODULE SCORES ──
+  S.videoScore = (S.signals.face*0.35+S.signals.gaze*0.30+S.signals.lhand*0.15+S.signals.rhand*0.10+S.signals.posture*0.10);
+  S.audioScore = S.signals.voice;
+  S.textScore = S.signals.word;
+
+  // ── SYNTHESIS — tri-modal coherence ──
+  // coherence = how aligned are the 3 modules in their signal magnitude
+  const mean = (S.videoScore+S.audioScore+S.textScore)/3;
+  const variance = ((S.videoScore-mean)**2+(S.audioScore-mean)**2+(S.textScore-mean)**2)/3;
+  S.synthScore = clamp(mean*(1-variance*2));
+
+  // ── SIGMA / ENTROPY ──
+  // slope = rate of change over last 3s (90 frames at ~30fps sim = last ~10 entries)
+  const hw=sigHistory;
+  const avgNow = avg([S.signals.face,S.signals.gaze,S.signals.lhand,S.signals.rhand,S.signals.posture,S.signals.voice,S.signals.word]);
+  const oldIdx=Math.max(0,hw.face.length-10);
+  const avgOld = avg([hw.face[oldIdx]||0,hw.gaze[oldIdx]||0,hw.lhand[oldIdx]||0,hw.rhand[oldIdx]||0,hw.posture[oldIdx]||0,hw.voice[oldIdx]||0,hw.word[oldIdx]||0]);
+  S.slope = Math.abs(avgNow-avgOld);
+  S.slopeHistory.push(S.slope); if(S.slopeHistory.length>20) S.slopeHistory.shift();
+
+  // entropy = variance across all signals
+  const allSigs=[S.signals.face,S.signals.gaze,S.signals.lhand,S.signals.rhand,S.signals.posture,S.signals.voice,S.signals.word];
+  const m=avg(allSigs);
+  S.entropy = Math.sqrt(allSigs.reduce((a,v)=>a+(v-m)**2,0)/allSigs.length);
+  S.conf = clamp(1-S.entropy+S.synthScore*0.3);
+  S.sigma = clamp(S.entropy*0.6+S.slope*0.4);
+}
+
+function avg(arr){ return arr.reduce((a,v)=>a+v,0)/arr.length; }
+function clamp(v,mn=0,mx=1){ return Math.max(mn,Math.min(mx,v)); }
+
+// ═══════════════════════════════════════════════════════════════
+// PATTERN DETECTION + PAT LOGGING
+// ═══════════════════════════════════════════════════════════════
+const PATTERNS = [
+  { id:'REG-TOUCH', label:'Regulatory Touch', modules:['video','audio'], zones:['lhand','face'], test:(s)=>s.lhand>0.6&&s.face>0.55&&s.voice<0.4, color:'--signal' },
+  { id:'GAZE-AVOID', label:'Gaze Avoidance', modules:['video','text'], zones:['gaze','word'], test:(s)=>s.gaze<0.3&&s.word>0.5, color:'--amber' },
+  { id:'VOCAL-STRESS', label:'Vocal Stress Pattern', modules:['audio','video'], zones:['voice','face'], test:(s)=>s.voice>0.65&&s.face>0.6, color:'--rose' },
+  { id:'MIRROR-SOC', label:'Social Mirroring', modules:['video','audio','text'], zones:['posture','gaze','word'], test:(s)=>s.posture>0.5&&s.gaze>0.6&&s.word>0.4, color:'--cyan' },
+  { id:'DYSREG', label:'Dysregulation Signal', modules:['video','audio','text'], zones:['face','voice','word'], test:(s)=>s.face>0.7&&s.voice>0.6&&s.word>0.55, color:'--violet' },
+  { id:'HEDGE-BURST', label:'Hedge Word Burst', modules:['text','audio'], zones:['word','voice'], test:(s)=>s.word>0.7, color:'--pink' },
+  { id:'GROUNDED', label:'Grounded State', modules:['video'], zones:['posture','gaze'], test:(s)=>s.posture>0.6&&s.gaze>0.55&&s.sigma<0.3, color:'--signal' },
+  { id:'ENTROPY-SPIKE', label:'Entropy Spike', modules:['video','audio','text'], zones:['face','voice','posture'], test:(s)=>s.sigma>0.65, color:'--rose' },
+];
+
+let lastPatternCheck=0;
+function detectPatterns(){
+  if(!S.playing) return;
+  const now=Date.now();
+  if(now-lastPatternCheck<600) return;
+  lastPatternCheck=now;
+
+  const sig={...S.signals, sigma:S.sigma};
+  PATTERNS.forEach(pat=>{
+    if(pat.test(sig)){
+      const conf=clamp(0.5+Math.random()*0.45);
+      const hashKey=pat.id+Math.floor(S.t/8); // bucket per 8 seconds
+      const isRedundant=!!S.patternHash[hashKey];
+      S.patternHash[hashKey]=true;
+      if(isRedundant){
+        S.rdxCount++;
+        // redundancy collapse: strengthen existing, don't re-log
+        strengthenPATEntry(pat.id);
+        updateSigmaPanel();
+        return;
+      }
+      logPAT(pat, conf, sig);
+      // improve accuracy for zones involved
+      pat.zones.forEach(z=>{
+        if(S.accuracy[z] !== undefined){
+          S.accuracy[z]=clamp(S.accuracy[z]+0.001+Math.random()*0.003, 0, 0.99);
+        }
+        const hands=['lhand','rhand'];
+        if(hands.includes(z)) S.accuracy.hands=clamp(S.accuracy.hands+0.001+Math.random()*0.002, 0, 0.99);
+      });
+      updateAccuracyPanel();
+    }
+  });
+}
+
+function logPAT(pat, conf, sig){
+  S.patCount++;
+  S.nodes=47+S.patCount;
+  const entry={
+    id:pat.id,
+    label:pat.label,
+    t:S.t.toFixed(1),
+    conf:conf.toFixed(2),
+    modules:pat.modules,
+    zones:pat.zones,
+    sigma:S.sigma.toFixed(2),
+    strong:conf>0.8,
+    color:pat.color,
+  };
+  S.patEntries.unshift(entry);
+  if(S.patEntries.length>40) S.patEntries.pop();
+
+  // coherent patterns = patterns with all 3 modules
+  if(pat.modules.length===3) S.coherentPatterns++;
+
+  renderPATEntry(entry, false);
+  updatePatCount();
+  updateTopbar();
+  document.getElementById('bs-pl').textContent=S.coherentPatterns+' coherent patterns';
+  document.getElementById('bs-rdx').textContent=S.rdxCount+' collapsed';
+}
+
+function renderPATEntry(entry, dup){
+  const feed=document.getElementById('patFeed');
+  const el=document.createElement('div');
+  el.className='pe new'+(entry.strong?' strong':'')+(dup?' dup':'');
+  el.id='pe-'+entry.id+'-'+entry.t;
+  el.innerHTML=`
+    ${dup?'<div class="pe-rdx">RDX</div>':''}
+    <div class="pe-tag">${entry.modules.join('·')} · t=${entry.t}s</div>
+    <div class="pe-body">${entry.label} <span style="color:var(${entry.color})">[${entry.zones.join('+')}]</span></div>
+    <div class="pe-meta">
+      <span class="pe-time">Σ ${entry.sigma}</span>
+      <span class="pe-score" style="color:var(${entry.color})">conf ${entry.conf}</span>
+    </div>
+  `;
+  feed.insertBefore(el, feed.firstChild);
+  if(feed.children.length>25) feed.removeChild(feed.lastChild);
+}
+
+function strengthenPATEntry(patId){
+  const el=document.querySelector(`[id^="pe-${patId}"]`);
+  if(el){ el.classList.add('dup'); const rdx=el.querySelector('.pe-rdx'); if(!rdx){ const d=document.createElement('div'); d.className='pe-rdx'; d.textContent='RDX'; el.insertBefore(d,el.firstChild); } }
+}
+
+function updatePatCount(){ const n=S.patCount; document.getElementById('pat-count').textContent=n+' entries'; document.getElementById('sb-pat').textContent=n+' ENTRIES'; }
+
+// ═══════════════════════════════════════════════════════════════
+// CLR UPDATE
+// ═══════════════════════════════════════════════════════════════
+const sigLabels={face:'gaze·shift',gaze:'target·lock',lhand:'self-sooth',rhand:'pointing',posture:'open·chest',voice:'pitch·nom',word:'nominal'};
+function updateCLR(){
+  if(!S.clrOn) return;
+  const zones=['face','gaze','lhand','rhand','posture','voice','word'];
+  zones.forEach(z=>{
+    const v=S.signals[z]||0;
+    const sig=pickSignalLabel(z,v);
+    const el=document.getElementById('clr-'+z);
+    const bar=document.getElementById('clrb-'+z);
+    if(el) el.textContent=sig+' '+Math.round(v*100)+'%';
+    if(bar) bar.style.width=Math.round(v*100)+'%';
+  });
+  const sigEl=document.getElementById('clr-sigma');
+  if(sigEl) sigEl.textContent=S.sigma.toFixed(2);
+  const patEl=document.getElementById('clr-pattern');
+  if(patEl){
+    // show most recent active pattern
+    const active=PATTERNS.find(p=>p.test({...S.signals,sigma:S.sigma}));
+    patEl.textContent=active?active.id:'NOMINAL';
+    patEl.style.color=active?`var(${active.color})`:'var(--signal)';
+  }
+}
+
+function pickSignalLabel(zone,v){
+  const lookup={
+    face:['blink·soft','gaze·drift','brow·set','micro·expr','jaw·clench'],
+    gaze:['soft·gaze','averted','dart','target·lock','downcast'],
+    lhand:['rest','fidget','self-touch','hair·touch','arm·cross'],
+    rhand:['rest','signal·gest','pointing','grip','reach'],
+    posture:['grounded','neutral','lean·in','prot·cross','collapsed'],
+    voice:['calm','hedging','tremor','prosody·break','flat·affect'],
+    word:['nominal','filler','hedge','negation','topic·shift'],
+  };
+  const arr=lookup[zone]||['—'];
+  return arr[Math.min(arr.length-1,Math.floor(v*(arr.length-0.01)))];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIGMA PANEL
+// ═══════════════════════════════════════════════════════════════
+const stateVocab=[
+  {label:'DYSREGULATED',min:0.65,color:'var(--violet)'},
+  {label:'UNGROUNDED',min:0.45,color:'var(--amber)'},
+  {label:'ACTIVATING',min:0.3,color:'var(--cyan)'},
+  {label:'STABLE',min:0,color:'var(--signal)'},
+];
+function updateSigmaPanel(){
+  document.getElementById('sig-slope').textContent=S.slope.toFixed(3);
+  document.getElementById('sig-entropy').textContent=S.entropy.toFixed(3);
+  document.getElementById('sig-conf').textContent=S.conf.toFixed(2);
+  document.getElementById('sig-rdx').textContent=S.rdxCount;
+  const state=stateVocab.find(v=>S.sigma>=v.min)||stateVocab[stateVocab.length-1];
+  const ss=document.getElementById('sigState');
+  ss.textContent=state.label;
+  ss.style.color=state.color;
+  ss.style.borderColor=state.color;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SYNTHESIS BAR
+// ═══════════════════════════════════════════════════════════════
+function updateSynthBar(){
+  const vs=S.videoScore, as=S.audioScore, ts=S.textScore, ss=S.synthScore;
+  document.getElementById('syn-video-val').textContent=vs.toFixed(2);
+  document.getElementById('synf-video').style.width=Math.round(vs*100)+'%';
+  document.getElementById('syn-video-sub').textContent=pickSignalLabel('face',S.signals.face);
+  document.getElementById('syn-audio-val').textContent=as.toFixed(2);
+  document.getElementById('synf-audio').style.width=Math.round(as*100)+'%';
+  document.getElementById('syn-audio-sub').textContent=pickSignalLabel('voice',as);
+  document.getElementById('syn-text-val').textContent=ts.toFixed(2);
+  document.getElementById('synf-text').style.width=Math.round(ts*100)+'%';
+  document.getElementById('syn-text-sub').textContent=pickSignalLabel('word',ts);
+  document.getElementById('syn-synth-val').textContent=ss.toFixed(2);
+  document.getElementById('synf-synth').style.width=Math.round(ss*100)+'%';
+  const coherent=ss>0.55;
+  document.getElementById('syn-synth-sub').textContent=coherent?'coherent·pattern·detected':'scanning·modules';
+  document.getElementById('sb-syn').textContent=coherent?'COHERENT':'SCANNING';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACCURACY PANEL
+// ═══════════════════════════════════════════════════════════════
+let prevAcc={face:0,gaze:0,hands:0,posture:0};
+function updateAccuracyPanel(){
+  const zones=['face','gaze','hands','posture'];
+  zones.forEach(z=>{
+    const v=S.accuracy[z]||0;
+    const pct=Math.round(v*100);
+    const el=document.getElementById('acc-'+z);
+    const tr=document.getElementById('acct-'+z);
+    if(el) el.textContent=pct+'%';
+    if(tr){
+      const delta=v-(prevAcc[z]||v);
+      tr.textContent=delta>0.001?'↑ improving':delta<-0.001?'↓ declining':'→ stable';
+      tr.style.color=delta>0.001?'var(--signal)':delta<-0.001?'var(--rose)':'var(--dim)';
+    }
+    // update zone card acc badges
+    const za=document.getElementById('zacc-'+z);
+    if(za) za.textContent='acc '+v.toFixed(2);
+    prevAcc[z]=v;
+  });
+  // update hands covers lhand/rhand
+  ['lhand','rhand'].forEach(z=>{
+    const za=document.getElementById('zacc-'+z);
+    if(za) za.textContent='acc '+(S.accuracy.hands).toFixed(2);
+  });
+  ['voice','word'].forEach(z=>{
+    const za=document.getElementById('zacc-'+z);
+    if(za) za.textContent='acc '+(S.accuracy[z]||0).toFixed(2);
+    // improve voice/word accuracy too
+    S.accuracy[z]=clamp((S.accuracy[z]||0.5)+0.0003, 0, 0.99);
+  });
+  const overallAcc=avg(Object.values(S.accuracy));
+  document.getElementById('sb-acc').textContent=(overallAcc*100).toFixed(0)+'%';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VIDEO CONTROLS
+// ═══════════════════════════════════════════════════════════════
+function togglePlay(){
+  S.playing=!S.playing;
+  const btn=document.getElementById('playBtn');
+  btn.textContent=S.playing?'⏸ PAUSE':'▶ PLAY';
+  btn.classList.toggle('on',S.playing);
+  if(S.playing) showToast('PLAYBACK ACTIVE');
+}
+function toggleRec(){
+  S.recording=!S.recording;
+  const btn=document.getElementById('recBtn');
+  btn.classList.toggle('warn',S.recording);
+  showToast(S.recording?'RECORDING ON':'RECORDING OFF');
+}
+function stepFrame(dir){ S.t=clamp(S.t+dir*0.033,0,S.duration); updateProgress(); }
+function seekTo(e){
+  const rect=document.getElementById('progBar').getBoundingClientRect();
+  S.t=clamp((e.clientX-rect.left)/rect.width*S.duration,0,S.duration);
+  updateProgress();
+}
+function updateProgress(){
+  const pct=(S.t/S.duration)*100;
+  document.getElementById('progFill').style.width=pct+'%';
+  const m=Math.floor(S.t/60),s=Math.floor(S.t%60);
+  const dm=Math.floor(S.duration/60),ds=Math.floor(S.duration%60);
+  document.getElementById('vtime').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} / ${String(dm).padStart(2,'0')}:${String(ds).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOGGLES
+// ═══════════════════════════════════════════════════════════════
+function toggleVATS(){
+  S.vatsOn=!S.vatsOn;
+  const btn=document.getElementById('btn-vats');
+  btn.textContent=S.vatsOn?'VATS ON':'VATS OFF';
+  btn.classList.toggle('on',S.vatsOn);
+  document.getElementById('vats-active-indicator').style.display=S.vatsOn?'block':'none';
+  document.getElementById('tb-vats').textContent=S.vatsOn?'ACTIVE':'STANDBY';
+  document.getElementById('tb-vats').style.color=S.vatsOn?'var(--signal)':'var(--amber)';
+  showToast(S.vatsOn?'VATS ACTIVATED':'VATS DEACTIVATED');
+  if(S.vatsOn&&!S.playing) togglePlay();
+}
+function toggleMesh(){
+  S.meshOn=!S.meshOn;
+  const btn=document.getElementById('btn-mesh');
+  btn.textContent=S.meshOn?'MESH ON':'MESH OFF';
+  btn.classList.toggle('on',S.meshOn);
+  document.getElementById('meshStatus').textContent=S.meshOn?'MESH: ACTIVE · FACE 68pt · BODY 15pt':'MESH: STANDBY';
+  showToast(S.meshOn?'BONE/FACE MESH ON':'MESH OFF');
+}
+function toggleCLR(){
+  S.clrOn=!S.clrOn;
+  const btn=document.getElementById('btn-clr');
+  btn.textContent=S.clrOn?'CLR ON':'CLR OFF';
+  btn.classList.toggle('on',S.clrOn);
+  const panel=document.getElementById('clrPanel');
+  if(S.clrOn) panel.classList.remove('hidden'); else panel.classList.add('hidden');
+  showToast(S.clrOn?'CLR OVERLAY ON':'CLR OVERLAY OFF');
+}
+function selZone(z){
+  document.querySelectorAll('.zcard').forEach(c=>c.classList.remove('on'));
+  const c=document.getElementById('zc-'+z);
+  if(c) c.classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOTKEYS
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  const k=e.key.toUpperCase();
+  if(k==='V') toggleVATS();
+  else if(k==='M') toggleMesh();
+  else if(k==='C') toggleCLR();
+  else if(k===' '){ e.preventDefault(); togglePlay(); }
+  else if(k==='R') toggleRec();
+});
+
+// toast
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('hkToast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1400);
+}
+
+// topbar
+function updateTopbar(){
+  document.getElementById('tb-nodes').textContent=S.nodes;
+  document.getElementById('bs-lattice').textContent=S.nodes+' nodes · '+(114+S.patCount*2)+' edges';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════════════
+let lastLoop=Date.now();
+function loop(){
+  const now=Date.now();
+  const dt=(now-lastLoop)/1000;
+  lastLoop=now;
+
+  if(S.playing){
+    S.t=Math.min(S.t+dt, S.duration);
+    if(S.t>=S.duration){ S.t=0; } // loop
+    updateProgress();
+    stepSignals();
+    detectPatterns();
+    updateCLR();
+    updateSynthBar();
+    updateSigmaPanel();
+  }
+
+  animateKeypoints();
+  drawVideo();
+  drawMesh();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// init
+updateProgress();
+setTimeout(()=>{
+  resizeCanvases();
+  showToast('MASTERMIND VATS v2 READY · PRESS V TO ACTIVATE');
+},300);
+</script>
+</body>
+</html>

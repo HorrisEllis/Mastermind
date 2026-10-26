@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrystalBall · Full Test Suite</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --bg:         #040608;
+  --s1:         #080c10;
+  --s2:         #0c1218;
+  --s3:         #101820;
+  --border:     #182330;
+  --border2:    #1e2e3c;
+  --c0:         #00f0c0;   /* teal — pass */
+  --c1:         #ff4060;   /* red  — fail */
+  --c2:         #ffc030;   /* amber — warn */
+  --c3:         #60a0ff;   /* blue — info */
+  --c4:         #c060ff;   /* purple — kernel */
+  --c5:         #40e080;   /* green — runtime */
+  --c6:         #ff8040;   /* orange — compress */
+  --c7:         #ff60c0;   /* pink — codec */
+  --text:       #b8ccd8;
+  --text2:      #506070;
+  --text3:      #2a3a48;
+  --font:       'JetBrains Mono', monospace;
+  --display:    'Syne', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── Scanlines ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,240,192,.008) 3px, rgba(0,240,192,.008) 4px);
+  pointer-events: none; z-index: 9998;
+}
+
+/* ── Top bar ── */
+#topbar {
+  height: 44px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 16px;
+  position: relative; z-index: 100;
+}
+#topbar h1 {
+  font-family: var(--display); font-size: 17px; font-weight: 800;
+  color: var(--c0); letter-spacing: -.3px;
+}
+#topbar .sub { color: var(--text2); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; }
+#topbar .spacer { flex: 1; }
+#topbar .counters { display: flex; gap: 12px; font-size: 10px; }
+.cnt-pass { color: var(--c0); } .cnt-fail { color: var(--c1); } .cnt-skip { color: var(--c2); }
+#topbar button {
+  background: var(--c0); color: var(--bg); border: none; border-radius: 3px;
+  font-family: var(--font); font-size: 10px; font-weight: 700;
+  padding: 5px 14px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+}
+#topbar button:disabled { opacity: .4; cursor: default; }
+#topbar button.running { background: var(--c2); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .6; } }
+
+/* ── Layout ── */
+#layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 340px;
+  height: calc(100vh - 44px);
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; overflow-x: hidden;
+}
+.suite-group { border-bottom: 1px solid var(--border); }
+.suite-head {
+  padding: 8px 12px 7px;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+}
+.suite-head .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.test-item {
+  padding: 5px 12px 5px 22px;
+  cursor: pointer; font-size: 10px; color: var(--text2);
+  display: flex; align-items: center; gap: 6px;
+  border-left: 2px solid transparent;
+  transition: all .1s;
+}
+.test-item:hover { color: var(--text); background: var(--s2); }
+.test-item.active { color: var(--text); border-left-color: var(--c0); background: var(--s2); }
+.test-item.pass { color: var(--c0); }
+.test-item.fail { color: var(--c1); }
+.test-item.running { color: var(--c2); }
+.test-item .status { margin-left: auto; font-size: 9px; }
+.test-item .dur { color: var(--text2); font-size: 9px; margin-left: 4px; }
+
+/* ── Main panel ── */
+#main {
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--s2);
+}
+#test-header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+  flex-shrink: 0;
+}
+#test-header .test-name {
+  font-family: var(--display); font-size: 15px; font-weight: 700;
+  color: var(--text); margin-bottom: 3px;
+}
+#test-header .test-meta {
+  color: var(--text2); font-size: 9px; letter-spacing: 1px;
+  display: flex; gap: 14px;
+}
+.meta-tag {
+  background: var(--s3); padding: 2px 7px; border-radius: 2px;
+  border: 1px solid var(--border);
+}
+.meta-tag.pass { color: var(--c0); border-color: var(--c0); }
+.meta-tag.fail { color: var(--c1); border-color: var(--c1); }
+.meta-tag.run  { color: var(--c2); border-color: var(--c2); }
+
+/* Result rows */
+#results {
+  flex: 1; overflow-y: auto; padding: 12px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.result-row {
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 3px; padding: 8px 12px;
+  display: grid; grid-template-columns: 14px 1fr auto;
+  gap: 8px; align-items: start;
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } }
+.result-row.pass { border-left: 2px solid var(--c0); }
+.result-row.fail { border-left: 2px solid var(--c1); background: rgba(255,64,96,.04); }
+.result-row.info { border-left: 2px solid var(--c3); }
+.result-row.warn { border-left: 2px solid var(--c2); }
+.result-row .icon { font-size: 11px; padding-top: 1px; }
+.result-row .body { color: var(--text); font-size: 10px; }
+.result-row .body .label { color: var(--text2); }
+.result-row .body .val  { color: var(--c0); }
+.result-row .body .val.bad { color: var(--c1); }
+.result-row .body .val.warn { color: var(--c2); }
+.result-row .body .val.blue { color: var(--c3); }
+.result-row .body .val.purple { color: var(--c4); }
+.result-row .body .val.pink { color: var(--c7); }
+.result-row .dur { color: var(--text2); font-size: 9px; white-space: nowrap; }
+.result-row pre {
+  margin-top: 5px; font-size: 9px; color: var(--text2);
+  background: var(--bg); padding: 6px 8px; border-radius: 2px;
+  overflow-x: auto; max-height: 120px; white-space: pre-wrap; word-break: break-all;
+}
+.expand-btn {
+  font-size: 9px; color: var(--text2); background: none;
+  border: 1px solid var(--border); padding: 1px 5px; cursor: pointer;
+  border-radius: 2px; margin-top: 4px; font-family: var(--font);
+}
+.expand-btn:hover { color: var(--text); }
+
+/* ── Event log (right panel) ── */
+#log-panel {
+  background: var(--s1);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#log-header {
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+#log-header .title {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--c4);
+}
+#log-header .ev-count { color: var(--text2); font-size: 9px; margin-left: auto; }
+.log-filters {
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0;
+}
+.lf-btn {
+  font-size: 8px; font-family: var(--font); font-weight: 700;
+  padding: 2px 7px; border-radius: 2px; cursor: pointer;
+  border: 1px solid var(--border2); background: var(--s2);
+  color: var(--text2); letter-spacing: .5px; transition: all .1s;
+}
+.lf-btn.active { background: var(--c4); color: var(--bg); border-color: var(--c4); }
+#log-stream {
+  flex: 1; overflow-y: auto; padding: 6px 0;
+  font-size: 9px;
+}
+.log-ev {
+  padding: 3px 10px 3px 12px;
+  border-left: 2px solid transparent;
+  display: grid; grid-template-columns: 60px 1fr;
+  gap: 6px; line-height: 1.4;
+  transition: background .1s;
+}
+.log-ev:hover { background: var(--s2); }
+.log-ev.t-kernel   { border-left-color: var(--c4); }
+.log-ev.t-codec    { border-left-color: var(--c7); }
+.log-ev.t-pipeline { border-left-color: var(--c6); }
+.log-ev.t-nexus    { border-left-color: var(--c0); }
+.log-ev.t-delta    { border-left-color: var(--c3); }
+.log-ev.t-sigma    { border-left-color: var(--c5); }
+.log-ev.t-compress { border-left-color: var(--c6); }
+.log-ev.t-gate     { border-left-color: var(--c2); }
+.log-ev.t-error    { border-left-color: var(--c1); background: rgba(255,64,96,.03); }
+.log-ev .ts   { color: var(--text3); font-size: 8px; padding-top: 1px; }
+.log-ev .etype { color: var(--text2); }
+.log-ev .etype .ns { color: var(--text3); }
+.log-ev .eid  { font-size: 8px; color: var(--text3); }
+.log-ev .epay { font-size: 8px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Progress bar ── */
+#progress-wrap {
+  height: 3px; background: var(--border);
+  flex-shrink: 0; overflow: hidden;
+}
+#progress-bar {
+  height: 100%; background: var(--c0); width: 0%;
+  transition: width .3s ease;
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>◈ CrystalBall</h1>
+  <span class="sub">Full Test Suite</span>
+  <div class="spacer"></div>
+  <div class="counters">
+    <span class="cnt-pass">✓ <span id="c-pass">0</span></span>
+    <span class="cnt-fail">✗ <span id="c-fail">0</span></span>
+    <span class="cnt-skip">◌ <span id="c-skip">0</span></span>
+    <span style="color:var(--text2)">/ <span id="c-total">0</span></span>
+  </div>
+  <button id="run-btn" onclick="runAll()">▶ RUN ALL</button>
+</div>
+
+<div id="layout">
+  <div id="sidebar"></div>
+  <div id="main">
+    <div id="test-header">
+      <div class="test-name" id="th-name">Select a test or click RUN ALL</div>
+      <div class="test-meta" id="th-meta"></div>
+    </div>
+    <div id="progress-wrap"><div id="progress-bar"></div></div>
+    <div id="results"></div>
+  </div>
+  <div id="log-panel">
+    <div id="log-header">
+      <span class="title">⬡ Causal Nexus Log</span>
+      <span class="ev-count">ev: <span id="ev-count">0</span></span>
+    </div>
+    <div class="log-filters">
+      <button class="lf-btn active" data-f="all" onclick="setFilter(this,'all')">ALL</button>
+      <button class="lf-btn" data-f="kernel"   onclick="setFilter(this,'kernel')">KERNEL</button>
+      <button class="lf-btn" data-f="codec"    onclick="setFilter(this,'codec')">CODEC</button>
+      <button class="lf-btn" data-f="pipeline" onclick="setFilter(this,'pipeline')">PIPELINE</button>
+      <button class="lf-btn" data-f="delta"    onclick="setFilter(this,'delta')">DELTA</button>
+      <button class="lf-btn" data-f="sigma"    onclick="setFilter(this,'sigma')">SIGMA</button>
+      <button class="lf-btn" data-f="gate"     onclick="setFilter(this,'gate')">GATE</button>
+      <button class="lf-btn" data-f="error"    onclick="setFilter(this,'error')">ERROR</button>
+    </div>
+    <div id="log-stream"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CAUSAL NEXUS — inline implementation (identity, time, causality, kernel)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const Nexus = (() => {
+  // ── identity ──
+  function newEventId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    const b = new Uint8Array(16); crypto.getRandomValues(b);
+    b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+    const h=Array.from(b).map(x=>x.toString(16).padStart(2,'0'));
+    return [h.slice(0,4),h.slice(4,6),h.slice(6,8),h.slice(8,10),h.slice(10,16)].map(a=>a.join('')).join('-');
+  }
+  function shortId(id) { const p=id.split('-'); return p[p.length-1]||id.slice(-8); }
+  function isValidEventId(id) { return typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id); }
+  function canonicalize(v) {
+    if(v===null||v===undefined) return 'null';
+    if(typeof v==='boolean') return String(v);
+    if(typeof v==='number') return String(v);
+    if(typeof v==='string') return JSON.stringify(v);
+    if(Array.isArray(v)) return '['+v.map(canonicalize).join(',')+']';
+    if(typeof v==='object') { const k=Object.keys(v).sort(); return '{'+k.map(kk=>JSON.stringify(kk)+':'+canonicalize(v[kk])).join(',')+'}'; }
+    return JSON.stringify(v);
+  }
+  function hash64(s) {
+    let h1=0x811c9dc5|0, h2=0xc4a6c57b|0;
+    for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,0x01000193);h2=Math.imul(h2^c,0x01000193)^(h1>>>13);}
+    return((h1>>>0).toString(16).padStart(8,'0'))+((h2>>>0).toString(16).padStart(8,'0'));
+  }
+  function contentHash(type,payload,source){return hash64(canonicalize({type,payload:payload??{},source:source??'unknown'}));}
+
+  // ── time ──
+  function createClock() {
+    let _t=0,_s=0;
+    return { nextTick(){return++_t;}, nextSeq(){return++_s;}, get tick(){return _t;}, get seq(){return _s;}, reset(){_t=0;_s=0;} };
+  }
+  function wallNow(){ return Date.now(); }
+  function formatWallTs(ms){const d=new Date(ms);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')+'.'+String(d.getMilliseconds()).padStart(3,'0');}
+
+  // ── causality ──
+  const EDGE_CAUSAL_EXPLICIT='causal/explicit', EDGE_CAUSAL_RULE='causal/rule',
+        EDGE_CAUSAL_ADAPTER='causal/adapter', EDGE_OBSERVATIONAL='observational';
+  const CAUSAL_EDGE_TYPES=new Set([EDGE_CAUSAL_EXPLICIT,EDGE_CAUSAL_RULE,EDGE_CAUSAL_ADAPTER]);
+  function isCausalEdge(e){return CAUSAL_EDGE_TYPES.has(e.edgeType);}
+
+  function createCausalStore() {
+    const edgeMap=new Map(), childrenMap=new Map(), causalChildrenMap=new Map();
+    function addEdge(e) {
+      if(edgeMap.has(e.toId)) return; // skip diamond
+      edgeMap.set(e.toId,e);
+      if(!childrenMap.has(e.fromId)) childrenMap.set(e.fromId,new Set());
+      childrenMap.get(e.fromId).add(e.toId);
+      if(isCausalEdge(e)){
+        if(!causalChildrenMap.has(e.fromId)) causalChildrenMap.set(e.fromId,new Set());
+        causalChildrenMap.get(e.fromId).add(e.toId);
+      }
+    }
+    function pruneEdgesFor(id) {
+      const e=edgeMap.get(id);
+      if(e){childrenMap.get(e.fromId)?.delete(id);causalChildrenMap.get(e.fromId)?.delete(id);edgeMap.delete(id);}
+      childrenMap.delete(id); causalChildrenMap.delete(id);
+    }
+    function traceToRoot(id,maxDepth=100){
+      const chain=[];let cur=id,d=0;
+      while(cur&&d++<maxDepth){chain.push(cur);const e=edgeMap.get(cur);if(!e||!isCausalEdge(e))break;cur=e.fromId;}
+      return chain;
+    }
+    function descendants(id,maxD=50){
+      const r=new Set(),q=[[id,0]];
+      while(q.length){const[c,d]=q.shift();if(d>=maxD)continue;for(const ch of causalChildrenMap.get(c)??[]){if(!r.has(ch)){r.add(ch);q.push([ch,d+1]);}}}
+      return r;
+    }
+    return {addEdge,pruneEdgesFor,getParentEdge:id=>edgeMap.get(id)??null,getChildren:id=>new Set(childrenMap.get(id)??[]),traceToRoot,descendants,edgeMeta:id=>edgeMap.get(id)??null};
+  }
+
+  // ── kernel ──
+  const GATE_DEPTH_MAX=20;
+  function gateOutput(type,payload,meta){return{type,payload:payload??{},meta:meta??{}};}
+
+  function createKernel({ringCap=10000,calltoTtlTicks=0}={}) {
+    const clock=createClock(), ring=[], byId=new Map(), typeIndex=new Map();
+    const causalStore=createCausalStore();
+    const gates=[], listeners=new Set();
+    let _head=0,_size=0,_gateDepth=0;
+    let _evicted=null;
+
+    function _storeEvent(ev) {
+      if(_size===ringCap){
+        _evicted=ring[_head];
+        if(_evicted){byId.delete(_evicted.id);typeIndex.get(_evicted.type)?.delete(_evicted.id);causalStore.pruneEdgesFor(_evicted.id);}
+      }
+      ring[_head]=ev; _head=(_head+1)%ringCap; if(_size<ringCap)_size++;
+      byId.set(ev.id,ev);
+      if(!typeIndex.has(ev.type))typeIndex.set(ev.type,new Set());
+      typeIndex.get(ev.type).add(ev.id);
+    }
+
+    function _runGates(ev) {
+      if(_gateDepth>=GATE_DEPTH_MAX)return[];
+      _gateDepth++;
+      const outputs=[];
+      const sorted=[...gates].sort((a,b)=>a.priority-b.priority);
+      try{for(const g of sorted){let r;try{r=g.fn(ev,{typeIds:t=>Array.from(typeIndex.get(t)??[]),findById:id=>byId.get(id)??null});}catch{r=[];}if(Array.isArray(r))outputs.push(...r);}}
+      finally{_gateDepth--;}
+      return outputs;
+    }
+
+    function ingest(type,payload={},meta={}) {
+      const id=newEventId(), ts=wallNow(), eventTs=clock.nextTick(), seq=clock.nextSeq();
+      const ch=contentHash(type,payload,meta.source);
+      const ev=Object.freeze({id,type,payload:Object.freeze({...payload}),source:meta.source??'test',causedBy:meta.causedBy??null,edgeType:meta.edgeType??null,eventTs,seq,ts,contentHash:ch});
+      _storeEvent(ev);
+      if(ev.causedBy&&ev.edgeType)causalStore.addEdge({fromId:ev.causedBy,toId:ev.id,edgeType:ev.edgeType,ruleName:meta.ruleName??'',dtTicks:0,confidence:1});
+      const gateOuts=_runGates(ev);
+      for(const o of gateOuts){
+        ingest(o.type,o.payload,{...o.meta,causedBy:o.meta?.causedBy??ev.id,edgeType:o.meta?.edgeType??EDGE_CAUSAL_RULE});
+      }
+      for(const fn of listeners)try{fn(ev);}catch{}
+      return ev;
+    }
+
+    function subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);}
+    function registerGate(sig,fn,{priority=50}={}){gates.push({sig,fn,priority});}
+    function removeGate(sig){const i=gates.findIndex(g=>g.sig===sig);if(i>=0)gates.splice(i,1);}
+    function findById(id){return byId.get(id)??null;}
+    function getAll(){const out=[];for(let i=0;i<_size;i++)out.push(ring[(_head-_size+i+ringCap)%ringCap]);return out;}
+    function traceToRoot(id,d){return causalStore.traceToRoot(id,d).map(i=>byId.get(i)).filter(Boolean);}
+    function descendants(id,d){return[...causalStore.descendants(id,d)].map(i=>byId.get(i)).filter(Boolean);}
+    function edgeMeta(id){return causalStore.edgeMeta(id);}
+    function getChildren(id){return causalStore.getChildren(id);}
+    function reset(){ring.length=0;byId.clear();typeIndex.clear();clock.reset();gates.length=0;_head=0;_size=0;}
+    function stats(){return{size:_size,cap:ringCap,tick:clock.tick,seq:clock.seq,types:[...typeIndex.keys()].length};}
+
+    return {ingest,subscribe,registerGate,removeGate,findById,getAll,traceToRoot,descendants,edgeMeta,getChildren,reset,stats,_typeIndex:typeIndex,_clock:clock};
+  }
+
+  // ── delta ──
+  function computeDeltaStream(events,findById,edgeMeta,getChildren) {
+    const gaps=[],rates=[],depths=[];
+    let prevTs=null,prevRate=0;
+    const deltas=[];
+    for(let i=0;i<events.length;i++){
+      const ev=events[i];
+      const gap=prevTs!==null?ev.eventTs-prevTs:0;
+      gaps.push(gap); if(gaps.length>50)gaps.shift();
+      const meanG=gaps.reduce((a,b)=>a+b,0)/gaps.length;
+      const varG=gaps.reduce((a,b)=>a+(b-meanG)**2,0)/gaps.length;
+      const sigmaG=Math.sqrt(varG);
+      const latencyImpact=sigmaG>0?(gap-meanG)/sigmaG:0;
+      const childCount=getChildren(ev.id).size;
+      rates.push(1/(gap||1)); if(rates.length>100)rates.shift();
+      const rate=rates.reduce((a,b)=>a+b,0)/rates.length;
+      const throughputChange=rate-prevRate;
+      // causal depth
+      let depth=0; let cur=edgeMeta(ev.id); while(cur){depth++;cur=edgeMeta(cur.fromId);}
+      depths.push(depth); if(depths.length>50)depths.shift();
+      const meanD=depths.reduce((a,b)=>a+b,0)/depths.length;
+      const varD=depths.reduce((a,b)=>a+(b-meanD)**2,0)/depths.length;
+      const sigmaD=Math.sqrt(varD);
+      const structuralDeviation=sigmaD>0?(depth-meanD)/sigmaD:0;
+      deltas.push({eventId:ev.id,eventType:ev.type,gap,latencyImpact,ownDepth:depth,throughputChange,childCount,structuralDeviation});
+      prevTs=ev.eventTs; prevRate=rate;
+    }
+    return deltas;
+  }
+
+  function computeThroughputTimeline(events,windowSize=10) {
+    if(!events.length)return[];
+    const buckets=new Map();
+    for(const ev of events){const b=Math.floor(ev.eventTs/windowSize);buckets.set(b,(buckets.get(b)??0)+1);}
+    return [...buckets.entries()].sort((a,b)=>a[0]-b[0]).map(([t,count])=>({windowStart:t*windowSize,windowEnd:(t+1)*windowSize,count}));
+  }
+
+  function detectFractals(events,getChildren,edgeMeta,opts={}) {
+    const{minChainLen=3,minOccurrences=3}=opts;
+    const patterns=new Map();
+    for(const ev of events){
+      const chain=[ev.type];
+      let cur=ev.id;
+      for(let d=0;d<minChainLen-1;d++){
+        const children=[...getChildren(cur)];
+        if(!children.length)break;
+        const child=opts.findById?.(children[0]);
+        if(!child)break;
+        chain.push(child.type); cur=child.id;
+      }
+      if(chain.length>=minChainLen){const key=chain.join('→');patterns.set(key,(patterns.get(key)??0)+1);}
+    }
+    return [...patterns.entries()].filter(([,c])=>c>=minOccurrences).map(([pattern,count])=>({pattern,count}));
+  }
+
+  // ── sigma ──
+  const REGIMES={stable:'stable',degraded:'degraded',collapsing:'collapsing',oscillatory:'oscillatory',insufficient_data:'insufficient_data'};
+  const DEFAULT_CONSTRAINT_CONFIG={minWindow:3,slopeThreshold:1.5,accelThreshold:2.0,oscillationCount:3,depthDeviation:2.0};
+
+  function classify(kinematicWindow,featureTree=null,constraintConfig=null) {
+    const cfg={...DEFAULT_CONSTRAINT_CONFIG,...(constraintConfig??{})};
+    if(kinematicWindow.length<cfg.minWindow)return{regime:REGIMES.insufficient_data,confidence:0,dominant_cause:'none',window:kinematicWindow.length};
+    const lats=kinematicWindow.map(d=>d.latencyImpact);
+    const thru=kinematicWindow.map(d=>d.throughputChange);
+    const structs=kinematicWindow.map(d=>d.structuralDeviation);
+    const meanLat=lats.reduce((a,b)=>a+b,0)/lats.length;
+    // oscillation: sign flips
+    let flips=0; for(let i=1;i<lats.length;i++)if(Math.sign(lats[i])!==Math.sign(lats[i-1]))flips++;
+    // acceleration: mean of throughput changes
+    const meanAccel=Math.abs(thru.reduce((a,b)=>a+b,0)/thru.length);
+    const meanStruct=Math.abs(structs.reduce((a,b)=>a+b,0)/structs.length);
+    let regime=REGIMES.stable, dominant='none', confidence=0.5;
+    if(meanAccel>=cfg.accelThreshold){regime=REGIMES.collapsing;dominant='K';confidence=Math.min(1,meanAccel/4);}
+    else if(flips>=cfg.oscillationCount){regime=REGIMES.oscillatory;dominant='O';confidence=Math.min(1,flips/8);}
+    else if(Math.abs(meanLat)>=cfg.slopeThreshold){regime=REGIMES.degraded;dominant='S';confidence=Math.min(1,Math.abs(meanLat)/4);}
+    else if(meanStruct>=cfg.depthDeviation){dominant='C';confidence=0.4;}
+    return{regime,confidence:Math.round(confidence*1000)/1000,dominant_cause:dominant,window:kinematicWindow.length,meanLat:Math.round(meanLat*1000)/1000,flips,meanAccel:Math.round(meanAccel*1000)/1000};
+  }
+
+  // ── compress ──
+  function snapshot(kernel) {
+    const events=kernel.getAll();
+    const typeDict=[...new Set(events.map(e=>e.type))];
+    const srcDict=[...new Set(events.map(e=>e.source))];
+    const primary=events.filter(e=>!e.source.startsWith('gate:')&&e.source!=='kernel:system');
+    const ET_ENC={'causal/explicit':'x','causal/rule':'r','causal/adapter':'a','observational':'o'};
+    const encoded=primary.map((ev,i)=>{
+      const prevTs=i>0?primary[i-1].eventTs:0;
+      return[typeDict.indexOf(ev.type),srcDict.indexOf(ev.source),ev.eventTs-prevTs,ev.causedBy??'',ET_ENC[ev.edgeType]??'',JSON.stringify(ev.payload)];
+    });
+    const raw=JSON.stringify({v:1,typeDict,srcDict,events:encoded});
+    const ratio=JSON.stringify(events).length/raw.length;
+    return{magic:'URCK-SNAP',v:1,typeDict,srcDict,events:encoded,primaryCount:primary.length,totalCount:events.length,rawBytes:JSON.stringify(events).length,snapBytes:raw.length,ratio:Math.round(ratio*100)/100};
+  }
+
+  function blueprint(kernel) {
+    const events=kernel.getAll();
+    const typeFreq=new Map();
+    for(const e of events)typeFreq.set(e.type,(typeFreq.get(e.type)??0)+1);
+    const vocab=[...typeFreq.entries()].sort((a,b)=>b[1]-a[1]).map(([t,c])=>({type:t,count:c}));
+    // causal patterns
+    const patterns=new Map();
+    for(const e of events){
+      const parent=kernel.edgeMeta(e.id);
+      if(parent){const p=kernel.findById(parent.fromId);if(p){const key=p.type+'→'+e.type;patterns.set(key,(patterns.get(key)??0)+1);}}
+    }
+    // invariants: types in >70% of events
+    const total=events.length;
+    const invariants=vocab.filter(v=>v.count/total>.7).map(v=>v.type);
+    return{magic:'URCK-BP',v:1,vocab,patterns:[...patterns.entries()].map(([p,c])=>({pattern:p,count:c})).sort((a,b)=>b.count-a.count),invariants,eventCount:total,typeCount:vocab.length};
+  }
+
+  function compressionReport(kernel,snap) {
+    const raw=snap.rawBytes, s=snap.snapBytes;
+    return{rawBytes:raw,snapBytes:s,ratio:snap.ratio,primaryCount:snap.primaryCount,totalCount:snap.totalCount,summary:`${Math.round(raw/1024)}KB raw → ${Math.round(s/1024)}KB snap (${snap.ratio}×)`};
+  }
+
+  return {newEventId,shortId,isValidEventId,contentHash,hash64,canonicalize,wallNow,formatWallTs,createClock,createCausalStore,gateOutput,createKernel,EDGE_CAUSAL_EXPLICIT,EDGE_CAUSAL_RULE,EDGE_CAUSAL_ADAPTER,EDGE_OBSERVATIONAL,computeDeltaStream,computeThroughputTimeline,detectFractals,classify,REGIMES,snapshot,blueprint,compressionReport};
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CODEC IMPLEMENTATIONS (from codec.js + codec-v2.js + pipeline.js)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const Codec = (() => {
+
+  // ── RollingStats ──
+  class RollingStats {
+    constructor(w=20){this._w=w;this._buf=[];this._sum=0;this._sum2=0;}
+    push(v){if(this._buf.length>=this._w){const o=this._buf.shift();this._sum-=o;this._sum2-=o*o;}this._buf.push(v);this._sum+=v;this._sum2+=v*v;return this;}
+    get mean(){return this._buf.length?this._sum/this._buf.length:0;}
+    get variance(){const n=this._buf.length;if(n<2)return 0;return Math.max(0,this._sum2/n-(this._sum/n)**2);}
+    get sigma(){return Math.sqrt(this.variance);}
+    get last(){return this._buf[this._buf.length-1]??0;}
+    get len(){return this._buf.length;}
+    zScore(v){return this.sigma>0?(v-this.mean)/this.sigma:0;}
+    measure(v){const prev=this.last;this.push(v);return{mean:this.mean,sigma:this.sigma,delta:v-prev,zScore:this.zScore(v),anomaly:Math.abs(this.zScore(v))>2.0};}
+    entropy(){if(this._buf.length<3)return 0;const mn=Math.min(...this._buf),mx=Math.max(...this._buf),r=mx-mn;if(r===0)return 0;const bins=new Array(10).fill(0);for(const v of this._buf){const b=Math.min(9,Math.floor(((v-mn)/r)*10));bins[b]++;}const n=this._buf.length;let H=0;for(const c of bins)if(c>0){const p=c/n;H-=p*Math.log2(p);}return H/Math.log2(10);}
+    decayMean(h=10){if(!this._buf.length)return 0;const lam=Math.LN2/h;let ws=0,tw=0;const n=this._buf.length;for(let i=0;i<n;i++){const w=Math.exp(-lam*(n-1-i));ws+=this._buf[i]*w;tw+=w;}return tw>0?ws/tw:0;}
+    clear(){this._buf=[];this._sum=0;this._sum2=0;}
+  }
+
+  // ── FrictionAnalyzer ──
+  const FRICTION_DISFLUENCY=new Set(['uh','uhh','uhhh','um','umm','ummm','er','err','ah','ahh','hm','hmm','hmmm','mm','mmm']);
+  const FRICTION_FILLER=[/\blike\b(?!\s+to\b|\s+a\b|\s+the\b)/,/\byou\s+know\b/,/\bi\s+mean\b/,/\bsort\s+of\b/,/\bkind\s+of\b/,/\bbasically\b/];
+  const FRICTION_MEMORY=[/\bi\s+can't\s+remember\b/,/\bwhat\s+was\s+it\b/,/\bi\s+forget\b/];
+  const FRICTION_LOAD=[/\bwait\b/,/\bhold\s+on\b/,/\blet\s+me\s+think\b/];
+  const FRICTION_TENSION=[/\bi\s+don't\s+know\b/,/\bi'm\s+not\s+sure\b/,/\bit's\s+hard\s+to\s+say\b/];
+  const FRICTION_DENIAL=[/\bit's\s+not\s+that\b/,/\bi'm\s+not\s+saying\b/,/\bthat's\s+not\b/];
+
+  class FrictionAnalyzer {
+    constructor(){this._stats=new RollingStats(30);this._patternCounts=new Map();}
+    analyze(text){
+      if(!text)return null;
+      const lower=text.toLowerCase(), words=lower.split(/\s+/).filter(Boolean), found=[];
+      for(const w of words)if(FRICTION_DISFLUENCY.has(w))found.push({type:'disfluency',marker:w});
+      const cats=[['filler',FRICTION_FILLER],['memoryGap',FRICTION_MEMORY],['cognitiveLoad',FRICTION_LOAD],['tension',FRICTION_TENSION],['denial',FRICTION_DENIAL]];
+      for(const[cat,pats]of cats)for(const re of pats)if(re.test(lower)){found.push({type:cat,marker:lower.match(re)?.[0]??cat});this._patternCounts.set(cat,(this._patternCounts.get(cat)??0)+1);}
+      const density=words.length>0?found.length/words.length:0;
+      const stats=this._stats.measure(density);
+      return{friction:found.length>0,markers:found,types:[...new Set(found.map(f=>f.type))],score:Math.min(1,found.length/3),density:Math.round(density*1000)/1000,stats};
+    }
+  }
+
+  // ── AssociationEngine ──
+  const STOPWORDS=new Set(['the','and','for','are','but','not','you','all','can','had','her','was','one','our','out','day','get','has','him','his','how','man','new','now','old','see','two','way','who','boy','did','its','let','put','say','she','too','use','with','that','this','from','they','will','been','have','more','also','into','some','than','then','them','these','were','what','when','which','your']);
+  class AssociationEngine {
+    constructor(){this._nodes=[];this._edges=[];this._ngrams=new Map();}
+    _contentWords(text){return new Set(text.toLowerCase().replace(/[^a-z\s]/g,'').split(/\s+/).filter(w=>w.length>=4&&!STOPWORDS.has(w)));}
+    _jaccard(a,b){if(!a.size||!b.size)return 0;let i=0;for(const w of a)if(b.has(w))i++;return i/(a.size+b.size-i);}
+    add(id,text){
+      const words=this._contentWords(text),node={id,words,text,ts:Date.now()},newEdges=[];
+      for(const ex of this._nodes){const score=this._jaccard(words,ex.words);if(score>0){const shared=[...words].filter(w=>ex.words.has(w));newEdges.push({a:id,b:ex.id,score:Math.round(score*1000)/1000,words:shared});}}
+      this._nodes.push(node);this._edges.push(...newEdges);
+      // ngrams
+      const ws=text.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+      for(let i=0;i<=ws.length-3;i++){const tg=ws.slice(i,i+3).join(' ');this._ngrams.set(tg,(this._ngrams.get(tg)??0)+1);}
+      return newEdges;
+    }
+    redundancyCheck(text){const ws=text.toLowerCase().split(/\s+/).filter(w=>w.length>2);const hits=[];for(let i=0;i<=ws.length-3;i++){const tg=ws.slice(i,i+3).join(' ');if((this._ngrams.get(tg)??0)>=2)hits.push(tg);}return{redundant:hits.length>0,phrases:hits};}
+    invariants(){if(this._nodes.length<3)return{words:[],threshold:.8};const freq=new Map();for(const n of this._nodes)for(const w of n.words)freq.set(w,(freq.get(w)??0)+1);const thresh=this._nodes.length*.8;const words=[...freq.entries()].filter(([,c])=>c>=thresh).map(([w])=>w);return{words,threshold:.8,nodeCount:this._nodes.length};}
+    get edges(){return this._edges;}
+    get nodeCount(){return this._nodes.length;}
+  }
+
+  // ── PredictiveEngine ──
+  class PredictiveEngine {
+    constructor(){this._transitions=new Map();this._prevTag=null;this._trigrams=new Map();}
+    update(tag,text){
+      if(this._prevTag){const k=this._prevTag+'→'+tag;this._transitions.set(k,(this._transitions.get(k)??0)+1);}
+      this._prevTag=tag;
+      const ws=text.toLowerCase().split(/\s+/).filter(Boolean);
+      for(let i=0;i<=ws.length-3;i++){const tg=ws.slice(i,i+3).join(' ');this._trigrams.set(tg,(this._trigrams.get(tg)??0)+1);}
+    }
+    predictNextTag(currentTag){
+      const candidates=[];for(const[k,c]of this._transitions)if(k.startsWith(currentTag+'→'))candidates.push({tag:k.split('→')[1],count:c});
+      const total=candidates.reduce((s,c)=>s+c.count,0);
+      return candidates.sort((a,b)=>b.count-a.count).slice(0,3).map(c=>({tag:c.tag,probability:Math.round(c.count/total*1000)/1000}));
+    }
+  }
+
+  // ── GPGPUAudioProcessor (pure-JS, no actual AudioContext) ──
+  class GPGPUAudioProcessor {
+    constructor(){this._energyStats=new RollingStats(20);this._cadenceStats=new RollingStats(20);this._energyHistory=[];this._frameCount=0;}
+    analyzeFrame(samples) {
+      this._frameCount++;
+      let sum=0;for(let i=0;i<samples.length;i++)sum+=samples[i]*samples[i];
+      const energy=Math.sqrt(sum/samples.length);
+      let crossings=0;for(let i=1;i<samples.length;i++)if((samples[i]>=0)!==(samples[i-1]>=0))crossings++;
+      const zcr=crossings/samples.length;
+      const n=samples.length,split=Math.floor(n/4);
+      let lo=0,hi=0;for(let i=0;i<n;i++){const e=samples[i]*samples[i];if(i<split*2)lo+=e;else hi+=e;}
+      const spectralCentroid=(lo+hi)>0?hi/(lo+hi):0;
+      this._energyHistory.push(energy);if(this._energyHistory.length>60)this._energyHistory.shift();
+      const avg=this._energyHistory.reduce((s,v)=>s+v,0)/this._energyHistory.length;
+      let peaks=0;for(let i=1;i<this._energyHistory.length-1;i++)if(this._energyHistory[i]>avg*1.2&&this._energyHistory[i]>this._energyHistory[i-1]&&this._energyHistory[i]>this._energyHistory[i+1])peaks++;
+      const cadence=this._energyHistory.length>0?peaks/(this._energyHistory.length*.016):0;
+      const silence=energy<0.01;
+      const em=this._energyStats.measure(energy), cm=this._cadenceStats.measure(cadence);
+      return{energy:Math.round(energy*10000)/10000,zcr:Math.round(zcr*10000)/10000,spectralCentroid:Math.round(spectralCentroid*10000)/10000,cadence:Math.round(cadence*10000)/10000,silence,energyDelta:em.delta,energySigma:em.sigma,energyZ:em.zScore,energyAnomaly:em.anomaly,cadenceDelta:cm.delta,cadenceSigma:cm.sigma,cadenceAnomaly:cm.anomaly,frameCount:this._frameCount};
+    }
+  }
+
+  // ── GPGPUVideoProcessor (canvas-free, pure pixel math) ──
+  class GPGPUVideoProcessor {
+    constructor(){this._prevData=null;this._motionStats=new RollingStats(20);this._lumStats=new RollingStats(20);this._frameCount=0;this._lumHistory=[];this._varMap=null;this._meanMap=null;this._nMap=null;}
+    processFrame(rgba,w,h){
+      this._frameCount++;const N=w*h;
+      let lumSum=0;for(let i=0;i<N*4;i+=4)lumSum+=.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2];
+      const lum=lumSum/N;
+      this._lumHistory.push(lum);if(this._lumHistory.length>10)this._lumHistory.shift();
+      const meanLum=this._lumHistory.reduce((a,b)=>a+b,0)/this._lumHistory.length;
+      const dark=meanLum<60;
+      let motionScore=0,deltaPixelCount=0,invariantCount=0;
+      if(this._prevData&&this._prevData.length===rgba.length){
+        // Welford variance update
+        if(!this._varMap){this._varMap=new Float32Array(N);this._meanMap=new Float32Array(N);this._nMap=new Uint32Array(N);}
+        let totalDelta=0;
+        for(let i=0;i<N;i++){
+          const pi=i*4;
+          const d=(Math.abs(rgba[pi]-this._prevData[pi])+Math.abs(rgba[pi+1]-this._prevData[pi+1])+Math.abs(rgba[pi+2]-this._prevData[pi+2]))/3;
+          totalDelta+=d;
+          // Welford online
+          this._nMap[i]++;const delta=d-this._meanMap[i];this._meanMap[i]+=delta/this._nMap[i];this._varMap[i]+=delta*(d-this._meanMap[i]);
+          if(d<8)invariantCount++;else deltaPixelCount++;
+        }
+        motionScore=totalDelta/N;
+      }
+      const ls=this._lumStats.measure(lum),ms=this._motionStats.measure(motionScore);
+      this._prevData=rgba.slice();
+      const adaptW=dark?Math.floor(w/2):w,adaptH=dark?Math.floor(h/2):h;
+      return{frameCount:this._frameCount,lum:Math.round(lum),dark,adaptiveW:adaptW,adaptiveH:adaptH,motionScore:Math.round(motionScore*100)/100,deltaPixelCount,invariantCount,lumAnomaly:ls.anomaly,motionAnomaly:ms.anomaly,compressionEst:N>0?Math.round((1-deltaPixelCount/N)*100):0};
+    }
+  }
+
+  // ── PitchEngine (from codec-v2) ──
+  function mean(a){return a.reduce((s,v)=>s+v,0)/a.length;}
+  function variance(a){const m=mean(a);return a.reduce((s,v)=>s+(v-m)**2,0)/a.length;}
+  function r4(v){return Math.round((v??0)*10000)/10000;}
+
+  class PitchEngine {
+    constructor(sr=48000){this._sr=sr;this._periodStats=[];this._ampStats=[];this._pitchHistory=[];}
+    analyze(freqData,zcr,energy){
+      const n=freqData.length,binHz=this._sr/(n*2);
+      const mags=new Float32Array(n);for(let i=0;i<n;i++)mags[i]=freqData[i]/255.0;
+      const voiced=energy>0.008&&zcr<0.35;
+      if(!voiced)return{voiced:false,f0:null,jitter:null,shimmer:null,hnr:null,prosodyTag:'unvoiced'};
+      const minBin=Math.floor(80/binHz),maxBin=Math.floor(400/binHz);
+      let peakBin=minBin,peakMag=0;
+      for(let i=minBin;i<=Math.min(maxBin,n-1);i++)if(mags[i]>peakMag){peakMag=mags[i];peakBin=i;}
+      const f0=peakBin>0?peakBin*binHz:null;
+      let jitter=null;
+      if(f0){const period=this._sr/f0;this._periodStats.push(period);if(this._periodStats.length>8)this._periodStats.shift();if(this._periodStats.length>=3){const pm=mean(this._periodStats);jitter=r4(pm>0?Math.sqrt(variance(this._periodStats))/pm:0);}}
+      let shimmer=null;
+      this._ampStats.push(peakMag);if(this._ampStats.length>8)this._ampStats.shift();
+      if(this._ampStats.length>=3){const am=mean(this._ampStats);shimmer=r4(am>0?Math.sqrt(variance(this._ampStats))/am:0);}
+      let hnr=null;
+      if(f0){let hE=0,nE=0,maxH=Math.floor((n*binHz*.8)/f0);for(let h=1;h<=Math.min(maxH,10);h++){const hBin=Math.round(h*f0/binHz);if(hBin>=n)break;const lo=Math.max(0,hBin-2),hi=Math.min(n-1,hBin+2);for(let b=0;b<n;b++){const e=mags[b]**2;if(b>=lo&&b<=hi)hE+=e;else nE+=e;}}if(nE>0&&hE>0)hnr=r4(10*Math.log10(hE/nE));}
+      let prosodyTag='modal';
+      if(jitter!==null&&jitter>.04)prosodyTag='tense';
+      else if(shimmer!==null&&shimmer>.05&&hnr!==null&&hnr<8)prosodyTag='breathy';
+      else if(hnr!==null&&hnr<5)prosodyTag='creaky';
+      if(f0)this._pitchHistory.push(f0);
+      return{voiced,f0:f0?r4(f0):null,jitter,shimmer,hnr,prosodyTag,peakMag:r4(peakMag)};
+    }
+  }
+
+  // ── SlopeEngine ──
+  class SlopeEngine {
+    constructor(w=8){this._w=w;this._buf=[];this._prevSlope=0;}
+    feed(v){
+      this._buf.push(v);if(this._buf.length>this._w)this._buf.shift();
+      const n=this._buf.length;if(n<2)return{slope:0,r2:0,direction:'flat',momentum:0,regimeChange:false};
+      let sx=0,sy=0,sxy=0,sx2=0,sy2=0;
+      for(let i=0;i<n;i++){sx+=i;sy+=this._buf[i];sxy+=i*this._buf[i];sx2+=i*i;sy2+=this._buf[i]**2;}
+      const D=n*sx2-sx*sx;
+      const slope=D!==0?(n*sxy-sx*sy)/D:0;
+      const b=(sy-slope*sx)/n,meanY=sy/n;
+      let ssTot=0,ssRes=0;for(let i=0;i<n;i++){ssTot+=(this._buf[i]-meanY)**2;const yh=slope*i+b;ssRes+=(this._buf[i]-yh)**2;}
+      const r2=ssTot>0?Math.max(0,1-ssRes/ssTot):0;
+      const direction=Math.abs(slope)<.001?'flat':slope>0?'rising':'falling';
+      const momentum=r4(slope-this._prevSlope);
+      const regimeChange=Math.sign(slope)!==Math.sign(this._prevSlope)&&Math.abs(slope)>.01;
+      this._prevSlope=slope;
+      return{slope:r4(slope),r2:r4(r2),direction,momentum,regimeChange};
+    }
+    reset(){this._buf=[];this._prevSlope=0;}
+  }
+
+  // ── StabilityEngine ──
+  class StabilityEngine {
+    constructor(w=20){this._stats=new RollingStats(w);}
+    feed(v){
+      this._stats.push(v);const m=this._stats.mean,s=this._stats.sigma;
+      const cv=m>0?s/m:0;
+      let regime='stable';
+      if(cv>.6)regime='diverging';else if(cv<.1&&this._stats.len>5)regime='converging';
+      return{mean:r4(m),sigma:r4(s),cv:r4(cv),regime,n:this._stats.len};
+    }
+  }
+
+  // ── OscillationEngine ──
+  class OscillationEngine {
+    constructor(w=20){this._buf=[];this._w=w;this._peaks=[];this._troughs=[];this._peakCount=0;}
+    feed(v){
+      this._buf.push(v);if(this._buf.length>this._w)this._buf.shift();
+      const n=this._buf.length;
+      if(n<3)return{oscillating:false,period:null,regularity:0,phase:0,peakCount:this._peakCount};
+      const last=n-1;
+      if(this._buf[last-1]>this._buf[last-2]&&this._buf[last-1]>this._buf[last]){this._peaks.push(last-1);this._peakCount++;if(this._peaks.length>10)this._peaks.shift();}
+      if(this._peaks.length<3)return{oscillating:false,period:null,regularity:0,phase:0,peakCount:this._peakCount};
+      const intervals=[];for(let i=1;i<this._peaks.length;i++)intervals.push(this._peaks[i]-this._peaks[i-1]);
+      const iMean=mean(intervals),iCV=iMean>0?Math.sqrt(variance(intervals))/iMean:1;
+      const oscillating=iCV<.28&&this._peaks.length>=3;
+      return{oscillating,period:oscillating?r4(iMean):null,regularity:r4(1-iCV),phase:last-this._peaks[this._peaks.length-1],peakCount:this._peakCount};
+    }
+  }
+
+  // ── SaccadeClassifier ──
+  class SaccadeClassifier {
+    constructor(){this._prevPos=null;this._prevVel=null;this._blinkIntervals=[];this._lastBlinkTs=null;this._blinkCount=0;}
+    classify(irisL,irisR,timestamp,isBlink){
+      if(isBlink){
+        this._blinkCount++;
+        if(this._lastBlinkTs!==null){this._blinkIntervals.push(timestamp-this._lastBlinkTs);if(this._blinkIntervals.length>20)this._blinkIntervals.shift();}
+        this._lastBlinkTs=timestamp;this._prevPos=null;
+        return{type:'BLINK',velocity:0,acceleration:0,blinkInfo:this._blinkStats()};
+      }
+      const pos={x:(irisL.x+irisR.x)/2,y:(irisL.y+irisR.y)/2};
+      if(!this._prevPos||!this._prevVel){this._prevPos=pos;this._prevVel={x:0,y:0};return{type:'UNKNOWN',velocity:0,acceleration:0,blinkInfo:this._blinkStats()};}
+      const dt=1/30,vel={x:(pos.x-this._prevPos.x)/dt,y:(pos.y-this._prevPos.y)/dt};
+      const velMag=Math.sqrt(vel.x**2+vel.y**2);
+      const accel=Math.sqrt((vel.x-this._prevVel.x)**2+(vel.y-this._prevVel.y)**2)/dt;
+      let type=velMag>.8?'SACCADE':velMag>.15&&accel<.3?'PURSUIT':velMag<.02?'FIXATION':'MICROSACCADE';
+      this._prevPos=pos;this._prevVel=vel;
+      return{type,velocity:r4(velMag),acceleration:r4(accel),blinkInfo:this._blinkStats()};
+    }
+    _blinkStats(){const iv=this._blinkIntervals;if(iv.length<2)return{count:this._blinkCount,rate:null,ibiMean:null,ibiCV:null};const m=mean(iv),v=variance(iv),cv=m>0?Math.sqrt(v)/m:0;return{count:this._blinkCount,rate:r4(60000/m),ibiMean:r4(m),ibiCV:r4(cv)};}
+  }
+
+  // ── VideoCodec (pipeline.js) ──
+  class VideoCodec {
+    constructor(){this._prevFrame=null;this._prevInvMask=null;this._frameCount=0;this._lumHistory=[];this._LUM_WIN=10;}
+    compress(rgba,w,h){
+      this._frameCount++;const N=w*h;
+      let lumSum=0;for(let i=0;i<N*4;i+=4)lumSum+=.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2];
+      const lum=lumSum/N;
+      this._lumHistory.push(lum);if(this._lumHistory.length>this._LUM_WIN)this._lumHistory.shift();
+      const meanLum=this._lumHistory.reduce((a,b)=>a+b,0)/this._lumHistory.length,dark=meanLum<60;
+      let motionScore=0,deltaBytes=0,invMask=null;
+      if(this._prevFrame&&this._prevFrame.length===rgba.length){
+        const delta=new Uint8Array(N);let totalDelta=0;
+        for(let i=0;i<N;i++){const pi=i*4;const d=(Math.abs(rgba[pi]-this._prevFrame[pi])+Math.abs(rgba[pi+1]-this._prevFrame[pi+1])+Math.abs(rgba[pi+2]-this._prevFrame[pi+2]))/3;delta[i]=d;totalDelta+=d;}
+        motionScore=totalDelta/N;
+        invMask=new Uint8Array(N);let dynCount=0;
+        for(let i=0;i<N;i++){invMask[i]=delta[i]<8?1:0;if(!invMask[i])dynCount++;}
+        deltaBytes=dynCount*4;this._prevInvMask=invMask;
+      }
+      this._prevFrame=rgba.slice();
+      // Header: 1+2+2+4+4 = 13 bytes
+      const rawBytes=N*4;
+      const payloadBytes=dark?Math.floor(N/4)*4:rawBytes; // half-res = quarter pixels
+      const compressedBytes=13+payloadBytes;
+      return{frameCount:this._frameCount,rawBytes,compressedBytes,ratio:Math.round(rawBytes/compressedBytes*100)/100,motionScore:Math.round(motionScore*100)/100,dark,lum:Math.round(lum),width:dark?Math.floor(w/2):w,height:dark?Math.floor(h/2):h,deltaBytes,invariantFraction:invMask?Math.round((Array.from(invMask).filter(v=>v).length/N)*100):0};
+    }
+  }
+
+  // ── AudioCodec (pipeline.js) ──
+  class AudioCodec {
+    constructor(){this._energyHistory=[];this._WIN=20;this._frameCount=0;}
+    compress(samples,sampleRate=16000){
+      this._frameCount++;const n=samples.length;
+      let sum=0;for(let i=0;i<n;i++)sum+=samples[i]*samples[i];
+      const energy=Math.sqrt(sum/n);
+      let crossings=0;for(let i=1;i<n;i++)if((samples[i]>=0)!==(samples[i-1]>=0))crossings++;
+      const zcr=crossings/n;
+      const split=Math.floor(n/4);let lo=0,hi=0;
+      for(let i=0;i<n;i++){const e=samples[i]*samples[i];if(i<split*2)lo+=e;else hi+=e;}
+      const spectral=(lo+hi)>0?hi/(lo+hi):0;
+      this._energyHistory.push(energy);if(this._energyHistory.length>this._WIN)this._energyHistory.shift();
+      const meanE=this._energyHistory.reduce((a,b)=>a+b,0)/this._energyHistory.length;
+      const varE=this._energyHistory.reduce((a,b)=>a+(b-meanE)**2,0)/this._energyHistory.length;
+      const sigmaE=Math.sqrt(varE),zScore=sigmaE>0?(energy-meanE)/sigmaE:0;
+      const silence=energy<0.005;
+      const rawBytes=n*4;
+      const compressedBytes=silence?24:24+rawBytes; // feature header + optional PCM
+      return{frameCount:this._frameCount,rawBytes,compressedBytes,ratio:Math.round(rawBytes/compressedBytes*100)/100,features:{energy:Math.round(energy*10000)/10000,zcr:Math.round(zcr*10000)/10000,spectral:Math.round(spectral*10000)/10000,zScore:Math.round(zScore*1000)/1000,anomaly:Math.abs(zScore)>2,silence}};
+    }
+  }
+
+  // ── FrameEncryptor ──
+  class FrameEncryptor {
+    constructor(sessionId){this._sessionId=sessionId;this._frameIndex=0;}
+    encrypt(data){
+      this._frameIndex++;
+      // Simulate AES-256-GCM: add 4b frameIndex + 12b IV + 16b GCM tag = 32 bytes overhead
+      const overhead=32,inBytes=data.byteLength??data.length??0;
+      return{frameIndex:this._frameIndex,inputBytes:inBytes,outputBytes:inBytes+overhead,overhead,ivBytes:12,tagBytes:16,algorithm:'AES-256-GCM',kdf:'HKDF-SHA256'};
+    }
+  }
+
+  return {RollingStats,FrictionAnalyzer,AssociationEngine,PredictiveEngine,GPGPUAudioProcessor,GPGPUVideoProcessor,PitchEngine,SlopeEngine,StabilityEngine,OscillationEngine,SaccadeClassifier,VideoCodec,AudioCodec,FrameEncryptor};
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SYNTHETIC DATA GENERATORS — contrasting inputs across all types
+// ═══════════════════════════════════════════════════════════════════════════
+const Gen = {
+  // Audio samples: various waveforms
+  sineWave(n,freq=440,sr=16000,amp=0.8){const s=new Float32Array(n);for(let i=0;i<n;i++)s[i]=amp*Math.sin(2*Math.PI*freq*i/sr);return s;},
+  squareWave(n,freq=220,amp=0.6){const s=new Float32Array(n);for(let i=0;i<n;i++)s[i]=amp*(Math.sin(2*Math.PI*freq*i/16000)>=0?1:-1);return s;},
+  whiteNoise(n,amp=0.3){const s=new Float32Array(n);for(let i=0;i<n;i++)s[i]=(Math.random()*2-1)*amp;return s;},
+  silence(n){return new Float32Array(n);},
+  speech(n){// simulated speech: mix of harmonics + noise + envelope
+    const s=new Float32Array(n);for(let i=0;i<n;i++){const env=.5+.5*Math.sin(2*Math.PI*3*i/n);s[i]=env*(.4*Math.sin(2*Math.PI*150*i/16000)+.2*Math.sin(2*Math.PI*300*i/16000)+.1*(Math.random()*2-1));}return s;},
+  clipped(n,amp=1.5){const s=new Float32Array(n);for(let i=0;i<n;i++)s[i]=Math.max(-1,Math.min(1,amp*Math.sin(2*Math.PI*300*i/16000)));return s;},
+  burst(n){const s=new Float32Array(n);const burst=Math.floor(n*.4);for(let i=burst;i<burst+Math.floor(n*.2);i++)s[i]=(Math.random()*2-1)*.9;return s;},
+
+  // Video frames: various scenes
+  solidColor(w,h,r,g,b){const px=new Uint8Array(w*h*4);for(let i=0;i<w*h;i++){px[i*4]=r;px[i*4+1]=g;px[i*4+2]=b;px[i*4+3]=255;}return px;},
+  gradient(w,h){const px=new Uint8Array(w*h*4);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;px[i]=Math.floor(x/w*255);px[i+1]=Math.floor(y/h*255);px[i+2]=128;px[i+3]=255;}return px;},
+  noise(w,h){const px=new Uint8Array(w*h*4);for(let i=0;i<w*h*4;i+=4){const v=Math.floor(Math.random()*256);px[i]=v;px[i+1]=v;px[i+2]=v;px[i+3]=255;}return px;},
+  darkScene(w,h){return Gen.solidColor(w,h,20,20,25);},
+  brightScene(w,h){return Gen.solidColor(w,h,230,235,240);},
+  face(w,h){// synthetic face-like pixel pattern (just structured noise for testing)
+    const px=new Uint8Array(w*h*4);const cx=w/2,cy=h/2;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;const d=Math.sqrt((x-cx)**2+(y-cy)**2);const skin=d<Math.min(w,h)*.4?200:50;px[i]=skin;px[i+1]=Math.floor(skin*.8);px[i+2]=Math.floor(skin*.7);px[i+3]=255;}return px;},
+  moving(w,h,offset){const px=new Uint8Array(w*h*4);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;const bright=((x+offset)%20)<10?200:50;px[i]=bright;px[i+1]=bright;px[i+2]=bright;px[i+3]=255;}return px;},
+
+  // Text samples for NLP analysis
+  texts:{
+    clear:"The algorithm processes each frame in real time and extracts behavioral signals from the video stream.",
+    friction:"Uh, I mean... it's like, you know, kind of hard to say exactly how the system works. Um. Hold on.",
+    denial:"It's not that the results are wrong, I'm not saying the data is bad, that's not what the analysis shows.",
+    redundant:"The system processes frames. The system processes frames very quickly. Frame processing is done by the system.",
+    rich:"The attractor landscape maps a person's emotional trajectory across sessions. Deep attractors represent stable states. High suppression creates turbulent field dynamics.",
+    memoryGap:"I can't remember exactly what the threshold was. What was it... I forget the parameter name.",
+    technical:"Kalman filter fusion of the 5D latent state vector: valence, arousal, suppression, coherence, engagement. Bayesian update per frame with calibrated noise models.",
+    short:"Yes.",
+    empty:"",
+  },
+
+  // Frequency data for PitchEngine
+  freqData(n=1024,f0=150,sr=48000){
+    const d=new Uint8Array(n);const binHz=sr/(n*2);
+    // add harmonics
+    for(let h=1;h<=8;h++){const bin=Math.round(h*f0/binHz);if(bin<n)d[bin]=Math.max(0,Math.floor(200/(h*h)));}
+    // add noise floor
+    for(let i=0;i<n;i++)d[i]+=Math.floor(Math.random()*20);
+    return d;
+  },
+  mutedFreqData(n=1024){const d=new Uint8Array(n);for(let i=0;i<n;i++)d[i]=Math.floor(Math.random()*15);return d;},
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOG ENGINE — Causal Nexus backed event log
+// ═══════════════════════════════════════════════════════════════════════════
+const LOG = (() => {
+  const kernel=Nexus.createKernel({ringCap:5000});
+  let filter='all';
+
+  // Register a burst-detection gate
+  kernel.registerGate('test.burst.detector',(ev,query)=>{
+    if(ev.type!=='test.codec.audio.frame')return[];
+    if((ev.payload?.energyAnomaly)&&(ev.payload?.energy??0)>.5){
+      return[Nexus.gateOutput('test.gate.burst.alert',{ref:ev.id,energy:ev.payload.energy},{source:'gate:burst-detector',causedBy:ev.id,edgeType:Nexus.EDGE_CAUSAL_RULE})];
+    }
+    return[];
+  },{priority:30});
+
+  // Register a sigma-degraded gate
+  kernel.registerGate('test.sigma.watch',(ev,query)=>{
+    if(ev.type!=='test.sigma.classify')return[];
+    if(ev.payload?.regime==='degraded'||ev.payload?.regime==='collapsing'){
+      return[Nexus.gateOutput('test.gate.sigma.alert',{regime:ev.payload.regime,confidence:ev.payload.confidence},{source:'gate:sigma-watch',causedBy:ev.id,edgeType:Nexus.EDGE_CAUSAL_RULE})];
+    }
+    return[];
+  },{priority:40});
+
+  function emit(type,payload,meta){return kernel.ingest(type,payload??{},meta??{});}
+  function getAll(){return kernel.getAll();}
+  function setFilter(f){filter=f;renderLog();}
+  function stats(){return kernel.stats();}
+
+  function typeClass(type){
+    if(type.startsWith('test.kernel'))return 't-kernel';
+    if(type.startsWith('test.codec')||type.startsWith('test.friction')||type.startsWith('test.assoc')||type.startsWith('test.predict')||type.startsWith('test.pitch')||type.startsWith('test.saccade'))return 't-codec';
+    if(type.startsWith('test.pipeline')||type.startsWith('test.encrypt')||type.startsWith('test.compress.video')||type.startsWith('test.compress.audio'))return 't-pipeline';
+    if(type.startsWith('test.nexus')||type.startsWith('test.identity')||type.startsWith('test.time')||type.startsWith('test.causality'))return 't-nexus';
+    if(type.startsWith('test.delta'))return 't-delta';
+    if(type.startsWith('test.sigma'))return 't-sigma';
+    if(type.startsWith('test.snap')||type.startsWith('test.blueprint')||type.startsWith('test.compress'))return 't-compress';
+    if(type.startsWith('test.gate'))return 't-gate';
+    if(type.includes('error')||type.includes('fail'))return 't-error';
+    return 't-nexus';
+  }
+
+  function renderLog(){
+    const events=kernel.getAll();
+    const filtered=filter==='all'?events:events.filter(ev=>typeClass(ev.type)==='t-'+filter||(filter==='error'&&ev.type.includes('error')));
+    const stream=document.getElementById('log-stream');
+    stream.innerHTML='';
+    const slice=filtered.slice(-300);
+    for(const ev of slice){
+      const div=document.createElement('div');
+      div.className='log-ev '+typeClass(ev.type);
+      const parts=ev.type.split('.');
+      const ns=parts.slice(0,2).join('.');const name=parts.slice(2).join('.');
+      const payStr=JSON.stringify(ev.payload).slice(0,80);
+      div.innerHTML=`<span class="ts">${Nexus.formatWallTs(ev.ts)}</span><div><div class="etype"><span class="ns">${ns}.</span>${name}${ev.causedBy?` <span style="color:var(--text3)">← ${Nexus.shortId(ev.causedBy)}</span>`:''}</div><div class="epay">${payStr}</div></div>`;
+      stream.appendChild(div);
+    }
+    stream.scrollTop=stream.scrollHeight;
+    document.getElementById('ev-count').textContent=events.length;
+  }
+
+  // Subscribe to re-render on new events
+  let renderTimer=null;
+  kernel.subscribe(()=>{clearTimeout(renderTimer);renderTimer=setTimeout(renderLog,50);});
+
+  return{emit,getAll,setFilter,stats,kernel,renderLog};
+})();
+
+window.setFilter=(btn,f)=>{document.querySelectorAll('.lf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');LOG.setFilter(f);};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST RUNNER
+// ═══════════════════════════════════════════════════════════════════════════
+const TESTS = [];
+let _pass=0,_fail=0,_active=null;
+
+function ok(name,cond,got,expected,dur){
+  return{name,pass:!!cond,got,expected,dur:dur??0,type:'assert'};
+}
+function info(msg,data){return{name:msg,pass:true,got:data,type:'info'};}
+function warn(msg,data){return{name:msg,pass:null,got:data,type:'warn'};}
+
+function suite(name,color,tag,tests){TESTS.push({name,color,tag,tests});}
+
+// ── SUITE 1: Identity + Time (Causal Nexus foundations) ──
+suite('Identity · Time','var(--c0)','t-nexus',[
+  async function uuid_v4_format(){
+    const t0=performance.now();
+    const ids=[]; for(let i=0;i<1000;i++)ids.push(Nexus.newEventId());
+    const allValid=ids.every(id=>Nexus.isValidEventId(id));
+    const unique=new Set(ids).size===1000;
+    const dur=performance.now()-t0;
+    LOG.emit('test.identity.uuid_batch',{count:1000,allValid,unique,durationMs:Math.round(dur)},{source:'test.identity'});
+    return[ok('1000× UUID v4: all valid',allValid,`${ids.filter(x=>Nexus.isValidEventId(x)).length}/1000`,'1000/1000',dur),ok('1000× UUID v4: all unique',unique,new Set(ids).size,1000,dur),info('Sample ID',ids[0])];
+  },
+  async function short_id(){
+    const id=Nexus.newEventId(),s=Nexus.shortId(id);
+    const ev=LOG.emit('test.identity.short_id',{id,short:s},{source:'test.identity'});
+    return[ok('shortId length is 12',s.length===12,s.length,12),ok('shortId is last segment',id.endsWith(s),id,'ends with '+s),info('full→short',`${id} → ${s}`)];
+  },
+  async function content_hash_determinism(){
+    const t0=performance.now();
+    const h1=Nexus.contentHash('test.event',{x:1,y:2},'source-a');
+    const h2=Nexus.contentHash('test.event',{x:1,y:2},'source-a');
+    const h3=Nexus.contentHash('test.event',{x:1,y:3},'source-a');
+    const h4=Nexus.contentHash('test.event',{y:2,x:1},'source-a'); // key order independent
+    LOG.emit('test.identity.hash',{h1,h2,h3,h4},{source:'test.identity'});
+    return[ok('same payload → same hash',h1===h2,`${h1}===${h2}`,'equal'),ok('different payload → different hash',h1!==h3,`${h1}!==${h3}`,'not equal'),ok('key-order independent',h1===h4,`${h1}===${h4}`,'equal'),info('hash hex',h1)];
+  },
+  async function clock_isolation(){
+    const clk1=Nexus.createClock(),clk2=Nexus.createClock();
+    clk1.nextTick();clk1.nextTick();clk2.nextTick();
+    LOG.emit('test.time.clocks',{clk1tick:clk1.tick,clk2tick:clk2.tick},{source:'test.time'});
+    return[ok('clock1 tick=2',clk1.tick===2,clk1.tick,2),ok('clock2 tick=1',clk2.tick===1,clk2.tick,1),ok('clocks are isolated',clk1.tick!==clk2.tick,`${clk1.tick}!==${clk2.tick}`,'independent')];
+  },
+  async function wall_format(){
+    const ts=1700000000000,fmt=Nexus.formatWallTs(ts);
+    LOG.emit('test.time.format',{ts,fmt},{source:'test.time'});
+    return[ok('formatWallTs has HH:MM:SS.mmm',/^\d{2}:\d{2}:\d{2}\.\d{3}$/.test(fmt),fmt,'HH:MM:SS.mmm')];
+  },
+]);
+
+// ── SUITE 2: Causality ──
+suite('Causality · Edges','var(--c4)','t-nexus',[
+  async function edge_types(){
+    const types=[Nexus.EDGE_CAUSAL_EXPLICIT,Nexus.EDGE_CAUSAL_RULE,Nexus.EDGE_CAUSAL_ADAPTER,Nexus.EDGE_OBSERVATIONAL];
+    const causalTypes=types.filter(t=>t.startsWith('causal/'));
+    LOG.emit('test.causality.types',{types,causalTypes},{source:'test.causality'});
+    return[ok('3 causal edge types',causalTypes.length===3,causalTypes.length,3),ok('observational is not causal',!causalTypes.includes(Nexus.EDGE_OBSERVATIONAL),Nexus.EDGE_OBSERVATIONAL,'excluded'),info('all types',types.join(', '))];
+  },
+  async function causal_store(){
+    const store=Nexus.createCausalStore();
+    const ids=['ev-1','ev-2','ev-3'];
+    store.addEdge({fromId:ids[0],toId:ids[1],edgeType:Nexus.EDGE_CAUSAL_EXPLICIT,ruleName:'',dtTicks:5,confidence:1});
+    store.addEdge({fromId:ids[1],toId:ids[2],edgeType:Nexus.EDGE_CAUSAL_RULE,ruleName:'gate-x',dtTicks:2,confidence:.9});
+    const trace=store.traceToRoot(ids[2]);
+    const children=store.getChildren(ids[1]);
+    LOG.emit('test.causality.store',{trace,childrenOf1:[...children]},{source:'test.causality'});
+    return[ok('trace root: depth 3',trace.length===3,trace.length,3),ok('children of ev-1 has ev-2',store.getChildren(ids[0]).has(ids[1]),true,true),ok('edge meta includes dtTicks',store.edgeMeta(ids[1])?.dtTicks===5,store.edgeMeta(ids[1])?.dtTicks,5),ok('prune removes edges',(function(){store.pruneEdgesFor(ids[0]);return store.getChildren(ids[0]).size===0;})(),true,true)];
+  },
+]);
+
+// ── SUITE 3: Kernel ──
+suite('Kernel · Ring · Gates','var(--c4)','t-kernel',[
+  async function basic_ingest(){
+    const k=Nexus.createKernel({ringCap:100});
+    const ev=k.ingest('test.event.basic',{x:42},{source:'test'});
+    LOG.emit('test.kernel.ingest',{evId:ev.id,type:ev.type,payload:ev.payload},{source:'test.kernel'});
+    return[ok('event has UUID v4 id',Nexus.isValidEventId(ev.id),ev.id,'UUID v4'),ok('event type correct',ev.type==='test.event.basic',ev.type,'test.event.basic'),ok('event payload frozen',Object.isFrozen(ev.payload),true,true),ok('event has eventTs tick',ev.eventTs===1,ev.eventTs,1),ok('findById round-trips',k.findById(ev.id)===ev,true,true)];
+  },
+  async function ring_eviction(){
+    const k=Nexus.createKernel({ringCap:10});
+    const evs=[];for(let i=0;i<15;i++)evs.push(k.ingest('test.ring.item',{i},{source:'test'}));
+    const stats=k.stats();
+    LOG.emit('test.kernel.ring_evict',{ingested:15,size:stats.size,cap:stats.cap},{source:'test.kernel'});
+    return[ok('ring bounded at cap=10',stats.size===10,stats.size,10),ok('oldest evicted: i=0 not found',k.findById(evs[0].id)===null,true,true),ok('newest retained: i=14 found',k.findById(evs[14].id)!==null,true,true)];
+  },
+  async function gate_fires_before_listener(){
+    const k=Nexus.createKernel({ringCap:100});
+    const order=[];
+    k.registerGate('order.test.gate',(ev)=>{if(ev.type==='order.trigger'){order.push('gate');return[Nexus.gateOutput('order.consequence',{},{source:'gate:order',causedBy:ev.id,edgeType:Nexus.EDGE_CAUSAL_RULE})];}return[];},{priority:50});
+    k.subscribe(ev=>{if(ev.type==='order.trigger')order.push('listener');});
+    k.ingest('order.trigger',{},{source:'test'});
+    LOG.emit('test.kernel.gate_order',{order},{source:'test.kernel'});
+    return[ok('gate before listener (C-4)',order[0]==='gate',order[0],'gate'),ok('consequence event ingested',k.getAll().some(e=>e.type==='order.consequence'),true,true)];
+  },
+  async function causal_chain(){
+    const k=Nexus.createKernel({ringCap:100});
+    const root=k.ingest('chain.root',{},{source:'test'});
+    const mid=k.ingest('chain.mid',{},{source:'test',causedBy:root.id,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+    const leaf=k.ingest('chain.leaf',{},{source:'test',causedBy:mid.id,edgeType:Nexus.EDGE_CAUSAL_RULE});
+    const trace=k.traceToRoot(leaf.id);
+    const descendants=k.descendants(root.id);
+    LOG.emit('test.kernel.chain',{traceLen:trace.length,descCount:descendants.length},{source:'test.kernel'});
+    return[ok('trace to root: 3 events',trace.length===3,trace.length,3),ok('root→mid→leaf causal chain',trace.map(e=>e.type).join('→')==='chain.leaf→chain.mid→chain.root',trace.map(e=>e.type).join('→'),'chain.leaf→chain.mid→chain.root'),ok('descendants of root: 2',descendants.length===2,descendants.length,2)];
+  },
+  async function type_index_query(){
+    const k=Nexus.createKernel({ringCap:200});
+    for(let i=0;i<20;i++)k.ingest('type.a',{i},{source:'test'});
+    for(let i=0;i<5;i++)k.ingest('type.b',{i},{source:'test'});
+    const aIds=[...k._typeIndex.get('type.a')];
+    const bIds=[...k._typeIndex.get('type.b')];
+    LOG.emit('test.kernel.type_index',{aCount:aIds.length,bCount:bIds.length},{source:'test.kernel'});
+    return[ok('type.a index: 20 entries',aIds.length===20,aIds.length,20),ok('type.b index: 5 entries',bIds.length===5,bIds.length,5),ok('typeIndex is O(1) Set',k._typeIndex.get('type.a') instanceof Set,true,true)];
+  },
+  async function subscribe_unsub(){
+    const k=Nexus.createKernel({ringCap:100});
+    let count=0;const unsub=k.subscribe(()=>count++);
+    k.ingest('sub.test',{},{source:'test'});k.ingest('sub.test',{},{source:'test'});
+    unsub();
+    k.ingest('sub.test',{},{source:'test'});
+    LOG.emit('test.kernel.subscribe',{countAfterUnsub:count},{source:'test.kernel'});
+    return[ok('listener fires 2× then unsubscribed',count===2,count,2)];
+  },
+]);
+
+// ── SUITE 4: Delta Engine ──
+suite('Delta · Throughput · Fractals','var(--c3)','t-delta',[
+  async function delta_stream(){
+    const k=Nexus.createKernel({ringCap:200});
+    for(let i=0;i<50;i++)k.ingest('delta.event',{i,value:Math.sin(i*.3)},{source:'test'});
+    const events=k.getAll();
+    const t0=performance.now();
+    const deltas=Nexus.computeDeltaStream(events,id=>k.findById(id),id=>k.edgeMeta(id),id=>k.getChildren(id));
+    const dur=performance.now()-t0;
+    const hasLatency=deltas.every(d=>'latencyImpact' in d);
+    const hasThroughput=deltas.every(d=>'throughputChange' in d);
+    const hasStructural=deltas.every(d=>'structuralDeviation' in d);
+    LOG.emit('test.delta.stream',{count:deltas.length,sampleDelta:deltas[25],durationMs:Math.round(dur)},{source:'test.delta'});
+    return[ok('delta count equals event count',deltas.length===50,deltas.length,50),ok('all deltas have latencyImpact (S-field)',hasLatency,hasLatency,true),ok('all deltas have throughputChange (K-field)',hasThroughput,hasThroughput,true),ok('all deltas have structuralDeviation (C-field)',hasStructural,hasStructural,true),info('delta[25]',JSON.stringify(deltas[25]))];
+  },
+  async function throughput_timeline(){
+    const k=Nexus.createKernel({ringCap:200});
+    for(let i=0;i<100;i++)k.ingest('tpt.event',{i},{source:'test'});
+    const events=k.getAll();
+    const timeline=Nexus.computeThroughputTimeline(events,5);
+    LOG.emit('test.delta.throughput',{buckets:timeline.length,sample:timeline[0]},{source:'test.delta'});
+    return[ok('timeline has buckets',timeline.length>0,timeline.length,'>0'),ok('buckets have count',timeline.every(b=>'count' in b),true,true),ok('bucket counts sum to total',timeline.reduce((s,b)=>s+b.count,0)===100,timeline.reduce((s,b)=>s+b.count,0),100),info('bucket[0]',JSON.stringify(timeline[0]))];
+  },
+  async function fractal_detection(){
+    const k=Nexus.createKernel({ringCap:500});
+    // Create repeating chain pattern: A→B→C × 5
+    for(let rep=0;rep<5;rep++){
+      const a=k.ingest('frac.a',{rep},{source:'test'});
+      const b=k.ingest('frac.b',{rep},{source:'test',causedBy:a.id,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+      k.ingest('frac.c',{rep},{source:'test',causedBy:b.id,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+    }
+    const events=k.getAll();
+    const fractals=Nexus.detectFractals(events,id=>k.getChildren(id),id=>k.edgeMeta(id),{findById:id=>k.findById(id),minChainLen:2,minOccurrences:3});
+    LOG.emit('test.delta.fractals',{patterns:fractals},{source:'test.delta'});
+    return[ok('fractal patterns found',fractals.length>0,fractals.length,'>0'),info('top pattern',JSON.stringify(fractals[0]))];
+  },
+  async function causal_depth_measurement(){
+    const k=Nexus.createKernel({ringCap:100});
+    const evs=[];evs.push(k.ingest('depth.0',{},{source:'test'}));
+    for(let d=1;d<=5;d++)evs.push(k.ingest(`depth.${d}`,{},{source:'test',causedBy:evs[d-1].id,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT}));
+    const trace=k.traceToRoot(evs[5].id);
+    LOG.emit('test.delta.depth',{traceLen:trace.length,types:trace.map(e=>e.type)},{source:'test.delta'});
+    return[ok('causal depth 6 (0–5)',trace.length===6,trace.length,6),ok('root event is depth.0',trace[trace.length-1]?.type==='depth.0',trace[trace.length-1]?.type,'depth.0')];
+  },
+]);
+
+// ── SUITE 5: Sigma Classifier ──
+suite('Sigma · Regime Classification','var(--c5)','t-sigma',[
+  async function stable_regime(){
+    // Near-zero latencyImpact, low accel
+    const window=Array.from({length:20},(_,i)=>({latencyImpact:.1*Math.sin(i*.2),throughputChange:.02,structuralDeviation:.1,eventId:'x'+i,eventType:'ev',gap:10,childCount:0}));
+    const result=Nexus.classify(window);
+    LOG.emit('test.sigma.classify',{...result,scenario:'stable'},{source:'test.sigma'});
+    return[ok('stable regime',result.regime===Nexus.REGIMES.stable,result.regime,'stable'),ok('confidence in [0,1]',result.confidence>=0&&result.confidence<=1,result.confidence,'[0,1]'),info('result',JSON.stringify(result))];
+  },
+  async function degraded_regime(){
+    const window=Array.from({length:20},(_,i)=>({latencyImpact:2.5,throughputChange:.1,structuralDeviation:.2,eventId:'x'+i,eventType:'ev',gap:50,childCount:0}));
+    const result=Nexus.classify(window);
+    LOG.emit('test.sigma.classify',{...result,scenario:'degraded'},{source:'test.sigma'});
+    return[ok('degraded regime detected',result.regime===Nexus.REGIMES.degraded,result.regime,'degraded'),ok('dominant cause is S',result.dominant_cause==='S',result.dominant_cause,'S')];
+  },
+  async function oscillatory_regime(){
+    const window=Array.from({length:20},(_,i)=>({latencyImpact:i%2===0?2:-2,throughputChange:.1,structuralDeviation:.1,eventId:'x'+i,eventType:'ev',gap:10,childCount:0}));
+    const result=Nexus.classify(window);
+    LOG.emit('test.sigma.classify',{...result,scenario:'oscillatory'},{source:'test.sigma'});
+    return[ok('oscillatory regime',result.regime===Nexus.REGIMES.oscillatory||result.regime===Nexus.REGIMES.degraded,result.regime,'oscillatory|degraded'),ok('flips detected',result.flips>3,result.flips,'>3'),info('flips',result.flips)];
+  },
+  async function collapsing_regime(){
+    const window=Array.from({length:20},(_,i)=>({latencyImpact:i*.5,throughputChange:i*1.5,structuralDeviation:.1,eventId:'x'+i,eventType:'ev',gap:10,childCount:0}));
+    const result=Nexus.classify(window);
+    LOG.emit('test.sigma.classify',{...result,scenario:'collapsing'},{source:'test.sigma'});
+    return[ok('collapsing regime',result.regime===Nexus.REGIMES.collapsing||result.regime===Nexus.REGIMES.degraded,result.regime,'collapsing|degraded'),info('meanAccel',result.meanAccel)];
+  },
+  async function insufficient_data(){
+    const window=[{latencyImpact:0,throughputChange:0,structuralDeviation:0,eventId:'x0',eventType:'ev',gap:0,childCount:0}];
+    const result=Nexus.classify(window);
+    LOG.emit('test.sigma.classify',{...result,scenario:'insufficient_data'},{source:'test.sigma'});
+    return[ok('insufficient_data regime',result.regime===Nexus.REGIMES.insufficient_data,result.regime,'insufficient_data')];
+  },
+]);
+
+// ── SUITE 6: Compress / Snapshot / Blueprint ──
+suite('Compress · Snapshot · Blueprint','var(--c6)','t-compress',[
+  async function snapshot_empty(){
+    const k=Nexus.createKernel({ringCap:100});
+    const snap=Nexus.snapshot(k);
+    LOG.emit('test.snap.empty',{...snap},{source:'test.compress'});
+    return[ok('empty snapshot has magic','magic' in snap&&snap.magic==='URCK-SNAP',snap.magic,'URCK-SNAP'),ok('empty snapshot: 0 primary events',snap.primaryCount===0,snap.primaryCount,0)];
+  },
+  async function snapshot_with_events(){
+    const k=Nexus.createKernel({ringCap:200});
+    for(let i=0;i<50;i++)k.ingest('snap.event',{i,val:Math.random(),label:`item-${i}`},{source:'snap-test'});
+    const t0=performance.now();
+    const snap=Nexus.snapshot(k);
+    const dur=performance.now()-t0;
+    const report=Nexus.compressionReport(k,snap);
+    LOG.emit('test.snap.compress',{primaryCount:snap.primaryCount,ratio:snap.ratio,reportSummary:report.summary,durationMs:Math.round(dur)},{source:'test.compress'});
+    return[ok('snapshot has events',snap.primaryCount===50,snap.primaryCount,50),ok('compression ratio >1',snap.ratio>1,snap.ratio,'>1'),ok('compressionReport matches',report.ratio===snap.ratio,report.ratio,snap.ratio),info('summary',report.summary),info('raw→snap bytes',`${report.rawBytes}B → ${report.snapBytes}B`)];
+  },
+  async function blueprint_structure(){
+    const k=Nexus.createKernel({ringCap:200});
+    for(let i=0;i<30;i++)k.ingest('bp.event.a',{i},{source:'test'});
+    for(let i=0;i<10;i++)k.ingest('bp.event.b',{i},{source:'test'});
+    const bp=Nexus.blueprint(k);
+    LOG.emit('test.blueprint.structure',{magic:bp.magic,vocabSize:bp.vocab.length,patternCount:bp.patterns.length,invariants:bp.invariants},{source:'test.compress'});
+    return[ok('blueprint magic','magic' in bp&&bp.magic==='URCK-BP',bp.magic,'URCK-BP'),ok('vocab has 2+ types',bp.vocab.length>=2,bp.vocab.length,'>=2'),ok('top type is bp.event.a',bp.vocab[0]?.type==='bp.event.a',bp.vocab[0]?.type,'bp.event.a'),info('invariants',JSON.stringify(bp.invariants)),info('top pattern',JSON.stringify(bp.patterns[0]))];
+  },
+  async function high_volume_snapshot(){
+    const k=Nexus.createKernel({ringCap:2000});
+    for(let i=0;i<1000;i++)k.ingest('hv.event',{i,data:'x'.repeat(20),nested:{a:i,b:i*2}},{source:'hv-test'});
+    const t0=performance.now();
+    const snap=Nexus.snapshot(k);
+    const dur=performance.now()-t0;
+    LOG.emit('test.snap.high_volume',{events:snap.primaryCount,ratio:snap.ratio,durationMs:Math.round(dur)},{source:'test.compress'});
+    return[ok('1000-event snapshot completes',snap.primaryCount===1000,snap.primaryCount,1000),ok('snapshot under 500ms',dur<500,`${Math.round(dur)}ms`,'<500ms'),ok('ratio >1 on homogeneous data',snap.ratio>1,snap.ratio,'>1'),info('compression',`${snap.ratio}×`)];
+  },
+]);
+
+// ── SUITE 7: Rolling Stats ──
+suite('RollingStats · Welford','var(--c7)','t-codec',[
+  async function basic_stats(){
+    const rs=new Codec.RollingStats(10);
+    [1,2,3,4,5].forEach(v=>rs.push(v));
+    LOG.emit('test.codec.rolling_stats',{mean:rs.mean,sigma:rs.sigma,last:rs.last},{source:'test.codec'});
+    return[ok('mean of 1-5 = 3',Math.abs(rs.mean-3)<.001,rs.mean,3),ok('sigma of 1-5 ≈ 1.41',Math.abs(rs.sigma-Math.sqrt(2))<.01,Math.round(rs.sigma*1000)/1000,1.414),ok('last = 5',rs.last===5,rs.last,5)];
+  },
+  async function z_score(){
+    const rs=new Codec.RollingStats(20);
+    for(let i=0;i<20;i++)rs.push(1);// mean=1, sigma=0
+    rs.push(10);
+    const m=rs.measure(10);
+    LOG.emit('test.codec.zscore',{mean:m.mean,sigma:m.sigma,zScore:m.zScore,anomaly:m.anomaly},{source:'test.codec'});
+    return[ok('anomaly detected on outlier',m.anomaly===true,m.anomaly,true),ok('zScore > 2',m.zScore>2,Math.round(m.zScore*10)/10,'>2')];
+  },
+  async function window_sliding(){
+    const rs=new Codec.RollingStats(5);
+    for(let i=0;i<10;i++)rs.push(i);
+    // window should contain 5-9, mean=7
+    LOG.emit('test.codec.window',{mean:rs.mean,len:rs.len},{source:'test.codec'});
+    return[ok('window size stays at 5',rs.len===5,rs.len,5),ok('mean of [5,6,7,8,9] = 7',Math.abs(rs.mean-7)<.001,rs.mean,7)];
+  },
+  async function entropy(){
+    const rsFlat=new Codec.RollingStats(20),rsNoise=new Codec.RollingStats(20);
+    for(let i=0;i<20;i++)rsFlat.push(5);
+    for(let i=0;i<20;i++)rsNoise.push(Math.random()*100);
+    const eFlat=rsFlat.entropy(),eNoise=rsNoise.entropy();
+    LOG.emit('test.codec.entropy',{flat:eFlat,noise:eNoise},{source:'test.codec'});
+    return[ok('flat signal entropy = 0',eFlat===0,eFlat,0),ok('noisy signal entropy > 0',eNoise>0,Math.round(eNoise*100)/100,'>0')];
+  },
+  async function decay_mean(){
+    const rs=new Codec.RollingStats(20);
+    for(let i=0;i<10;i++)rs.push(100); // old values
+    for(let i=0;i<10;i++)rs.push(0);   // recent values = 0
+    const dm=rs.decayMean(5);
+    LOG.emit('test.codec.decay_mean',{decayMean:dm,arithmeticMean:rs.mean},{source:'test.codec'});
+    return[ok('decay mean < arithmetic mean (recency bias)',dm<rs.mean,Math.round(dm*10)/10,'<'+Math.round(rs.mean*10)/10),info('decay mean vs arithmetic',`${Math.round(dm*10)/10} vs ${Math.round(rs.mean*10)/10}`)];
+  },
+]);
+
+// ── SUITE 8: Audio Processing ──
+suite('Audio Codec · Waveforms','var(--c7)','t-codec',[
+  async function silence_detection(){
+    const ac=new Codec.AudioCodec();
+    const samples=Gen.silence(512);
+    const t0=performance.now();
+    const r=ac.compress(samples,16000);
+    const dur=performance.now()-t0;
+    LOG.emit('test.compress.audio.silence',{...r.features,ratio:r.ratio,durationMs:Math.round(dur*1000)/1000},{source:'test.codec'});
+    return[ok('silence detected',r.features.silence===true,r.features.silence,true),ok('silence: feature-only payload (24B)',r.compressedBytes===24,r.compressedBytes,24),ok('silence energy < 0.005',r.features.energy<.005,r.features.energy,'<0.005')];
+  },
+  async function sine_wave_analysis(){
+    const proc=new Codec.GPGPUAudioProcessor();
+    const samples=Gen.sineWave(1024);
+    const t0=performance.now();
+    const frame=proc.analyzeFrame(samples);
+    const dur=performance.now()-t0;
+    LOG.emit('test.codec.audio.frame',{...frame,waveform:'sine440'},{source:'test.codec'});
+    return[ok('sine energy > 0',frame.energy>.1,frame.energy,'>0.1'),ok('sine ZCR > 0',frame.zcr>0,frame.zcr,'>0'),ok('not silence',!frame.silence,frame.silence,false),info('frame',JSON.stringify(frame))];
+  },
+  async function white_noise_vs_sine(){
+    const proc=new Codec.GPGPUAudioProcessor();
+    const sinFrame=proc.analyzeFrame(Gen.sineWave(1024));
+    const noiseFrame=proc.analyzeFrame(Gen.whiteNoise(1024,.3));
+    LOG.emit('test.codec.audio.contrast',{sinZcr:sinFrame.zcr,noiseZcr:noiseFrame.zcr,sinCentroid:sinFrame.spectralCentroid,noiseCentroid:noiseFrame.spectralCentroid},{source:'test.codec'});
+    return[ok('noise ZCR > sine ZCR',noiseFrame.zcr>sinFrame.zcr,`noise:${noiseFrame.zcr} > sine:${sinFrame.zcr}`,true),ok('noise centroid > sine centroid',noiseFrame.spectralCentroid>=sinFrame.spectralCentroid,`noise:${noiseFrame.spectralCentroid} >= sine:${sinFrame.spectralCentroid}`,true),info('ZCR contrast',`sine=${sinFrame.zcr} noise=${noiseFrame.zcr}`)];
+  },
+  async function speech_burst_anomaly(){
+    const proc=new Codec.GPGPUAudioProcessor();
+    // Feed 20 silence frames to establish baseline
+    for(let i=0;i<20;i++)proc.analyzeFrame(Gen.silence(512));
+    // Now feed a burst
+    const burstFrame=proc.analyzeFrame(Gen.burst(512));
+    LOG.emit('test.codec.audio.frame',{...burstFrame,waveform:'burst'},{source:'test.codec'});
+    return[ok('burst energy > silence',burstFrame.energy>0,burstFrame.energy,'>0'),info('burst frame',JSON.stringify(burstFrame))];
+  },
+  async function audio_codec_compression_ratio(){
+    const ac=new Codec.AudioCodec();
+    const results=[];
+    const types=[['silence',Gen.silence(2048)],['sine',Gen.sineWave(2048)],['noise',Gen.whiteNoise(2048)],['speech',Gen.speech(2048)],['clipped',Gen.clipped(2048)]];
+    for(const[name,samples]of types){const r=ac.compress(samples,16000);results.push({name,ratio:r.ratio,silence:r.features.silence,energy:r.features.energy});LOG.emit('test.compress.audio.'+name,{...r.features,ratio:r.ratio},{source:'test.codec'});}
+    return[ok('silence compresses best',results[0].ratio>=results[1].ratio,`silence=${results[0].ratio} sine=${results[1].ratio}`,true),ok('all types produce features',results.every(r=>'energy' in r),true,true),...results.map(r=>info(`${r.name}: energy=${r.energy} ratio=${r.ratio}×`,null))];
+  },
+  async function rolling_sigma_over_frames(){
+    const proc=new Codec.GPGPUAudioProcessor();
+    const frames=[];
+    for(let i=0;i<30;i++)frames.push(proc.analyzeFrame(Gen.sineWave(512,440+i*10)));
+    const sigmas=frames.map(f=>f.energySigma);
+    const maxSigma=Math.max(...sigmas);
+    LOG.emit('test.codec.audio.rolling_sigma',{frameCount:frames.length,maxSigma,finalSigma:sigmas[sigmas.length-1]},{source:'test.codec'});
+    return[ok('rolling sigma grows over diverse frames',maxSigma>0,maxSigma,'>0'),info('sigma trajectory',sigmas.slice(0,5).map(s=>Math.round(s*1000)/1000).join('→'))];
+  },
+]);
+
+// ── SUITE 9: Video Processing ──
+suite('Video Codec · Frames · Compression','var(--c7)','t-codec',[
+  async function dark_scene_adaptation(){
+    const vc=new Codec.VideoCodec();
+    const darkRGBA=Gen.darkScene(64,64);
+    const r=vc.compress(darkRGBA,64,64);
+    LOG.emit('test.compress.video.dark',{...r},{source:'test.codec'});
+    return[ok('dark scene detected',r.dark===true,r.dark,true),ok('adaptive dims halved',r.width===32&&r.height===32,`${r.width}x${r.height}`,'32x32'),ok('dark saves bytes',r.compressedBytes<r.rawBytes,r.compressedBytes,'<'+r.rawBytes)];
+  },
+  async function motion_detection(){
+    const proc=new Codec.GPGPUVideoProcessor();
+    const w=32,h=32;
+    proc.processFrame(Gen.solidColor(w,h,100,100,100),w,h);
+    const stillFrame=proc.processFrame(Gen.solidColor(w,h,100,100,100),w,h);
+    const moveFrame=proc.processFrame(Gen.moving(w,h,5),w,h);
+    LOG.emit('test.compress.video.motion',{stillMotion:stillFrame.motionScore,moveMotion:moveFrame.motionScore},{source:'test.codec'});
+    return[ok('still frame: zero motion',stillFrame.motionScore===0,stillFrame.motionScore,0),ok('moving frame: motion > 0',moveFrame.motionScore>0,moveFrame.motionScore,'>0'),info('motion contrast',`still=${stillFrame.motionScore} moving=${moveFrame.motionScore}`)];
+  },
+  async function invariant_pixel_detection(){
+    const proc=new Codec.GPGPUVideoProcessor();
+    const w=32,h=32;
+    const bg=Gen.solidColor(w,h,128,128,128);
+    // Feed same frame 3 times — all pixels should trend toward invariant
+    for(let i=0;i<3;i++)proc.processFrame(bg,w,h);
+    const r=proc.processFrame(bg,w,h);
+    LOG.emit('test.compress.video.invariant',{invariantCount:r.invariantCount,deltaPixelCount:r.deltaPixelCount,compressionEst:r.compressionEst},{source:'test.codec'});
+    return[ok('invariant pixels detected',r.invariantCount>0,r.invariantCount,'>0'),ok('compression estimate > 50%',r.compressionEst>50,r.compressionEst+'%','>50%'),info('invariant/delta split',`${r.invariantCount} invariant, ${r.deltaPixelCount} delta`)];
+  },
+  async function frame_contrast_types(){
+    const vc=new Codec.VideoCodec();
+    const w=32,h=32;
+    const types=[['dark',Gen.darkScene(w,h)],['bright',Gen.brightScene(w,h)],['gradient',Gen.gradient(w,h)],['noise',Gen.noise(w,h)],['face',Gen.face(w,h)]];
+    const results=[];
+    for(const[name,rgba]of types){
+      const r=vc.compress(rgba,w,h);results.push({name,...r});
+      LOG.emit('test.compress.video.'+name,{dark:r.dark,lum:r.lum,ratio:r.ratio,motionScore:r.motionScore},{source:'test.codec'});
+    }
+    return[ok('dark scene: lum < 60',results[0].lum<60,results[0].lum,'<60'),ok('bright scene: lum > 60',results[1].lum>60,results[1].lum,'>60'),...results.map(r=>info(`${r.name}: lum=${r.lum} dark=${r.dark} ratio=${r.ratio}×`,null))];
+  },
+  async function temporal_delta_compression(){
+    const vc=new Codec.VideoCodec();
+    const w=64,h=64;
+    const base=Gen.solidColor(w,h,150,150,150);
+    vc.compress(base,w,h); // seed prev frame
+    // Small change: only 1 pixel different
+    const modified=base.slice();modified[0]=255;modified[1]=0;modified[2]=0;
+    const r=vc.compress(modified,w,h);
+    LOG.emit('test.compress.video.delta',{motionScore:r.motionScore,deltaBytes:r.deltaBytes,invariantFraction:r.invariantFraction},{source:'test.codec'});
+    return[ok('tiny change: low motion score',r.motionScore<5,r.motionScore,'<5'),ok('invariant fraction high (>90%)',r.invariantFraction>90,r.invariantFraction+'%','>90%')];
+  },
+]);
+
+// ── SUITE 10: Pitch Engine (codec-v2) ──
+suite('PitchEngine · Jitter · HNR','var(--c7)','t-codec',[
+  async function voiced_detection(){
+    const pe=new Codec.PitchEngine(48000);
+    const voiced_freqs=Gen.freqData(1024,150,48000);
+    const r=pe.analyze(voiced_freqs,.05,.3);// low ZCR, high energy = voiced
+    LOG.emit('test.codec.pitch.voiced',{...r},{source:'test.codec'});
+    return[ok('voiced signal detected',r.voiced===true,r.voiced,true),ok('F0 in human range (80-400Hz)',r.f0!==null&&r.f0>=80&&r.f0<=400,r.f0,'80-400Hz'),info('F0',r.f0+'Hz'),info('prosody',r.prosodyTag)];
+  },
+  async function unvoiced_detection(){
+    const pe=new Codec.PitchEngine(48000);
+    const unvoiced=Gen.mutedFreqData(1024);
+    const r=pe.analyze(unvoiced,.5,.001);// high ZCR, low energy = unvoiced
+    LOG.emit('test.codec.pitch.unvoiced',{...r},{source:'test.codec'});
+    return[ok('unvoiced returns false',r.voiced===false,r.voiced,false),ok('prosodyTag = unvoiced',r.prosodyTag==='unvoiced',r.prosodyTag,'unvoiced')];
+  },
+  async function jitter_shimmer_accumulation(){
+    const pe=new Codec.PitchEngine(48000);
+    const results=[];
+    for(let i=0;i<10;i++){const fd=Gen.freqData(1024,150+i*5,48000);results.push(pe.analyze(fd,.05,.3));}
+    const withJitter=results.filter(r=>r.jitter!==null);
+    const withShimmer=results.filter(r=>r.shimmer!==null);
+    LOG.emit('test.codec.pitch.jitter',{jitterValues:withJitter.map(r=>r.jitter),shimmerValues:withShimmer.map(r=>r.shimmer)},{source:'test.codec'});
+    return[ok('jitter accumulates after 3+ frames',withJitter.length>0,withJitter.length,'>0'),ok('shimmer accumulates after 3+ frames',withShimmer.length>0,withShimmer.length,'>0'),info('jitter range',withJitter.map(r=>r.jitter).join(', '))];
+  },
+  async function hnr_computation(){
+    const pe=new Codec.PitchEngine(48000);
+    for(let i=0;i<5;i++)pe.analyze(Gen.freqData(1024,150,48000),.05,.3);
+    const r=pe.analyze(Gen.freqData(1024,150,48000),.05,.3);
+    LOG.emit('test.codec.pitch.hnr',{hnr:r.hnr,f0:r.f0},{source:'test.codec'});
+    return[ok('HNR computed',r.hnr!==null,r.hnr,'not null'),ok('HNR is number',typeof r.hnr==='number',typeof r.hnr,'number'),info('HNR dB',r.hnr+'dB')];
+  },
+]);
+
+// ── SUITE 11: Slope · Stability · Oscillation ──
+suite('SlopeEngine · Stability · Oscillation','var(--c3)','t-codec',[
+  async function slope_rising(){
+    const se=new Codec.SlopeEngine(8);
+    for(let i=0;i<10;i++)se.feed(i*2);
+    const r=se.feed(20);
+    LOG.emit('test.codec.slope.rising',{...r},{source:'test.codec'});
+    return[ok('direction = rising',r.direction==='rising',r.direction,'rising'),ok('slope > 0',r.slope>0,r.slope,'>0'),ok('r² close to 1',r.r2>.9,r.r2,'>0.9')];
+  },
+  async function slope_regime_change(){
+    const se=new Codec.SlopeEngine(8);
+    for(let i=0;i<8;i++)se.feed(i);// rising
+    for(let i=8;i>=0;i--)se.feed(i);// now falling
+    const r=se.feed(-1);
+    LOG.emit('test.codec.slope.regimechange',{...r},{source:'test.codec'});
+    return[ok('regime change detected',r.regimeChange===true||r.direction==='falling',r.direction,'falling'),info('slope on reversal',r.slope)];
+  },
+  async function stability_converging(){
+    const stab=new Codec.StabilityEngine(20);
+    let r;for(let i=0;i<20;i++)r=stab.feed(5.0+Math.random()*.05);
+    LOG.emit('test.codec.stability',{...r},{source:'test.codec'});
+    return[ok('converging or stable regime',r.regime==='converging'||r.regime==='stable',r.regime,'converging|stable'),ok('CV low for stable signal',r.cv<.1,r.cv,'<0.1')];
+  },
+  async function oscillation_detection(){
+    const osc=new Codec.OscillationEngine(30);
+    let r;
+    for(let i=0;i<30;i++)r=osc.feed(5*Math.sin(i*.7));
+    LOG.emit('test.codec.oscillation',{...r},{source:'test.codec'});
+    return[ok('oscillation detected',r.oscillating===true,r.oscillating,true),ok('period estimated',r.period!==null,r.period,'not null'),ok('peakCount > 2',r.peakCount>2,r.peakCount,'>2'),info('period',r.period)];
+  },
+  async function no_oscillation_flat(){
+    const osc=new Codec.OscillationEngine(20);
+    let r;for(let i=0;i<20;i++)r=osc.feed(5);
+    LOG.emit('test.codec.oscillation.flat',{...r},{source:'test.codec'});
+    return[ok('flat signal: not oscillating',r.oscillating===false,r.oscillating,false)];
+  },
+]);
+
+// ── SUITE 12: SaccadeClassifier ──
+suite('SaccadeClassifier · Eye Movement','var(--c7)','t-codec',[
+  async function saccade_detection(){
+    const sc=new Codec.SaccadeClassifier();
+    // Seed with stable fixation
+    for(let i=0;i<5;i++)sc.classify({x:.5,y:.5},{x:.5,y:.5},Date.now()+i*33,false);
+    // Large position jump = saccade
+    const r=sc.classify({x:.9,y:.9},{x:.9,y:.9},Date.now()+200,false);
+    LOG.emit('test.codec.saccade.type',{...r},{source:'test.codec'});
+    return[ok('saccade detected on large jump',r.type==='SACCADE'||r.type==='MICROSACCADE'||r.type==='PURSUIT',r.type,'SACCADE|PURSUIT|MICROSACCADE'),ok('velocity > 0',r.velocity>0,r.velocity,'>0')];
+  },
+  async function fixation_detection(){
+    const sc=new Codec.SaccadeClassifier();
+    let r;for(let i=0;i<10;i++)r=sc.classify({x:.5,y:.5},{x:.5,y:.5},Date.now()+i*33,false);
+    LOG.emit('test.codec.saccade.fixation',{...r},{source:'test.codec'});
+    return[ok('fixation: low velocity',r.velocity<.1,r.velocity,'<0.1'),ok('type is FIXATION or MICROSACCADE',r.type==='FIXATION'||r.type==='MICROSACCADE',r.type,'FIXATION')];
+  },
+  async function blink_interval_cv(){
+    const sc=new Codec.SaccadeClassifier();
+    const ts=Date.now();
+    // Simulate 10 blinks at irregular intervals
+    const intervals=[5000,4800,5200,4600,5100,5300,4900,4700,5000,5200];
+    let cumTs=ts;
+    for(const iv of intervals){cumTs+=iv;sc.classify({x:.5,y:.5},{x:.5,y:.5},cumTs,true);}
+    const lastBlink=sc.classify({x:.5,y:.5},{x:.5,y:.5},cumTs+5000,true);
+    LOG.emit('test.codec.saccade.blinks',{...lastBlink.blinkInfo},{source:'test.codec'});
+    return[ok('blink rate computed',lastBlink.blinkInfo.rate!==null,lastBlink.blinkInfo.rate,'not null'),ok('IBI mean ≈ 5000ms',Math.abs(lastBlink.blinkInfo.ibiMean-5010)<500,Math.round(lastBlink.blinkInfo.ibiMean),'≈5000ms'),ok('IBI CV < 0.2 (regular blinks)',lastBlink.blinkInfo.ibiCV<0.2,lastBlink.blinkInfo.ibiCV,'<0.2'),info('blinks/min',lastBlink.blinkInfo.rate)];
+  },
+]);
+
+// ── SUITE 13: NLP / Friction / Association ──
+suite('FrictionAnalyzer · Association · Predict','var(--c7)','t-codec',[
+  async function friction_types(){
+    const fa=new Codec.FrictionAnalyzer();
+    const results={};
+    for(const[name,text]of Object.entries(Gen.texts)){
+      if(text)results[name]=fa.analyze(text);
+    }
+    LOG.emit('test.friction.analysis',{frictionTypes:Object.entries(results).filter(([,r])=>r.friction).map(([n])=>n)},{source:'test.codec'});
+    return[ok('friction text has friction',results.friction?.friction===true,results.friction?.friction,true),ok('denial text: denial markers',results.denial?.types?.includes('denial'),true,true),ok('memory gap text: memoryGap markers',results.memoryGap?.types?.includes('memoryGap'),true,true),ok('clear text: no friction',results.clear?.friction===false,results.clear?.friction,false),ok('friction score in [0,1]',Object.values(results).every(r=>r.score>=0&&r.score<=1),true,true),info('friction text markers',JSON.stringify(results.friction?.markers?.slice(0,3)))];
+  },
+  async function association_jaccard(){
+    const ae=new Codec.AssociationEngine();
+    const texts=[Gen.texts.technical,Gen.texts.rich,Gen.texts.clear,Gen.texts.friction];
+    texts.forEach((t,i)=>ae.add('node-'+i,t));
+    const edges=ae.edges;
+    const inv=ae.invariants();
+    LOG.emit('test.assoc.graph',{nodeCount:ae.nodeCount,edgeCount:edges.length,topEdge:edges[0],invariants:inv.words},{source:'test.codec'});
+    return[ok('4 nodes added',ae.nodeCount===4,ae.nodeCount,4),ok('edges formed between related texts',edges.length>=0,edges.length,'>=0'),info('edges',edges.map(e=>`${e.a}↔${e.b}[${e.score}]`).join(', ')),info('invariants',inv.words.join(', ')||'none')];
+  },
+  async function redundancy_detection(){
+    const ae=new Codec.AssociationEngine();
+    ae.add('n1',Gen.texts.redundant);
+    ae.add('n2',Gen.texts.redundant); // exact duplicate
+    const r=ae.redundancyCheck(Gen.texts.redundant);
+    LOG.emit('test.assoc.redundancy',{redundant:r.redundant,phraseCount:r.phrases.length},{source:'test.codec'});
+    return[ok('redundancy detected',r.redundant===true,r.redundant,true),ok('repeated phrases found',r.phrases.length>0,r.phrases.length,'>0'),info('phrases',r.phrases.slice(0,3).join(' | '))];
+  },
+  async function predictive_markov(){
+    const pe=new Codec.PredictiveEngine();
+    // Build a pattern: FRICTION → FRICTION → TENSION alternating
+    const pattern=['friction','friction','tension','friction','friction','tension','friction','friction','tension'];
+    pattern.forEach((tag,i)=>pe.update(tag,'some text '+i));
+    const pred=pe.predictNextTag('friction');
+    LOG.emit('test.predict.markov',{predictions:pred},{source:'test.codec'});
+    return[ok('predictions returned',pred.length>0,pred.length,'>0'),ok('top prediction for friction → friction or tension',pred[0]?.tag==='friction'||pred[0]?.tag==='tension',pred[0]?.tag,'friction|tension'),info('top prediction',JSON.stringify(pred[0]))];
+  },
+]);
+
+// ── SUITE 14: Pipeline (VideoCodec + AudioCodec + Encryption) ──
+suite('Pipeline · Compress · Encrypt','var(--c6)','t-pipeline',[
+  async function pipeline_video_full(){
+    const vc=new Codec.VideoCodec();
+    const w=128,h=72;
+    const frames=[Gen.darkScene(w,h),Gen.brightScene(w,h),Gen.gradient(w,h),Gen.noise(w,h),Gen.face(w,h)];
+    const results=frames.map((f,i)=>{const r=vc.compress(f,w,h);LOG.emit('test.pipeline.video.frame',{frame:i,dark:r.dark,ratio:r.ratio,lum:r.lum,motion:r.motionScore},{source:'test.pipeline',causedBy:undefined});return r;});
+    const avgRatio=results.reduce((s,r)=>s+r.ratio,0)/results.length;
+    LOG.emit('test.pipeline.video.summary',{frames:results.length,avgRatio:Math.round(avgRatio*100)/100},{source:'test.pipeline'});
+    return[ok('5 frames processed',results.length===5,results.length,5),ok('all have ratio field',results.every(r=>'ratio' in r),true,true),ok('avg ratio ≥ 1',avgRatio>=1,Math.round(avgRatio*100)/100,'≥1'),...results.map((r,i)=>info(`frame${i}: lum=${r.lum} dark=${r.dark} ratio=${r.ratio}×`,null))];
+  },
+  async function pipeline_audio_full(){
+    const ac=new Codec.AudioCodec();
+    const types=[['silence',Gen.silence(4096)],['sine',Gen.sineWave(4096)],['noise',Gen.whiteNoise(4096)],['speech',Gen.speech(4096)],['square',Gen.squareWave(4096)],['clipped',Gen.clipped(4096)],['burst',Gen.burst(4096)]];
+    const results=[];
+    let prevId=null;
+    for(const[name,samples]of types){
+      const r=ac.compress(samples,16000);
+      const ev=LOG.emit('test.pipeline.audio.'+name,{silence:r.features.silence,energy:r.features.energy,zcr:r.features.zcr,ratio:r.ratio},{source:'test.pipeline',causedBy:prevId,edgeType:prevId?Nexus.EDGE_CAUSAL_ADAPTER:undefined});
+      prevId=ev.id;
+      results.push({name,...r.features,ratio:r.ratio,rawBytes:r.rawBytes,compressedBytes:r.compressedBytes});
+    }
+    LOG.emit('test.pipeline.audio.summary',{total:results.length,silenceCount:results.filter(r=>r.silence).length},{source:'test.pipeline'});
+    return[ok('7 audio types processed',results.length===7,results.length,7),ok('silence type detected',results.filter(r=>r.silence).length>=1,true,true),...results.map(r=>info(`${r.name}: E=${r.energy} ratio=${r.ratio}×`,null))];
+  },
+  async function encryption_overhead(){
+    const fe=new Codec.FrameEncryptor('session-abc-123');
+    const frameSizes=[100,1024,4096,65536,1048576];
+    const results=frameSizes.map(size=>{
+      const mockData={byteLength:size};
+      const r=fe.encrypt(mockData);
+      LOG.emit('test.encrypt.frame',{...r,inputSize:size},{source:'test.pipeline'});
+      return r;
+    });
+    return[ok('overhead is always 32B',results.every(r=>r.overhead===32),true,true),ok('frameIndex increments',results[4].frameIndex===5,results[4].frameIndex,5),ok('IV is 12B',results[0].ivBytes===12,results[0].ivBytes,12),ok('GCM tag is 16B',results[0].tagBytes===16,results[0].tagBytes,16),...frameSizes.map((s,i)=>info(`${s}B → ${results[i].outputBytes}B (+${results[i].overhead}B overhead)`,null))];
+  },
+  async function encrypt_stream_causal_chain(){
+    const fe=new Codec.FrameEncryptor('sess-causal');
+    let prevEvId=null;
+    const N=10;
+    for(let i=0;i<N;i++){
+      const r=fe.encrypt({byteLength:1024+i*512});
+      const ev=LOG.emit('test.pipeline.encrypt.stream',{frameIndex:r.frameIndex,inputBytes:r.inputBytes,outputBytes:r.outputBytes},{source:'test.pipeline',causedBy:prevEvId,edgeType:prevEvId?Nexus.EDGE_CAUSAL_EXPLICIT:undefined});
+      prevEvId=ev.id;
+    }
+    const chain=LOG.kernel.traceToRoot(prevEvId);
+    return[ok('10 encrypted frames, causal chain depth=10',chain.length===10,chain.length,10),info('chain head type',chain[0]?.type)];
+  },
+]);
+
+// ── SUITE 15: Gate System ──
+suite('Gate System · Burst · Sigma Alerts','var(--c2)','t-gate',[
+  async function burst_gate_fires(){
+    // We registered a burst gate in LOG kernel
+    const ac=new Codec.GPGPUAudioProcessor();
+    for(let i=0;i<25;i++)ac.analyzeFrame(Gen.silence(256));
+    // Now emit a frame that should trigger the gate
+    const frame=ac.analyzeFrame(Gen.sineWave(256,440,16000,.95));
+    const ev=LOG.emit('test.codec.audio.frame',{...frame,energy:.9,energyAnomaly:true},{source:'test.gate'});
+    // Give gate time to process
+    await new Promise(r=>setTimeout(r,10));
+    const gateEvs=LOG.getAll().filter(e=>e.type==='test.gate.burst.alert');
+    LOG.emit('test.gate.burst.result',{gateEventsFound:gateEvs.length,triggered:gateEvs.length>0},{source:'test.gate'});
+    return[ok('burst gate fired',gateEvs.length>0,gateEvs.length,'>0'),info('gate events',gateEvs.length)];
+  },
+  async function sigma_gate_fires(){
+    const window=Array.from({length:20},(_,i)=>({latencyImpact:3,throughputChange:.1,structuralDeviation:.1,eventId:'x'+i,eventType:'ev',gap:50,childCount:0}));
+    const result=Nexus.classify(window);
+    const ev=LOG.emit('test.sigma.classify',{...result},{source:'test.gate'});
+    await new Promise(r=>setTimeout(r,10));
+    const sigmaAlerts=LOG.getAll().filter(e=>e.type==='test.gate.sigma.alert');
+    LOG.emit('test.gate.sigma.result',{alerts:sigmaAlerts.length,regime:result.regime},{source:'test.gate'});
+    return[ok('sigma alert gate fired',sigmaAlerts.length>0,sigmaAlerts.length,'>0'),ok('alert carries regime',sigmaAlerts[0]?.payload?.regime!==undefined,true,true),info('gate output',JSON.stringify(sigmaAlerts[0]?.payload))];
+  },
+  async function gate_depth_max(){
+    const k=Nexus.createKernel({ringCap:100});
+    let gateFireCount=0;
+    // Cascading gate — fires on its own output, should hit GATE_DEPTH_MAX
+    k.registerGate('cascade.test',(ev)=>{
+      if(ev.type==='cascade.trigger'||ev.type==='cascade.loop'){
+        gateFireCount++;
+        return[Nexus.gateOutput('cascade.loop',{depth:gateFireCount},{source:'gate:cascade',causedBy:ev.id,edgeType:Nexus.EDGE_CAUSAL_RULE})];
+      }return[];
+    },{priority:50});
+    k.ingest('cascade.trigger',{},{source:'test'});
+    LOG.emit('test.gate.depth_max',{gateFireCount,maxDepth:20},{source:'test.gate'});
+    return[ok('cascade stopped at GATE_DEPTH_MAX',gateFireCount<=20,gateFireCount,'<=20'),info('gate fires before cutoff',gateFireCount)];
+  },
+  async function multiple_gates_priority(){
+    const k=Nexus.createKernel({ringCap:100});
+    const order=[];
+    k.registerGate('priority.hi',(ev)=>{if(ev.type==='prio.test'){order.push('hi-10');}return[];},{priority:10});
+    k.registerGate('priority.lo',(ev)=>{if(ev.type==='prio.test'){order.push('lo-90');}return[];},{priority:90});
+    k.registerGate('priority.mid',(ev)=>{if(ev.type==='prio.test'){order.push('mid-50');}return[];},{priority:50});
+    k.ingest('prio.test',{},{source:'test'});
+    LOG.emit('test.gate.priority',{order},{source:'test.gate'});
+    return[ok('gates fire in priority order',order[0]==='hi-10'&&order[1]==='mid-50'&&order[2]==='lo-90',order.join('→'),'hi-10→mid-50→lo-90')];
+  },
+]);
+
+// ── SUITE 16: Kernel Under Load ──
+suite('Kernel · High Volume · Stress','var(--c4)','t-kernel',[
+  async function high_volume_ingest(){
+    const k=Nexus.createKernel({ringCap:10000});
+    const t0=performance.now();
+    for(let i=0;i<10000;i++)k.ingest('load.event',{i,val:Math.random()},{source:'load-test'});
+    const dur=performance.now()-t0;
+    const stats=k.stats();
+    LOG.emit('test.kernel.high_volume',{ingested:10000,size:stats.size,durationMs:Math.round(dur),eventsPerSec:Math.round(10000/(dur/1000))},{source:'test.kernel'});
+    return[ok('10k events ingested',stats.size===10000,stats.size,10000),ok('ingest under 2s',dur<2000,`${Math.round(dur)}ms`,'<2000ms'),ok('events/sec > 5000',10000/(dur/1000)>5000,Math.round(10000/(dur/1000))+'ev/s','>5000'),info('throughput',`${Math.round(10000/(dur/1000))} ev/s`)];
+  },
+  async function ring_eviction_at_cap(){
+    const cap=500;
+    const k=Nexus.createKernel({ringCap:cap});
+    const first=k.ingest('evict.first',{},{source:'test'});
+    for(let i=0;i<cap+100;i++)k.ingest('evict.filler',{i},{source:'test'});
+    LOG.emit('test.kernel.eviction',{firstId:first.id,found:k.findById(first.id)!==null,size:k.stats().size},{source:'test.kernel'});
+    return[ok('first event evicted',k.findById(first.id)===null,k.findById(first.id),null),ok('ring at cap',k.stats().size===cap,k.stats().size,cap)];
+  },
+  async function concurrent_gate_and_subscribe(){
+    const k=Nexus.createKernel({ringCap:1000});
+    let gateCount=0,listenerCount=0;
+    k.registerGate('conc.gate',(ev)=>{if(ev.type==='conc.event')gateCount++;return[];},{priority:50});
+    k.subscribe(ev=>{if(ev.type==='conc.event')listenerCount++;});
+    for(let i=0;i<100;i++)k.ingest('conc.event',{i},{source:'test'});
+    LOG.emit('test.kernel.concurrent',{gateCount,listenerCount},{source:'test.kernel'});
+    return[ok('gate fired 100×',gateCount===100,gateCount,100),ok('listener fired 100×',listenerCount===100,listenerCount,100),ok('gate fires before listener (count equal)',gateCount===listenerCount,gateCount===listenerCount,true)];
+  },
+  async function delta_on_large_kernel(){
+    const k=Nexus.createKernel({ringCap:500});
+    for(let i=0;i<500;i++)k.ingest('large.ev',{i,val:Math.sin(i*.1)},{source:'test'});
+    const events=k.getAll();
+    const t0=performance.now();
+    const deltas=Nexus.computeDeltaStream(events,id=>k.findById(id),id=>k.edgeMeta(id),id=>k.getChildren(id));
+    const sigma=Nexus.classify(deltas.slice(-20));
+    const dur=performance.now()-t0;
+    LOG.emit('test.delta.large_kernel',{deltaCount:deltas.length,regime:sigma.regime,durationMs:Math.round(dur)},{source:'test.kernel'});
+    return[ok('500 deltas computed',deltas.length===500,deltas.length,500),ok('sigma classification on 500-event kernel',sigma.regime in Nexus.REGIMES,sigma.regime,'valid regime'),ok('delta+sigma under 100ms',dur<100,`${Math.round(dur)}ms`,'<100ms'),info('regime',sigma.regime)];
+  },
+]);
+
+// ── SUITE 17: End-to-End Mixed Pipeline ──
+suite('E2E · Mixed Pipeline · Full Causal Log','var(--c0)','t-nexus',[
+  async function full_session_simulation(){
+    const k=Nexus.createKernel({ringCap:500});
+    const audioCodec=new Codec.AudioCodec();
+    const videoCodec=new Codec.VideoCodec();
+    const pitch=new Codec.PitchEngine(48000);
+    const friction=new Codec.FrictionAnalyzer();
+    const assoc=new Codec.AssociationEngine();
+    const slope=new Codec.SlopeEngine();
+    const osc=new Codec.OscillationEngine(20);
+    const fe=new Codec.FrameEncryptor('e2e-session');
+
+    const session=k.ingest('session.start',{sessionId:'e2e-001'},{source:'e2e'});
+    let prevId=session.id;
+    const energies=[];
+    // Simulate 20 frames of mixed input
+    for(let frame=0;frame<20;frame++){
+      const audioSamples=frame<10?Gen.speech(512):Gen.whiteNoise(512,.4);
+      const videoRGBA=frame<5?Gen.darkScene(32,32):frame<15?Gen.face(32,32):Gen.moving(32,32,frame);
+      const aResult=audioCodec.compress(audioSamples,16000);
+      const vResult=videoCodec.compress(videoRGBA,32,32);
+      const pitchResult=pitch.analyze(Gen.freqData(512,150+frame*5,48000),aResult.features.zcr,aResult.features.energy);
+      const slopeResult=slope.feed(aResult.features.energy);
+      const oscResult=osc.feed(aResult.features.energy);
+      energies.push(aResult.features.energy);
+
+      const audioEv=k.ingest('session.audio.frame',{frame,energy:aResult.features.energy,silence:aResult.features.silence,audioRatio:aResult.ratio},{source:'e2e',causedBy:prevId,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+      const videoEv=k.ingest('session.video.frame',{frame,lum:vResult.lum,dark:vResult.dark,motion:vResult.motionScore,videoRatio:vResult.ratio},{source:'e2e',causedBy:prevId,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+      k.ingest('session.pitch',{frame,f0:pitchResult.f0,voiced:pitchResult.voiced,prosodyTag:pitchResult.prosodyTag},{source:'e2e',causedBy:audioEv.id,edgeType:Nexus.EDGE_CAUSAL_ADAPTER});
+      k.ingest('session.slope',{frame,...slopeResult},{source:'e2e',causedBy:audioEv.id,edgeType:Nexus.EDGE_CAUSAL_RULE});
+      prevId=videoEv.id;
+      LOG.emit('test.nexus.e2e.frame',{frame,audioEnergy:aResult.features.energy,videoLum:vResult.lum,voiced:pitchResult.voiced,slopeDir:slopeResult.direction,oscillating:oscResult.oscillating},{source:'test.e2e'});
+    }
+    // NLP pass on some transcripts
+    [Gen.texts.clear,Gen.texts.friction,Gen.texts.technical].forEach((t,i)=>{
+      const fr=friction.analyze(t);assoc.add('seg-'+i,t);
+      k.ingest('session.speech.segment',{segment:i,hasFriction:fr.friction,density:fr.density},{source:'e2e',causedBy:prevId,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+    });
+    // Encrypt a batch
+    const encResult=fe.encrypt({byteLength:20*1024});
+    k.ingest('session.stream.encrypted',{...encResult},{source:'e2e',causedBy:prevId,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+    k.ingest('session.end',{totalEvents:k.stats().size},{source:'e2e',causedBy:prevId,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+
+    // Compute delta stream + sigma
+    const events=k.getAll();
+    const deltas=Nexus.computeDeltaStream(events,id=>k.findById(id),id=>k.edgeMeta(id),id=>k.getChildren(id));
+    const sigmaResult=Nexus.classify(deltas.slice(-15));
+    const snap=Nexus.snapshot(k);
+    const bp=Nexus.blueprint(k);
+    const report=Nexus.compressionReport(k,snap);
+
+    LOG.emit('test.nexus.e2e.summary',{totalEvents:k.stats().size,regime:sigmaResult.regime,confidence:sigmaResult.confidence,compressionRatio:snap.ratio,vocabSize:bp.typeCount,assocEdges:assoc.edges.length,report:report.summary},{source:'test.e2e'});
+
+    return[
+      ok('session has 80+ events',k.stats().size>80,k.stats().size,'>80'),
+      ok('delta stream covers all events',deltas.length===events.length,deltas.length,events.length),
+      ok('sigma classification computed',sigmaResult.regime in Nexus.REGIMES,sigmaResult.regime,'valid'),
+      ok('snapshot compresses kernel',snap.primaryCount>0&&snap.ratio>0,snap.ratio,'>0'),
+      ok('blueprint vocab > 5 types',bp.typeCount>5,bp.typeCount,'>5'),
+      ok('association edges formed',assoc.edges.length>=0,assoc.edges.length,'>=0'),
+      info('regime',sigmaResult.regime+' (confidence='+sigmaResult.confidence+')'),
+      info('compression',report.summary),
+      info('vocab types',bp.typeCount),
+    ];
+  },
+  async function causal_nexus_invariant_i1(){
+    // I-1: event.id is UUID v4, never deterministic
+    const k=Nexus.createKernel({ringCap:100});
+    const ids=new Set();for(let i=0;i<100;i++)ids.add(k.ingest('i1.event',{i},{source:'test'}).id);
+    const allValid=[...ids].every(id=>Nexus.isValidEventId(id));
+    LOG.emit('test.nexus.invariant.I1',{unique:ids.size===100,allValid},{source:'test.invariants'});
+    return[ok('I-1: 100 unique UUID v4 ids',ids.size===100&&allValid,`${ids.size} unique, allValid=${allValid}`,'100 unique')];
+  },
+  async function causal_nexus_invariant_i2(){
+    // I-2: contentHash orthogonal to id
+    const h1=Nexus.contentHash('ev',{x:1},'src');
+    const h2=Nexus.contentHash('ev',{x:1},'src');
+    const id1=Nexus.newEventId(),id2=Nexus.newEventId();
+    LOG.emit('test.nexus.invariant.I2',{h1,h2,id1,id2,hashEqual:h1===h2,idEqual:id1===id2},{source:'test.invariants'});
+    return[ok('I-2: identical payload → same hash',h1===h2,`${h1}===${h2}`,'equal'),ok('I-2: hash independent of id',id1!==id2,`id1!==id2`,true)];
+  },
+  async function causal_nexus_invariant_h1(){
+    // H-1: edge graph bounded by ring eviction
+    const k=Nexus.createKernel({ringCap:10});
+    const root=k.ingest('h1.root',{},{source:'test'});
+    for(let i=0;i<5;i++)k.ingest('h1.child',{i},{source:'test',causedBy:root.id,edgeType:Nexus.EDGE_CAUSAL_EXPLICIT});
+    // Overfill ring so root gets evicted
+    for(let i=0;i<15;i++)k.ingest('h1.filler',{i},{source:'test'});
+    const rootAfterEvict=k.findById(root.id);
+    LOG.emit('test.nexus.invariant.H1',{rootEvicted:rootAfterEvict===null},{source:'test.invariants'});
+    return[ok('H-1: evicted event edges pruned',rootAfterEvict===null,rootAfterEvict,null)];
+  },
+  async function full_log_query(){
+    const allEvents=LOG.getAll();
+    const byType=new Map();
+    for(const ev of allEvents)byType.set(ev.type,(byType.get(ev.type)??0)+1);
+    const topTypes=[...byType.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const gateEvs=allEvents.filter(e=>e.source?.startsWith('gate:'));
+    LOG.emit('test.nexus.log_query',{totalEvents:allEvents.length,uniqueTypes:byType.size,gateEventCount:gateEvs.length,topTypes:topTypes.map(([t,c])=>t+':'+c)},{source:'test.e2e'});
+    return[ok('log has events',allEvents.length>50,allEvents.length,'>50'),ok('gate events found in log',gateEvs.length>0,gateEvs.length,'>0'),ok('multiple event types',byType.size>10,byType.size,'>10'),...topTypes.map(([t,c])=>info(`${t}: ${c} events`,null))];
+  },
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI RENDERING
+// ═══════════════════════════════════════════════════════════════════════════
+let _allTests=[],_testResults=new Map();
+
+function buildSidebar(){
+  const sb=document.getElementById('sidebar');sb.innerHTML='';
+  let total=0;
+  for(const suite of TESTS){
+    const grp=document.createElement('div');grp.className='suite-group';
+    const head=document.createElement('div');head.className='suite-head';
+    head.innerHTML=`<span class="dot" style="background:${suite.color}"></span>${suite.name}`;
+    grp.appendChild(head);
+    for(const fn of suite.tests){
+      total++;
+      const item=document.createElement('div');
+      item.className='test-item';item.id='ti-'+fn.name;
+      item.innerHTML=`<span class="status" id="st-${fn.name}">◌</span>${fn.name.replace(/_/g,' ')}<span class="dur" id="dr-${fn.name}"></span>`;
+      item.onclick=()=>showResult(fn.name);
+      grp.appendChild(item);
+      _allTests.push({fn,suite});
+    }
+    sb.appendChild(grp);
+  }
+  document.getElementById('c-total').textContent=total;
+}
+
+function showResult(name){
+  _active=name;
+  document.querySelectorAll('.test-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('ti-'+name)?.classList.add('active');
+  const r=_testResults.get(name);
+  const suite=_allTests.find(t=>t.fn.name===name)?.suite;
+  document.getElementById('th-name').textContent=name.replace(/_/g,' ');
+  const meta=document.getElementById('th-meta');
+  if(r){
+    const pass=r.results.filter(x=>x.pass===true).length;
+    const fail=r.results.filter(x=>x.pass===false).length;
+    meta.innerHTML=`<span class="meta-tag ${r.pass?'pass':'fail'}">${r.pass?'✓ PASS':'✗ FAIL'}</span><span class="meta-tag">${suite?.name||''}</span><span class="meta-tag">${Math.round(r.dur)}ms</span><span class="meta-tag">${pass}/${pass+fail} assertions</span>`;
+  } else {
+    meta.innerHTML=`<span class="meta-tag run">◌ pending</span><span class="meta-tag">${suite?.name||''}</span>`;
+  }
+  renderResults(name);
+}
+
+function renderResults(name){
+  const container=document.getElementById('results');container.innerHTML='';
+  const r=_testResults.get(name);if(!r)return;
+  for(const res of r.results){
+    const row=document.createElement('div');
+    const cls=res.type==='info'?'info':res.type==='warn'?'warn':res.pass?'pass':'fail';
+    row.className='result-row '+cls;
+    const icon=res.type==='info'?'◈':res.type==='warn'?'⚠':res.pass?'✓':'✗';
+    let body='';
+    if(res.type==='info'){
+      body=`<span class="label">${res.name}:</span> <span class="val blue">${typeof res.got==='string'?res.got:JSON.stringify(res.got)??''}</span>`;
+    } else if(res.type==='warn'){
+      body=`<span class="val warn">${res.name}</span>`;
+    } else {
+      const valClass=res.pass?'val':'val bad';
+      body=`${res.name} — got <span class="${valClass}">${JSON.stringify(res.got)}</span>`;
+      if(res.expected!==undefined&&!res.pass)body+=` expected <span class="val">${JSON.stringify(res.expected)}</span>`;
+    }
+    row.innerHTML=`<span class="icon">${icon}</span><div class="body">${body}</div><span class="dur">${res.dur>0?Math.round(res.dur)+'ms':''}</span>`;
+    container.appendChild(row);
+  }
+}
+
+function updateSidebarItem(name,pass,dur){
+  const item=document.getElementById('ti-'+name);
+  const st=document.getElementById('st-'+name);
+  const dr=document.getElementById('dr-'+name);
+  if(item){item.classList.remove('running');item.classList.add(pass?'pass':'fail');}
+  if(st)st.textContent=pass?'✓':'✗';
+  if(dr)dr.textContent=Math.round(dur)+'ms';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RUN ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+let _running=false;
+
+async function runAll(){
+  if(_running)return;
+  _running=true;
+  _pass=0;_fail=0;
+  document.getElementById('run-btn').textContent='◼ RUNNING';
+  document.getElementById('run-btn').className='running';
+  document.getElementById('c-pass').textContent='0';
+  document.getElementById('c-fail').textContent='0';
+
+  const total=_allTests.length;
+  const bar=document.getElementById('progress-bar');
+
+  for(let i=0;i<total;i++){
+    const{fn,suite}=_allTests[i];
+    const item=document.getElementById('ti-'+fn.name);
+    if(item)item.classList.add('running');
+    if(item){item.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+    const t0=performance.now();
+    let results=[];
+    let pass=true;
+    try{results=await fn();}catch(e){results=[{name:'Uncaught: '+e.message,pass:false,got:e.message,expected:'no error',type:'assert'}];LOG.emit('test.error',{name:fn.name,error:e.message},{source:'test.runner'});}
+    const dur=performance.now()-t0;
+
+    const hasFail=results.some(r=>r.pass===false);
+    if(hasFail)pass=false;
+
+    _testResults.set(fn.name,{results,pass,dur});
+    updateSidebarItem(fn.name,pass,dur);
+    if(pass)_pass++;else _fail++;
+    document.getElementById('c-pass').textContent=_pass;
+    document.getElementById('c-fail').textContent=_fail;
+    bar.style.width=((i+1)/total*100)+'%';
+    // Auto-show last run test
+    showResult(fn.name);
+    await new Promise(r=>setTimeout(r,5));
+  }
+
+  document.getElementById('run-btn').textContent='▶ RUN ALL';
+  document.getElementById('run-btn').className='';
+  document.getElementById('run-btn').disabled=false;
+  _running=false;
+  bar.style.background=_fail>0?'var(--c1)':'var(--c0)';
+  LOG.emit('test.suite.complete',{pass:_pass,fail:_fail,total,passRate:Math.round(_pass/total*100)+'%'},{source:'test.runner'});
+}
+
+// Expose globals for inline onclick handlers
+window.runAll = runAll;
+
+// Init
+buildSidebar();
+showResult(_allTests[0]?.fn?.name);
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --ink:#020705;--signal:#39ff6a;--glow:rgba(57,255,106,.15);
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;
+  --rose:#ff4455;--amber:#ffcc00;--cyan:#00ffee;
+  --mono:'Courier New',monospace;
+}
+html,body{
+  width:100%;height:100vh;overflow:hidden;
+  background:var(--ink);color:var(--bright);
+  font-family:var(--mono);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(57,255,106,.015) 2px,rgba(57,255,106,.015) 3px);
+  pointer-events:none;
+}
+
+/* ── Header ── */
+#header{
+  position:fixed;top:0;left:0;right:0;
+  padding:16px;display:flex;align-items:center;gap:10px;
+  background:rgba(2,7,5,.95);border-bottom:1px solid rgba(57,255,106,.1);
+  z-index:100;
+}
+.logo-mark{
+  width:28px;height:28px;border:1px solid var(--signal);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--signal);
+  animation:pulse 3s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 16px var(--signal),inset 0 0 8px rgba(57,255,106,.2)}}
+.title{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;}
+.subtitle{font-size:7px;letter-spacing:2px;color:var(--dim);margin-top:2px;}
+
+/* ── Main ── */
+#main{
+  display:flex;flex-direction:column;align-items:center;
+  gap:32px;padding:20px;
+  margin-top:72px;
+  width:100%;max-width:360px;
+}
+
+/* ── Status ring ── */
+#status-ring{
+  width:160px;height:160px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.ring-svg{width:100%;height:100%;transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:rgba(57,255,106,.1);stroke-width:3;}
+.ring-fill{fill:none;stroke:var(--signal);stroke-width:3;stroke-linecap:round;
+  stroke-dasharray:440;stroke-dashoffset:440;transition:stroke-dashoffset .3s ease;}
+.ring-fill.active{stroke-dashoffset:0;}
+.ring-fill.connecting{stroke-dashoffset:220;stroke:var(--amber);}
+.ring-fill.error{stroke-dashoffset:110;stroke:var(--rose);}
+#ring-icon{
+  position:absolute;font-size:48px;
+  transition:all .3s;
+}
+#ring-label{
+  position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);
+  font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;
+  white-space:nowrap;
+}
+
+/* ── Energy meter ── */
+#energy-meter{
+  width:100%;height:4px;background:rgba(57,255,106,.1);
+  border-radius:2px;overflow:hidden;
+}
+#energy-fill{
+  height:100%;background:var(--signal);width:0%;
+  transition:width .05s;border-radius:2px;
+}
+
+/* ── Level display ── */
+#level-display{
+  display:flex;gap:3px;align-items:flex-end;height:40px;
+}
+.level-bar{
+  width:6px;background:rgba(57,255,106,.15);border-radius:2px;
+  transition:height .05s,background .1s;height:4px;
+}
+
+/* ── Buttons ── */
+.btn{
+  width:100%;padding:16px;border:1px solid rgba(57,255,106,.3);
+  background:transparent;color:var(--signal);font-family:var(--mono);
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  cursor:pointer;transition:all .2s;
+}
+.btn:hover,.btn:active{background:var(--glow);border-color:var(--signal);}
+.btn.primary{border-color:var(--signal);font-size:12px;letter-spacing:4px;}
+.btn.secondary{border-color:rgba(57,255,106,.2);color:var(--dim);}
+.btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* ── Info rows ── */
+.info-row{
+  width:100%;display:flex;justify-content:space-between;
+  font-size:8px;padding:8px 0;
+  border-bottom:1px solid rgba(57,255,106,.05);
+}
+.info-label{color:var(--dim);letter-spacing:1px;}
+.info-val{color:var(--muted);}
+.info-val.signal{color:var(--signal);}
+.info-val.warn{color:var(--amber);}
+.info-val.error{color:var(--rose);}
+
+/* ── QR / Magnet ── */
+#magnet-section{
+  width:100%;display:none;
+  flex-direction:column;align-items:center;gap:12px;
+}
+#magnet-section.visible{display:flex;}
+#qr-canvas{
+  border:1px solid rgba(57,255,106,.2);
+  image-rendering:pixelated;
+}
+#magnet-text{
+  font-size:7px;color:var(--dim);letter-spacing:1px;
+  word-break:break-all;text-align:center;line-height:1.6;
+  padding:8px;border:1px solid rgba(57,255,106,.1);
+  width:100%;
+}
+#copy-btn{
+  font-size:8px;letter-spacing:2px;padding:8px 16px;
+  border:1px solid rgba(57,255,106,.2);color:var(--mid);
+  background:none;cursor:pointer;font-family:var(--mono);
+}
+
+/* ── Toast notifications ── */
+#toast-stack{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:999;pointer-events:none;width:calc(100% - 48px);max-width:320px;
+}
+.toast{
+  width:100%;padding:10px 14px;
+  font-size:8px;letter-spacing:2px;text-transform:uppercase;
+  border:1px solid rgba(57,255,106,.3);background:rgba(2,7,5,.96);
+  color:var(--bright);font-family:var(--mono);
+  display:flex;align-items:center;gap:10px;
+  opacity:0;transform:translateY(8px);
+  transition:opacity .2s ease,transform .2s ease;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok  {border-color:var(--signal);color:var(--signal);}
+.toast.fail{border-color:var(--rose);color:var(--rose);}
+.toast.info{border-color:var(--amber);color:var(--amber);}
+.toast-icon{font-size:12px;flex-shrink:0;}
+
+/* ── Input for magnet paste ── */
+#magnet-input{
+  width:100%;padding:10px;
+  background:rgba(57,255,106,.03);border:1px solid rgba(57,255,106,.2);
+  color:var(--bright);font-family:var(--mono);font-size:9px;
+  display:none;
+}
+#magnet-input.visible{display:block;}
+#magnet-input::placeholder{color:var(--dim);}

@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resonance — v4.1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=IBM+Plex+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div id="starfield"></div>
+<div class="version-badge">resonance v3.0.0</div>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="wordmark" onclick="switchTab('main')">reso<em>nance</em></div>
+    <div class="topbar-center">
+      <div class="topbar-tabs" id="topbar-tabs-center" style="opacity:0;transition:opacity .3s">
+        <div class="ttab active" data-tab="main" onclick="switchTab('main')">home</div>
+        <div class="ttab" data-tab="resonance" onclick="switchTab('resonance')">resonance</div>
+        <div class="ttab" data-tab="friends" onclick="switchTab('friends')">connections</div>
+        <div class="ttab" data-tab="search" onclick="switchTab('search')">discover</div>
+        <div class="ttab" data-tab="profile" onclick="switchTab('profile')">me</div>
+        <div class="ttab" data-tab="dm" onclick="switchTab('dm')">messages</div>
+        <div class="ttab" data-tab="reflection" onclick="switchTab('reflection')">signal portrait</div>
+        <div class="ttab" data-tab="roadmap" onclick="switchTab('roadmap')">roadmap</div>
+        <div class="ttab" data-tab="meteditor" onclick="switchTab('meteditor')" id="meteditor-tab" style="display:none">meteditor</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="signal-pulse" id="signal-pulse" title="signal health"></div>
+      <div class="tb-search">
+        <span style="color:var(--text4);font-size:11px">⌕</span>
+        <input type="text" placeholder="search the field..." id="global-search" onkeydown="if(event.key==='Enter')doGlobalSearch()">
+      </div>
+      <div class="tb-icon notif-dot" id="notif-btn" onclick="switchTab('friends')" title="notifications">🔔</div>
+      <div class="avatar-btn" id="nav-avatar" onclick="switchTab('profile')">?</div>
+    </div>
+  </div>
+
+  <!-- AUTH SCREEN -->
+  <div class="screen" id="auth-screen">
+    <div class="auth-card">
+      <h2>welcome back</h2>
+      <p>a place for people who think deeply and feel deeply</p>
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchAuthTab('login')">sign in</div>
+        <div class="auth-tab" onclick="switchAuthTab('register')">new account</div>
+      </div>
+      <div id="login-form">
+        <div class="form-field"><label>email or handle</label>
+          <input type="text" id="login-id" placeholder="you@resonance.fm" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="form-field"><label>password</label>
+          <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="auth-error" id="login-err">those credentials don't match what we have</div>
+        <button class="btn-auth" onclick="doLogin()">enter the field</button>
+        <div class="auth-divider">or</div>
+        <button class="btn-auth secondary" onclick="demoLogin('james')">continue as James</button>
+        <button class="btn-auth secondary" style="margin-top:6px" onclick="demoLogin('admin')">continue as admin</button>
+      </div>
+      <div id="register-form" style="display:none">
+        <div class="form-field"><label>your name</label>
+          <input type="text" id="reg-name" placeholder="how you want to be known">
+        </div>
+        <div class="form-field"><label>handle</label>
+          <input type="text" id="reg-handle" placeholder="no spaces or @">
+        </div>
+        <div class="form-field"><label>email</label>
+          <input type="email" id="reg-email" placeholder="your@email.com">
+        </div>
+        <div class="form-field"><label>password</label>
+          <input type="password" id="reg-pw" placeholder="make it yours" onkeydown="if(event.key==='Enter')doRegister()">
+        </div>
+        <div class="auth-error" id="reg-err">that handle or email is already taken</div>
+        <button class="btn-auth" onclick="doRegister()">begin calibration</button>
+      </div>
+    </div>
+    <div class="auth-tagline">"depth is not a personality trait. it's a direction."</div>
+  </div>
+
+  <!-- MAIN FEED SCREEN -->
+  <div class="screen" id="main-screen">
+    <div class="feed-col" id="feed-col">
+      <div class="feed-inner">
+        <!-- Deep question -->
+        <div class="q-prompt" id="q-prompt-box">
+          <p id="q-prompt-text">loading a question...</p>
+          <div class="q-buttons">
+            <button class="q-btn primary" onclick="answerQuestion()">answer this</button>
+            <button class="q-btn secondary" onclick="nextQuestion()">different question</button>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+        <!-- Compose -->
+        <div class="compose-box">
+          <div class="compose-row">
+            <div class="compose-av" id="compose-av">?</div>
+            <div class="compose-right">
+              <textarea class="compose-area" id="compose-area" placeholder="what's actually on your mind..." rows="3" oninput="onComposeInput()"></textarea>
+              <div class="img-preview-row" id="img-preview-row"></div>
+              <div class="compose-toolbar">
+                <div class="compose-tool" onclick="document.getElementById('img-input').click()" title="attach image">📎</div>
+                <div class="compose-tool" title="voice" onclick="toggleVoice()" id="voice-btn">🎙</div>
+                <div class="compose-tool" title="visibility" onclick="cycleVis()" id="vis-btn">🌐</div>
+                <div class="compose-snr-label" id="compose-snr-label">start writing — signal score appears here</div>
+                <button class="btn-post" onclick="submitPost()">emit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="img-input" accept="image/*" multiple onchange="onImgSelect(event)">
+        <!-- Feed -->
+        <div id="feed-container"></div>
+      </div>
+    </div>
+    <!-- Aside -->
+    <div class="aside-col" id="aside-col">
+      <div class="panel">
+        <div class="panel-title">your signal <a onclick="switchTab('reflection')">full view →</a></div>
+        <div id="aside-health"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">behavior patterns</div>
+        <div id="aside-bpe"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">resonant signals <a onclick="switchTab('resonance')">explore →</a></div>
+        <div id="aside-resonant"></div>
+      </div>
+      <div class="panel" id="aside-question-panel">
+        <div class="panel-title">today's question</div>
+        <div class="q-prompt" style="margin:0">
+          <p id="aside-q-text" style="font-size:12px;margin-bottom:10px">loading...</p>
+          <div class="q-buttons">
+            <button class="q-btn primary" style="font-size:8px;padding:6px" onclick="answerQuestion()">answer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REFLECTION SCREEN -->
+  <div class="screen" id="reflection-screen">
+    <div class="reflection-inner">
+      <div class="section-header">your signal portrait</div>
+      <div class="section-sub">how you show up in language — patterns, not scores</div>
+      <div class="reflection-grid" id="reflection-grid"></div>
+      <div style="margin-top:8px;margin-bottom:8px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase">external processing <span style="font-size:7.5px;color:var(--text4);text-transform:none;margin-left:8px">jaa encrypted — nobody else sees this</span></div>
+      <textarea class="dump-area" id="brain-dump-area" placeholder="dump everything here. what's running in the background. what you can't stop thinking about. what you haven't said yet. encrypted automatically — nobody sees this."></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-sm primary" onclick="saveBrainDump()">save</button>
+        <button class="btn-sm" onclick="loadBrainDump()">load saved</button>
+      </div>
+      <div style="height:24px"></div>
+      <div style="font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:12px">current patterns</div>
+      <div id="reflection-bpe"></div>
+    </div>
+  </div>
+
+  <!-- PROFILE SCREEN -->
+  <div class="screen" id="profile-screen">
+    <div class="profile-inner">
+      <div class="profile-hero">
+        <div class="profile-av-lg" id="profile-av-lg">
+          <img id="profile-photo" style="display:none" alt="">
+          <div class="profile-av-upload" onclick="document.getElementById('photo-input').click()">📷</div>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" onchange="uploadProfilePhoto(event)">
+        <div class="profile-info">
+          <h2 id="profile-display-name">—</h2>
+          <div class="handle" id="profile-handle">@—</div>
+          <div class="profile-bio" id="profile-bio" onclick="editBio()" title="click to edit">—</div>
+          <div class="profile-since" id="profile-since"></div>
+          <div class="profile-signal-summary" id="profile-signal-sum"></div>
+          <div class="profile-actions">
+            <button class="btn-sm primary" onclick="switchTab('reflection')">signal portrait</button>
+            <button class="btn-sm" onclick="showProfileSettings()">settings</button>
+            <button class="btn-sm" onclick="logout()">sign out</button>
+          </div>
+        </div>
+      </div>
+      <div class="profile-tabs">
+        <div class="ptab active" onclick="switchProfileTab('posts',this)">posts</div>
+        <div class="ptab" onclick="switchProfileTab('gallery',this)">gallery</div>
+        <div class="ptab" onclick="switchProfileTab('reflection-tab',this)">reflection notes</div>
+        <div class="ptab" onclick="switchProfileTab('settings',this)">settings</div>
+      </div>
+      <div id="profile-posts-tab"></div>
+      <div id="profile-gallery-tab" style="display:none">
+        <div class="gallery-grid" id="gallery-grid">
+          <div class="gallery-upload" onclick="document.getElementById('gallery-input').click()">
+            <span style="font-size:20px;color:var(--text3)">+</span>
+            <span>add to gallery</span>
+          </div>
+        </div>
+        <input type="file" id="gallery-input" accept="image/*,video/*" onchange="uploadGallery(event)">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text3);margin-top:6px">max 25MB per file · jpg, png, gif, mp4 · max 100 items</div>
+      </div>
+      <div id="profile-reflection-tab-tab" style="display:none">
+        <div style="font-family:var(--body);font-size:13px;color:var(--text3);font-style:italic;margin-bottom:14px">your reflection notes — visible to you only</div>
+        <div id="reflection-notes-list"></div>
+      </div>
+      <div id="profile-settings-tab" style="display:none">
+        <div class="settings-section">
+          <h3>privacy</h3>
+          <div class="settings-row">
+            <div><div class="settings-label">public profile</div><div class="settings-sub">anyone can view your profile and posts</div></div>
+            <div class="toggle on" id="tog-public-profile" onclick="toggleSetting('profilePublic',this)"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-label">public gallery</div><div class="settings-sub">your gallery is visible to others</div></div>
+            <div class="toggle on" id="tog-public-gallery" onclick="toggleSetting('galleryPublic',this)"></div>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-label">share reflection notes</div><div class="settings-sub">let close connections see your reflection</div></div>
+            <div class="toggle" id="tog-reflection" onclick="toggleSetting('reflectionPublic',this)"></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>account</h3>
+          <div class="settings-row">
+            <div class="settings-label">change email</div>
+            <input class="settings-input" type="email" id="new-email-input" placeholder="new email">
+            <button class="btn-sm" onclick="changeEmail()">update</button>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">change password</div>
+            <input class="settings-input" type="password" id="new-pw-input" placeholder="new password">
+            <button class="btn-sm" onclick="changePassword()">update</button>
+          </div>
+          <div class="settings-row">
+            <div><div class="settings-label" style="color:var(--warn)">delete account</div><div class="settings-sub">permanently removes all your data</div></div>
+            <button class="btn-sm warn" onclick="confirmDeleteAccount()">delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DM SCREEN -->
+  <div class="screen" id="dm-screen">
+    <div class="dm-list">
+      <div class="dm-list-head">messages <span onclick="newDM()">+</span></div>
+      <div class="dm-items" id="dm-list-items"></div>
+    </div>
+    <div class="dm-thread">
+      <div class="dm-thread-head" id="dm-thread-head" style="display:none">
+        <div class="dm-av" id="dm-thread-av">—</div>
+        <div>
+          <div class="dm-thread-name" id="dm-thread-name">—</div>
+          <div class="dm-thread-handle" id="dm-thread-handle"></div>
+        </div>
+        <div class="dm-status-label" id="dm-status-label" style="background:var(--far2);color:var(--far)">—</div>
+        <div style="margin-left:8px;display:flex;gap:6px">
+          <button class="btn-sm" onclick="muteDMContact()">mute</button>
+          <button class="btn-sm warn" onclick="blockDMContact()">block</button>
+        </div>
+      </div>
+      <div class="dm-messages" id="dm-messages">
+        <div class="empty-state">select a conversation to begin</div>
+      </div>
+      <div class="dm-compose" id="dm-compose" style="display:none">
+        <textarea class="dm-input" id="dm-input" placeholder="emit a signal..." rows="1" onkeydown="dmEnter(event)" oninput="autoResize(this)"></textarea>
+        <button class="dm-send" onclick="sendDM()">
+          <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22 11 13 2 9l20-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH SCREEN -->
+  <div class="screen" id="search-screen">
+    <div class="search-inner">
+      <div class="section-header" style="margin-bottom:16px">discover</div>
+      <div class="search-bar-lg">
+        <input type="text" id="search-input" placeholder="search people, posts, tags..." onkeydown="if(event.key==='Enter')doSearch()">
+        <button onclick="doSearch()">search</button>
+      </div>
+      <div class="search-filters" id="search-filters">
+        <div class="filter-chip active" onclick="setSearchFilter('all',this)">everything</div>
+        <div class="filter-chip" onclick="setSearchFilter('people',this)">people</div>
+        <div class="filter-chip" onclick="setSearchFilter('posts',this)">posts</div>
+        <div class="filter-chip" onclick="setSearchFilter('near',this)">near field</div>
+        <div class="filter-chip" onclick="setSearchFilter('tension',this)">different angle</div>
+        <div class="filter-chip" onclick="setSearchFilter('far',this)">far field</div>
+        <div class="filter-chip" onclick="setSearchFilter('tags',this)">tags</div>
+      </div>
+      <div class="search-results" id="search-results">
+        <div class="empty-state">enter a query to search the field</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FRIENDS SCREEN -->
+  <div class="screen" id="friends-screen">
+    <div class="friends-inner">
+      <div class="section-header" style="margin-bottom:4px">connections</div>
+      <div class="section-sub">everyone you've found a signal with</div>
+      <div class="friends-tabs">
+        <div class="ftab active" onclick="switchFriendTab('connections',this)">connections</div>
+        <div class="ftab" onclick="switchFriendTab('invites',this)">invites</div>
+        <div class="ftab" onclick="switchFriendTab('muted',this)">muted</div>
+        <div class="ftab" onclick="switchFriendTab('blocked',this)">blocked</div>
+        <div class="ftab" onclick="switchFriendTab('discover',this)">who to connect with</div>
+      </div>
+      <div id="friends-tab-content"></div>
+    </div>
+  </div>
+
+  <!-- RESONANCE SCREEN -->
+  <div class="screen" id="resonance-screen">
+    <div class="resonance-inner">
+      <div class="section-header" style="margin-bottom:4px">resonance</div>
+      <div class="section-sub">your signal in the field</div>
+      <div class="res-tabs">
+        <div class="rtab2 active" onclick="switchResTab('lattice',this)">word lattice</div>
+        <div class="rtab2" onclick="switchResTab('metrics',this)">your metrics</div>
+        <div class="rtab2" onclick="switchResTab('deep',this)">deep patterns</div>
+        <div class="rtab2" onclick="switchResTab('gap',this)">gap analysis</div>
+        <div class="rtab2" onclick="switchResTab('physics',this)">relational physics</div>
+        <div class="rtab2" onclick="switchResTab('field',this)">field engine</div>
+        <div class="rtab2" onclick="switchResTab('assistant',this)">ai assistant</div>
+        <div class="rtab2" onclick="switchResTab('api',this)">resonance api</div>
+      </div>
+      <div id="res-lattice-tab">
+        <div style="font-family:var(--mono);font-size:8.5px;color:var(--text3);margin-bottom:10px;font-style:italic">words weighted by resonance × depth × emotional intensity — click to filter feed</div>
+        <canvas id="word-lattice-canvas"></canvas>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--near)"></div><span style="font-family:var(--mono);font-size:8px;color:var(--text3)">near field</span></div>
+          <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--tension)"></div><span style="font-family:var(--mono);font-size:8px;color:var(--text3)">different angle</span></div>
+          <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:var(--far)"></div><span style="font-family:var(--mono);font-size:8px;color:var(--text3)">far field</span></div>
+        </div>
+      </div>
+      <div id="res-metrics-tab" style="display:none">
+        <div class="metrics-grid" id="metrics-grid"></div>
+      </div>
+      <div id="res-assistant-tab" style="display:none">
+        <div class="ai-assistant">
+          <div style="font-family:var(--mono);font-size:8.5px;color:var(--text3);margin-bottom:12px;font-style:italic">powered by claude — ask about your signal, get feedback on a post, find who to talk to</div>
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="aiQuick('How is my resonance signal looking lately?')">how's my signal?</button>
+            <button class="ai-quick-btn" onclick="aiQuick('What patterns do you see in how I write?')">what patterns do you see?</button>
+            <button class="ai-quick-btn" onclick="aiQuick('Who should I connect with based on my signal?')">who to connect with?</button>
+            <button class="ai-quick-btn" onclick="aiQuick('Help me write a post with more depth and resonance.')">help me write something deeper</button>
+          </div>
+          <div class="ai-messages" id="ai-messages">
+            <div class="ai-msg assistant">hi — I can help you understand your resonance signal, improve your posts, or find people worth connecting with. what would you like to explore?</div>
+          </div>
+          <div class="ai-input-row">
+            <input class="ai-input" type="text" id="ai-input" placeholder="ask anything about your signal..." onkeydown="if(event.key==='Enter')sendAI()">
+            <button class="ai-send" onclick="sendAI()">send</button>
+          </div>
+        </div>
+      </div>
+      <div id="res-physics-tab" style="display:none">
+        <div id="physics-content"></div>
+      </div>
+      <div id="res-field-tab" style="display:none">
+        <div id="field-content"></div>
+      </div>
+      <div id="res-deep-tab" style="display:none">
+        <div id="deep-patterns-content"></div>
+      </div>
+      <div id="res-gap-tab" style="display:none">
+        <div id="gap-analysis-content"></div>
+      </div>
+      <div id="res-api-tab" style="display:none">
+        <div style="font-family:var(--body);font-size:14px;color:var(--text2);font-style:italic;margin-bottom:16px">the resonance API lets external tools query your signal. your API key is tied to your account.</div>
+        <div class="api-block"><code>// GET your signal fingerprint
+GET /api/v1/signal/{handle}
+Authorization: Bearer {your-api-key}
+
+// POST a text and get signal analysis
+POST /api/v1/analyze
+{ "text": "...", "include_bpe": true }
+
+// GET resonance distance between two users
+GET /api/v1/distance?a={handle}&b={handle}
+
+// GET word lattice for a user
+GET /api/v1/lattice/{handle}?limit=60</code></div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3)">your API key:</div>
+          <div id="api-key-display" style="font-family:var(--mono);font-size:9px;color:var(--signal);background:var(--signal2);padding:5px 10px;border-radius:var(--r);border:1px solid var(--signal3)">generate a key to get started</div>
+          <button class="btn-sm" onclick="generateApiKey()">generate key</button>
+          <button class="btn-sm" onclick="copyApiKey()">copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METEDITOR SCREEN -->
+  <div class="screen" id="meteditor-screen">
+    <div class="meteditor-inner">
+      <div class="section-header" style="margin-bottom:4px">meteditor</div>
+      <div class="section-sub">site editor · causal nexus · snapshots · version history</div>
+      <div class="met-tabs">
+        <div class="metab active" onclick="switchMetTab('site',this)">site editor</div>
+        <div class="metab" onclick="switchMetTab('nexus',this)">causal nexus</div>
+        <div class="metab" onclick="switchMetTab('snapshots',this)">snapshots</div>
+        <div class="metab" onclick="switchMetTab('idearium',this)">idearium</div>
+        <div class="metab" onclick="switchMetTab('versionium',this)">versionium</div>
+      </div>
+      <div id="met-site-tab">
+        <div class="site-editor">
+          <div class="editor-sidebar">
+            <div class="editor-section">Theme</div>
+            <div class="editor-item active" onclick="selectEditorItem('colors',this)">Color palette</div>
+            <div class="editor-item" onclick="selectEditorItem('typography',this)">Typography</div>
+            <div class="editor-item" onclick="selectEditorItem('spacing',this)">Spacing</div>
+            <div class="editor-section">Layout</div>
+            <div class="editor-item" onclick="selectEditorItem('topbar',this)">Topbar</div>
+            <div class="editor-item" onclick="selectEditorItem('feed',this)">Feed</div>
+            <div class="editor-item" onclick="selectEditorItem('aside',this)">Sidebar</div>
+            <div class="editor-section">Content</div>
+            <div class="editor-item" onclick="selectEditorItem('questions',this)">Deep questions</div>
+            <div class="editor-item" onclick="selectEditorItem('zones',this)">Resonance zones</div>
+            <div class="editor-section">Export</div>
+            <div class="editor-item" onclick="exportCSS()">Export CSS vars</div>
+            <div class="editor-item" onclick="resetTheme()">Reset to default</div>
+          </div>
+          <div class="editor-preview" id="site-editor-panel">
+            <div id="editor-colors-panel">
+              <div style="font-family:var(--mono);font-size:8.5px;color:var(--text3);margin-bottom:14px;text-transform:uppercase;letter-spacing:.12em">color palette</div>
+              <div id="color-editor-rows"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="met-nexus-tab" style="display:none">
+        <div class="nexus-graph">
+          <canvas id="nexus-canvas"></canvas>
+          <div class="nexus-status">
+            <div class="nexus-dot" id="nexus-dot"></div>
+            <span id="nexus-status-text" style="font-family:var(--mono);font-size:8.5px">waiting for NEXUS BroadcastChannel...</span>
+            <span id="nexus-event-count" style="margin-left:auto;font-family:var(--mono);font-size:8px;color:var(--text4)">0 events</span>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">nexus events received</div>
+            <div class="bpe-perf-value" id="nexus-event-total">0</div>
+            <div class="bpe-perf-sub">via BroadcastChannel</div>
+          </div>
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">last event type</div>
+            <div class="bpe-perf-value" id="nexus-last-type" style="font-size:14px">—</div>
+            <div class="bpe-perf-sub" id="nexus-last-ts">—</div>
+          </div>
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">delta stream</div>
+            <div class="bpe-perf-value" id="nexus-delta-count">0</div>
+            <div class="bpe-perf-sub">deltas processed</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div id="nexus-event-log" style="background:var(--paper2);border:1px solid var(--border);border-radius:var(--r2);padding:12px;font-family:var(--mono);font-size:9px;color:var(--text3);max-height:200px;overflow-y:auto;line-height:1.7">no events yet — connect NEXUS to begin</div>
+        </div>
+      </div>
+      <div id="met-snapshots-tab" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-family:var(--body);font-size:14px;color:var(--text2);font-style:italic">full platform state snapshots — restores all posts, settings, and your signal data</div>
+          <button class="btn-sm primary" onclick="createSnapshot()">create snapshot</button>
+        </div>
+        <div class="snapshot-list" id="snapshot-list"></div>
+      </div>
+      <div id="met-idearium-tab" style="display:none">
+        <div style="font-family:var(--body);font-size:14px;color:var(--text2);font-style:italic;margin-bottom:16px">idea capture pipeline — experimental. ideas don't affect runtime until validated.</div>
+        <div class="api-block"><code>// Idearium API (stub — backend pending)
+POST /api/v1/idearium/capture
+{ "idea": "...", "status": "unresolved" }
+
+GET /api/v1/idearium/list?status=unresolved
+GET /api/v1/idearium/{id}/promote  // → Upgrade Ledger</code></div>
+        <div style="margin-top:14px;font-family:var(--mono);font-size:8.5px;color:var(--text3)">status: stub · awaiting rheon.world backend connection</div>
+      </div>
+      <div id="met-versionium-tab" style="display:none">
+        <div style="font-family:var(--body);font-size:14px;color:var(--text2);font-style:italic;margin-bottom:16px">version history and diff viewer — experimental.</div>
+        <div class="api-block"><code>// Versionium API (stub — backend pending)
+GET /api/v1/versionium/history
+GET /api/v1/versionium/diff?from=v2.0.0&to=v3.0.0
+POST /api/v1/versionium/tag { "version": "3.0.0", "note": "..." }</code></div>
+        <div style="margin-top:14px;font-family:var(--mono);font-size:8.5px;color:var(--text3)">status: stub · awaiting rheon.world backend connection</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROADMAP SCREEN -->
+  <div class="screen" id="roadmap-screen">
+    <div class="roadmap-inner">
+      <div class="section-header" style="margin-bottom:4px">what's happening</div>
+      <div class="section-sub">changelog · known issues · report a bug</div>
+      <div class="road-tabs">
+        <div class="roadtab active" onclick="switchRoadTab('whats-new',this)">what's new</div>
+        <div class="roadtab" onclick="switchRoadTab('needs-work',this)">needs work</div>
+        <div class="roadtab" onclick="switchRoadTab('report',this)">report a bug</div>
+      </div>
+      <div id="road-whats-new-tab" id="road-content">
+        <div class="changelog-entry">
+          <div class="cl-version">v3.0.0 — today</div>
+          <div class="cl-title">major rebuild: the signal is cleaner now</div>
+          <ul class="cl-items">
+            <li class="fix">fixed login session restore — was silently failing on every reload</li>
+            <li class="fix">fixed registered accounts being wiped on every boot</li>
+            <li class="fix">fixed async/sync mismatch in JAA encryption layer</li>
+            <li>complete admin panel with features registry, plugins, BPE monitor</li>
+            <li>word lattice — resonance-weighted visual of your signal vocabulary</li>
+            <li>AI resonance assistant powered by Claude</li>
+            <li>meteditor: site editor, causal nexus graph, snapshots</li>
+            <li>human language metrics — no raw numbers, descriptions instead</li>
+            <li>friends system: soul mates, kindred spirits, twin flames, signal neighbours</li>
+            <li>gallery with upload limits, tags, and privacy controls</li>
+            <li>delta-driven depth adaptation — UI adjusts to your resonance level</li>
+            <li>cookie-based persistent sessions (7 days)</li>
+            <li>Causal Nexus BroadcastChannel bridge integration</li>
+            <li>UUID-tracked feature registry hooked to admin panel</li>
+            <li>plugins page with enable/disable</li>
+            <li>bug report system with severity tagging</li>
+          </ul>
+        </div>
+        <div class="changelog-entry">
+          <div class="cl-version">v2.0.0</div>
+          <div class="cl-title">resonance platform — initial build</div>
+          <ul class="cl-items">
+            <li>feed with resonance zones</li>
+            <li>signal fingerprint extraction</li>
+            <li>behavior pattern engine</li>
+            <li>JAA encrypted storage (had bugs — fixed in v3)</li>
+          </ul>
+        </div>
+      </div>
+      <div id="road-needs-work-tab" style="display:none">
+        <div style="font-family:var(--body);font-size:14px;color:var(--text2);font-style:italic;margin-bottom:16px">things we know about and are working on</div>
+        <div class="bug-reports" id="known-issues-list">
+          <div class="bug-item">
+            <div class="bug-item-title">voice input in compose is browser-dependent</div>
+            <div class="bug-item-desc">speech recognition works only in Chrome/Edge. Firefox support coming.</div>
+            <div class="bug-item-meta"><div class="bug-sev-badge low">low</div><div class="bug-status">in progress</div></div>
+          </div>
+          <div class="bug-item">
+            <div class="bug-item-title">word lattice performance on mobile</div>
+            <div class="bug-item-desc">canvas rendering is slow on older mobile devices — optimization planned.</div>
+            <div class="bug-item-meta"><div class="bug-sev-badge medium">medium</div><div class="bug-status">planned</div></div>
+          </div>
+          <div class="bug-item">
+            <div class="bug-item-title">DHT mesh peer discovery is simulated</div>
+            <div class="bug-item-desc">real DHT requires backend. current implementation uses BroadcastChannel for multi-tab only.</div>
+            <div class="bug-item-meta"><div class="bug-sev-badge medium">medium</div><div class="bug-status">stub</div></div>
+          </div>
+        </div>
+      </div>
+      <div id="road-report-tab" style="display:none">
+        <div class="bug-report-form">
+          <div style="font-family:var(--mono);font-size:8.5px;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em">severity</div>
+          <div class="bug-severity">
+            <button class="sev-btn" onclick="setSeverity('low',this)">low</button>
+            <button class="sev-btn active medium" onclick="setSeverity('medium',this)">medium</button>
+            <button class="sev-btn" onclick="setSeverity('high',this)">high</button>
+          </div>
+          <div class="form-field"><label>what happened?</label>
+            <input type="text" id="bug-title" placeholder="short title — what broke">
+          </div>
+          <div class="form-field"><label>describe the problem</label>
+            <textarea id="bug-desc" style="width:100%;background:var(--paper3);border:1px solid var(--border2);border-radius:var(--r);padding:9px 12px;font-family:var(--body);font-size:13px;color:var(--text);outline:none;resize:vertical;min-height:80px;transition:border-color var(--t)" placeholder="steps to reproduce, what you expected, what actually happened..."></textarea>
+          </div>
+          <button class="btn-auth" onclick="submitBugReport()">submit report</button>
+        </div>
+        <div id="bug-list" class="bug-reports"></div>
+      </div>
+    </div>
+  </div>
+
+
+</div><!-- end #app -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ADMIN PAGE — separate full-viewport shell, not inside #app
+     Sidebar nav · no topbar clutter · own scroll context per tab
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="admin-page">
+
+  <!-- SIDEBAR -->
+  <div class="adm-sidebar">
+    <div class="adm-sidebar-top">
+      <div class="adm-wordmark" onclick="closeAdmin()">reso<em>nance</em></div>
+      <div class="adm-badge">ADMIN</div>
+    </div>
+
+    <nav class="adm-nav">
+      <div class="adm-nav-section">overview</div>
+      <div class="adm-nav-item active" data-atab="overview" onclick="switchAdminTab('overview',this)">
+        <span class="adm-nav-icon">◈</span>dashboard
+      </div>
+      <div class="adm-nav-item" data-atab="users" onclick="switchAdminTab('users',this)">
+        <span class="adm-nav-icon">◉</span>users
+      </div>
+
+      <div class="adm-nav-section">platform</div>
+      <div class="adm-nav-item" data-atab="features" onclick="switchAdminTab('features',this)">
+        <span class="adm-nav-icon">⬡</span>features registry
+      </div>
+      <div class="adm-nav-item" data-atab="plugins" onclick="switchAdminTab('plugins',this)">
+        <span class="adm-nav-icon">⬢</span>plugins
+      </div>
+
+      <div class="adm-nav-section">diagnostics</div>
+      <div class="adm-nav-item" data-atab="bpe" onclick="switchAdminTab('bpe',this)">
+        <span class="adm-nav-icon">∿</span>signal monitor
+      </div>
+      <div class="adm-nav-item" data-atab="bus" onclick="switchAdminTab('bus',this)">
+        <span class="adm-nav-icon">⟳</span>event bus
+      </div>
+      <div class="adm-nav-item" data-atab="storage" onclick="switchAdminTab('storage',this)">
+        <span class="adm-nav-icon">▦</span>storage
+      </div>
+    </nav>
+
+    <div class="adm-sidebar-foot">
+      <div class="adm-health-pill" id="adm-health-pill">loading...</div>
+      <div class="adm-back-btn" onclick="closeAdmin()">
+        <span>←</span> back to resonance
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="adm-main">
+    <!-- Per-tab topbar title -->
+    <div class="adm-topbar">
+      <div>
+        <div class="adm-page-title" id="adm-page-title">dashboard</div>
+        <div class="adm-page-sub" id="adm-page-sub">platform overview</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div id="admin-health-summary" style="font-family:var(--mono);font-size:8px;color:var(--text3)"></div>
+        <div class="admin-badge">v3.0.0</div>
+      </div>
+    </div>
+
+    <div class="adm-content">
+
+      <!-- OVERVIEW TAB -->
+      <div id="admin-overview-tab">
+        <div class="adm-stats-grid" id="admin-stats"></div>
+        <div class="adm-section-title" style="margin-top:8px">system health</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">avg signal quality</div>
+            <div class="bpe-perf-value" id="admin-avg-snr">—</div>
+            <div class="bpe-perf-sub" id="admin-snr-sub">across all posts</div>
+          </div>
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">active features</div>
+            <div class="bpe-perf-value" id="admin-feat-count">—</div>
+            <div class="bpe-perf-sub">of total registered</div>
+          </div>
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">event bus health</div>
+            <div class="bpe-perf-value" id="admin-bus-health">—</div>
+            <div class="bpe-perf-sub">event types registered</div>
+          </div>
+          <div class="bpe-perf-card">
+            <div class="bpe-perf-label">storage keys</div>
+            <div class="bpe-perf-value" id="admin-storage-health">—</div>
+            <div class="bpe-perf-sub">localStorage entries</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS TAB -->
+      <div id="admin-users-tab" style="display:none">
+        <div class="adm-section-title">registered users</div>
+        <div class="admin-table">
+          <table>
+            <thead><tr>
+              <th>user</th><th>handle</th><th>role</th><th>joined</th><th>posts</th>
+              <th>signal quality</th><th>pattern density</th><th>state</th><th>actions</th>
+            </tr></thead>
+            <tbody id="admin-user-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FEATURES TAB -->
+      <div id="admin-features-tab" style="display:none">
+        <div class="adm-section-title">features registry — 32 features, UUID-tracked</div>
+        <div id="features-registry-content"></div>
+      </div>
+
+      <!-- PLUGINS TAB -->
+      <div id="admin-plugins-tab" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div class="adm-section-title" style="margin:0;border:none">installed plugins</div>
+          <button class="btn-sm primary" onclick="showInstallPlugin()">install plugin</button>
+        </div>
+        <div class="plugin-grid" id="plugin-grid"></div>
+      </div>
+
+      <!-- BPE MONITOR TAB -->
+      <div id="admin-bpe-tab" style="display:none">
+        <div class="adm-section-title">signal monitor — behavior pattern engine</div>
+        <div class="bpe-monitor" id="bpe-monitor"></div>
+        <div style="margin-top:18px">
+          <div class="adm-section-title">recent signal history</div>
+          <div id="bpe-history-chart" style="height:80px;background:var(--paper2);border:1px solid var(--border);border-radius:var(--r2);padding:10px;position:relative;overflow:hidden"></div>
+        </div>
+      </div>
+
+      <!-- EVENT BUS TAB -->
+      <div id="admin-bus-tab" style="display:none">
+        <div class="adm-section-title">event bus — live log</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn-sm" onclick="renderBusLog()">refresh</button>
+          <button class="btn-sm" onclick="testBusEvent()">emit test event</button>
+        </div>
+        <div id="bus-log" style="background:var(--paper2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;font-family:var(--mono);font-size:8.5px;color:var(--text3);max-height:calc(100vh - 260px);overflow-y:auto;line-height:1.8"></div>
+      </div>
+
+      <!-- STORAGE TAB -->
+      <div id="admin-storage-tab" style="display:none">
+        <div class="adm-section-title">storage inspector</div>
+        <div class="admin-stats-grid" id="storage-stats"></div>
+        <div style="margin-top:14px">
+          <div class="adm-section-title">resonance keys</div>
+          <div id="storage-keys-list" style="max-height:calc(100vh - 380px);overflow-y:auto;line-height:1.8;font-family:var(--mono);font-size:8.5px;color:var(--text3)"></div>
+        </div>
+      </div>
+
+    </div><!-- end adm-content -->
+  </div><!-- end adm-main -->
+
+</div><!-- end #admin-page -->
+
+<!-- Lightbox -->
+<div class="fullscreen-img" id="lightbox" style="display:none" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="">
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+{
+  "name": "rheon",
+  "version": "0.3.0",
+  "uuid": "rheon-hub-0000-2026-0606-jamesbrooks-001",
+  "status": "siso-wired",
+  "description": "Spec library, project repository, spec builder, and idea ledger.",
+  "layers": {
+    "L0": {
+      "name": "SISO Core",
+      "status": "complete",
+      "path": "core/",
+      "source": "SISO Core v1.0.0 — copied verbatim"
+    },
+    "L1": {
+      "name": "Storage",
+      "status": "complete",
+      "path": "storage/",
+      "tests": "34/34 passing"
+    },
+    "L2": {
+      "name": "Seam Contracts",
+      "status": "complete",
+      "path": "seams/"
+    },
+    "L3": {
+      "name": "rheon-server",
+      "status": "complete",
+      "path": "server/",
+      "port": 7900,
+      "transport": {
+        "ws": "ws://host:7900/ws   (nano-ws — zero dep, §5.5)",
+        "sse": "GET /api/events     (backward compat)",
+        "http": "REST — all UI_CONTRACT routes"
+      },
+      "files": {
+        "index.js": "Express + nano-ws + heartbeat wiring",
+        "nano-ws.js": "UUID: nano-ws-v1-0-0 — zero-dep WS server (§5.5)",
+        "heartbeat.js": "UUID: guardian-heartbeat-v1-0-0 — BPM + health monitor",
+        "cjs-bridge.js": "ESM wrapper for CJS modules — zero modification to source (§5.3)"
+      }
+    },
+    "L4": {
+      "name": "rheon-cli",
+      "status": "complete",
+      "path": "cli/"
+    },
+    "L5": {
+      "name": "UI",
+      "status": "complete",
+      "path": "ui/",
+      "pages": [
+        "index.html",
+        "repository.html",
+        "spec-builder.html",
+        "spec-library.html",
+        "idea-ledger.html",
+        "architect.html"
+      ],
+      "shared": [
+        "shared.css",
+        "shared.js"
+      ]
+    },
+    "L6": {
+      "name": "SISO Event Bus",
+      "status": "complete",
+      "path": "server/",
+      "files": {
+        "RheonBus.js": "Named SISO Stream — emit, on, register, sample",
+        "gates.js": "18 gates — one per seam command, pure transforms"
+      },
+      "tests": "24/24 passing"
+    }
+  },
+  "seams": {
+    "STORAGE_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active",
+      "acceptance": {
+        "contract_tests": false,
+        "isolation_verified": false,
+        "mock_generated": false,
+        "metrics_verified": false
+      }
+    },
+    "UI_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active",
+      "acceptance": {
+        "contract_tests": false,
+        "isolation_verified": false,
+        "mock_generated": false,
+        "metrics_verified": false
+      }
+    },
+    "CLI_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active",
+      "acceptance": {
+        "contract_tests": false,
+        "isolation_verified": false,
+        "mock_generated": false,
+        "metrics_verified": false
+      }
+    },
+    "LATTICE_CONTRACT": {
+      "version": "1.0.0",
+      "status": "active",
+      "acceptance": {
+        "contract_tests": false,
+        "isolation_verified": false,
+        "mock_generated": false,
+        "metrics_verified": false
+      }
+    }
+  },
+  "storage": {
+    "Ledger": {
+      "file": "storage/Ledger.js",
+      "description": "Append-only JSONL event log. eventTs ordering axis."
+    },
+    "Store": {
+      "file": "storage/Store.js",
+      "description": "Content-addressed JSON store. SHA-256 hashes. Named refs."
+    },
+    "IdeaStore": {
+      "file": "storage/IdeaStore.js",
+      "description": "JSONL idea ledger + associative lattice graph."
+    },
+    "ProjectStore": {
+      "file": "storage/ProjectStore.js",
+      "description": "Git-backed project registry. File browser. SSH push/pull."
+    }
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node test/storage.test.js",
+    "cli": "node cli/index.js"
+  },
+  "data_root": "~/.rheon  (override: RHEON_DATA env var)",
+  "server_port": "7900       (override: RHEON_PORT env var)",
+  "server_url": "http://localhost:7900  (override: RHEON_SERVER env var for CLI)",
+  "tests": {
+    "storage": "34/34",
+    "bus": "24/24",
+    "total": "58/58"
+  }
+}

@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALK · Video Demo · v1.8.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#020705;--void:#040a07;--deep:#071008;--surface:#0b180d;--lift:#0f2011;
+  --wire:#163320;--wire2:#1f4a2c;--dim:#2e6640;--mid:#4a9960;--muted:#78c490;
+  --bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--signal2:#00cc44;--glow:rgba(57,255,106,.15);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+html,body{width:100%;height:100vh;overflow:hidden;background:var(--ink);color:var(--bright);font-family:var(--mono);}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(57,255,106,.012) 2px,rgba(57,255,106,.012) 3px);pointer-events:none;z-index:9998;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.7) 100%);pointer-events:none;z-index:9997;}
+
+/* ── LAYOUT ── */
+#shell{display:grid;grid-template-rows:42px 1fr 100px;grid-template-columns:1fr 300px;height:100vh;}
+#topbar{grid-column:1/-1;background:rgba(4,10,7,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;gap:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:8px;}
+.logo-mark{width:18px;height:18px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--signal);animation:blink-border 3s ease-in-out infinite;}
+@keyframes blink-border{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 12px var(--signal),inset 0 0 4px rgba(57,255,106,.2)}}
+.logo-text{font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:5px;color:var(--white);}
+.logo-sub{font-size:6px;letter-spacing:2px;color:var(--dim);margin-left:4px;}
+.tb-sep{width:1px;height:16px;background:var(--wire);margin:0 12px;}
+#session-id{font-size:7px;color:var(--dim);letter-spacing:1px;}
+#session-status{font-size:6px;letter-spacing:2px;padding:2px 7px;border:1px solid var(--wire2);color:var(--dim);text-transform:uppercase;margin-left:7px;}
+#session-status.active{color:var(--signal);border-color:var(--signal);animation:pulse-label 1s ease-in-out infinite;}
+@keyframes pulse-label{0%,100%{opacity:1}50%{opacity:.6}}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.tb-btn{font-size:6px;letter-spacing:1.5px;padding:4px 10px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:26px;}
+.tb-btn:hover{color:var(--white);border-color:var(--muted);}
+.tb-btn.go{color:var(--signal);border-color:var(--signal);background:var(--glow);}
+.tb-btn.go:hover{background:rgba(57,255,106,.25);}
+.tb-btn.stop{color:var(--rose);border-color:var(--rose);}
+.tb-btn.active{color:var(--amber);border-color:var(--amber);}
+#fps-disp{font-size:6px;color:var(--dim);letter-spacing:1px;}
+
+/* ── VIDEO PANE ── */
+#video-pane{position:relative;background:var(--void);overflow:hidden;border-right:1px solid var(--wire);}
+#video-feed{width:100%;height:100%;object-fit:cover;filter:saturate(0.12) brightness(0.8) contrast(1.15);transform:scaleX(-1);}
+#cfr-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:.85;mix-blend-mode:screen;}
+#lm-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+#cue-flash{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .08s;}
+
+/* Gaze dot overlay */
+.gaze-dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--cyan);opacity:0;pointer-events:none;transform:translate(-50%,-50%);transition:opacity .2s;box-shadow:0 0 8px var(--cyan);}
+
+/* Blink indicator */
+#blink-indicator{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:2px;color:var(--cyan);opacity:0;pointer-events:none;text-transform:uppercase;transition:opacity .1s;}
+
+/* HUD corners */
+#hud-tl,#hud-tr,#hud-bl,#hud-br{position:absolute;z-index:10;}
+#hud-tl{top:12px;left:12px;}
+#hud-tr{top:12px;right:12px;text-align:right;}
+#hud-bl{bottom:12px;left:12px;}
+#hud-br{bottom:12px;right:12px;text-align:right;}
+.hud-label{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:2px;}
+.hud-val{font-size:10px;color:var(--signal);letter-spacing:1px;font-family:var(--mono);}
+.hud-val.alert{color:var(--rose);}
+
+/* Crosshair */
+.crosshair{position:absolute;inset:0;pointer-events:none;opacity:.12;}
+.ch-h{position:absolute;top:50%;left:0;right:0;height:1px;background:var(--signal);}
+.ch-v{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--signal);}
+.ch-c{position:absolute;top:50%;left:50%;width:6px;height:6px;border:1px solid var(--signal);transform:translate(-50%,-50%);}
+
+/* No cam */
+#no-cam{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--mid);}
+.no-cam-icon{font-size:48px;opacity:.2;}
+.no-cam-text{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+.no-cam-sub{font-size:8px;color:var(--dim);text-align:center;line-height:1.6;}
+
+/* ── EXPRESSION PANEL (floating, over video pane) ── */
+#emotion-panel{position:absolute;bottom:12px;left:12px;background:rgba(2,7,5,.92);border:1px solid var(--wire2);padding:8px 10px;width:240px;pointer-events:none;z-index:20;backdrop-filter:blur(2px);}
+.em-title{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;}
+.em-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.em-label{font-size:7px;color:var(--muted);width:80px;letter-spacing:.5px;flex-shrink:0;}
+.em-bar-bg{flex:1;height:3px;background:var(--wire);}
+.em-bar-fill{height:100%;background:var(--signal);transition:width .12s;width:0%;}
+.em-val{font-size:7px;color:var(--signal);width:28px;text-align:right;}
+
+/* ── SIDEBAR ── */
+#sidebar{background:var(--deep);border-top:none;display:flex;flex-direction:column;overflow:hidden;}
+#sb-header{padding:10px 12px 6px;border-bottom:1px solid var(--wire);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.sb-title{font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+#event-count{font-size:7px;color:var(--dim);}
+#cue-pills{padding:6px 8px;border-bottom:1px solid var(--wire);min-height:32px;display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;}
+.cue-pill{font-size:6px;letter-spacing:1px;padding:2px 6px;border:1px solid var(--wire2);color:var(--muted);text-transform:uppercase;}
+.cue-pill.OCULAR{border-color:var(--cyan);color:var(--cyan);}
+.cue-pill.FACIAL{border-color:var(--amber);color:var(--amber);}
+.cue-pill.PROXEMIC{border-color:var(--signal);color:var(--signal);}
+.cue-pill.SOMATIC{border-color:var(--violet);color:var(--violet);}
+.cue-pill.GESTURAL{border-color:var(--bright);color:var(--bright);}
+.cue-pill.STRONG{font-weight:700;}
+#event-log{flex:1;overflow-y:auto;padding:4px 0;}
+.ev-row{display:grid;grid-template-columns:32px 1fr auto;gap:4px;padding:2px 8px;font-size:7px;border-left:2px solid transparent;transition:background .1s;}
+.ev-row:hover{background:var(--lift);}
+.ev-row.cue{border-left-color:var(--amber);}
+.ev-row.sustained{border-left-color:var(--signal);}
+.ev-row.released{border-left-color:var(--wire2);}
+.ev-tick{color:var(--dim);}
+.ev-type{color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ev-payload{color:var(--signal);font-size:6px;}
+::-webkit-scrollbar{width:2px;} ::-webkit-scrollbar-track{background:var(--void);} ::-webkit-scrollbar-thumb{background:var(--wire2);}
+
+/* ── CONFIG PANEL ── */
+#config-panel{
+  position:absolute;top:42px;right:300px;width:280px;
+  background:rgba(4,10,7,.97);border:1px solid var(--wire2);border-top:none;
+  overflow-y:auto;max-height:calc(100vh - 42px - 100px);
+  z-index:200;display:none;
+  padding:0 0 12px 0;
+}
+#config-panel.open{display:block;}
+.cfg-section{border-bottom:1px solid var(--wire);padding:10px 14px;}
+.cfg-section-title{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:8px;}
+.cfg-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.cfg-label{font-size:7px;color:var(--muted);letter-spacing:.5px;}
+.cfg-val{font-size:8px;color:var(--signal);min-width:36px;text-align:right;}
+.cfg-slider{width:100px;accent-color:var(--signal);height:3px;}
+.cfg-toggle{width:28px;height:14px;background:var(--wire);border:1px solid var(--wire2);cursor:pointer;position:relative;flex-shrink:0;}
+.cfg-toggle.on{background:var(--glow);border-color:var(--signal);}
+.cfg-toggle::after{content:'';position:absolute;top:2px;left:2px;width:8px;height:8px;background:var(--dim);transition:transform .15s,background .15s;}
+.cfg-toggle.on::after{transform:translateX(14px);background:var(--signal);}
+.cfg-preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+.cfg-preset{font-size:6px;padding:3px 8px;border:1px solid var(--wire2);color:var(--mid);cursor:pointer;letter-spacing:1px;text-transform:uppercase;}
+.cfg-preset:hover{border-color:var(--muted);color:var(--white);}
+
+/* ── BOTTOM BAR ── */
+#bottombar{grid-column:1/-1;background:rgba(4,10,7,.97);border-top:1px solid var(--wire);display:flex;align-items:stretch;}
+.metric-cell{flex:1;padding:6px 10px;border-right:1px solid var(--wire);display:flex;flex-direction:column;justify-content:center;}
+.metric-label{font-size:6px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:3px;}
+.metric-val{font-size:13px;color:var(--signal);letter-spacing:1px;line-height:1;}
+.metric-sub{font-size:6px;color:var(--dim);margin-top:2px;}
+.metric-bar{height:2px;background:var(--wire);margin-top:4px;}
+.metric-bar-fill{height:100%;background:var(--signal2);transition:width .3s;}
+.metric-bar-fill.alert{background:var(--rose);}
+
+/* MP loader */
+#mp-loader{position:fixed;inset:0;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999;}
+#mp-loader.hidden{display:none;}
+.mp-spinner{width:32px;height:32px;border:2px solid var(--wire);border-top-color:var(--signal);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mp-status{font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.mp-detail{font-size:7px;color:var(--dim);}
+
+/* ── Jaa Debug Panel ── */
+#jaa-debug-toggle {
+  position:fixed;bottom:16px;right:16px;z-index:10001;
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(4,10,7,.95);border:1px solid var(--wire2);
+  color:var(--dim);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.4);
+}
+#jaa-debug-toggle:hover { border-color:var(--signal);color:var(--signal);box-shadow:0 0 10px var(--glow); }
+#jaa-debug-toggle.active { border-color:var(--signal);color:var(--signal);background:var(--glow); }
+
+#jaa-debug-panel {
+  position:fixed;bottom:64px;right:16px;z-index:10000;
+  width:420px;max-height:520px;
+  background:rgba(2,7,5,.97);border:1px solid var(--wire2);
+  display:none;flex-direction:column;
+  box-shadow:0 4px 24px rgba(0,0,0,.6);
+  backdrop-filter:blur(4px);
+}
+#jaa-debug-panel.open { display:flex; }
+
+.jaa-dbg-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;border-bottom:1px solid var(--wire);flex-shrink:0;
+}
+.jaa-dbg-title { font-size:7px;letter-spacing:2px;color:var(--muted);text-transform:uppercase; }
+.jaa-dbg-tabs { display:flex;gap:1px; }
+.jaa-dbg-tab {
+  font-size:6px;padding:3px 8px;letter-spacing:1px;cursor:pointer;
+  border:1px solid var(--wire);color:var(--dim);text-transform:uppercase;
+  background:transparent;transition:all .15s;
+}
+.jaa-dbg-tab.active { border-color:var(--signal);color:var(--signal);background:var(--glow); }
+.jaa-dbg-controls { display:flex;gap:6px;align-items:center; }
+.jaa-dbg-btn { font-size:6px;padding:2px 6px;border:1px solid var(--wire2);color:var(--dim);cursor:pointer;background:none; }
+.jaa-dbg-btn:hover { color:var(--white);border-color:var(--muted); }
+
+.jaa-dbg-body { flex:1;overflow:hidden;display:flex;flex-direction:column; }
+.jaa-dbg-tab-content { display:none;flex:1;overflow-y:auto;padding:6px 0; }
+.jaa-dbg-tab-content.active { display:block; }
+
+/* Event log rows */
+.jaa-log-row {
+  display:grid;grid-template-columns:36px 1fr auto;gap:4px;
+  padding:2px 10px;font-size:7px;border-left:2px solid transparent;
+}
+.jaa-log-row:hover { background:var(--lift); }
+.jaa-log-row.SIGNAL { border-left-color:var(--rose); }
+.jaa-log-row.SESSION { border-left-color:var(--signal); }
+.jaa-log-row.FRAME { border-left-color:var(--wire); opacity:.5; }
+.jaa-log-row.ERROR { border-left-color:var(--rose);background:rgba(255,68,85,.05); }
+.jaa-log-seq { color:var(--wire2); }
+.jaa-log-type { color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.jaa-log-ts { color:var(--dim);font-size:6px; }
+
+/* Debug stats grid */
+.jaa-stat-grid { display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 12px; }
+.jaa-stat-cell { background:var(--surface);padding:6px 8px; }
+.jaa-stat-label { font-size:6px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:3px; }
+.jaa-stat-val { font-size:14px;color:var(--signal);font-family:var(--mono);letter-spacing:-0.5px; }
+
+/* World-space debug */
+.jaa-world-row { padding:2px 10px;font-size:7px;display:flex;justify-content:space-between; }
+.jaa-world-id { color:var(--muted);width:80px;flex-shrink:0; }
+.jaa-world-pos { color:var(--signal); }
+.jaa-world-mass { color:var(--amber);width:40px;text-align:right; }
+
+</style>
+</head>
+<body>
+
+<div id="mp-loader">
+  <div class="mp-spinner"></div>
+  <div class="mp-status" id="mp-status-text">Initializing</div>
+  <div class="mp-detail" id="mp-detail-text">Loading ALK VideoModule…</div>
+</div>
+
+<div id="shell">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="logo">
+      <div class="logo-mark">⬡</div>
+      <div>
+        <div class="logo-text">ALK</div>
+      </div>
+      <div class="logo-sub">VIDEO MODULE · v1.6.0</div>
+    </div>
+    <div class="tb-sep"></div>
+    <div id="session-id">NO SESSION</div>
+    <div id="session-status">OFFLINE</div>
+    <div class="tb-right">
+      <div id="fps-disp">-- fps</div>
+      <div class="tb-sep"></div>
+      <button class="tb-btn go"  id="btn-start" onclick="startSession()">▶ CAPTURE</button>
+      <button class="tb-btn stop" id="btn-stop" onclick="stopSession()" style="display:none">■ STOP</button>
+      <button class="tb-btn" onclick="toggleMirror()">⇄ MIRROR</button>
+      <button class="tb-btn" id="btn-config" onclick="toggleConfig()">⚙ CONFIG</button>
+      <button class="tb-btn" onclick="clearLog()">✕ CLEAR</button>
+    </div>
+  </div>
+
+  <!-- VIDEO PANE -->
+  <div id="video-pane">
+    <video id="video-feed" autoplay playsinline muted></video>
+    <canvas id="cfr-canvas"></canvas>
+    <canvas id="lm-canvas"></canvas>
+    <div id="cue-flash"></div>
+    <div id="blink-indicator">BLINK</div>
+    <div class="gaze-dot" id="gaze-dot-l"></div>
+    <div class="gaze-dot" id="gaze-dot-r"></div>
+
+    <div class="crosshair">
+      <div class="ch-h"></div><div class="ch-v"></div><div class="ch-c"></div>
+    </div>
+
+    <!-- HUD corners -->
+    <div id="hud-tl">
+      <div class="hud-label">EAR L / R</div>
+      <div class="hud-val" id="hud-ear">– / –</div>
+      <div class="hud-label" style="margin-top:7px">BLINK STATE</div>
+      <div class="hud-val" id="hud-blink-state">OPEN</div>
+      <div class="hud-label" style="margin-top:7px">HEAD TILT</div>
+      <div class="hud-val" id="hud-tilt">–°</div>
+    </div>
+    <div id="hud-tr">
+      <div class="hud-label">GAZE L</div>
+      <div class="hud-val" id="hud-gaze-l">–, –</div>
+      <div class="hud-label" style="margin-top:7px">GAZE R</div>
+      <div class="hud-val" id="hud-gaze-r">–, –</div>
+      <div class="hud-label" style="margin-top:7px">FRAME</div>
+      <div class="hud-val" id="hud-frame">–</div>
+      <div class="hud-label" style="margin-top:7px">QUADRANT</div>
+      <div class="hud-val" id="hud-quadrant" style="font-size:8px">—</div>
+    </div>
+    <div id="hud-bl">
+      <div class="hud-label">FIELD</div>
+      <div class="hud-val" id="hud-field">–</div>
+      <div class="hud-label" style="margin-top:7px">PARTICLES</div>
+      <div class="hud-val" id="hud-particles">–</div>
+    </div>
+    <div id="hud-br">
+      <div class="hud-label">ACTIVE CUES</div>
+      <div class="hud-val" id="hud-cues">0</div>
+      <div class="hud-label" style="margin-top:7px">ATTRACTORS</div>
+      <div class="hud-val" id="hud-attractors">0</div>
+      <div class="hud-label" style="margin-top:7px">COMPOSITE STATE</div>
+      <div class="hud-val" id="hud-composite" style="font-size:8px;letter-spacing:1px;">—</div>
+    </div>
+
+    <!-- Expression panel — micro to macro -->
+    <div id="emotion-panel">
+      <div class="em-title">
+        <span>Expression Engine</span>
+        <span id="em-dominant" style="float:right;color:var(--amber);letter-spacing:2px;font-size:7px;">—</span>
+      </div>
+
+      <!-- Composite scores (8 universals) -->
+      <div style="margin-bottom:6px;">
+        <div class="em-row"><div class="em-label" style="color:var(--amber)">Joy · Genuine</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-joy-g" style="background:var(--signal)"></div></div><div class="em-val" id="em-joy-g-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Joy · Social</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-joy-s"></div></div><div class="em-val" id="em-joy-s-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Surprise</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-surp"></div></div><div class="em-val" id="em-surp-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Fear</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-fear" style="background:var(--violet)"></div></div><div class="em-val" id="em-fear-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Anger</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-anger" style="background:var(--rose)"></div></div><div class="em-val" id="em-anger-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Disgust</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-disg"></div></div><div class="em-val" id="em-disg-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Contempt</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-cont" style="background:var(--amber)"></div></div><div class="em-val" id="em-cont-v">0.00</div></div>
+        <div class="em-row"><div class="em-label">Sadness</div><div class="em-bar-bg"><div class="em-bar-fill" id="em-sad" style="background:var(--cyan)"></div></div><div class="em-val" id="em-sad-v">0.00</div></div>
+      </div>
+
+      <!-- Scale indicator -->
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;padding-top:4px;border-top:1px solid var(--wire)">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;flex-shrink:0">SCALE</div>
+        <div id="em-scale-micro"  style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">MICRO</div>
+        <div id="em-scale-partial"style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">PARTIAL</div>
+        <div id="em-scale-macro"  style="flex:1;text-align:center;font-size:6px;padding:2px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;">MACRO</div>
+      </div>
+
+      <!-- Micro-expression flash log (last 5) -->
+      <div style="border-top:1px solid var(--wire);padding-top:4px;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:3px;">MICRO LOG</div>
+        <div id="em-micro-log" style="font-size:7px;line-height:1.6;"></div>
+      </div>
+
+      <!-- Duchenne indicator -->
+      <div style="margin-top:4px;display:flex;gap:6px;align-items:center;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;">DUCHENNE</div>
+        <div id="em-duchenne" style="font-size:7px;color:var(--wire2);letter-spacing:1px;">—</div>
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-left:8px;">ASYM</div>
+        <div id="em-asym" style="font-size:7px;color:var(--wire2);">0.00</div>
+      </div>
+
+      <!-- Cross-stream composite state -->
+      <div style="border-top:1px solid var(--wire);padding-top:6px;margin-top:6px;">
+        <div style="font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;">CROSS-STREAM COMPOSITE</div>
+        <div id="em-composite-list" style="font-size:7px;line-height:1.7;"></div>
+      </div>
+    </div>
+
+
+    <!-- Latent state panel -->
+    <div id="latent-panel" style="position:absolute;top:50%;right:12px;transform:translateY(-50%);background:rgba(2,7,5,.92);border:1px solid var(--wire2);padding:8px 10px;width:160px;pointer-events:none;z-index:20;backdrop-filter:blur(2px);">
+      <div style="font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:8px;">Latent State</div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">VALENCE</span>
+          <span style="font-size:7px;color:var(--signal)" id="lat-val-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);position:relative;">
+          <div id="lat-val-bar" style="position:absolute;height:100%;background:var(--signal);transition:all .15s;left:50%;width:0%"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">AROUSAL</span>
+          <span style="font-size:7px;color:var(--amber)" id="lat-aro-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);">
+          <div id="lat-aro-bar" style="height:100%;background:var(--amber);width:0%;transition:all .15s;"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">ENGAGEMENT</span>
+          <span style="font-size:7px;color:var(--cyan)" id="lat-eng-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);position:relative;">
+          <div id="lat-eng-bar" style="position:absolute;height:100%;background:var(--cyan);transition:all .15s;left:50%;width:0%"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span style="font-size:6px;color:var(--dim)">COHERENCE</span>
+          <span style="font-size:7px;color:var(--signal)" id="lat-coh-n">0.00</span>
+        </div>
+        <div style="height:3px;background:var(--wire);">
+          <div id="lat-coh-bar" style="height:100%;background:var(--signal);width:0%;transition:all .15s;"></div>
+        </div>
+      </div>
+
+      <!-- Suppression score — the headline number -->
+      <div style="border-top:1px solid var(--wire);padding-top:8px;margin-top:6px;">
+        <div style="font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px;">Suppression</div>
+        <div style="display:flex;align-items:baseline;gap:6px;">
+          <div id="lat-supp-score" style="font-size:22px;font-family:var(--mono);color:var(--rose);letter-spacing:-1px;line-height:1;">0.00</div>
+          <div id="lat-supp-level" style="font-size:7px;color:var(--dim);letter-spacing:1px;">AUTH</div>
+        </div>
+        <div style="height:4px;background:var(--wire);margin-top:6px;border-radius:2px;">
+          <div id="lat-supp-bar" style="height:100%;background:var(--rose);width:0%;transition:all .2s;border-radius:2px;"></div>
+        </div>
+        <div style="margin-top:4px;font-size:6px;color:var(--dim);" id="lat-supp-evidence">—</div>
+        <div style="margin-top:3px;display:flex;justify-content:space-between;">
+          <span style="font-size:6px;color:var(--dim)">SURFACE</span>
+          <span id="lat-surface" style="font-size:7px;color:var(--muted)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:6px;color:var(--dim)">INFERRED</span>
+          <span id="lat-inferred" style="font-size:7px;color:var(--rose)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="no-cam">
+      <div class="no-cam-icon">⊘</div>
+      <div class="no-cam-text">Camera offline</div>
+      <div class="no-cam-sub">Click CAPTURE to begin</div>
+    </div>
+  </div>
+
+  <!-- CONFIG PANEL -->
+  <div id="config-panel">
+    <div class="cfg-section">
+      <div class="cfg-section-title">Performance</div>
+      <div class="cfg-row"><span class="cfg-label">Target FPS</span><span class="cfg-val" id="cv-fps">30</span><input class="cfg-slider" type="range" min="5" max="60" value="30" oninput="setCfg('fps',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Particles (k)</span><span class="cfg-val" id="cv-n">80</span><input class="cfg-slider" type="range" min="10" max="200" value="80" oninput="setCfg('nk',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Point Size</span><span class="cfg-val" id="cv-pt">1.5</span><input class="cfg-slider" type="range" min="0.5" max="4" step="0.1" value="1.5" oninput="setCfg('pt',this.value)"></div>
+      <div class="cfg-preset-row">
+        <div class="cfg-preset" onclick="applyPreset('light')">LIGHT</div>
+        <div class="cfg-preset" onclick="applyPreset('balanced')">BALANCED</div>
+        <div class="cfg-preset" onclick="applyPreset('ultra')">ULTRA</div>
+      </div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">Detection</div>
+      <div class="cfg-row"><span class="cfg-label">EAR Threshold</span><span class="cfg-val" id="cv-ear">0.20</span><input class="cfg-slider" type="range" min="0.08" max="0.40" step="0.01" value="0.20" oninput="setCfg('ear',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Blink Confirm (f)</span><span class="cfg-val" id="cv-bfc">2</span><input class="cfg-slider" type="range" min="1" max="5" step="1" value="2" oninput="setCfg('bfc',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Gaze Sensitivity</span><span class="cfg-val" id="cv-gaze">0.30</span><input class="cfg-slider" type="range" min="0.05" max="0.80" step="0.01" value="0.30" oninput="setCfg('gaze',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">EMA Fast</span><span class="cfg-val" id="cv-ema">0.50</span><input class="cfg-slider" type="range" min="0.1" max="1.0" step="0.05" value="0.50" oninput="setCfg('ema',this.value)"></div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">CFR Field</div>
+      <div class="cfg-row"><span class="cfg-label">Entropy</span><span class="cfg-val" id="cv-ent">0.18</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.12" oninput="setCfg('ent',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Structure</span><span class="cfg-val" id="cv-str">0.85</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.92" oninput="setCfg('str',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Curl</span><span class="cfg-val" id="cv-curl">0.50</span><input class="cfg-slider" type="range" min="0" max="1" step="0.01" value="0.45" oninput="setCfg('curl',this.value)"></div>
+      <div class="cfg-row"><span class="cfg-label">Damping</span><span class="cfg-val" id="cv-damp">0.12</span><input class="cfg-slider" type="range" min="0.01" max="0.5" step="0.01" value="0.14" oninput="setCfg('damp',this.value)"></div>
+    </div>
+    <div class="cfg-section">
+      <div class="cfg-section-title">Layers</div>
+      <div class="cfg-row"><span class="cfg-label">Particles</span><div class="cfg-toggle on" id="tog-particles" onclick="toggleLayer('particles')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Face Mesh</span><div class="cfg-toggle on" id="tog-mesh" onclick="toggleLayer('mesh')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Iris / Gaze</span><div class="cfg-toggle on" id="tog-iris" onclick="toggleLayer('iris')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Skeleton</span><div class="cfg-toggle on" id="tog-skel" onclick="toggleLayer('skel')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Hands</span><div class="cfg-toggle on" id="tog-hands" onclick="toggleLayer('hands')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Emotion Panel</span><div class="cfg-toggle on" id="tog-emotion" onclick="toggleLayer('emotion')"></div></div>
+      <div class="cfg-row"><span class="cfg-label">Mirror</span><div class="cfg-toggle on" id="tog-mirror" onclick="toggleMirror()"></div></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sb-header">
+      <div class="sb-title">Event Stream</div>
+      <div id="event-count">0 events</div>
+    </div>
+    <div id="cue-pills"></div>
+    <div id="event-log"></div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottombar">
+    <div class="metric-cell">
+      <div class="metric-label">Audio Energy</div>
+      <div class="metric-val" id="hud-audio-z">–σ</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="hud-audio-energy" style="width:0%"></div></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Frame Rate</div>
+      <div class="metric-val" id="m-frames">0</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="m-fps-bar" style="width:0%"></div></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Cues Detected</div>
+      <div class="metric-val" id="m-cues">0</div>
+      <div class="metric-sub" id="m-cue-top">–</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Blink Count</div>
+      <div class="metric-val" id="m-blink">0</div>
+      <div class="metric-sub" id="m-blink-sub">session total</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Attractors</div>
+      <div class="metric-val" id="m-att">0</div>
+      <div class="metric-sub" id="m-att-sub">active</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Lattice Nodes</div>
+      <div class="metric-val" id="m-lattice">0</div>
+      <div class="metric-sub" id="m-tick">tick 0</div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-label">Ring Buffer</div>
+      <div class="metric-val" id="m-ring">0</div>
+      <div class="metric-bar"><div class="metric-bar-fill" id="m-ring-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+  <!-- DEBUG PANEL -->
+  <div id="debug-panel" style="position:fixed;bottom:110px;left:8px;z-index:9999;background:rgba(0,0,0,.92);border:1px solid #f0f;color:#f0f;font:9px/1.5 monospace;padding:8px 10px;max-width:420px;max-height:320px;overflow-y:auto;display:none;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="letter-spacing:2px;font-size:7px;">ALK-GL DEBUG</span>
+      <button onclick="document.getElementById('debug-panel').style.display='none'" style="background:none;border:none;color:#f0f;cursor:pointer;font-size:10px;">✕</button>
+    </div>
+    <div id="dbg-content" style="white-space:pre;"></div>
+  </div>
+  <button onclick="document.getElementById('debug-panel').style.display='block';window._alkDebug()" style="position:fixed;bottom:110px;left:8px;z-index:10000;background:#0a0010;border:1px solid #f0f;color:#f0f;font:7px monospace;padding:3px 8px;cursor:pointer;letter-spacing:1px;">⬡ DEBUG</button>
+
+</div>
+
+
+<script type="module">
+
+import {
+  FaceLandmarker, PoseLandmarker, HandLandmarker, FilesetResolver, DrawingUtils
+} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+import { SISOBus, StreamLog } from '../siso.js';
+import { JaaDB, JaaLog, JaaSession } from '../jaa-browser.js';
+import { ALKGL } from '../modules/cfr/alk-gl.js';
+import { ExpressionEngine } from '../modules/expression/expression-engine.js';
+import { SignalTopology } from '../modules/signal/signal-topology.js';
+import { LatentModel } from '../modules/signal/latent-model.js';
+import { SuppressionScore } from '../modules/signal/suppression-score.js';
+import { TrajectoryRecorder } from '../modules/trajectory/trajectory-recorder.js';
+import { AttractorLandscape } from '../modules/trajectory/attractor-landscape.js';
+import { FieldPortrait } from '../modules/trajectory/field-portrait.js';
+
+
+
+// ─── SISO Bus + Jaa persistence ──────────────────────────────────────────────
+const _sisoLog = new StreamLog('DATA');
+const bus      = new SISOBus({ log: _sisoLog });
+const jaaDB    = new JaaDB('alk-jaa', 1);
+const jaaLog   = new JaaLog({ bus, db: jaaDB, level: 'EVENTS' });
+const jaaSession = new JaaSession({ db: jaaDB });
+
+// ALK kernel compat shim — all existing modules use kernel.emit / kernel.subscribe
+// Route through SISO bus transparently
+const kernel = {
+  emit:      (type, data={}, meta={}) => bus.emit(type, { ...data, ...(meta.sessionId ? {sessionId: meta.sessionId} : {}) }),
+  subscribe: (pattern, cb) => bus.on(pattern, cb),
+  stats:     () => ({ tick: bus.stats.emitted, ringSize: jaaLog.memory.length, ringCap: 2000, subscriptions: bus.stats.subscribers, lattice: { nodes: 0, edges: 0 } }),
+};
+
+
+// ─── ALK-GL import ────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+// ─── State ─────────────────────────────────────────────────────────────────────
+let session = null;
+let faceLM = null, poseLM = null, handLM = null;
+let drawingUtils = null;
+let totalEvents = 0, totalCues = 0, blinkCount = 0;
+let frameIndex = 0, frameTimestamps = [];
+let activeCues = new Map();
+let mirror = true;
+let videoStream = null, rafId = null;
+let alkgl = null; // ALK-GL engine instance
+let glRafId = null;
+
+// ─── Expression engine ────────────────────────────────────────────────────────
+let exprEngine = null;
+
+// ─── Signal topology ─────────────────────────────────────────────────────────
+let sigTop = null;
+
+// ─── Latent model + suppression score ────────────────────────────────────────
+let latentModel = null;
+let suppressionScore = null;
+let trajectoryRec = null;
+let attractorLand = null;
+let fieldPortrait = null;
+// _cfrBus removed — all modules use the SISO bus directly
+
+// Config state
+const CFG = {
+  fps: 30, nk: 80, pt: 1.4,
+  ear: 0.20, bfc: 2, gaze: 0.30, ema: 0.50,
+  ent: 0.12, str: 0.92, curl: 0.45, damp: 0.14,
+  layers: { particles:true, mesh:true, iris:true, skel:true, hands:true, emotion:true, mirror:true }
+};
+
+// Live metric state
+let lastEARl = 1, lastEARr = 1;
+let lastGazeL = {x:0,y:0}, lastGazeR = {x:0,y:0};
+let lastTilt = 0;
+let lastBs = {};
+
+// ── Blink state machine (hysteresis, not just threshold crossing) ────────────
+// State: OPEN → CLOSING (EAR < threshold for bfc frames) → CLOSED → OPENING (EAR > open_thresh for 1 frame) → OPEN
+// This eliminates the false triggers from EMA-smoothed values staying near threshold.
+const BLINK_SM = {
+  state: 'OPEN', // OPEN | CLOSING | CLOSED | OPENING
+  closingFrames: 0,
+  sessionBlinks: 0,
+  lastBlinkTs: 0,
+  blinkActive: false, // currently in a blink event (for CFR)
+};
+
+function updateBlinkSM(lEAR, rEAR, threshold, confirmFrames) {
+  const avgEAR = (lEAR + rEAR) / 2;
+  const openThresh = threshold * 1.4; // hysteresis: need to open wider than close threshold
+  const prev = BLINK_SM.state;
+
+  if (BLINK_SM.state === 'OPEN') {
+    if (avgEAR < threshold && avgEAR > 0.01) {
+      BLINK_SM.state = 'CLOSING';
+      BLINK_SM.closingFrames = 1;
+    }
+  } else if (BLINK_SM.state === 'CLOSING') {
+    if (avgEAR < threshold && avgEAR > 0.01) {
+      BLINK_SM.closingFrames++;
+      if (BLINK_SM.closingFrames >= confirmFrames) {
+        BLINK_SM.state = 'CLOSED';
+        BLINK_SM.blinkActive = true;
+      }
+    } else {
+      // Didn't confirm — back to open (noise rejection)
+      BLINK_SM.state = 'OPEN';
+      BLINK_SM.closingFrames = 0;
+    }
+  } else if (BLINK_SM.state === 'CLOSED') {
+    if (avgEAR > openThresh) {
+      BLINK_SM.state = 'OPENING';
+    }
+  } else if (BLINK_SM.state === 'OPENING') {
+    BLINK_SM.state = 'OPEN';
+    BLINK_SM.sessionBlinks++;
+    blinkCount = BLINK_SM.sessionBlinks;
+    BLINK_SM.lastBlinkTs = Date.now();
+    BLINK_SM.blinkActive = false;
+    // Flash blink indicator
+    const bi = document.getElementById('blink-indicator');
+    bi.style.opacity = '1';
+    setTimeout(() => { bi.style.opacity = '0'; }, 120);
+  }
+
+  const isBlinking = (BLINK_SM.state === 'CLOSED' || BLINK_SM.state === 'CLOSING');
+  document.getElementById('hud-blink-state').textContent = BLINK_SM.state;
+  document.getElementById('m-blink').textContent = BLINK_SM.sessionBlinks;
+  return { isBlinking, avgEAR, lEAR, rEAR };
+}
+
+// ─── EMA smoother per key ─────────────────────────────────────────────────────
+const ema = {};
+function sm(k, v, a) { ema[k] = ema[k] === undefined ? v : a*v + (1-a)*ema[k]; return ema[k]; }
+
+// ─── Math helpers ─────────────────────────────────────────────────────────────
+function dist2d(a, b) { const dx=a.x-b.x,dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+function r4(v) { return Math.round(v*10000)/10000; }
+function gazeOffset(iris, inner, outer) {
+  const cx=(inner.x+outer.x)/2, cy=(inner.y+outer.y)/2;
+  const ew=dist2d(inner,outer);
+  return ew>0 ? {x:(iris.x-cx)/ew, y:(iris.y-cy)/ew} : {x:0,y:0};
+}
+function headTiltDeg(noseTip, forehead) {
+  return Math.atan2(forehead.x - noseTip.x, forehead.y - noseTip.y) * 180 / Math.PI;
+}
+// World space: MediaPipe [0,1] → CFR world
+// scaleXY=10: face ~0.25..0.75 → world [-2.5, +2.5], fits within bound=6
+// mirror: flip X when video is mirrored so attractors match visual landmark positions
+// World → particle field mapping
+// scaleXY=14: face 0.2-0.8 → world ±4.2, fills the field nicely
+// Mirror: flip X so attractors align with video overlay
+function lm2w(lm, scaleXY=14, scaleZ=5) {
+  const x = mirror ? (1.0 - lm.x) : lm.x;
+  return [(x - 0.5) * scaleXY, (lm.y - 0.5) * -scaleXY, (lm.z ?? 0) * scaleZ];
+}
+
+// ─── Canvas size cache ─────────────────────────────────────────────────────────
+let _cvsW = 0, _cvsH = 0;
+
+// ─── Cue thresholds (live from CFG) ──────────────────────────────────────────
+function T() {
+  return {
+    earThreshold:    CFG.ear,
+    blinkConfirm:    CFG.bfc,
+    gazeDeviationMax: CFG.gaze,
+    browRaiseMin: 0.04, browFurrowMin: 0.015,
+    smileMin: 0.04, duchenneDiff: 0.02,
+    headTiltDegMin: 10, headNodVelMin: 0.015, headShakeVelMin: 0.015,
+    shoulderRaiseMin: 0.04, shoulderAsymMin: 0.03,
+    handToMouthMax: 0.15, openPalmFlatMin: 0.85,
+    sustainedFrames: 8,
+  };
+}
+
+let prevNose = null;
+let poseResult_cache = null;
+
+// ─── MediaPipe Loader ──────────────────────────────────────────────────────────
+const mpStatus = document.getElementById('mp-status-text');
+const mpDetail = document.getElementById('mp-detail-text');
+
+async function initMediaPipe() {
+  mpStatus.textContent = 'Loading vision runtime…';
+  const filesetResolver = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+  );
+
+  mpDetail.textContent = 'FaceLandmarker (478pt + blendshapes)…';
+  faceLM = await FaceLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+      delegate: 'GPU',
+    },
+    outputFaceBlendshapes: true,
+    outputFacialTransformationMatrixes: false,
+    runningMode: 'VIDEO',
+    numFaces: 1,
+    minFaceDetectionConfidence: 0.5,
+    minFacePresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  mpDetail.textContent = 'PoseLandmarker…';
+  poseLM = await PoseLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+      delegate: 'GPU',
+    },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.5,
+    minPosePresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  mpDetail.textContent = 'HandLandmarker…';
+  handLM = await HandLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+      delegate: 'GPU',
+    },
+    runningMode: 'VIDEO',
+    numHands: 2,
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  kernel.emit('alk.video.mediapipe.ready', { face: true, pose: true, hands: true });
+  document.getElementById('mp-loader').classList.add('hidden');
+}
+
+// ─── ALK-GL init ──────────────────────────────────────────────────────────────
+function initALKGL() {
+  if (alkgl) { alkgl.destroy(); alkgl = null; }
+  const canvas = document.getElementById('cfr-canvas');
+  try {
+    alkgl = new ALKGL(canvas, {
+      N: CFG.nk * 1000,
+      bound: 8, boundZ: 5,   // matches lm2w scaleXY=14
+    });
+    alkgl.field.entropy   = CFG.ent;
+    alkgl.field.structure = CFG.str;
+    alkgl.field.curl      = CFG.curl;
+    alkgl.field.damping   = CFG.damp;
+    alkgl.field.vmax      = 0.45;  // fast enough to reach ±4 world from init
+    document.getElementById('hud-particles').textContent = (alkgl.N/1000).toFixed(1)+'k';
+    console.log('[ALK-GL] initialized', alkgl.health());
+  } catch(e) {
+    console.error('[ALK-GL] init failed:', e.message);
+    document.getElementById('hud-particles').textContent = 'NO WEBGL2';
+  }
+
+  // Start GL render loop independent of frame processing
+  if (glRafId) cancelAnimationFrame(glRafId);
+  let glLast = 0;
+  function glLoop(ts) {
+    glRafId = requestAnimationFrame(glLoop);
+    if (!alkgl) return;
+    const dt = Math.min((ts - glLast) / 1000, 0.05);
+    glLast = ts;
+    // Field params: portrait drives if landscape loaded, else use CFG sliders
+    if (!fieldPortrait?.personId) {
+      alkgl.field.entropy   = CFG.ent;
+      alkgl.field.structure = CFG.str;
+      alkgl.field.curl      = CFG.curl;
+      alkgl.field.damping   = CFG.damp;
+      alkgl.field.vmax      = 0.35;
+    }
+    if (CFG.layers.particles) {
+      alkgl.step(dt);
+      const cvs = document.getElementById('cfr-canvas');
+      alkgl.render(cvs.width, cvs.height, CFG.pt);
+    }
+    document.getElementById('hud-field').textContent =
+      `E${r4(alkgl.field.entropy).toFixed(2)} S${r4(alkgl.field.structure).toFixed(2)}`;
+    document.getElementById('hud-attractors').textContent = alkgl._attractors.length;
+    document.getElementById('m-att').textContent = alkgl._attractors.length;
+  }
+  requestAnimationFrame(glLoop);
+}
+
+// ─── Frame processing ─────────────────────────────────────────────────────────
+async function processFrame(videoEl, ts) {
+  if (!faceLM || !poseLM || !handLM || !session) return;
+  const t = T();
+
+  frameIndex++;
+  const now = Date.now();
+  frameTimestamps.push(now);
+  frameTimestamps = frameTimestamps.filter(x => now - x < 1000);
+
+  // Canvas resize
+  const cvs = document.getElementById('lm-canvas');
+  const ctx = cvs.getContext('2d');
+  if (videoEl.videoWidth !== _cvsW || videoEl.videoHeight !== _cvsH) {
+    _cvsW = cvs.width  = videoEl.videoWidth;
+    _cvsH = cvs.height = videoEl.videoHeight;
+  }
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  if (!drawingUtils) drawingUtils = new DrawingUtils(ctx);
+
+  // Detectors
+  const faceResult = faceLM.detectForVideo(videoEl, ts);
+  const handResult = handLM.detectForVideo(videoEl, ts);
+  const poseResult = (frameIndex % 2 === 0) ? poseLM.detectForVideo(videoEl, ts) : (poseResult_cache ?? { poseLandmarks: [] });
+  if (frameIndex % 2 === 0) poseResult_cache = poseResult;
+
+  const fLMs = faceResult.faceLandmarks?.[0] ?? null;
+  window._lastFLMs = fLMs;  // debug snapshot
+  const pLMs = poseResult.poseLandmarks?.[0]  ?? null;
+  const hLMs = handResult.landmarks ?? [];
+  const bsArr = faceResult.faceBlendshapes?.[0]?.categories ?? [];
+
+  // Blendshape map
+  const bs = {};
+  for (const c of bsArr) bs[c.categoryName] = c.score;
+  lastBs = bs;
+
+  // ── Expression engine ingest (direct — every frame) ────────────────────────
+  let _exprResults = [];
+  if (exprEngine && Object.keys(bs).length > 0) {
+    _exprResults = exprEngine.ingest(bs, frameIndex) ?? [];
+    // Also feed top composite into event log on significant events
+    const topExpr = _exprResults[0];
+    if (topExpr && topExpr.confidence > 0.45 && topExpr.scale === 'MICRO') {
+      kernel.emit('alk.expression.micro', topExpr, { sessionId: session });
+    } else if (topExpr && topExpr.confidence > 0.40 && topExpr.durationFrames === 1) {
+      kernel.emit('alk.expression.composite', topExpr, { sessionId: session });
+    }
+  }
+
+  // ── Landmark draw ──────────────────────────────────────────────────────────
+  ctx.save();
+  if (mirror) { ctx.scale(-1,1); ctx.translate(-cvs.width,0); }
+
+  if (fLMs && CFG.layers.mesh) {
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_TESSELATION,
+      {color:'rgba(57,255,106,0.03)',lineWidth:0.5});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+      {color:'rgba(57,255,106,0.25)',lineWidth:1});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE,
+      {color:'rgba(0,255,238,0.45)',lineWidth:1});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
+      {color:'rgba(0,255,238,0.45)',lineWidth:1});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW,
+      {color:'rgba(57,255,106,0.35)',lineWidth:1});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW,
+      {color:'rgba(57,255,106,0.35)',lineWidth:1});
+    drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_LIPS,
+      {color:'rgba(255,204,0,0.35)',lineWidth:1});
+    if (fLMs.length >= 478 && CFG.layers.iris) {
+      drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS,
+        {color:'rgba(0,255,238,0.85)',lineWidth:2});
+      drawingUtils.drawConnectors(fLMs, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS,
+        {color:'rgba(0,255,238,0.85)',lineWidth:2});
+    }
+  }
+
+  if (pLMs && CFG.layers.skel) {
+    drawingUtils.drawConnectors(pLMs, PoseLandmarker.POSE_CONNECTIONS,
+      {color:'rgba(78,196,94,0.25)',lineWidth:1});
+    drawingUtils.drawLandmarks(pLMs.slice(11,17),
+      {color:'rgba(57,255,106,0.5)',lineWidth:1,radius:2});
+  }
+
+  if (CFG.layers.hands) {
+    for (const hand of hLMs) {
+      drawingUtils.drawConnectors(hand, HandLandmarker.HAND_CONNECTIONS,
+        {color:'rgba(204,136,255,0.45)',lineWidth:1.5});
+      drawingUtils.drawLandmarks(hand,
+        {color:'rgba(204,136,255,0.65)',lineWidth:1,radius:2});
+    }
+  }
+
+  ctx.restore();
+
+  // ── Metrics ────────────────────────────────────────────────────────────────
+  const cues = [];
+  const EMA_F = CFG.ema, EMA_S = 0.15;
+
+  if (fLMs && fLMs.length >= 468) {
+    const f = i => fLMs[i];
+
+    // ── EAR (6-point precise formula) ────────────────────────────────────────
+    const lEAR = sm('lEAR', (dist2d(f(160),f(144)) + dist2d(f(158),f(153))) / (2*dist2d(f(33),f(133))+0.0001), EMA_F);
+    const rEAR = sm('rEAR', (dist2d(f(387),f(373)) + dist2d(f(385),f(380))) / (2*dist2d(f(362),f(263))+0.0001), EMA_F);
+    lastEARl = lEAR; lastEARr = rEAR;
+    document.getElementById('hud-ear').textContent = `${r4(lEAR).toFixed(3)} / ${r4(rEAR).toFixed(3)}`;
+
+    // ── Blink state machine ───────────────────────────────────────────────────
+    const blinkInfo = updateBlinkSM(lEAR, rEAR, t.earThreshold, t.blinkConfirm);
+    if (blinkInfo.isBlinking) {
+      cues.push({cueType:'blink',category:'OCULAR',intensity:r4(1-blinkInfo.avgEAR/t.earThreshold),significance:'MODERATE'});
+    }
+
+    // ── Gaze tracking ─────────────────────────────────────────────────────────
+    if (fLMs.length >= 478) {
+      const lgRaw = gazeOffset(f(468), f(133), f(33));
+      const rgRaw = gazeOffset(f(473), f(263), f(362));
+      lastGazeL = { x:sm('lgx',lgRaw.x,EMA_F), y:sm('lgy',lgRaw.y,EMA_F) };
+      lastGazeR = { x:sm('rgx',rgRaw.x,EMA_F), y:sm('rgy',rgRaw.y,EMA_F) };
+
+      document.getElementById('hud-gaze-l').textContent = `${lastGazeL.x.toFixed(3)}, ${lastGazeL.y.toFixed(3)}`;
+      document.getElementById('hud-gaze-r').textContent = `${lastGazeR.x.toFixed(3)}, ${lastGazeR.y.toFixed(3)}`;
+
+      // Update gaze dot overlay (in canvas-space, accounting for mirror)
+      if (CFG.layers.iris) {
+        const pane = document.getElementById('video-pane');
+        const pw = pane.offsetWidth, ph = pane.offsetHeight;
+        const irisL = f(468), irisR = f(473);
+        const lx = mirror ? (1-irisL.x)*pw : irisL.x*pw;
+        const rx = mirror ? (1-irisR.x)*pw : irisR.x*pw;
+        const dotL = document.getElementById('gaze-dot-l');
+        const dotR = document.getElementById('gaze-dot-r');
+        dotL.style.left = lx + 'px'; dotL.style.top  = irisL.y*ph + 'px'; dotL.style.opacity = '0.7';
+        dotR.style.left = rx + 'px'; dotR.style.top  = irisR.y*ph + 'px'; dotR.style.opacity = '0.7';
+      }
+
+      const avgGazeDev = (Math.sqrt(lastGazeL.x**2+lastGazeL.y**2)+Math.sqrt(lastGazeR.x**2+lastGazeR.y**2))/2;
+      if (avgGazeDev > t.gazeDeviationMax) {
+        cues.push({cueType:'gaze_aversion',category:'OCULAR',intensity:r4(Math.min(1,(avgGazeDev-t.gazeDeviationMax)/t.gazeDeviationMax)),significance:'STRONG'});
+      }
+    }
+
+    // ── Head tilt ─────────────────────────────────────────────────────────────
+    const tilt = sm('tilt', headTiltDeg(f(4), f(10)), EMA_S);
+    lastTilt = r4(tilt);
+    const tiltEl = document.getElementById('hud-tilt');
+    tiltEl.textContent = `${r4(tilt).toFixed(1)}°`;
+    tiltEl.className = `hud-val${Math.abs(tilt) > 20 ? ' alert' : ''}`;
+    if (Math.abs(tilt) > t.headTiltDegMin) cues.push({cueType:tilt>0?'head_tilt_right':'head_tilt_left',category:'PROXEMIC',intensity:r4(Math.min(1,(Math.abs(tilt)-t.headTiltDegMin)/20)),significance:Math.abs(tilt)>20?'STRONG':'MODERATE'});
+
+    // ── Head velocity ─────────────────────────────────────────────────────────
+    const nose = f(4);
+    if (prevNose) {
+      const vx=sm('hvx',nose.x-prevNose.x,EMA_F), vy=sm('hvy',nose.y-prevNose.y,EMA_F);
+      if (Math.abs(vy) > t.headNodVelMin) cues.push({cueType:'head_nod',category:'PROXEMIC',intensity:r4(Math.min(1,Math.abs(vy)/t.headNodVelMin/3)),significance:'SUBTLE'});
+      if (Math.abs(vx) > t.headShakeVelMin) cues.push({cueType:'head_shake',category:'PROXEMIC',intensity:r4(Math.min(1,Math.abs(vx)/t.headShakeVelMin/3)),significance:'SUBTLE'});
+    }
+    prevNose = nose;
+
+    // ── Blendshape cues ───────────────────────────────────────────────────────
+    if ((bs.eyeWideLeft??0)+(bs.eyeWideRight??0) > 0.7)
+      cues.push({cueType:'eye_widen',category:'OCULAR',intensity:r4(((bs.eyeWideLeft??0)+(bs.eyeWideRight??0))/2),significance:'STRONG'});
+    if ((bs.mouthFrownLeft??0)+(bs.mouthFrownRight??0) > 0.6)
+      cues.push({cueType:'disgust_micro',category:'FACIAL',intensity:r4(((bs.mouthFrownLeft??0)+(bs.mouthFrownRight??0))/2),significance:'MODERATE'});
+    const smileScore = ((bs.mouthSmileLeft??0)+(bs.mouthSmileRight??0))/2;
+    if (smileScore > 0.3) cues.push({cueType:'smile_social',category:'FACIAL',intensity:r4(smileScore),significance:'MODERATE'});
+    if ((bs.browInnerUp??0) > 0.4) cues.push({cueType:'brow_raise',category:'FACIAL',intensity:r4(bs.browInnerUp),significance:'MODERATE'});
+    const browDown = ((bs.browDownLeft??0)+(bs.browDownRight??0))/2;
+    if (browDown > 0.4) cues.push({cueType:'brow_furrow',category:'FACIAL',intensity:r4(browDown),significance:'MODERATE'});
+    if ((bs.jawOpen??0) > 0.5) cues.push({cueType:'jaw_open',category:'FACIAL',intensity:r4(bs.jawOpen),significance:'STRONG'});
+
+    // ── Emotion readout (composite blendshape scores) ──────────────────────────
+    if (CFG.layers.emotion) updateEmotionPanel(bs, _exprResults);
+
+    // ── Update ALK-GL skeleton + blendshapes ──────────────────────────────────
+    if (alkgl) {
+      // Skeleton positions (world space)
+      const has478 = fLMs.length >= 478;
+      const iL = lm2w(has478 ? f(468) : f(159));
+      const iR = lm2w(has478 ? f(473) : f(386));
+      alkgl.setSkeleton({
+        irisL:  [iL[0], iL[1]],
+        irisR:  [iR[0], iR[1]],
+        nose:   [lm2w(f(4))[0],   lm2w(f(4))[1]],
+        mouth:  [lm2w(f(13))[0],  lm2w(f(13))[1]],
+        lcheek: [lm2w(f(116))[0], lm2w(f(116))[1]],
+        rcheek: [lm2w(f(345))[0], lm2w(f(345))[1]],
+        fore:   [lm2w(f(10))[0],  lm2w(f(10))[1]],
+        chin:   [lm2w(f(152))[0], lm2w(f(152))[1]],
+      });
+      alkgl.setBlendshapes(bs);
+
+      // Gaze vectors (normalized direction in world space)
+      if (has478) {
+        alkgl.setGaze(
+          [lastGazeL.x, -lastGazeL.y],
+          [lastGazeR.x, -lastGazeR.y],
+          Math.min(1, (Math.sqrt(lastGazeL.x**2+lastGazeL.y**2)+Math.sqrt(lastGazeR.x**2+lastGazeR.y**2))/2 * 3)
+        );
+      }
+
+      // Sync all face attractors (full 34-point skeleton)
+      syncFaceAttractors(fLMs, has478, bs);
+
+      // Blink: stress injection at iris on confirmed blink
+      if (BLINK_SM.state === 'CLOSED') {
+        const [lx,ly,lz] = iL, [rx,ry,rz] = iR;
+        alkgl.injectStress(lx, ly, lz, 380, 3.5);
+        alkgl.injectStress(rx, ry, rz, 380, 3.5);
+      }
+    }
+  }
+
+  if (pLMs && pLMs.length >= 25) {
+    const p = i => pLMs[i];
+    const ls=p(11),rs=p(12),le=p(7),re=p(8);
+    const lESD=dist2d(le,ls),rESD=dist2d(re,rs);
+    const shDelta=sm('sDelta',Math.max(0,0.18-(lESD+rESD)/2),EMA_S);
+    if (shDelta > t.shoulderRaiseMin) cues.push({cueType:'shoulder_raise',category:'SOMATIC',intensity:r4(Math.min(1,shDelta/(t.shoulderRaiseMin*3))),significance:'MODERATE'});
+
+    if (alkgl) syncPoseAttractors(pLMs);
+  }
+
+  if (hLMs.length > 0) {
+    const h=hLMs[0], wrist=h[0];
+    const exts=[
+      sm('fe0',dist2d(h[8],wrist)/(dist2d(h[5],wrist)*2.2||1),EMA_S),
+      sm('fe1',dist2d(h[12],wrist)/(dist2d(h[9],wrist)*2.2||1),EMA_S),
+      sm('fe2',dist2d(h[16],wrist)/(dist2d(h[13],wrist)*2.2||1),EMA_S),
+      sm('fe3',dist2d(h[20],wrist)/(dist2d(h[17],wrist)*2.2||1),EMA_S),
+    ];
+    const palmExt=exts.reduce((s,v)=>s+v,0)/4;
+    if (palmExt > t.openPalmFlatMin) cues.push({cueType:'open_palm',category:'GESTURAL',intensity:r4(Math.min(1,palmExt)),significance:'MODERATE'});
+    if (fLMs && dist2d(h[8],fLMs[13]) < t.handToMouthMax) cues.push({cueType:'hand_to_mouth',category:'GESTURAL',intensity:r4(1-dist2d(h[8],fLMs[13])/t.handToMouthMax),significance:'STRONG'});
+
+    if (alkgl) syncHandAttractors(hLMs, handResult);
+  } else if (alkgl) {
+    for (const side of ['l','r']) for (const p of ['w','th','ix','mi','ri','pi','pa'])
+      alkgl.removeAttractor(`h${side}.${p}`);
+  }
+
+  // ── Emit raw landmarks ────────────────────────────────────────────────────
+  const lmMeta = { sessionId: session };
+  if (fLMs) kernel.emit('alk.video.landmarks.face', {frameIndex,rawLandmarks:fLMs,count:fLMs.length,leftEAR:lastEARl,rightEAR:lastEARr,leftGaze:lastGazeL,rightGaze:lastGazeR}, lmMeta);
+  if (pLMs) kernel.emit('alk.video.landmarks.pose', {frameIndex,rawLandmarks:pLMs,count:pLMs.length}, lmMeta);
+  if (hLMs.length) {
+    const ho={};
+    for(let i=0;i<hLMs.length;i++){const s=handResult.handednesses?.[i]?.[0]?.categoryName?.toLowerCase()??'right';ho[s]=hLMs[i];}
+    kernel.emit('alk.video.landmarks.hands',{frameIndex,rawLandmarks:ho},lmMeta);
+  }
+
+  // ── Cue state machine ──────────────────────────────────────────────────────
+  const frameEvId = kernel.emit('alk.video.frame.analyzed',{frameIndex,hasFace:!!fLMs,hasPose:!!pLMs,hasHands:hLMs.length>0,cueCount:cues.length},{sessionId:session})?.id;
+  const nowCueTypes = new Set();
+  for (const cue of cues) {
+    nowCueTypes.add(cue.cueType);
+    if (!activeCues.has(cue.cueType)) {
+      activeCues.set(cue.cueType,{...cue,frames:1,firstTs:Date.now()});
+      totalCues++;
+      kernel.emit('alk.video.cue.detected',{sessionId:session,frameIndex,...cue},{causedBy:frameEvId,sessionId:session,edgeType:'semantic'});
+      flashCue(cue.category);
+
+      // CFR field response
+      if (alkgl) applyFieldCue(cue);
+    } else {
+      const s=activeCues.get(cue.cueType);
+      s.frames++;
+      if (s.frames===t.sustainedFrames) {
+        kernel.emit('alk.video.cue.sustained',{sessionId:session,cueType:cue.cueType,category:cue.category,durationMs:Date.now()-s.firstTs,frames:s.frames},{causedBy:frameEvId,sessionId:session,edgeType:'temporal'});
+      }
+    }
+  }
+  for (const [key,state] of activeCues) {
+    if (!nowCueTypes.has(key)) {
+      kernel.emit('alk.video.cue.released',{sessionId:session,cueType:key,category:state.category,durationMs:Date.now()-state.firstTs,frames:state.frames},{causedBy:frameEvId,sessionId:session});
+      activeCues.delete(key);
+    }
+  }
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  document.getElementById('hud-frame').textContent = frameIndex;
+  document.getElementById('hud-cues').textContent  = activeCues.size;
+  document.getElementById('fps-disp').textContent  = `${frameTimestamps.length} fps`;
+  document.getElementById('m-frames').textContent  = frameIndex;
+  document.getElementById('m-fps-bar').style.width = Math.min(100,(frameTimestamps.length/CFG.fps)*100)+'%';
+  updateCuePills();
+  updateMetrics();
+}
+
+// ─── Attractor sync ───────────────────────────────────────────────────────────
+// ── Skeleton anchors (high mass 7–14) — structural bones of the field ──────────
+const FACE_SK = [
+  ['fi.l',468,14],['fi.r',473,14],  // iris — heaviest anchors
+  ['fe.ol',33,9], ['fe.il',133,9],  // eye corners L
+  ['fe.or',362,9],['fe.ir',263,9],  // eye corners R
+  ['fe.tl',159,7],['fe.bl',145,7],  // eyelid L (EAR-modulated)
+  ['fe.tr',386,7],['fe.br',374,7],  // eyelid R
+  ['fb.l',107,9], ['fb.r',336,9],   // brow inner peaks
+  ['fb.ol',70,6], ['fb.or',300,6],  // brow outer
+  ['fn',4,13],                       // nose tip
+  ['fn.b',6,7],                      // nose bridge
+  ['fm.l',61,10],['fm.r',291,10],   // mouth corners
+  ['fm.t',13,9], ['fm.b',14,9],     // lip centers
+  ['fm.ul',0,6], ['fm.ll',17,6],    // upper/lower lip mid
+  ['fj.l',234,8],['fj.r',454,8],    // jaw hinges
+  ['fch',152,11],['ffh',10,11],     // chin, forehead poles
+  ['fn.l',102,6],['fn.r',331,6],    // nose wings
+  ['fc.l',116,6],['fc.r',345,6],    // cheeks
+];
+
+// ── Surface mesh points (low mass 1.5–2.5) — skin of the field ───────────────
+// These trace the visible contours so particles fill the face SHAPE,
+// not just cluster at named skeleton points.
+// Face oval + eye rings + brow arcs + lips + nose + cheek arc
+const FACE_SURFACE = [
+  // Face oval contour (every other point for performance)
+  109,67,103,54,21,162,127,93,58,172,136,150,149,148,
+  377,400,379,365,397,288,361,356,389,251,284,332,297,338,
+  // Left eye ring
+  7,163,144,145,153,154,155,173,157,158,160,161,246,
+  // Right eye ring
+  382,381,380,373,390,249,466,388,387,385,384,398,
+  // Left brow arc
+  63,105,66,55,65,52,53,46,
+  // Right brow arc
+  293,334,296,285,295,282,283,276,
+  // Nose bridge + base
+  1,2,98,327,5,48,115,220,45,51,11,281,350,391,275,
+  // Outer lips
+  146,91,181,84,17,314,405,321,375,409,270,269,267,37,39,40,185,
+  // Inner lips
+  95,88,178,87,317,402,318,324,415,310,311,312,82,81,80,191,
+  // Cheek arc L & R
+  116,117,118,119,120,121,128,187,207,216,126,209,
+  345,346,347,348,349,350,371,425,427,434,354,376,
+];
+
+function syncFaceAttractors(lms, has478, bs) {
+  if (!alkgl) return;
+  const earL = Math.max(0.05, lastEARl), earR = Math.max(0.05, lastEARr);
+  const jawOpen = bs.jawOpen ?? 0;
+  const smileScore = ((bs.mouthSmileLeft??0) + (bs.mouthSmileRight??0)) / 2;
+  const browUp = bs.browInnerUp ?? 0;
+  const browDown = ((bs.browDownLeft??0) + (bs.browDownRight??0)) / 2;
+
+  // ── Skeleton anchors ─────────────────────────────────────────────────────
+  for (const [id, idx, baseMass] of FACE_SK) {
+    if ((id==='fi.l'||id==='fi.r') && !has478) continue;
+    if (idx >= lms.length) continue;
+    const [x,y,z] = lm2w(lms[idx]);
+    let mass = baseMass;
+    // EAR: closed eye collapses its attractors inward
+    if (id==='fe.tl'||id==='fe.bl') mass = 5 + (1-earL)*9;
+    if (id==='fe.tr'||id==='fe.br') mass = 5 + (1-earR)*9;
+    // Blendshape modulation
+    if (id==='fb.l' ||id==='fb.r')  mass += browUp*7  - browDown*3;
+    if (id==='fb.ol'||id==='fb.or') mass += (bs.browOuterUpLeft??0+bs.browOuterUpRight??0)*4;
+    if (id==='fm.l' ||id==='fm.r')  mass += smileScore*4 + jawOpen*2;
+    if (id==='fm.t' ||id==='fm.b')  mass += jawOpen*5;
+    if (id==='fn')                   mass += ((bs.noseSneerLeft??0)+(bs.noseSneerRight??0))*3;
+    if (id==='fch')                  mass += ((bs.mouthFrownLeft??0)+(bs.mouthFrownRight??0))*4;
+    mass = Math.max(2, mass);
+    alkgl.upsertAttractor(id, x, y, z, mass);
+  }
+
+  // ── Surface mesh attractors ───────────────────────────────────────────────
+  // Low mass — give face its shape without dominating the field
+  // Mass varies by region: eye region heavier, jaw lighter
+  const EYE_IDXS  = new Set([7,163,144,145,153,154,155,173,157,158,160,161,246,382,381,380,373,390,249,466,388,387,385,384,398]);
+  const BROW_IDXS = new Set([63,105,66,55,65,52,53,46,293,334,296,285,295,282,283,276]);
+  const LIP_IDXS  = new Set([146,91,181,84,17,314,405,321,375,409,270,269,267,37,39,40,185,95,88,178,87,317,402,318,324,415,310,311,312,82,81,80,191]);
+
+  for (let si = 0; si < FACE_SURFACE.length; si++) {
+    const idx = FACE_SURFACE[si];
+    if (idx >= lms.length) continue;
+    const [x,y,z] = lm2w(lms[idx]);
+    let mass = 2.0; // base surface mass
+    if (EYE_IDXS.has(idx))  mass = 2.8; // eye contour slightly heavier
+    if (BROW_IDXS.has(idx)) mass = 2.5 + browUp * 1.5;
+    if (LIP_IDXS.has(idx))  mass = 2.0 + jawOpen * 2.0 + smileScore * 1.5;
+    alkgl.upsertAttractor(`sf${idx}`, x, y, z, mass);
+  }
+}
+
+const POSE_SK = [
+  ['bs.l',11,12],['bs.r',12,12],
+  ['be.l',13,8],['be.r',14,8],
+  ['bw.l',15,7],['bw.r',16,7],
+  ['bhip',23,15],  // heavy anchor at hips
+];
+function syncPoseAttractors(lms) {
+  for (const [id,idx,mass] of POSE_SK) {
+    if (idx>=lms.length) continue;
+    const [x,y,z]=lm2w(lms[idx]);
+    alkgl.upsertAttractor(id,x,y,z,mass);
+  }
+}
+const H_PARTS = [['w',0,9],['th',4,7],['ix',8,7],['mi',12,7],['ri',16,7],['pi',20,7],['pa',9,10]];
+function syncHandAttractors(hLMs, handResult) {
+  for (let hi=0;hi<hLMs.length;hi++) {
+    const hand=hLMs[hi];
+    const side=(handResult.handednesses?.[hi]?.[0]?.categoryName?.toLowerCase()||'right')[0];
+    for (const [p,idx,mass] of H_PARTS) {
+      if (idx>=hand.length) continue;
+      const [x,y,z]=lm2w(hand[idx]);
+      alkgl.upsertAttractor(`h${side}.${p}`,x,y,z,mass);
+    }
+  }
+}
+
+// ─── Field response to cues ────────────────────────────────────────────────────
+const FIELD_BASE = { entropy:0.18, structure:0.85, curl:0.50 };
+let _fieldTargets = { ...FIELD_BASE };
+let _fieldDecayTimer = null;
+
+function applyFieldCue(cue) {
+  if (!alkgl) return;
+  const f = alkgl.field;
+  const sk = alkgl._sk;
+
+  const deltas = {
+    blink:             ()=>{ alkgl.injectStress(sk.irisL[0],sk.irisL[1],0,320,3); alkgl.injectStress(sk.irisR[0],sk.irisR[1],0,320,3); },
+    eye_widen:         ()=>{ f.entropy=Math.min(1,f.entropy+.12); f.structure=Math.max(0,f.structure-.10); },
+    brow_furrow:       ()=>{ alkgl.injectStress(sk.nose[0],sk.nose[1],0,350,3.5); },
+    brow_raise:        ()=>{ f.entropy=Math.min(1,f.entropy+.06); },
+    gaze_aversion:     ()=>{ f.entropy=Math.min(1,f.entropy+.18); },
+    smile_social:      ()=>{ f.curl=Math.min(1,f.curl+.15); f.entropy=Math.max(0,f.entropy-.06); },
+    disgust_micro:     ()=>{ f.entropy=Math.min(1,f.entropy+.20); alkgl.injectStress(sk.nose[0],sk.nose[1],0,300,3); },
+    jaw_open:          ()=>{ alkgl.injectStress(sk.mouth[0],sk.mouth[1],0,250,3); f.entropy=Math.min(1,f.entropy+.08); },
+    open_palm:         ()=>{ f.entropy=Math.min(1,f.entropy+.10); },
+    hand_to_mouth:     ()=>{ alkgl.injectStress(sk.mouth[0],sk.mouth[1],0,300,4); f.entropy=Math.min(1,f.entropy+.12); },
+    shoulder_raise:    ()=>{ f.structure=Math.max(0,f.structure-.06); },
+  };
+
+  deltas[cue.cueType]?.();
+
+  // Decay back to base over 2s
+  clearTimeout(_fieldDecayTimer);
+  _fieldDecayTimer = setTimeout(() => {
+    const decay = () => {
+      if (!alkgl) return;
+      const RATE = 0.04;
+      let changed = false;
+      for (const k of ['entropy','structure','curl']) {
+        const def = CFG[k==='entropy'?'ent':k==='structure'?'str':'curl'];
+        const cur = alkgl.field[k];
+        if (Math.abs(cur-def) > 0.005) { alkgl.field[k] = cur + (def-cur)*RATE; changed=true; }
+      }
+      if (changed) requestAnimationFrame(decay);
+    };
+    requestAnimationFrame(decay);
+  }, 600);
+}
+
+
+// ─── Expression → CFR field mapping (micro to macro) ─────────────────────────
+// Scale multipliers: micro events are brief but sharp; macro events are sustained
+const EXPR_FIELD_MAP = {
+  // label → { entropy, structure, curl, stressTarget, stressStrength, stressRadius }
+  FEAR:        { entropy:+.28, structure:-.18, curl:+.20, stressTarget:'forehead', stressStr:400, stressR:4.5 },
+  ANGER:       { entropy:+.22, structure:-.12, curl:+.15, stressTarget:'brows',    stressStr:380, stressR:4.0 },
+  DISGUST:     { entropy:+.20, structure:-.10, curl:+.12, stressTarget:'nose',     stressStr:360, stressR:3.5 },
+  CONTEMPT:    { entropy:+.12, structure:-.08, curl:+.08, stressTarget:'mouthR',   stressStr:280, stressR:3.0 },
+  SADNESS:     { entropy:+.08, structure:-.15, curl:-.10, stressTarget:'chin',     stressStr:200, stressR:5.0 },
+  SURPRISE:    { entropy:+.25, structure:-.08, curl:+.22, stressTarget:'forehead', stressStr:420, stressR:5.0 },
+  JOY_GENUINE: { entropy:-.08, structure:+.12, curl:+.18, stressTarget:null,       stressStr:0,   stressR:0   },
+  JOY_SOCIAL:  { entropy:-.03, structure:+.06, curl:+.10, stressTarget:null,       stressStr:0,   stressR:0   },
+};
+
+const SCALE_MULT = { MICRO: 1.4, PARTIAL: 1.0, MACRO: 0.7 };
+// Micro events spike harder but fade faster — brief truth
+
+function applyExpressionToField(composite) {
+  if (!alkgl) return;
+  const map = EXPR_FIELD_MAP[composite.label];
+  if (!map) return;
+
+  const mult = (SCALE_MULT[composite.scale] ?? 1.0) * Math.min(1, composite.confidence * 1.5);
+  const f    = alkgl.field;
+  const sk   = alkgl._sk;
+
+  if (map.entropy)   f.entropy   = Math.max(0, Math.min(1, f.entropy   + map.entropy   * mult));
+  if (map.structure) f.structure = Math.max(0, Math.min(1, f.structure + map.structure * mult));
+  if (map.curl)      f.curl      = Math.max(0, Math.min(1, f.curl      + map.curl      * mult));
+
+  // Stress injection at anatomically correct target
+  if (map.stressTarget && map.stressStr > 0) {
+    const targets = {
+      forehead: sk.fore,
+      brows:    [(sk.fore[0]+sk.nose[0])/2, (sk.fore[1]+sk.nose[1])/2],
+      nose:     sk.nose,
+      chin:     sk.chin,
+      mouth:    sk.mouth,
+      mouthR:   [sk.mouth[0]+1.2, sk.mouth[1]],  // right corner
+      irisL:    sk.irisL,
+      irisR:    sk.irisR,
+    };
+    const t = targets[map.stressTarget] ?? sk.nose;
+    alkgl.injectStress(t[0], t[1], 0, map.stressStr * mult, map.stressR);
+  }
+
+  // Asymmetric contempt: stress on the non-smiling side
+  if (composite.label === 'CONTEMPT' && composite.asymmetry > 0.15) {
+    const side = (lastBs?.mouthSmileLeft ?? 0) > (lastBs?.mouthSmileRight ?? 0) ? sk.irisR : sk.irisL;
+    alkgl.injectStress(side[0], side[1], 0, 200 * mult, 2.5);
+  }
+
+  // Decay field back to config baseline
+  clearTimeout(_fieldDecayTimer);
+  const decayDelay = composite.scale === 'MICRO' ? 300 : composite.scale === 'PARTIAL' ? 800 : 1500;
+  _fieldDecayTimer = setTimeout(() => {
+    const decay = () => {
+      if (!alkgl) return;
+      let changed = false;
+      for (const k of ['entropy','structure','curl']) {
+        const def = CFG[k==='entropy'?'ent':k==='structure'?'str':'curl'];
+        const cur = alkgl.field[k];
+        if (Math.abs(cur-def) > 0.005) { alkgl.field[k] = cur + (def-cur)*0.05; changed=true; }
+      }
+      if (changed) requestAnimationFrame(decay);
+    };
+    requestAnimationFrame(decay);
+  }, decayDelay);
+}
+
+// ─── Expression panel (micro → macro) ────────────────────────────────────────
+const _microLog = [];  // last 8 micro events
+const _SCALE_COLORS = { MICRO:'var(--rose)', PARTIAL:'var(--amber)', MACRO:'var(--signal)' };
+
+function updateEmotionPanel(bs, exprResults) {
+  // Score all 8 universals via expression engine AU patterns
+  const scores = exprEngine
+    ? exprEngine.score(bs)
+    : { FEAR:0, ANGER:0, DISGUST:0, CONTEMPT:0, SADNESS:0, SURPRISE:0, JOY_GENUINE:0, JOY_SOCIAL:0 };
+
+  const bar = (id, v, color) => {
+    const f = document.getElementById('em-'+id);
+    const val = document.getElementById('em-'+id+'-v');
+    if (f)   { f.style.width = (Math.min(1,v)*100).toFixed(1)+'%'; if(color) f.style.background=color; }
+    if (val)   val.textContent = Math.min(1,v).toFixed(2);
+  };
+
+  bar('joy-g', scores.JOY_GENUINE,  scores.JOY_GENUINE > 0.4 ? 'var(--signal)' : null);
+  bar('joy-s', scores.JOY_SOCIAL);
+  bar('surp',  scores.SURPRISE);
+  bar('fear',  scores.FEAR,   scores.FEAR  > 0.4 ? 'var(--violet)' : null);
+  bar('anger', scores.ANGER,  scores.ANGER > 0.4 ? 'var(--rose)'   : null);
+  bar('disg',  scores.DISGUST);
+  bar('cont',  scores.CONTEMPT, scores.CONTEMPT > 0.4 ? 'var(--amber)' : null);
+  bar('sad',   scores.SADNESS,  scores.SADNESS  > 0.4 ? 'var(--cyan)'  : null);
+
+  // Dominant expression
+  const top = exprResults?.[0] ?? null;
+  const domEl = document.getElementById('em-dominant');
+  if (domEl) {
+    if (top && top.confidence > 0.25) {
+      domEl.textContent = top.label.replace('_',' ') + ' ' + (top.confidence*100).toFixed(0)+'%';
+      domEl.style.color = _SCALE_COLORS[top.scale] ?? 'var(--amber)';
+    } else {
+      domEl.textContent = '—';
+      domEl.style.color = 'var(--wire2)';
+    }
+  }
+
+  // Scale indicator
+  const scale = top?.scale ?? null;
+  for (const s of ['micro','partial','macro']) {
+    const el = document.getElementById('em-scale-'+s);
+    if (!el) continue;
+    const active = scale && scale.toLowerCase() === s;
+    el.style.borderColor  = active ? _SCALE_COLORS[scale] : 'var(--wire2)';
+    el.style.color        = active ? _SCALE_COLORS[scale] : 'var(--dim)';
+    el.style.background   = active ? 'rgba(255,255,255,0.04)' : 'transparent';
+  }
+
+  // Duchenne
+  const duchEl = document.getElementById('em-duchenne');
+  if (duchEl) {
+    const isDuchenne = top?.duchenne === true && top.label.startsWith('JOY');
+    duchEl.textContent = isDuchenne ? '✓ GENUINE' : (top?.label?.startsWith('JOY') ? '✗ SOCIAL' : '—');
+    duchEl.style.color = isDuchenne ? 'var(--signal)' : (top?.label?.startsWith('JOY') ? 'var(--amber)' : 'var(--wire2)');
+  }
+
+  // Asymmetry
+  const asymEl = document.getElementById('em-asym');
+  if (asymEl) asymEl.textContent = (top?.asymmetry ?? 0).toFixed(2);
+}
+
+// Composite state list in expression panel
+kernel.subscribe('alk.signal.state', (ev) => {
+  const p = ev.payload;
+  if (!p.active) return;
+  const el = document.getElementById('em-composite-list');
+  if (!el) return;
+  const entries = Object.entries(p.active)
+    .sort((a,b) => b[1]-a[1])
+    .slice(0,5);
+  if (!entries.length) { el.innerHTML = '<span style="color:var(--wire2)">—</span>'; return; }
+  const COMP_COLS = {
+    STRESS_ACUTE:'var(--rose)',COGNITIVE_LOAD:'var(--cyan)',SOCIAL_MASK:'var(--amber)',
+    GENUINE_ENGAGEMENT:'var(--signal)',CONCEALMENT:'var(--violet)',CONTEMPT_LEAK:'var(--amber)',
+    DISSONANCE:'var(--rose)',APPROACH:'var(--signal)',WITHDRAWAL:'var(--dim)',FREEZE:'var(--cyan)',
+  };
+  el.innerHTML = entries.map(([label, score]) =>
+    `<div style="display:flex;justify-content:space-between">` +
+    `<span style="color:${COMP_COLS[label]||'var(--muted)'}">${label.replace(/_/g,' ')}</span>` +
+    `<span style="color:var(--dim)">${(score*100).toFixed(0)}%</span></div>`
+  ).join('');
+});
+
+// Listen for micro-expression events to update log
+kernel.subscribe('alk.expression.micro', (ev) => {
+  const p = ev.payload;
+  const label = p.label ?? p.bs ?? '?';
+  const conf  = p.suppressionConfidence ?? 0;
+  const dur   = p.durationFrames ?? 0;
+  _microLog.unshift({ label, conf, dur, ts: Date.now() });
+  if (_microLog.length > 8) _microLog.pop();
+  const logEl = document.getElementById('em-micro-log');
+  if (!logEl) return;
+  logEl.innerHTML = _microLog.map(m =>
+    `<div style="display:flex;justify-content:space-between;opacity:${Math.max(0.3,1-(Date.now()-m.ts)/4000).toFixed(2)}">` +
+    `<span style="color:var(--rose)">${m.label.replace('_',' ')}</span>` +
+    `<span style="color:var(--dim)">${m.dur}f</span>` +
+    `<span style="color:var(--amber)">${(m.conf*100).toFixed(0)}%</span>` +
+    `</div>`
+  ).join('');
+});
+
+// Wire expression events into CFR field
+kernel.subscribe('alk.expression.composite', (ev) => {
+  if (!alkgl) return;
+  const p = ev.payload;
+  applyExpressionToField(p);
+});
+
+
+// ─── Signal topology → CFR field ─────────────────────────────────────────────
+kernel.subscribe('alk.signal.composite', (ev) => {
+  if (!alkgl) return;
+  const p = ev.payload;
+  const fx = p.fieldEffect;
+  if (!fx) return;
+  const f = alkgl.field;
+  const sk = alkgl._sk;
+
+  // Scale by confidence (0.25–1.0 maps to 0.3–1.0 multiplier)
+  const confMult = 0.3 + p.score * 0.7;
+
+  if (fx.entropy)   f.entropy   = Math.max(0, Math.min(1, f.entropy   + fx.entropy   * confMult));
+  if (fx.structure) f.structure = Math.max(0, Math.min(1, f.structure + fx.structure * confMult));
+  if (fx.curl)      f.curl      = Math.max(0, Math.min(1, f.curl      + fx.curl      * confMult));
+
+  if (fx.stressTarget && fx.stressStr > 0) {
+    const targets = {
+      forehead: sk.fore,  brows: [(sk.fore[0]+sk.nose[0])/2,(sk.fore[1]+sk.nose[1])/2],
+      nose:  sk.nose,     chin:  sk.chin,  mouth: sk.mouth,
+      mouthR: [sk.mouth[0]+1.2, sk.mouth[1]],
+    };
+    const t = targets[fx.stressTarget] ?? sk.nose;
+    alkgl.injectStress(t[0], t[1], 0, fx.stressStr * confMult, fx.stressR ?? 4);
+  }
+});
+
+// Dominant state transition → visual flash + HUD update
+kernel.subscribe('alk.signal.transition', (ev) => {
+  const p = ev.payload;
+  if (!p.to) return;
+  // Update composite state HUD
+  const el = document.getElementById('hud-composite');
+  if (el) {
+    el.textContent = p.to.replace(/_/g,' ');
+    const colors = {
+      STRESS_ACUTE:'var(--rose)', COGNITIVE_LOAD:'var(--cyan)', SOCIAL_MASK:'var(--amber)',
+      GENUINE_ENGAGEMENT:'var(--signal)', CONCEALMENT:'var(--violet)', CONTEMPT_LEAK:'var(--amber)',
+      DISSONANCE:'var(--rose)', APPROACH:'var(--signal)', WITHDRAWAL:'var(--dim)', FREEZE:'var(--cyan)',
+    };
+    el.style.color = colors[p.to] ?? 'var(--muted)';
+  }
+  // Log to event stream
+  kernel.emit('alk.signal.composite.display', p);
+});
+
+
+// ─── Latent state + suppression UI updates ────────────────────────────────────
+kernel.subscribe('alk.latent.update', (ev) => {
+  const p = ev.payload;
+  if (!p) return;
+
+  // Valence bar: bipolar [-1,+1], center at 50%
+  const vPct = (p.valence + 1) / 2 * 100; // 0..100
+  const vBar = document.getElementById('lat-val-bar');
+  if (vBar) {
+    const width = Math.abs(p.valence) * 50;
+    vBar.style.width  = width + '%';
+    vBar.style.left   = p.valence >= 0 ? '50%' : (50 - width) + '%';
+    vBar.style.background = p.valence >= 0 ? 'var(--signal)' : 'var(--rose)';
+  }
+  const vn = document.getElementById('lat-val-n');
+  if (vn) vn.textContent = p.valence >= 0 ? '+'+p.valence.toFixed(2) : p.valence.toFixed(2);
+
+  // Arousal bar: [0,1]
+  const aBar = document.getElementById('lat-aro-bar');
+  if (aBar) aBar.style.width = (p.arousal * 100).toFixed(1) + '%';
+  const an = document.getElementById('lat-aro-n');
+  if (an) an.textContent = p.arousal.toFixed(2);
+
+  // Engagement bar: bipolar
+  const eBar = document.getElementById('lat-eng-bar');
+  if (eBar) {
+    const width = Math.abs(p.engagement) * 50;
+    eBar.style.width  = width + '%';
+    eBar.style.left   = p.engagement >= 0 ? '50%' : (50 - width) + '%';
+    eBar.style.background = p.engagement >= 0 ? 'var(--cyan)' : 'var(--dim)';
+  }
+  const en = document.getElementById('lat-eng-n');
+  if (en) en.textContent = p.engagement >= 0 ? '+'+p.engagement.toFixed(2) : p.engagement.toFixed(2);
+
+  // Coherence bar: [0,1]
+  const cBar = document.getElementById('lat-coh-bar');
+  if (cBar) {
+    cBar.style.width = (p.coherence * 100).toFixed(1) + '%';
+    cBar.style.background = p.coherence > 0.6 ? 'var(--signal)' : p.coherence > 0.3 ? 'var(--amber)' : 'var(--rose)';
+  }
+  const cn = document.getElementById('lat-coh-n');
+  if (cn) { cn.textContent = p.coherence.toFixed(2); cn.style.color = p.coherence > 0.6 ? 'var(--signal)' : p.coherence > 0.3 ? 'var(--amber)' : 'var(--rose)'; }
+
+  // Quadrant HUD
+  const q = document.getElementById('hud-quadrant');
+  if (q && p.quadrant) q.textContent = p.quadrant?.replace('_',' ') ?? '—';
+});
+
+kernel.subscribe('alk.suppression.update', (ev) => {
+  const p = ev.payload;
+  if (!p) return;
+  const score = p.suppressionScore ?? 0;
+  const SUPP_COLS = { AUTHENTIC:'var(--signal)', LOW:'var(--muted)', MEDIUM:'var(--amber)', HIGH:'var(--rose)' };
+  const col = SUPP_COLS[p.level] ?? 'var(--dim)';
+
+  const scoreEl = document.getElementById('lat-supp-score');
+  if (scoreEl) { scoreEl.textContent = score.toFixed(2); scoreEl.style.color = col; }
+
+  const levelEl = document.getElementById('lat-supp-level');
+  if (levelEl) { levelEl.textContent = p.level ?? '—'; levelEl.style.color = col; }
+
+  const bar = document.getElementById('lat-supp-bar');
+  if (bar) { bar.style.width = (score*100).toFixed(1)+'%'; bar.style.background = col; }
+
+  const evEl = document.getElementById('lat-supp-evidence');
+  if (evEl) evEl.textContent = p.dominantEvidence ?? '—';
+
+  const surEl = document.getElementById('lat-surface');
+  if (surEl) surEl.textContent = (p.surfaceLabel ?? '—').replace('_',' ');
+
+  const infEl = document.getElementById('lat-inferred');
+  if (infEl) { infEl.textContent = (p.inferredLabel ?? '—').replace('_',' '); infEl.style.color = col; }
+});
+
+// Suppression pattern alert — flash the whole latent panel
+kernel.subscribe('alk.suppression.pattern', (ev) => {
+  const p = ev.payload;
+  const panel = document.getElementById('latent-panel');
+  if (!panel) return;
+  panel.style.borderColor = 'var(--rose)';
+  panel.style.boxShadow = '0 0 12px rgba(255,68,85,.4)';
+  setTimeout(() => {
+    panel.style.borderColor = 'var(--wire2)';
+    panel.style.boxShadow = 'none';
+  }, 2000);
+  // Log to event stream
+  kernel.emit('alk.suppression.pattern.display', { label: p.description, score: p.suppressionScore });
+});
+
+
+// ─── Landscape + portrait listeners ──────────────────────────────────────────
+
+kernel.subscribe('alk.landscape.warmstart', (ev) => {
+  const p = ev.payload;
+  if (!p) return;
+  // Initialize LatentModel from resting state (warm start)
+  if (latentModel && p.restingState?.length >= 5) {
+    const [v,a,s,co,e] = p.restingState;
+    latentModel._x[0] = v;   // valence
+    latentModel._x[1] = a;   // arousal
+    latentModel._x[2] = s;   // suppression
+    latentModel._x[3] = co;  // coherence
+    latentModel._x[4] = e;   // engagement
+    // Lower initial uncertainty on warm start
+    latentModel._P.fill(0.15);
+    console.log('[Latent] warm started from landscape:', p.restingLabel, p.restingState);
+  }
+  // Update portrait with alkgl reference (may not exist at FieldPortrait init)
+  if (fieldPortrait && alkgl) fieldPortrait.setALKGL(alkgl);
+  // HUD update
+  const qEl = document.getElementById('hud-quadrant');
+  if (qEl) qEl.textContent = (p.restingLabel ?? '—').replace(/\//g,' · ');
+  console.log(`[Landscape] warm start: ${p.sessionCount} sessions, resting: ${p.restingLabel}`);
+});
+
+kernel.subscribe('alk.landscape.new', (ev) => {
+  const p = ev.payload;
+  console.log('[Landscape] first session, landscape created:', p?.personId);
+});
+
+kernel.subscribe('alk.landscape.updated', (ev) => {
+  const p = ev.payload;
+  console.log('[Landscape] integrated:', p?.landscape?.sessionCount, 'sessions');
+});
+
+kernel.subscribe('alk.landscape.insight', (ev) => {
+  const p = ev.payload;
+  if (!p?.insights?.length) return;
+  for (const ins of p.insights) {
+    console.log(`[Landscape insight] ${ins.type}: ${ins.message}`);
+    // Log to event stream
+    kernel.emit('alk.landscape.insight.display', ins);
+  }
+});
+
+kernel.subscribe('alk.trajectory.bifurcation', (ev) => {
+  const p = ev.payload;
+  // Flash the latent panel on bifurcation
+  const panel = document.getElementById('latent-panel');
+  if (!panel) return;
+  panel.style.borderColor = 'var(--amber)';
+  panel.style.boxShadow = '0 0 8px rgba(255,204,0,.3)';
+  setTimeout(() => { panel.style.borderColor = 'var(--wire2)'; panel.style.boxShadow='none'; }, 600);
+});
+
+kernel.subscribe('alk.portrait.params', (ev) => {
+  const p = ev.payload;
+  if (!p) return;
+  // Update field HUD
+  const fEl = document.getElementById('hud-field');
+  if (fEl) fEl.textContent = `E${(p.entropy).toFixed(2)} S${(p.structure).toFixed(2)} [${p.colorBias?.toUpperCase().slice(0,4) ?? 'NEUT'}]`;
+});
+
+// ─── Cue flash ────────────────────────────────────────────────────────────────
+const CUE_COLORS = {OCULAR:'rgba(0,255,238,0.04)',FACIAL:'rgba(255,204,0,0.04)',PROXEMIC:'rgba(57,255,106,0.04)',SOMATIC:'rgba(204,136,255,0.04)',GESTURAL:'rgba(180,232,192,0.04)'};
+let flashTimer=null;
+function flashCue(cat) {
+  const fl=document.getElementById('cue-flash');
+  fl.style.background=CUE_COLORS[cat]??'transparent';fl.style.opacity='1';
+  clearTimeout(flashTimer);flashTimer=setTimeout(()=>{fl.style.opacity='0';},80);
+}
+
+// ─── Cue pills ────────────────────────────────────────────────────────────────
+function updateCuePills() {
+  const pills=document.getElementById('cue-pills');
+  pills.innerHTML=[...activeCues.values()].map(c=>`<div class="cue-pill ${c.category}${c.significance==='STRONG'?' STRONG':''}">${c.cueType.replace(/_/g,' ')}</div>`).join('')||'<div style="font-size:6px;color:var(--wire2);letter-spacing:1px;padding:2px">NO ACTIVE CUES</div>';
+  document.getElementById('hud-cues').textContent=activeCues.size;
+}
+
+// ─── Metrics ─────────────────────────────────────────────────────────────────
+function updateMetrics() {
+  const s=kernel.stats();
+  document.getElementById('m-cues').textContent=totalCues;
+  document.getElementById('m-cue-top').textContent=[...activeCues.keys()][0]?.replace(/_/g,' ')||'–';
+  document.getElementById('m-lattice').textContent=s.lattice.nodes;
+  document.getElementById('m-tick').textContent=`tick ${s.tick}`;
+  const ringPct=Math.round(s.ringSize/s.ringCap*100);
+  document.getElementById('m-ring').textContent=s.ringSize;
+  document.getElementById('m-ring-bar').style.width=ringPct+'%';
+  document.getElementById('m-ring-bar').className='metric-bar-fill'+(ringPct>80?' alert':'');
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+function setCfg(key, val) {
+  const v = parseFloat(val);
+  const labels = {fps:'cv-fps',nk:'cv-n',pt:'cv-pt',ear:'cv-ear',bfc:'cv-bfc',gaze:'cv-gaze',ema:'cv-ema',ent:'cv-ent',str:'cv-str',curl:'cv-curl',damp:'cv-damp'};
+  CFG[key] = key==='bfc'||key==='fps'||key==='nk' ? Math.round(v) : v;
+  const el=document.getElementById(labels[key]);
+  if (el) el.textContent = key==='nk' ? Math.round(v) : (v%1===0?v:v.toFixed(2));
+  // Reinit particles if N changes significantly
+  if (key==='nk' && alkgl && Math.abs(alkgl.N/1000 - CFG.nk) > 5) initALKGL();
+}
+window.setCfg = setCfg;
+
+function applyPreset(p) {
+  const presets = {
+    light:    {nk:20, pt:1.2, ent:0.12, str:0.80, curl:0.40},
+    balanced: {nk:80, pt:1.5, ent:0.18, str:0.85, curl:0.50},
+    ultra:    {nk:200,pt:1.8, ent:0.22, str:0.90, curl:0.60},
+  };
+  if (!presets[p]) return;
+  Object.assign(CFG, presets[p]);
+  // Update sliders
+  const map={nk:'cv-n',pt:'cv-pt',ent:'cv-ent',str:'cv-str',curl:'cv-curl'};
+  for (const [k,id] of Object.entries(map)) {
+    const el=document.getElementById(id);
+    if (el) el.textContent=CFG[k];
+  }
+  if (alkgl) initALKGL();
+}
+window.applyPreset = applyPreset;
+
+function toggleConfig() {
+  const p=document.getElementById('config-panel');
+  p.classList.toggle('open');
+  document.getElementById('btn-config').classList.toggle('active');
+}
+window.toggleConfig = toggleConfig;
+
+function toggleLayer(name) {
+  CFG.layers[name] = !CFG.layers[name];
+  const tog=document.getElementById(`tog-${name}`);
+  if (tog) tog.classList.toggle('on', CFG.layers[name]);
+  // Visual side effects
+  if (name==='particles') {
+    document.getElementById('cfr-canvas').style.opacity = CFG.layers.particles ? '0.85' : '0';
+  }
+  if (name==='emotion') {
+    document.getElementById('emotion-panel').style.display = CFG.layers.emotion ? '' : 'none';
+  }
+}
+window.toggleLayer = toggleLayer;
+
+function toggleMirror() {
+  mirror = !mirror;
+  document.getElementById('video-feed').style.transform = mirror ? 'scaleX(-1)' : 'none';
+  CFG.layers.mirror = mirror;
+  const tog=document.getElementById('tog-mirror');
+  if (tog) tog.classList.toggle('on', mirror);
+}
+window.toggleMirror = toggleMirror;
+function clearLog() { document.getElementById('event-log').innerHTML=''; totalEvents=0; document.getElementById('event-count').textContent='0 events'; }
+window.clearLog = clearLog;
+
+// ─── Event log ───────────────────────────────────────────────────────────────
+kernel.subscribe('**', (ev) => {
+  totalEvents++;
+  document.getElementById('event-count').textContent=`${totalEvents} events`;
+  appendLog(ev);
+  updateMetrics();
+});
+function appendLog(ev) {
+  const log=document.getElementById('event-log');
+  const ns=ev.type.split('.')[2]??'other';
+  const cls={face:'face',pose:'pose',hands:'hands',cue:'cue',sustained:'sustained',released:'released'}[ns]??'session';
+  const row=document.createElement('div'); row.className=`ev-row ${cls}`;
+  const p=ev.payload;
+  let ps=p.cueType?p.cueType.replace(/_/g,' '):p.frameIndex!==undefined?`f${p.frameIndex}`:p.sessionId?p.sessionId.slice(-6):'';
+  row.innerHTML=`<div class="ev-tick">${ev.meta.tick}</div><div class="ev-type">${ev.type}</div><div class="ev-payload">${ps}</div>`;
+  log.appendChild(row);
+  if (log.children.length>400) log.removeChild(log.firstChild);
+  log.scrollTop=log.scrollHeight;
+}
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+const FRICTION_DISFLUENCY=new Set(['uh','uhh','uhhh','um','umm','ummm','er','err','ah','ahh','hm','hmm','mm','mmm']);
+const FRICTION_PATTERNS=[/\blike\b(?!\s+to\b|\s+a\b|\s+the\b)/,/\byou\s+know\b/,/\bi\s+mean\b/,/i\s+can'?t\s+remember/,/i\s+forget/,/\bwait\b/,/\bhold\s+on\b/,/i'?m\s+not\s+sure/];
+let _audioCtx=null,_analyser=null,_audioBuf=null,_audioEnergy=[],_energyMean=0,_recognition=null;
+function _startAudio(stream) {
+  _audioCtx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+  _analyser=_audioCtx.createAnalyser(); _analyser.fftSize=256;
+  _audioCtx.createMediaStreamSource(stream).connect(_analyser);
+  _audioBuf=new Float32Array(_analyser.frequencyBinCount);
+  function audioTick(){
+    if(!_analyser)return;
+    _analyser.getFloatTimeDomainData(_audioBuf);
+    let sum=0;for(const x of _audioBuf)sum+=x*x;
+    const energy=Math.sqrt(sum/_audioBuf.length);
+    _audioEnergy.push(energy);if(_audioEnergy.length>20)_audioEnergy.shift();
+    _energyMean=_audioEnergy.reduce((a,b)=>a+b,0)/_audioEnergy.length;
+    const variance=_audioEnergy.reduce((a,b)=>a+(b-_energyMean)**2,0)/_audioEnergy.length;
+    const sigma=Math.sqrt(variance),zScore=sigma>0?(energy-_energyMean)/sigma:0,anomaly=Math.abs(zScore)>2;
+    const bar=document.getElementById('hud-audio-energy');
+    if(bar){bar.style.width=Math.min(100,energy*500)+'%';bar.style.background=anomaly?'var(--rose)':'var(--signal2)';}
+    const zEl=document.getElementById('hud-audio-z');if(zEl)zEl.textContent=zScore.toFixed(2)+'σ';
+    requestAnimationFrame(audioTick);
+  }
+  requestAnimationFrame(audioTick);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(SR){
+    _recognition=new SR();_recognition.continuous=true;_recognition.interimResults=true;_recognition.lang='en-US';
+    _recognition.onresult=(evt)=>{for(let i=evt.resultIndex;i<evt.results.length;i++){const res=evt.results[i];const text=res[0].transcript.trim();if(!text)continue;if(res.isFinal){const lower=text.toLowerCase();const hits=[];for(const w of lower.split(/\s+/).filter(Boolean))if(FRICTION_DISFLUENCY.has(w))hits.push(w);for(const re of FRICTION_PATTERNS)if(re.test(lower))hits.push(re.source.slice(0,12));kernel.emit('alk.verbal.transcript',{sessionId:session,text,final:true,friction:hits.length>0,frictionMarkers:hits});}}};
+    _recognition.onerror=(e)=>{if(e.error!=='no-speech')console.warn('[ALK:Audio]',e.error);};
+    _recognition.onend=()=>{if(_audioCtx)try{_recognition.start();}catch(_){}};
+    _recognition.start();
+  }
+}
+function _stopAudio(){if(_recognition){try{_recognition.stop();}catch(_){}_recognition=null;}if(_audioCtx){_audioCtx.close();_audioCtx=null;}_analyser=null;_audioBuf=null;_audioEnergy=[];_energyMean=0;}
+
+// ─── Session ──────────────────────────────────────────────────────────────────
+async function startSession() {
+  if (location.protocol==='file:') {
+    document.getElementById('no-cam').innerHTML=`<div class="no-cam-icon">⚠</div><div class="no-cam-text">Serve over HTTP</div><div class="no-cam-sub">Run: npx serve . then open localhost:3000/module/video-demo.html</div>`;
+    return;
+  }
+  try {
+    videoStream=await navigator.mediaDevices.getUserMedia({
+      video:{width:1280,height:720,frameRate:30},
+      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,sampleRate:{ideal:16000}},
+    });
+    const video=document.getElementById('video-feed');
+    video.srcObject=videoStream; await video.play();
+    document.getElementById('no-cam').style.display='none';
+    _startAudio(videoStream);
+    session=`sess-${Date.now().toString(36)}`;
+    kernel.emit('alk.session.capture.start',{sessionId:session});
+    initALKGL();
+    exprEngine = new ExpressionEngine({ bus: bus });
+    console.log('[ExprEngine] initialized', exprEngine.health());
+    sigTop = new SignalTopology({ bus: bus });
+    console.log('[SigTop] initialized', sigTop.health());
+    latentModel = new LatentModel({ bus: bus });
+    console.log('[Latent] initialized', latentModel.health());
+    suppressionScore = new SuppressionScore({ bus: bus });
+    console.log('[Suppression] initialized', suppressionScore.health());
+    trajectoryRec = new TrajectoryRecorder({ bus: bus });
+    attractorLand = new AttractorLandscape({ bus: bus });
+    fieldPortrait = new FieldPortrait({ bus: bus, alkgl });
+    console.log('[Trajectory] initialized', trajectoryRec.health());
+    console.log('[Landscape] initialized', attractorLand.health());
+    console.log('[Portrait] initialized', fieldPortrait.health());
+    document.getElementById('session-id').textContent=session;
+    document.getElementById('session-status').textContent='CAPTURING';
+    document.getElementById('session-status').className='active';
+    document.getElementById('btn-start').style.display='none';
+    document.getElementById('btn-stop').style.display='';
+    let lastTs=0,isProcessing=false;
+    const TARGET_MS=1000/CFG.fps;
+    function loop(ts){
+      rafId=requestAnimationFrame(loop);
+      if(isProcessing)return;
+      if(ts-lastTs<TARGET_MS)return;
+      if(video.readyState<2)return;
+      lastTs=ts; isProcessing=true;
+      processFrame(video,ts).finally(()=>{isProcessing=false;});
+    }
+    rafId=requestAnimationFrame(loop);
+  } catch(err) {
+    kernel.emit('alk.video.error',{code:'CAMERA_FAILED',message:err.message});
+    document.getElementById('no-cam').innerHTML=`<div class="no-cam-icon">✗</div><div class="no-cam-text">Camera failed</div><div class="no-cam-sub">${err.message}</div>`;
+  }
+}
+window.startSession=startSession;
+
+async function stopSession() {
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  if(glRafId){cancelAnimationFrame(glRafId);glRafId=null;}
+  _stopAudio();
+  if(videoStream){videoStream.getTracks().forEach(t=>t.stop());videoStream=null;}
+  if(alkgl){alkgl.destroy();alkgl=null;}
+  kernel.emit('alk.session.capture.stop',{sessionId:session});
+  session=null;
+  document.getElementById('session-status').textContent='OFFLINE';
+  document.getElementById('session-status').className='';
+  document.getElementById('btn-start').style.display='';
+  document.getElementById('btn-stop').style.display='none';
+  document.getElementById('no-cam').style.display='';
+  document.getElementById('gaze-dot-l').style.opacity='0';
+  document.getElementById('gaze-dot-r').style.opacity='0';
+  activeCues.clear(); frameIndex=0; frameTimestamps=[];
+  prevNose=null; poseResult_cache=null;
+}
+window.stopSession=stopSession;
+
+// ─── ALK-GL Debug helper ───────────────────────────────────────────────────────
+window._alkDebug = function() {
+  const lines = [];
+  if (!alkgl) { lines.push('alkgl: NULL — not initialized'); document.getElementById('dbg-content').textContent = lines.join('\n'); return; }
+
+  const h = alkgl.health();
+  lines.push('=== ALKGL HEALTH ===');
+  lines.push(`N=${h.N}  texW=${h.texW}  texH=${h.texH}`);
+  lines.push(`attractors=${h.attractors}  stresses=${h.stresses}`);
+  lines.push(`field: ent=${h.field.entropy?.toFixed(3)} str=${h.field.structure?.toFixed(3)} curl=${h.field.curl?.toFixed(3)} vmax=${alkgl.field.vmax?.toFixed(3)}`);
+  lines.push(`t=${h.t?.toFixed(2)}`);
+  lines.push('');
+  lines.push('=== ATTRACTORS (first 10) ===');
+  alkgl._attractors.slice(0,10).forEach(a => {
+    lines.push(`  ${a.id.padEnd(12)} x=${a.x?.toFixed(2).padStart(6)} y=${a.y?.toFixed(2).padStart(6)} z=${(a.z??0).toFixed(2).padStart(5)} m=${a.mass?.toFixed(1)}`);
+  });
+  if (alkgl._attractors.length === 0) lines.push('  (empty — no face detected?)');
+  lines.push('');
+  lines.push('=== WORLD SPACE ===');
+  lines.push(`bound=${alkgl._bound}  boundZ=${alkgl._boundZ}`);
+  lines.push(`cam: fov=${alkgl._cam.fov} camZ=${alkgl._cam.camZ}`);
+  lines.push('');
+  lines.push('=== LM2W SAMPLE (nose tip lm[4]) ===');
+  // Recompute what lm2w would give for a centered face
+  const testLM = {x:0.5, y:0.5, z:0};
+  const xN = mirror ? (1-testLM.x) : testLM.x;
+  lines.push(`center lm(0.5,0.5) → world (${((xN-0.5)*10).toFixed(2)}, ${((testLM.y-0.5)*-10).toFixed(2)})`);
+  const testLM2 = {x:0.3, y:0.35, z:0};
+  const xN2 = mirror ? (1-testLM2.x) : testLM2.x;
+  lines.push(`face lm(0.3,0.35) → world (${((xN2-0.5)*10).toFixed(2)}, ${((testLM2.y-0.5)*-10).toFixed(2)})`);
+  lines.push(`mirror=${mirror}`);
+  lines.push('');
+  lines.push('=== LAST RAW LANDMARK ===');
+  lines.push(`fLMs present: ${!!window._lastFLMs}`);
+  if (window._lastFLMs) {
+    const f = window._lastFLMs;
+    lines.push(`  count=${f.length}`);
+    lines.push(`  lm[4] (nose): x=${f[4]?.x?.toFixed(4)} y=${f[4]?.y?.toFixed(4)} z=${f[4]?.z?.toFixed(4)}`);
+    lines.push(`  lm[10](fore): x=${f[10]?.x?.toFixed(4)} y=${f[10]?.y?.toFixed(4)}`);
+    lines.push(`  lm[152](chin):x=${f[152]?.x?.toFixed(4)} y=${f[152]?.y?.toFixed(4)}`);
+    if (f.length >= 478) {
+      lines.push(`  lm[468](irisL):x=${f[468]?.x?.toFixed(4)} y=${f[468]?.y?.toFixed(4)}`);
+    }
+    // What world coords does the nose map to?
+    const nose = f[4];
+    if (nose) {
+      const xN = mirror ? (1-nose.x) : nose.x;
+      lines.push(`  nose→world: (${((xN-0.5)*10).toFixed(3)}, ${((nose.y-0.5)*-10).toFixed(3)})`);
+    }
+  }
+  lines.push('');
+  lines.push('=== GL STATE ===');
+  try {
+    const gl = alkgl._gl;
+    lines.push(`  webgl2: ${!!gl}`);
+    lines.push(`  canvas: ${alkgl._canvas.width}×${alkgl._canvas.height}`);
+    const err = gl.getError();
+    lines.push(`  gl.error: ${err === 0 ? 'NONE' : '0x'+err.toString(16)}`);
+    const prog = alkgl._compProg;
+    lines.push(`  compProg linked: ${gl.getProgramParameter(prog, gl.LINK_STATUS)}`);
+    // Check if att uniform location is valid
+    const attLoc = alkgl._cu.att;
+    lines.push(`  u_att location: ${attLoc} (${attLoc !== null ? 'OK' : 'NULL — uniform stripped!'})`);
+    const attNLoc = alkgl._cu.attN;
+    lines.push(`  u_attN location: ${attNLoc} (${attNLoc !== null ? 'OK' : 'NULL'})`);
+    // Sample a particle position from texture via readPixels
+    gl.bindFramebuffer(gl.FRAMEBUFFER, alkgl._ping.fbo);
+    const px = new Float32Array(4);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    lines.push(`  particle[0] pos: (${px[0].toFixed(3)}, ${px[1].toFixed(3)}) vel:(${px[2].toFixed(3)}, ${px[3].toFixed(3)})`);
+  } catch(e) { lines.push(`  GL read error: ${e.message}`); }
+
+  document.getElementById('dbg-content').textContent = lines.join('\n');
+};
+
+// Auto-refresh debug panel if open
+setInterval(() => {
+  if (document.getElementById('debug-panel').style.display !== 'none') window._alkDebug();
+}, 500);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initMediaPipe().catch(err=>{
+  document.getElementById('mp-status-text').textContent='Error';
+  document.getElementById('mp-detail-text').textContent=err.message;
+});
+
+
+// ─── Jaa Debug Panel ──────────────────────────────────────────────────────────
+let _dbgTab = 'log';
+let _dbgOpen = false;
+let _dbgRefreshId = null;
+
+function toggleJaaDebug() {
+  _dbgOpen = !_dbgOpen;
+  const panel  = document.getElementById('jaa-debug-panel');
+  const toggle = document.getElementById('jaa-debug-toggle');
+  panel.classList.toggle('open', _dbgOpen);
+  toggle.classList.toggle('active', _dbgOpen);
+  if (_dbgOpen) {
+    if (!_dbgRefreshId) _dbgRefreshId = setInterval(refreshDbg, 500);
+    refreshDbg();
+  } else {
+    clearInterval(_dbgRefreshId);
+    _dbgRefreshId = null;
+  }
+}
+window.toggleJaaDebug = toggleJaaDebug;
+
+function switchDbgTab(tab) {
+  _dbgTab = tab;
+  document.querySelectorAll('.jaa-dbg-tab').forEach((t,i) => {
+    const tabs = ['log','world','stats','latent'];
+    t.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.jaa-dbg-tab-content').forEach(c => c.classList.remove('active'));
+  const el = document.getElementById(`dbg-tab-${tab}`);
+  if (el) el.classList.add('active');
+  refreshDbg();
+}
+window.switchDbgTab = switchDbgTab;
+
+function refreshDbg() {
+  if (!_dbgOpen) return;
+  if (_dbgTab === 'log')    refreshDbgLog();
+  if (_dbgTab === 'world')  refreshDbgWorld();
+  if (_dbgTab === 'stats')  refreshDbgStats();
+  if (_dbgTab === 'latent') refreshDbgLatent();
+}
+
+function refreshDbgLog() {
+  const filter = document.getElementById('jaa-log-filter')?.value ?? '';
+  const entries = jaaLog.getEntries({ level: filter || null, tail: 150 });
+  const rows = document.getElementById('jaa-log-rows');
+  if (!rows) return;
+  rows.innerHTML = entries.slice().reverse().map(e =>
+    `<div class="jaa-log-row ${e.level}">` +
+    `<div class="jaa-log-seq">${e.seq}</div>` +
+    `<div class="jaa-log-type">${e.type}</div>` +
+    `<div class="jaa-log-ts">${new Date(e.ts).toISOString().slice(14,23)}</div>` +
+    `</div>`
+  ).join('');
+}
+window.refreshDbgLog = refreshDbgLog;
+window.clearJaaLog = () => { jaaLog.clearMemory(); refreshDbgLog(); };
+
+function refreshDbgWorld() {
+  // Attractor positions
+  const atts = alkgl?._attractors ?? [];
+  const rows  = document.getElementById('jaa-world-rows');
+  if (rows) {
+    rows.innerHTML = atts.slice(0,20).map(a =>
+      `<div class="jaa-world-row">` +
+      `<div class="jaa-world-id">${a.id}</div>` +
+      `<div class="jaa-world-pos">(${a.x?.toFixed(2)}, ${a.y?.toFixed(2)}, ${(a.z??0).toFixed(2)})</div>` +
+      `<div class="jaa-world-mass">m=${a.mass?.toFixed(1)}</div>` +
+      `</div>`
+    ).join('') || '<div style="padding:4px 10px;font-size:7px;color:var(--wire2)">No attractors</div>';
+  }
+  // GL particle sample via readPixels
+  if (alkgl?._gl && alkgl?._ping?.fbo) {
+    try {
+      const gl = alkgl._gl;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, alkgl._ping.fbo);
+      const px = new Float32Array(4);
+      gl.readPixels(alkgl._texW>>1, alkgl._texH>>1, 1,1, gl.RGBA, gl.FLOAT, px);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const sp = document.getElementById('jaa-particle-sample');
+      if (sp) sp.textContent = `pos(${px[0].toFixed(3)}, ${px[1].toFixed(3)}) vel(${px[2].toFixed(4)}, ${px[3].toFixed(4)})`;
+    } catch(e) {
+      const sp = document.getElementById('jaa-particle-sample');
+      if (sp) sp.textContent = 'readPixels failed: ' + e.message;
+    }
+  }
+  // GL uniform check
+  const gu = document.getElementById('jaa-gl-uniforms');
+  if (gu && alkgl?._cu) {
+    const cu = alkgl._cu;
+    gu.innerHTML = [
+      `u_att: ${cu.att !== null ? 'OK (' + cu.att + ')' : '<span style="color:var(--rose)">NULL — STRIPPED</span>'}`,
+      `u_str: ${cu.str !== null ? 'OK' : 'NULL'}`,
+      `u_ent: ${cu.ent !== null ? 'OK' : 'NULL'}`,
+      `bound: ${alkgl._bound} | camZ: ${alkgl._cam?.camZ}`,
+      `N: ${alkgl.N} | texW×H: ${alkgl._texW}×${alkgl._texH}`,
+      `mirror: ${window.mirror}`,
+      `lm2w(0.5,0.5): (${((mirror?0.5:0.5)-0.5)*14|0}, 0, 0)`,
+    ].map(s => `<div>${s}</div>`).join('');
+  }
+}
+
+function refreshDbgStats() {
+  const bs = bus.stats;
+  _s('ds-events',    bs.emitted);
+  _s('ds-subs',      bs.subscribers);
+  _s('ds-att',       alkgl?._attractors?.length ?? 0);
+  _s('ds-particles', alkgl ? (alkgl.N/1000).toFixed(0)+'k' : '0');
+  _s('ds-frame',     window.frameIndex ?? 0);
+  _s('ds-fps',       window.frameTimestamps?.length ?? 0);
+  if (suppressionScore) _s('ds-supp', suppressionScore.score.toFixed(3));
+  if (exprEngine) _s('ds-micros', exprEngine.stats?.micros ?? 0);
+
+  // SISO log tail
+  const sisoEl = document.getElementById('jaa-siso-log');
+  if (sisoEl) {
+    const tail = _sisoLog.tail(12);
+    sisoEl.innerHTML = tail.reverse().map(e =>
+      `${e.seq} <span style="color:${e.claimed?'var(--signal)':'var(--wire2)'}">${e.type}</span> ${e.claimed ? '' : '(pending)'}`
+    ).join('<br>');
+  }
+}
+
+function refreshDbgLatent() {
+  if (!latentModel) { document.getElementById('jaa-latent-state').textContent = 'not initialized'; return; }
+  const x = latentModel.x;
+  const P = latentModel.P;
+  const dims = ['VALENCE','AROUSAL','SUPPRESSION','COHERENCE','ENGAGEMENT'];
+  const colors = { VALENCE:'#39ff6a',AROUSAL:'#ffcc00',SUPPRESSION:'#ff4455',COHERENCE:'#00ffee',ENGAGEMENT:'#cc88ff' };
+  const stateEl = document.getElementById('jaa-latent-state');
+  if (stateEl) stateEl.innerHTML = dims.map((d,i) =>
+    `<div style="display:flex;justify-content:space-between;margin-bottom:2px;">` +
+    `<span style="color:var(--dim);font-size:6px;letter-spacing:1px">${d}</span>` +
+    `<span style="color:${colors[d]};font-size:9px;">${(x[i]??0).toFixed(4)}</span>` +
+    `<div style="width:80px;height:3px;background:var(--wire);position:relative;align-self:center">` +
+    `<div style="position:absolute;height:100%;background:${colors[d]};` +
+    `${x[i]>=0?'left:50%;width:'+Math.min(50,(x[i]*50)).toFixed(1)+'%':'right:50%;width:'+Math.min(50,(-x[i]*50)).toFixed(1)+'%'}"></div>` +
+    `</div></div>`
+  ).join('');
+
+  const pEl = document.getElementById('jaa-latent-p');
+  if (pEl) pEl.innerHTML = dims.map((d,i) =>
+    `<div style="display:flex;justify-content:space-between;font-size:6px;">` +
+    `<span style="color:var(--dim)">${d}</span>` +
+    `<span style="color:${(P[i]??0.5)>0.3?'var(--amber)':'var(--signal)'}">${(P[i]??0).toFixed(4)}</span>` +
+    `</div>`
+  ).join('');
+
+  const landEl = document.getElementById('jaa-landscape');
+  if (landEl && attractorLand) {
+    const land = attractorLand.landscape;
+    landEl.innerHTML = land
+      ? `personId: ${attractorLand.personId?.slice(0,8)}<br>` +
+        `sessions: ${land.sessionCount}<br>` +
+        `attractors: ${land.attractors?.length}<br>` +
+        `resting: ${land.restingLabel}`
+      : 'No landscape loaded (first session)';
+  }
+}
+
+function _s(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// Auto-refresh debug if open
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initMediaPipe().catch(err=>{
+  document.getElementById('mp-status-text').textContent='Error';
+  document.getElementById('mp-detail-text').textContent=err.message;
+});
+</script>
+</body>
+</html>

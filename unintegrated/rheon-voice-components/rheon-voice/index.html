@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rheon Voice v7</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- ── TOPBAR ─────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="logo">RHEON<span class="logo-v">v7</span></div>
+  <div class="live-dot" id="live-dot"></div>
+  <div id="status-txt">READY</div>
+  <div class="regime-badge" id="regime-badge" style="display:none"></div>
+  <div class="offline-badge" id="offline-badge">LOCAL MIRROR</div>
+  <div class="topbar-clock" id="topbar-clock">--:--:--</div>
+
+  <!-- Domain switcher -->
+  <div style="display:flex;gap:4px;margin-left:8px">
+    <button class="domain-btn active" data-domain="voice"    onclick="setDomain('voice')"    title="Voice / General">◈</button>
+    <button class="domain-btn"        data-domain="therapy"  onclick="setDomain('therapy')"  title="Therapy / Emotional">⬡</button>
+    <button class="domain-btn"        data-domain="code"     onclick="setDomain('code')"     title="Code / Technical">⌥</button>
+    <button class="domain-btn"        data-domain="strategy" onclick="setDomain('strategy')" title="Strategy / Business">◆</button>
+    <button class="domain-btn"        data-domain="journal"  onclick="setDomain('journal')"  title="Journal / Reflection">⊗</button>
+  </div>
+
+  <div class="topbar-r">
+    <button class="tb-btn" onclick="openSearch()">SEARCH</button>
+    <button class="tb-btn" onclick="exportSession()">EXPORT</button>
+    <button class="tb-btn danger" onclick="clearSession()">CLEAR</button>
+  </div>
+  <div class="data-ticker"></div>
+</div>
+
+<!-- ── SIGMA STRIP ────────────────────────────────────────────── -->
+<div class="regime-strip"><div class="regime-strip-fill" id="regime-strip-fill"></div></div>
+
+<!-- ── PERM BANNER ───────────────────────────────────────────── -->
+<div class="perm-banner" id="perm-banner">
+  <span>MIC DENIED — allow microphone in browser settings then click Retry.</span>
+  <button class="perm-retry" onclick="retryMic()">RETRY</button>
+</div>
+
+<!-- ── MAIN ──────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ── LEFT: TRANSCRIPT ─────────────────────────────────────── -->
+  <div class="left-col">
+    <div class="col-head">
+      <div class="col-lbl">SESSION</div>
+      <div class="node-counter" id="node-counter">0 NODES</div>
+      <input class="search-in" type="text" placeholder="filter transcript…" id="search-in" oninput="filterNodes()">
+    </div>
+
+    <div class="transcript" id="transcript">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-glyph">▋▋▋</div>
+        <div class="empty-t">SILENCE</div>
+        <div class="empty-s">PRESS RECORD — EXTERNALIZE YOUR THINKING</div>
+      </div>
+    </div>
+
+    <div class="interim-bar">
+      <div class="interim-lbl">LIVE ▶</div>
+      <div class="interim-box" id="interim-box">—</div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">NODES <span id="st-nodes">0</span></div>
+      <div class="stat">WORDS <span id="st-words">0</span></div>
+      <div class="stat">WPM <span class="a" id="st-wpm">—</span></div>
+      <div class="stat">CONTRA <span class="r" id="st-contra">0</span></div>
+      <div class="stat">FLOW <span class="fl" id="st-flow">—</span></div>
+      <div class="stat">REGIME <span class="g" id="st-regime">—</span></div>
+      <div class="stat">DRIFT <span class="b" id="st-drift">0</span></div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: ANALYSIS PANEL ────────────────────────────────── -->
+  <div class="right-col">
+
+    <!-- MIC SECTION: oscilloscope + big record button -->
+    <div class="mic-section">
+      <div class="osc-wrap">
+        <div class="osc-header">
+          <span class="osc-lbl">WAVEFORM</span>
+          <div class="osc-stats">
+            RMS <span id="osc-rms">—</span>
+            ZCR <span id="osc-zcr">—</span>
+            HNR <span id="osc-hnr">—</span>
+          </div>
+          <span class="osc-hz" id="osc-hz">—</span>
+        </div>
+        <canvas id="osc-canvas"></canvas>
+        <div class="gain-row">
+          <span class="gain-lbl">INPUT GAIN</span>
+          <input type="range" class="gain-slider" min="1" max="32" step="0.5" value="8"
+            id="gain-slider" oninput="setInputGain(this.value)">
+          <span class="gain-val" id="gain-val">+18dB</span>
+        </div>
+      </div>
+
+      <div class="mic-controls">
+        <div class="mic-left">
+          <!-- THE RECORD BUTTON -->
+          <button class="btn-rec-main" id="rec-btn-main" onclick="toggleRecord()">
+            <span class="rec-gem"></span>
+            <span class="rec-label">RECORD</span>
+          </button>
+        </div>
+        <div class="mic-right">
+          <span id="mic-domain-label" style="letter-spacing:0.12em;color:var(--text3)">VOICE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- METERS -->
+    <div class="meters">
+      <div class="meter-row">
+        <div class="meter-lbl">PITCH F0</div>
+        <div class="meter-bar-wrap"><div class="meter-bar blue" id="m-pitch" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-pitch">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">VOLUME dB</div>
+        <div class="meter-bar-wrap"><div class="meter-bar green" id="m-vol" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-vol">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">JITTER</div>
+        <div class="meter-bar-wrap"><div class="meter-bar amber" id="m-jitter" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-jitter">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">DYSFLUENCY</div>
+        <div class="meter-bar-wrap"><div class="meter-bar red" id="m-dysfl" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-dysfl">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">TOPOLOGY</div>
+        <div class="meter-bar-wrap"><div class="meter-bar purple" id="m-topo" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-topo" style="color:var(--text3)">CALIB</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">RESONANCE</div>
+        <div class="meter-bar-wrap"><div class="meter-bar purple" id="m-res" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-res">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">FLOW STATE</div>
+        <div class="meter-bar-wrap"><div class="meter-bar flow" id="m-flow" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-flow">—</div>
+      </div>
+    </div>
+
+    <!-- SIGMA REGIME BAR -->
+    <div class="sigma-bar">
+      <div class="sig-label">SIGMA REGIME</div>
+      <div class="sig-regime-name" id="sig-regime-name" style="color:var(--text3)">INSUFFICIENT DATA</div>
+      <div class="sig-prog"><div class="sig-prog-fill" id="sig-prog-fill" style="width:0%;background:var(--text3)"></div></div>
+      <div class="sig-regime-detail" id="sig-regime-detail">—</div>
+    </div>
+
+    <!-- TABS -->
+    <div class="right-tabs">
+      <div class="rtab active" id="rtab-bank"      onclick="switchTab('bank')">BANK</div>
+      <div class="rtab"        id="rtab-signals"   onclick="switchTab('signals')">SIGNALS</div>
+      <div class="rtab"        id="rtab-contra"    onclick="switchTab('contra')">CONTRA</div>
+      <div class="rtab"        id="rtab-flow"      onclick="switchTab('flow')">FLOW</div>
+      <div class="rtab"        id="rtab-resonance" onclick="switchTab('resonance')">RESON</div>
+      <div class="rtab"        id="rtab-topology"  onclick="switchTab('topology')">TOPO</div>
+      <div class="rtab"        id="rtab-extmic"    onclick="switchTab('extmic')">EXT MIC</div>
+    </div>
+
+    <!-- PANEL: WORD BANK -->
+    <div class="panel active" id="panel-bank">
+      <div class="panel-lbl">ASSOCIATIVE WORD BANK</div>
+      <div class="bank-chips" id="bank-chips">
+        <div class="no-item">no words yet</div>
+      </div>
+      <div class="co-occur" id="co-occur" style="display:none">
+        <div class="co-lbl">ASSOCIATED WITH <span id="co-word"></span>:</div>
+        <div class="co-row" id="co-row"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: SIGNALS -->
+    <div class="panel" id="panel-signals">
+      <div class="signal-section">
+        <div class="signal-section-lbl">SLOPE ENGINE — TRAJECTORY</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">ENERGY SLOPE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-energy" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-energy">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">RESONANCE SLOPE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-res" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-res">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">DYSFLUENCY TREND</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-dysf" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-dysf">—</div>
+        </div>
+        <div class="signal-section-lbl" style="margin-top:8px">ENERGY HISTORY</div>
+        <div class="sig-spark" id="spark-energy"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">OSCILLATION ENGINE — RHYTHM</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">PERIOD (nodes)</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-per" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-per">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">AMPLITUDE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-amp" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-amp">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">REGULARITY</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-reg" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-reg">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">DRIFT ENGINE — 7 SIGNALS</div>
+        <div id="drift-list"><div class="no-item">no drift detected</div></div>
+        <div id="drift-cluster-container"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">FRAMEWORK PATTERNS</div>
+        <div id="frame-list"><div class="no-item">listening for structure…</div></div>
+      </div>
+    </div>
+
+    <!-- PANEL: CONTRADICTIONS -->
+    <div class="panel" id="panel-contra">
+      <div class="panel-lbl">CONTRADICTIONS</div>
+      <div id="contra-list"><div class="no-item">no contradictions yet</div></div>
+    </div>
+
+    <!-- PANEL: FLOW -->
+    <div class="panel" id="panel-flow">
+      <div class="panel-lbl">FLOW STATE</div>
+      <div class="flow-panel-head">
+        <div class="flow-score-big" id="fp-score">0%</div>
+        <div class="flow-meta" id="fp-meta">Not in flow state.</div>
+      </div>
+      <div class="panel-lbl" style="margin-top:8px">FLOW EPISODES</div>
+      <div id="flow-history"><div class="no-item">no flow episodes yet</div></div>
+    </div>
+
+    <!-- PANEL: RESONANCE -->
+    <div class="panel" id="panel-resonance">
+      <div class="panel-lbl">RESONANCE ENGINE</div>
+      <div class="res-head">
+        <div>
+          <div class="res-class" id="res-class" style="color:var(--text3)">INSUFFICIENT DATA</div>
+          <div style="font-size:var(--fs-xs);color:var(--text3);margin-top:2px">session-internal temporal resonance</div>
+        </div>
+        <div class="res-score-big" id="res-score-big" style="color:var(--text3)">—</div>
+      </div>
+      <div class="signal-section-lbl">RESONANCE AXES</div>
+      <div id="res-axes"></div>
+      <div class="receiver-grammar" id="receiver-grammar" style="display:none">
+        <div class="rg-mode" id="rg-mode">—</div>
+        <div class="rg-detail" id="rg-detail"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: TOPOLOGY (codec-v2) -->
+    <div class="panel" id="panel-topology">
+      <div class="panel-lbl">TOPOLOGY ENGINE — CODEC v2</div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">COMPOSITE STATE</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:5px">
+          <div class="topo-state-big" id="topo-state" style="color:var(--text3)">CALIBRATING</div>
+          <div style="font-size:var(--fs-xs);color:var(--text3)" id="topo-warmup">warmup in progress</div>
+        </div>
+        <div class="topo-evidence-txt" id="topo-evidence"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">POLARITY ENGINE</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">CURRENT POLARITY</div>
+          <div class="sig-row-val" id="topo-polarity" style="color:var(--text3)">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">SESSION ARC</div>
+          <div class="sig-row-val" id="topo-arc" style="color:var(--text3)">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">POLARITY FLIPS</div>
+          <div class="sig-row-val" id="topo-flips">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">ASSOCIATION ENGINE</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:3px">INVARIANT WORDS</div>
+        <div class="topo-inv-list" id="topo-invariants">none yet</div>
+        <div class="sig-row" style="margin-top:6px">
+          <div class="sig-row-lbl">REDUNDANCY</div>
+          <div class="sig-row-val" id="topo-redundant" style="color:var(--text3)">none</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">PREDICTIVE ENGINE</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">NEXT TAG</div>
+          <div class="sig-row-val" id="topo-prediction">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">NEXT WORDS</div>
+          <div class="sig-row-val" id="topo-word-pred" style="color:var(--blue)">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">FRICTION ANALYZER</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">FRICTION TYPES</div>
+          <div class="sig-row-val" id="topo-friction" style="color:var(--text3)">none</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">REDUNDANCY</div>
+          <div class="sig-row-val" id="topo-redundant2" style="color:var(--text3)">none</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: EXT MIC (PeerJS host receiver) -->
+    <div class="panel" id="panel-extmic">
+      <div class="panel-lbl">EXTERNAL MIC — PEER RECEIVER</div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">CONNECT MIC CLIENT</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:8px;line-height:1.6">
+          Open <strong style="color:var(--text2)">mic.html</strong> on phone/tablet on same network.
+          Enter the same password on both sides.
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:5px;letter-spacing:0.15em">SESSION PASSWORD</div>
+          <div style="display:flex;gap:6px">
+            <input
+              type="password"
+              id="ext-mic-pw"
+              placeholder="enter password"
+              style="flex:1;background:none;border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-sm);padding:8px 10px;outline:none"
+              onkeydown="if(event.key==='Enter') extMicInit(document.getElementById('ext-mic-pw').value)"
+            >
+            <button
+              onclick="extMicInit(document.getElementById('ext-mic-pw').value)"
+              style="background:none;border:1px solid var(--p3);color:var(--p);font-family:var(--font-mono);font-size:var(--fs-xs);padding:8px 12px;cursor:pointer;letter-spacing:0.1em;white-space:nowrap"
+            >INIT HOST</button>
+          </div>
+        </div>
+        <button
+          onclick="extMicDisconnect()"
+          style="background:none;border:1px solid var(--red2);color:var(--red);font-family:var(--font-mono);font-size:var(--fs-xs);padding:6px 10px;cursor:pointer;letter-spacing:0.1em"
+        >DISCONNECT ALL</button>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">HOST STATUS</div>
+        <div id="ext-mic-status" style="font-size:var(--fs-xs);color:var(--text2);margin-bottom:5px">Not initialised.</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3)">ROOM ID</div>
+        <div id="ext-room-id" style="font-size:var(--fs-sm);color:var(--p3);letter-spacing:0.08em;margin-top:3px">—</div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">CONNECTED MICS</div>
+        <div id="ext-mic-conns"><div class="no-item">no mics connected</div></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">HOW IT WORKS</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);line-height:1.8">
+          mic.html runs STT locally → sends transcript over WebRTC data channel → appears as nodes here.<br>
+          Audio stream also arrives for waveform analysis.<br>
+          No server required — peer-to-peer via PeerJS.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /main -->
+
+<!-- PeerJS for ext mic peer-to-peer -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- SCRIPTS — load order is law -->
+<script src="js/codec-engines.js"></script>
+<script src="js/analysis-engine.js"></script>
+<script src="js/audio-engine.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// ── INLINE INIT — runs after all modules loaded ─────────────────
+// Wire AudioEngine idle oscilloscope (runs even before mic granted)
+(function() {
+  // Start idle canvas draw — AudioEngine.init() is NOT called yet
+  // The oscilloscope guard on _analyser===null draws the breathing line
+  var canvas = document.getElementById('osc-canvas');
+  if (canvas) {
+    // Force a layout pass so offsetWidth is real before sizing
+    requestAnimationFrame(function() {
+      AudioEngine.init && AudioEngine.init._startOscilloscope
+        ? AudioEngine.init._startOscilloscope()
+        : null;
+      // Workaround: call the internal method via public API
+      // AudioEngine doesn't expose _startOscilloscope, so we trigger it
+      // by calling init with a fake stream flag — instead we patch init:
+    });
+  }
+
+  // Expose domain label update (called from setDomain in app.js)
+  var origSetDomain = window.setDomain;
+  window.setDomain = function(domain) {
+    origSetDomain(domain);
+    var lbl = document.getElementById('mic-domain-label');
+    if (lbl && window.DOMAINS && window.DOMAINS[domain]) {
+      lbl.textContent = DOMAINS[domain].icon + ' ' + DOMAINS[domain].label;
+    }
+    // Update domain button states
+    document.querySelectorAll('.domain-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.domain === domain);
+    });
+  };
+})();
+
+// Idle oscilloscope — draw breathing line without mic
+// We patch AudioEngine to expose a startIdleOsc method
+(function() {
+  var canvas = document.getElementById('osc-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W, H;
+  var raf = null;
+
+  function sizeCanvas() {
+    W = canvas.offsetWidth || 340;
+    H = 110;
+    canvas.style.height = H + 'px';
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    if (ctx.resetTransform) ctx.resetTransform();
+    else ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr, dpr);
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(function(){ dpr = window.devicePixelRatio||1; sizeCanvas(); }).observe(canvas);
+  } else {
+    window.addEventListener('resize', function(){ dpr = window.devicePixelRatio||1; sizeCanvas(); });
+  }
+
+  // Defer sizing until layout is complete
+  setTimeout(sizeCanvas, 0);
+
+  function drawIdle() {
+    raf = requestAnimationFrame(drawIdle);
+    if (!W || !H) return;
+    // Once AudioEngine is live it takes over; check by looking at canvas state
+    // We just draw the idle breathing sine — AudioEngine.init() will replace
+    // this RAF by calling its own startOscilloscope which cancels via _oscRAF
+    // But since they share the same canvas, we need to stop when AudioEngine takes over
+    if (AudioEngine.isReady()) { cancelAnimationFrame(raf); raf = null; return; }
+
+    ctx.clearRect(0, 0, W, H);
+    // Grid
+    ctx.strokeStyle = 'rgba(0,255,136,0.04)';
+    ctx.lineWidth   = 0.5;
+    for (var gy=0;gy<=4;gy++){ctx.beginPath();ctx.moveTo(0,H*gy/4);ctx.lineTo(W,H*gy/4);ctx.stroke();}
+    for (var gx=0;gx<=8;gx++){ctx.beginPath();ctx.moveTo(W*gx/8,0);ctx.lineTo(W*gx/8,H);ctx.stroke();}
+    // Breathing line
+    var t = Date.now() / 1000;
+    ctx.strokeStyle = 'rgba(0,255,136,0.18)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    for (var xi = 0; xi < W; xi++) {
+      var yi = H/2 + Math.sin(xi * 0.03 + t * 0.4) * (3 + Math.sin(t * 0.3) * 1.5);
+      xi === 0 ? ctx.moveTo(xi, yi) : ctx.lineTo(xi, yi);
+    }
+    ctx.stroke();
+  }
+
+  setTimeout(drawIdle, 50);
+})();
+</script>
+
+</body>
+</html>

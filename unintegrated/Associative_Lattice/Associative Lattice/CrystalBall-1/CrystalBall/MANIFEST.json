@@ -1,0 +1,45 @@
+{
+  "name": "CrystalBall",
+  "version": "1.0.0",
+  "uuid": "crystalball-0000-1000-0000-000000000001",
+  "description": "CrystalBall — Associative Lattice Kernel with full signal stack",
+  "entry": "modules/ALK/index.html",
+  "foundation": {
+    "eventBus":    "modules/ALK/siso.js",
+    "persistence": "modules/ALK/jaa-browser.js",
+    "kernel":      "modules/ALK/kernel.js",
+    "renderer":    "modules/ALK/crystalball-renderer.js"
+  },
+  "modules": {
+    "video":      "modules/ALK/modules/video/video-module.js",
+    "cfr":        "modules/ALK/modules/cfr/alk-gl.js",
+    "expression": "modules/ALK/modules/expression/expression-engine.js",
+    "signal":     "modules/ALK/modules/signal/signal-topology.js",
+    "latent":     "modules/ALK/modules/signal/latent-model.js",
+    "suppression":"modules/ALK/modules/signal/suppression-score.js",
+    "trajectory": "modules/ALK/modules/trajectory/trajectory-recorder.js",
+    "landscape":  "modules/ALK/modules/trajectory/attractor-landscape.js",
+    "portrait":   "modules/ALK/modules/trajectory/field-portrait.js",
+    "text":       "modules/ALK/modules/text/text-module.js",
+    "behavior":   "modules/ALK/modules/behavior/behavior-module.js",
+    "htl":        "modules/ALK/modules/htl/htl.js",
+    "mesh":       "modules/ALK/modules/mesh/alk-mesh.js",
+    "speech":     "modules/ALK/modules/speech-state-module.js",
+    "framework":  "modules/ALK/modules/framework-model.js",
+    "wire":       "modules/ALK/modules/alk-wire.js",
+    "resonance":  "modules/Resonance/src/index.ts",
+    "irs":        "modules/irs/irs.js"
+  },
+  "pipeline": {
+    "main":     "main.js",
+    "preload":  "src/preload.js",
+    "updater":  "src/updater.js",
+    "wsServer": "src/ws-server.js",
+    "vcam":     "src/vcam.js",
+    "pipeline": "src/pipeline.js",
+    "renderer": "modules/ALK/crystalball-renderer.js"
+  },
+  "axioms": [
+    "§1.1","§1.2","§4.3","§5.5","§5.7","§K1","§K6","§K7"
+  ]
+}

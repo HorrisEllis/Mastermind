@@ -1,0 +1,50 @@
+{
+  "name": "ALK",
+  "version": "1.9.1",
+  "uuid": "alk-core-0000-1800-0000-000000000001",
+  "description": "Associative Lattice Kernel — behavioral signal runtime",
+  "entry": "demo/video-demo.html",
+  "foundation": {
+    "eventBus": "siso.js",
+    "persistence": "jaa-browser.js",
+    "kernel": "kernel.js"
+  },
+  "modules": {
+    "video": "modules/video/video-module.js",
+    "cfr": "modules/cfr/alk-gl.js",
+    "expression": "modules/expression/expression-engine.js",
+    "signal": "modules/signal/signal-topology.js",
+    "latent": "modules/signal/latent-model.js",
+    "suppression": "modules/signal/suppression-score.js",
+    "trajectory": "modules/trajectory/trajectory-recorder.js",
+    "landscape": "modules/trajectory/attractor-landscape.js",
+    "portrait": "modules/trajectory/field-portrait.js",
+    "text": "modules/text/text-module.js",
+    "behavior": "modules/behavior/behavior-module.js",
+    "codec-v2": "modules/video/codec-v2.js",
+    "codec": "modules/video/codec.js",
+    "mesh": "modules/mesh/alk-mesh.js"
+  },
+  "axioms": [
+    "§1.1",
+    "§1.2",
+    "§2.1",
+    "§3.1",
+    "§4.3",
+    "§5.1",
+    "§5.2",
+    "§5.5",
+    "§5.7"
+  ],
+  "entry_points": {
+    "demo": "demo/video-demo.html",
+    "mic": "mic.html"
+  },
+  "infrastructure": {
+    "eventBus": "siso.js",
+    "persistence": "jaa-browser.js",
+    "mesh": "modules/mesh/alk-mesh.js",
+    "lanServer": "lan-server.js",
+    "nginx": "nginx.conf"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "topo-kernel",
+  "version": "0.1.0",
+  "description": "Agnostic topology kernel. Signal/noise root. Five fields. Sovereign modules.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "license": "MIT"
+}

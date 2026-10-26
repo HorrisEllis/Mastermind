@@ -1,0 +1,15 @@
+{
+  "name": "@telemetry-codec/core",
+  "version": "1.0.0",
+  "description": "Domain-agnostic temporal signal compression. SlopeEngine, StabilityEngine, OscillationEngine, ConfidencePropagator, LatentModel, DriftEngine — ported from Spatial codec-v2.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./engines": "./src/engines.js",
+    "./latent": "./src/latent-model.js",
+    "./drift": "./src/drift-engine.js",
+    "./topology": "./src/topology.js",
+    "./bus": "./src/bus.js"
+  }
+}

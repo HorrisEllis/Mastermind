@@ -1,0 +1,22 @@
+{
+  "name": "ledger",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dual ledger — Upgrade (truth) + Idea (cognition) with a hard validation gate. Zero dependencies. Works in any project.",
+  "main": "src/index.js",
+  "bin": {
+    "ledger": "cli/ledger.js"
+  },
+  "exports": {
+    ".":    "./src/index.js",
+    "./cli": "./cli/ledger.js"
+  },
+  "scripts": {
+    "test": "node --experimental-vm-modules test/ledger.test.js",
+    "cli":  "node cli/ledger.js",
+    "repl": "node cli/ledger.js repl"
+  },
+  "keywords": ["ledger", "audit", "cognition", "upgrade", "idea", "dual-ledger"],
+  "author": "James Brooks",
+  "license": "MIT"
+}

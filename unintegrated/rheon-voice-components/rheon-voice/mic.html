@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rheon Mic</title>
+<style>
+/* ── RESET + TOKENS ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:    #080b10;
+  --bg2:   #0e1219;
+  --p:     #00ff88;
+  --p2:    rgba(0,255,136,0.35);
+  --p3:    rgba(0,255,136,0.10);
+  --p4:    rgba(0,255,136,0.04);
+  --red:   #ff3355;
+  --red2:  rgba(255,51,85,0.35);
+  --amber: #ffaa00;
+  --text:  rgba(210,255,225,0.90);
+  --text2: rgba(210,255,225,0.55);
+  --text3: rgba(210,255,225,0.28);
+  --text4: rgba(210,255,225,0.12);
+  --border:  rgba(0,255,136,0.08);
+  --border2: rgba(0,255,136,0.18);
+  --scan:  rgba(0,255,136,0.006);
+  --font: 'JetBrains Mono', 'Courier New', monospace;
+  --disp: 'Orbitron', monospace;
+}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@700;900&display=swap');
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scan) 2px, var(--scan) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* ── HEADER ───────────────────────────────────────────────────── */
+.hdr {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(0,255,136,0.04), transparent);
+}
+.hdr-logo {
+  font-family: var(--disp);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: var(--p);
+  text-shadow: 0 0 14px var(--p), 0 0 30px rgba(0,255,136,0.3);
+}
+.hdr-sub {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+/* ── SCREENS ──────────────────────────────────────────────────── */
+.screen { display: none; flex: 1; flex-direction: column; padding: 20px; }
+.screen.active { display: flex; }
+
+/* ── LOGIN SCREEN ─────────────────────────────────────────────── */
+.login-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.login-title {
+  font-family: var(--disp);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--text3);
+  text-align: center;
+}
+.input-group { width: 100%; max-width: 300px; }
+.input-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.field {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  padding: 12px 14px;
+  outline: none;
+  letter-spacing: 0.05em;
+  transition: border-color 0.2s;
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+.field:focus { border-color: var(--p); }
+.field::placeholder { color: var(--text4); -webkit-text-security: none; text-security: none; font-size: 11px; letter-spacing: 0.15em; }
+
+.btn-connect {
+  width: 100%; max-width: 300px;
+  background: none;
+  border: 2px solid var(--p2);
+  color: var(--p);
+  font-family: var(--disp);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+.btn-connect:hover {
+  border-color: var(--p);
+  box-shadow: 0 0 20px rgba(0,255,136,0.3);
+}
+.btn-connect:active { opacity: 0.75; }
+
+.login-err {
+  font-size: 11px;
+  color: var(--red);
+  text-align: center;
+  letter-spacing: 0.1em;
+  min-height: 16px;
+}
+
+/* ── MIC SCREEN ───────────────────────────────────────────────── */
+.mic-screen { gap: 16px; }
+
+/* ORB — the visual centrepiece */
+.orb-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0 10px;
+  gap: 16px;
+}
+.orb {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 2px solid var(--p2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.orb::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,255,136,0.10);
+}
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,255,136,0.05);
+}
+.orb.recording {
+  border-color: var(--p);
+  box-shadow:
+    0 0 30px rgba(0,255,136,0.45),
+    0 0 60px rgba(0,255,136,0.20),
+    0 0 100px rgba(0,255,136,0.08),
+    inset 0 0 30px rgba(0,255,136,0.05);
+  animation: orb-breathe 2.2s ease-in-out infinite;
+}
+@keyframes orb-breathe {
+  0%,100% { box-shadow: 0 0 24px rgba(0,255,136,0.4), 0 0 50px rgba(0,255,136,0.16), inset 0 0 24px rgba(0,255,136,0.04); }
+  50%      { box-shadow: 0 0 48px rgba(0,255,136,0.65), 0 0 90px rgba(0,255,136,0.28), inset 0 0 40px rgba(0,255,136,0.08); }
+}
+.orb.disconnected {
+  border-color: rgba(255,51,85,0.3);
+  opacity: 0.6;
+}
+
+.orb-canvas {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: block;
+}
+
+.orb-label {
+  font-family: var(--disp);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  color: var(--text3);
+  text-align: center;
+}
+.orb-label.recording-lbl { color: var(--p); animation: lbl-blink 1.4s ease-in-out infinite; }
+.orb-label.error-lbl { color: var(--red); }
+@keyframes lbl-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* TAP TO RECORD hint */
+.tap-hint {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text4);
+  text-align: center;
+  margin-top: -8px;
+}
+
+/* ── STATUS STRIP ─────────────────────────────────────────────── */
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text4);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.status-dot.ok      { background: var(--p); box-shadow: 0 0 8px var(--p); }
+.status-dot.err     { background: var(--red); }
+.status-dot.warn    { background: var(--amber); }
+.status-dot.pulse   { background: var(--p); animation: dot-pulse 1.2s ease-in-out infinite; }
+@keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.status-text { font-size: 11px; letter-spacing: 0.12em; color: var(--text2); flex: 1; }
+.room-id     { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; }
+
+/* ── LIVE TRANSCRIPT STRIP ────────────────────────────────────── */
+.live-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: rgba(0,255,136,0.015);
+  min-height: 42px;
+}
+.live-lbl   { font-size: 10px; letter-spacing: 0.22em; color: var(--text4); flex-shrink: 0; margin-top: 1px; }
+.live-text  { font-size: 13px; color: var(--p3); font-style: italic; flex: 1; line-height: 1.5; }
+
+/* ── STATS ROW ────────────────────────────────────────────────── */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+}
+.stat { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; }
+.stat span { color: var(--text2); }
+.stat span.g { color: var(--p); }
+.stat span.r { color: var(--red); }
+
+/* ── DISCONNECT BTN ───────────────────────────────────────────── */
+.btn-disconnect {
+  background: none;
+  border: 1px solid var(--red2);
+  color: var(--red);
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  padding: 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  margin-top: auto;
+}
+.btn-disconnect:hover { border-color: var(--red); background: rgba(255,51,85,0.06); }
+
+/* ── PERM BANNER ──────────────────────────────────────────────── */
+.perm-banner {
+  display: none;
+  padding: 12px 20px;
+  background: rgba(255,51,85,0.07);
+  border: 1px solid var(--red2);
+  font-size: 11px;
+  color: var(--red);
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  flex-shrink: 0;
+  margin: 0 20px;
+}
+.perm-banner.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">RHEON <span style="font-size:9px;opacity:0.5">MIC</span></div>
+  <div class="hdr-sub">EXTERNAL MICROPHONE CLIENT</div>
+</div>
+
+<!-- PERM BANNER -->
+<div class="perm-banner" id="perm-banner">
+  Microphone access denied. Open browser settings → Site settings → Microphone → Allow.
+</div>
+
+<!-- SCREEN: LOGIN -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-title">ENTER SESSION PASSWORD</div>
+    <div class="input-group">
+      <div class="input-label">PASSWORD</div>
+      <input
+        class="field"
+        id="pw-field"
+        type="password"
+        placeholder="same as host session"
+        autocomplete="current-password"
+        inputmode="text"
+      >
+    </div>
+    <button class="btn-connect" id="btn-connect" onclick="micConnect()">CONNECT TO HOST</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- SCREEN: MIC -->
+<div class="screen mic-screen" id="screen-mic">
+
+  <!-- ORB -->
+  <div class="orb-wrap">
+    <div class="orb" id="orb" onclick="micToggleRecord()">
+      <canvas class="orb-canvas" id="orb-canvas"></canvas>
+    </div>
+    <div class="orb-label" id="orb-label">CONNECTED</div>
+    <div class="tap-hint">tap orb to start / stop recording</div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-strip">
+    <div class="status-dot" id="status-dot"></div>
+    <div class="status-text" id="status-text">Connecting…</div>
+    <div class="room-id" id="room-id-display"></div>
+  </div>
+
+  <!-- LIVE TRANSCRIPT -->
+  <div class="live-strip">
+    <div class="live-lbl">LIVE ▶</div>
+    <div class="live-text" id="live-text">—</div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat">SENT <span class="g" id="st-sent">0</span></div>
+    <div class="stat">WORDS <span id="st-words">0</span></div>
+    <div class="stat">PEER <span id="st-peer">—</span></div>
+    <div class="stat">SIGNAL <span id="st-signal">—</span></div>
+  </div>
+
+  <button class="btn-disconnect" onclick="micDisconnect()">DISCONNECT SESSION</button>
+
+</div>
+
+<!-- PeerJS CDN -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RHEON MIC — mic.html
+// External microphone client for Rheon Voice v7.
+//
+// Architecture (per MIC_INTEGRATION_PHASEMAP Option C):
+//   1. Requests mic → getUserMedia (max sensitivity, no processing)
+//   2. Connects to host via PeerJS:
+//      - Data channel: commands (record_start/stop, ping/pong, transcript)
+//      - Audio call:   raw MediaStream → host's AudioEngine
+//   3. Runs SpeechRecognition locally → sends final transcripts to host
+//   4. Host receives stream + transcript → enriches VL nodes
+//
+// Room ID is derived from password (FNV-1a + djb2, same as host).
+// ═══════════════════════════════════════════════════════════════════
+
+// ── ICE CONFIG — identical to host ────────────────────────────────
+// §MIC_INTEGRATION §4 Invariants: must match host exactly.
+var ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    {
+      urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ]
+};
+
+// ── HASH — FNV-1a + djb2 (must match host _vlHashPw) ──────────────
+function micHashPw(pw) {
+  var bytes = [];
+  for (var i = 0; i < pw.length; i++) bytes.push(pw.charCodeAt(i));
+
+  // FNV-1a 32-bit
+  var h1 = 2166136261;
+  for (var j = 0; j < bytes.length; j++) {
+    h1 ^= bytes[j];
+    h1  = Math.imul(h1, 16777619) >>> 0;
+  }
+
+  // djb2
+  var h2 = 5381;
+  for (var k = 0; k < bytes.length; k++) {
+    h2 = (Math.imul(h2, 33) + bytes[k]) >>> 0;
+  }
+
+  var hex = ('00000000' + h1.toString(16)).slice(-8) +
+            ('00000000' + h2.toString(16)).slice(-8);
+  return 'nx_' + hex;
+}
+
+function micDeriveRoomId(pw) {
+  var hash = micHashPw(pw);
+  // 'nx_AABBCCDD11223344' → 'NX-AABBCC-112233'
+  return 'NX-' + hash.slice(3, 9).toUpperCase() + '-' + hash.slice(9, 15).toUpperCase();
+}
+
+// ── STATE ─────────────────────────────────────────────────────────
+var mic = {
+  peer:       null,
+  dataConn:   null,
+  call:       null,
+  stream:     null,
+  rec:        null,       // SpeechRecognition
+  recording:  false,
+  roomId:     null,
+  peerId:     null,
+  hostId:     null,
+  sentCount:  0,
+  wordCount:  0,
+  lastSignal: 0,          // last audio frame RMS (for UI)
+
+  // Web Audio for orb visualisation
+  audioCtx:   null,
+  analyser:   null,
+  timeBuf:    null,
+  orbRAF:     null,
+};
+
+// ── HASH SESSION STORAGE ──────────────────────────────────────────
+var SESSION_KEY = 'nexus_mic_auth';
+
+function micRestoreSession() {
+  try {
+    var saved = sessionStorage.getItem(SESSION_KEY);
+    if (!saved) return false;
+    var d = JSON.parse(saved);
+    if (!d.roomId || !d.peerId) return false;
+    mic.roomId = d.roomId;
+    mic.peerId = d.peerId;
+    mic.hostId = d.hostId;
+    return true;
+  } catch(e) { return false; }
+}
+
+function micSaveSession(roomId, peerId, hostId) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ roomId:roomId, peerId:peerId, hostId:hostId }));
+  } catch(e) {}
+}
+
+// ── CONNECT ───────────────────────────────────────────────────────
+function micConnect() {
+  var pw = document.getElementById('pw-field').value.trim();
+  if (!pw) { showLoginErr('Enter a password.'); return; }
+
+  var roomId  = micDeriveRoomId(pw);
+  var hostId  = roomId + '-HOST';
+  var rand    = Math.random().toString(36).slice(2, 5).toUpperCase();
+  var peerId  = roomId + '-MIC-' + rand;
+
+  mic.roomId = roomId;
+  mic.peerId = peerId;
+  mic.hostId = hostId;
+
+  showLoginErr('');
+  setStatus('dot', 'warn', 'Connecting to PeerJS…');
+
+  // Request mic first (per §5.7 — one getUserMedia)
+  var constraints = {
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl:  false,
+      sampleRate: { ideal: 48000 },
+      channelCount: { ideal: 1 },
+    },
+    video: false
+  };
+
+  navigator.mediaDevices.getUserMedia(constraints)
+    .catch(function() {
+      return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    })
+    .then(function(stream) {
+      mic.stream = stream;
+      micInitAudio(stream);
+      micInitPeer(peerId, hostId);
+      micSaveSession(roomId, peerId, hostId);
+      micShowScreen('mic');
+    })
+    .catch(function(e) {
+      console.error('[mic] getUserMedia denied:', e);
+      document.getElementById('perm-banner').className = 'perm-banner show';
+      showLoginErr('Microphone access denied.');
+    });
+}
+
+// ── PEER INIT ─────────────────────────────────────────────────────
+function micInitPeer(peerId, hostId) {
+  if (mic.peer) { try { mic.peer.destroy(); } catch(e){} mic.peer = null; }
+
+  mic.peer = new Peer(peerId, {
+    config: ICE_CONFIG,
+    debug:  0
+  });
+
+  mic.peer.on('open', function(id) {
+    setStatus('dot', 'ok', 'PeerJS ready — connecting to host…');
+    document.getElementById('room-id-display').textContent = mic.roomId;
+    micConnectToHost(hostId);
+  });
+
+  mic.peer.on('error', function(err) {
+    console.error('[mic] PeerJS error:', err);
+    var msg = err.type === 'peer-unavailable'
+      ? 'Host not found. Is Rheon Voice open and connected?'
+      : 'PeerJS error: ' + (err.type || err.message);
+    setStatus('dot', 'err', msg);
+    setOrbLabel(msg, 'error-lbl');
+  });
+
+  mic.peer.on('disconnected', function() {
+    setStatus('dot', 'warn', 'Disconnected — reconnecting…');
+    setTimeout(function() {
+      if (mic.peer && !mic.peer.destroyed) mic.peer.reconnect();
+    }, 2000);
+  });
+}
+
+function micConnectToHost(hostId) {
+  // Data channel
+  var conn = mic.peer.connect(hostId, { reliable: true, label: 'rheon-mic-data' });
+  mic.dataConn = conn;
+
+  conn.on('open', function() {
+    setStatus('dot', 'ok', 'Data channel open');
+    setOrbLabel('CONNECTED', '');
+    // Start audio call
+    micStartCall(hostId);
+  });
+
+  conn.on('data', function(msg) {
+    micHandleCmd(msg);
+  });
+
+  conn.on('close', function() {
+    setStatus('dot', 'warn', 'Data channel closed');
+    mic.dataConn = null;
+  });
+
+  conn.on('error', function(e) {
+    console.error('[mic] data conn error:', e);
+    setStatus('dot', 'err', 'Data channel error');
+  });
+}
+
+function micStartCall(hostId) {
+  if (!mic.stream) return;
+  var call = mic.peer.call(hostId, mic.stream, {
+    constraints: { offerToReceiveAudio: false, offerToReceiveVideo: false }
+  });
+  mic.call = call;
+
+  call.on('stream', function() {
+    // Host may answer with empty stream — ignore
+  });
+  call.on('close', function() {
+    setStatus('dot', 'warn', 'Audio call closed');
+  });
+  call.on('error', function(e) {
+    console.error('[mic] call error:', e);
+  });
+}
+
+// ── COMMAND HANDLER ───────────────────────────────────────────────
+function micHandleCmd(msg) {
+  if (!msg || !msg.cmd) return;
+  switch (msg.cmd) {
+    case 'record_start':
+      if (!mic.recording) micStartRecord();
+      break;
+    case 'record_stop':
+      if (mic.recording) micStopRecord();
+      break;
+    case 'ping':
+      micSend({ cmd: 'pong', ts: Date.now() });
+      break;
+    case 'state_sync':
+      // Host is telling us its state
+      if (msg.recording && !mic.recording) micStartRecord();
+      if (!msg.recording && mic.recording) micStopRecord();
+      break;
+    default:
+      console.log('[mic] unknown cmd:', msg.cmd);
+  }
+}
+
+function micSend(obj) {
+  if (mic.dataConn && mic.dataConn.open) {
+    try { mic.dataConn.send(obj); } catch(e) { console.warn('[mic] send failed:', e); }
+  }
+}
+
+// ── RECORD TOGGLE ─────────────────────────────────────────────────
+function micToggleRecord() {
+  if (!mic.dataConn || !mic.dataConn.open) {
+    setStatus('dot', 'err', 'Not connected to host');
+    return;
+  }
+  if (mic.recording) micStopRecord();
+  else               micStartRecord();
+}
+
+function micStartRecord() {
+  mic.recording = true;
+  document.getElementById('orb').className = 'orb recording';
+  setOrbLabel('RECORDING', 'recording-lbl');
+  setStatus('dot', 'pulse', 'Recording…');
+  micSend({ cmd: 'recording_started' });
+  micStartSTT();
+}
+
+function micStopRecord() {
+  mic.recording = false;
+  document.getElementById('orb').className = 'orb';
+  setOrbLabel('CONNECTED', '');
+  setStatus('dot', 'ok', 'Ready');
+  micSend({ cmd: 'recording_stopped' });
+  micStopSTT();
+  document.getElementById('live-text').textContent = '—';
+}
+
+// ── SPEECH RECOGNITION ────────────────────────────────────────────
+// Runs on mic device. Sends final transcripts to host over data channel.
+// This is Option C from the phasemap — STT at source, analytics at host.
+function micStartSTT() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    setStatus('dot', 'warn', 'No STT — audio only (use Chrome)');
+    return;
+  }
+
+  if (mic.rec) { try { mic.rec.stop(); } catch(e){} }
+
+  var r = new SR();
+  r.continuous     = true;
+  r.interimResults = true;
+  r.lang           = 'en-US';
+  r.maxAlternatives= 1;
+
+  r.onresult = function(event) {
+    var interim = '', final = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) final  += event.results[i][0].transcript;
+      else                          interim += event.results[i][0].transcript;
+    }
+    if (interim) {
+      document.getElementById('live-text').textContent = interim;
+    }
+    if (final && final.trim().length > 1) {
+      document.getElementById('live-text').textContent = final;
+      // Send final transcript to host
+      mic.sentCount++;
+      mic.wordCount += final.trim().split(/\s+/).length;
+      micSend({
+        cmd:   'transcript',
+        text:  final.trim(),
+        ts:    Date.now(),
+        final: true,
+        words: final.trim().split(/\s+/).length
+      });
+      updateStats();
+    }
+  };
+
+  r.onerror = function(e) {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+      document.getElementById('perm-banner').className = 'perm-banner show';
+      setStatus('dot', 'err', 'Mic access denied');
+      micStopRecord();
+    }
+    console.warn('[mic] STT error:', e.error);
+  };
+
+  r.onend = function() {
+    // Chrome kills recognizer every ~60s — restart while recording
+    if (mic.recording) {
+      try { r.start(); } catch(e) {}
+    }
+  };
+
+  try {
+    r.start();
+    mic.rec = r;
+  } catch(e) {
+    console.error('[mic] STT start failed:', e);
+  }
+}
+
+function micStopSTT() {
+  if (mic.rec) {
+    try { mic.rec.stop(); } catch(e){}
+    mic.rec = null;
+  }
+}
+
+// ── AUDIO VISUALISER — orb canvas ─────────────────────────────────
+function micInitAudio(stream) {
+  try {
+    mic.audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    mic.analyser  = mic.audioCtx.createAnalyser();
+    mic.analyser.fftSize = 512;
+    mic.analyser.smoothingTimeConstant = 0.7;
+    mic.timeBuf   = new Float32Array(mic.analyser.fftSize);
+
+    var src  = mic.audioCtx.createMediaStreamSource(stream);
+    var gain = mic.audioCtx.createGain();
+    gain.gain.value = 3.0;
+    src.connect(gain);
+    gain.connect(mic.analyser);
+    // No destination — no feedback
+  } catch(e) {
+    console.error('[mic] audio init failed:', e);
+    return;
+  }
+  micStartOrbDraw();
+}
+
+function micStartOrbDraw() {
+  var canvas = document.getElementById('orb-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width  = canvas.offsetWidth  || 120;
+  var H = canvas.height = canvas.offsetHeight || 120;
+  var cx = W / 2, cy = H / 2, r = Math.min(W, H) / 2 - 4;
+
+  function draw() {
+    mic.orbRAF = requestAnimationFrame(draw);
+    ctx.clearRect(0, 0, W, H);
+
+    var c = mic.recording ? [0, 255, 136] : [0, 130, 70];
+
+    if (!mic.analyser || !mic.timeBuf) {
+      // idle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.15, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + c + ',0.25)';
+      ctx.fill();
+      return;
+    }
+
+    mic.analyser.getFloatTimeDomainData(mic.timeBuf);
+
+    // Compute RMS for signal strength display
+    var sum = 0;
+    for (var i = 0; i < mic.timeBuf.length; i++) sum += mic.timeBuf[i] * mic.timeBuf[i];
+    var rms = Math.sqrt(sum / mic.timeBuf.length);
+    mic.lastSignal = rms;
+    document.getElementById('st-signal').textContent = rms > 0 ? rms.toFixed(3) : '—';
+
+    // Radial waveform
+    var N     = Math.min(128, mic.timeBuf.length);
+    var step  = Math.floor(mic.timeBuf.length / N);
+    var alpha = mic.recording ? 0.9 : 0.3;
+
+    // Glow ring
+    ctx.beginPath();
+    for (var j = 0; j <= N; j++) {
+      var idx = j % N;
+      var amp = mic.timeBuf[idx * step] * r * 0.6;
+      var ang = (idx / N) * Math.PI * 2 - Math.PI / 2;
+      var rx  = cx + (r + amp) * Math.cos(ang);
+      var ry  = cy + (r + amp) * Math.sin(ang);
+      j === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (alpha * 0.15) + ')';
+    ctx.lineWidth   = 8;
+    ctx.stroke();
+
+    // Crisp line
+    ctx.beginPath();
+    for (var k = 0; k <= N; k++) {
+      var idx2 = k % N;
+      var amp2 = mic.timeBuf[idx2 * step] * r * 0.6;
+      var ang2 = (idx2 / N) * Math.PI * 2 - Math.PI / 2;
+      var rx2  = cx + (r + amp2) * Math.cos(ang2);
+      var ry2  = cy + (r + amp2) * Math.sin(ang2);
+      k === 0 ? ctx.moveTo(rx2, ry2) : ctx.lineTo(rx2, ry2);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+
+    // Centre dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')';
+    ctx.fill();
+  }
+
+  draw();
+}
+
+// ── DISCONNECT ────────────────────────────────────────────────────
+function micDisconnect() {
+  micStopRecord();
+  if (mic.call)     { try { mic.call.close();     } catch(e){} mic.call = null; }
+  if (mic.dataConn) { try { mic.dataConn.close(); } catch(e){} mic.dataConn = null; }
+  if (mic.peer)     { try { mic.peer.destroy();   } catch(e){} mic.peer = null; }
+  if (mic.stream)   { mic.stream.getTracks().forEach(function(t){ t.stop(); }); mic.stream = null; }
+  if (mic.orbRAF)   { cancelAnimationFrame(mic.orbRAF); }
+  if (mic.audioCtx) { try { mic.audioCtx.close(); } catch(e){} }
+  sessionStorage.removeItem(SESSION_KEY);
+  micShowScreen('login');
+  document.getElementById('pw-field').value = '';
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────
+function micShowScreen(name) {
+  document.querySelectorAll('.screen').forEach(function(s) {
+    s.className = s.className.replace(' active', '');
+  });
+  var el = document.getElementById('screen-' + name);
+  if (el) el.className += ' active';
+}
+
+function showLoginErr(msg) {
+  document.getElementById('login-err').textContent = msg;
+}
+
+function setStatus(dotClass, dotState, text) {
+  var dot  = document.getElementById('status-dot');
+  var txt  = document.getElementById('status-text');
+  var peer = document.getElementById('st-peer');
+  dot.className = 'status-dot ' + dotState;
+  txt.textContent = text;
+  if (mic.peerId) peer.textContent = mic.peerId.slice(-6);
+}
+
+function setOrbLabel(text, cls) {
+  var el = document.getElementById('orb-label');
+  el.textContent = text;
+  el.className = 'orb-label' + (cls ? ' ' + cls : '');
+}
+
+function updateStats() {
+  document.getElementById('st-sent').textContent  = mic.sentCount;
+  document.getElementById('st-words').textContent = mic.wordCount;
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Enter on login screen
+  if (e.key === 'Enter') {
+    var loginScreen = document.getElementById('screen-login');
+    if (loginScreen.className.includes('active')) micConnect();
+  }
+  // Space = toggle record on mic screen
+  if (e.key === ' ' && document.activeElement === document.body) {
+    e.preventDefault();
+    micToggleRecord();
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────
+(function() {
+  // Try to restore session (survives page refresh, dies on tab close)
+  if (micRestoreSession()) {
+    // Show mic screen but need fresh getUserMedia
+    // Don't auto-connect on restore — user must tap connect again
+    // (PeerJS session state is gone after refresh regardless)
+    var pw = localStorage.getItem('nexus_mastermind_pw');
+    if (pw) {
+      document.getElementById('pw-field').value = '•••••••••••';
+    }
+  }
+
+  // Orb canvas resize
+  var c = document.getElementById('orb-canvas');
+  if (c) {
+    c.width  = c.offsetWidth  || 120;
+    c.height = c.offsetHeight || 120;
+  }
+})();
+
+// Page unload
+window.addEventListener('beforeunload', function() {
+  if (mic.stream) mic.stream.getTracks().forEach(function(t) { t.stop(); });
+});
+</script>
+
+</body>
+</html>

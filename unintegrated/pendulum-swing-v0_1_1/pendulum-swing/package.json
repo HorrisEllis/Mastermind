@@ -1,0 +1,11 @@
+{
+  "name": "pendulum-swing",
+  "version": "0.1.0",
+  "description": "Signal rhythm analysis kernel. Period, amplitude, damping, phase, forced vs free.",
+  "main": "src/kernel.js",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

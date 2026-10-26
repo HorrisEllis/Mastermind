@@ -1,0 +1,844 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#020705;--surface:#0b180d;--wire:#163320;--wire2:#1f4a2c;
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--glow:rgba(57,255,106,.11);--glow2:rgba(57,255,106,.06);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;--pink:#ff6eb4;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+.mm{background:var(--ink);color:var(--bright);font-family:var(--mono);min-height:860px;position:relative;overflow:hidden;border-radius:8px}
+canvas#bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+
+/* TOPBAR */
+.tb{position:relative;z-index:20;background:rgba(2,7,5,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;height:40px;gap:10px;flex-wrap:nowrap}
+.lm{width:15px;height:15px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--signal);animation:blink 3s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 16px var(--signal)}}
+.lt{font-family:var(--cond);font-size:13px;font-weight:900;letter-spacing:5px;color:var(--white)}
+.sep{width:1px;height:13px;background:var(--wire);flex-shrink:0}
+.tg{font-size:6px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.tv{font-size:6px;letter-spacing:1px;margin-left:3px}
+.tr{margin-left:auto;display:flex;gap:5px;align-items:center}
+.tbtn{font-size:6px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:22px}
+.tbtn:hover{color:var(--white);border-color:var(--muted)}
+.tbtn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+
+/* NAV */
+.nv{display:flex;border-bottom:1px solid var(--wire);position:relative;z-index:20;background:rgba(4,10,7,.93);overflow-x:auto}
+.nv::-webkit-scrollbar{height:0}
+.nt{font-size:6px;letter-spacing:2px;text-transform:uppercase;padding:7px 11px;cursor:pointer;color:var(--dim);border-bottom:1px solid transparent;transition:all .2s;font-family:var(--mono);background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;flex-shrink:0}
+.nt:hover{color:var(--muted)}
+.nt.on{color:var(--signal);border-bottom-color:var(--signal)}
+
+/* PANES */
+.pn{display:none;position:relative;z-index:10;flex-direction:column;min-height:800px}
+.pn.on{display:flex}
+.sh{font-size:5px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding:12px 16px 9px;border-bottom:1px solid var(--wire);flex-shrink:0}
+
+/* SHARED COMPONENTS */
+.node{border:1px solid var(--wire);background:rgba(11,24,13,.45);padding:11px;position:relative;cursor:pointer;transition:border-color .2s,background .2s}
+.node:hover{border-color:var(--signal);background:var(--glow2)}
+.node.hi{border-color:var(--wire2)}
+.nbadge{position:absolute;top:7px;right:7px;font-size:5px;letter-spacing:1.5px;padding:2px 4px;border:1px solid;text-transform:uppercase}
+.ntag{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.ntitle{font-family:var(--cond);font-size:15px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:4px}
+.ndesc{font-size:6.5px;color:var(--muted);line-height:1.6}
+.nlist{margin-top:6px;display:flex;flex-direction:column;gap:2px}
+.ni{font-size:5.5px;color:var(--dim);padding-left:9px;position:relative;line-height:1.5}
+.ni::before{content:'›';position:absolute;left:0;color:var(--signal)}
+.bs{color:var(--signal);border-color:var(--signal)}
+.ba{color:var(--amber);border-color:var(--amber)}
+.bc{color:var(--cyan);border-color:var(--cyan)}
+.bv{color:var(--violet);border-color:var(--violet)}
+.bp{color:var(--pink);border-color:var(--pink)}
+.cbar{height:2px;background:var(--wire);margin-top:3px}
+.cfill{height:100%;background:var(--signal);transition:width .8s}
+
+/* WELCOME */
+.wc{align-items:center;justify-content:center;min-height:800px;text-align:center;padding:40px 20px}
+.we{font-size:6px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:22px}
+.wn{font-family:var(--cond);font-size:68px;font-weight:900;letter-spacing:10px;color:var(--white);line-height:1;margin-bottom:5px}
+.ws{font-size:10px;letter-spacing:4px;color:var(--muted);margin-bottom:28px}
+.wd{width:130px;height:1px;background:linear-gradient(to right,transparent,var(--signal),transparent);margin:0 auto 26px}
+.ww{font-size:9px;letter-spacing:2px;color:var(--bright);margin-bottom:4px}
+.wtag{font-family:var(--cond);font-size:30px;font-weight:700;letter-spacing:5px;color:var(--white);margin-bottom:32px}
+.wcta{display:inline-flex;align-items:center;gap:10px;font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:4px;color:var(--signal);border:1px solid var(--signal);background:var(--glow);padding:11px 28px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.wcta:hover{background:rgba(57,255,106,.22)}
+.wcta span{transition:transform .2s}
+.wcta:hover span{transform:translateX(5px)}
+.wmods{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:30px;width:100%;max-width:680px}
+.wmod{border:1px solid var(--wire);background:rgba(11,24,13,.45);padding:10px 8px;text-align:left;cursor:pointer;transition:all .2s}
+.wmod:hover{border-color:var(--signal);background:var(--glow2)}
+.wmi{font-size:13px;margin-bottom:4px}
+.wml{font-size:6px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.wmd{font-size:5.5px;color:var(--dim);line-height:1.5}
+
+/* ARCH */
+.ag{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px}
+.pipe{border:1px solid var(--wire);padding:8px 14px;background:rgba(2,7,5,.5);display:flex;align-items:center;gap:6px;font-size:6px;color:var(--dim);letter-spacing:1px;flex-wrap:wrap;margin:0 16px 14px}
+
+/* PAT */
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+.pb{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.pbt{font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--wire)}
+.pr{display:flex;justify-content:space-between;align-items:flex-start;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.5);gap:8px}
+.pk{font-size:5.5px;letter-spacing:1px;color:var(--dim);flex-shrink:0}
+.pv{font-size:5.5px;color:var(--muted);text-align:right;line-height:1.5}
+.schema{background:rgba(2,7,5,.85);border:1px solid var(--wire2);padding:11px 14px;font-size:6.5px;color:var(--dim);line-height:1.9;letter-spacing:.3px;overflow-x:auto;white-space:pre;font-family:var(--mono);margin:0 16px 14px}
+.sk{color:var(--cyan)}.sv{color:var(--amber)}.sc2{color:var(--dim)}.ss{color:var(--signal)}.ssp{color:var(--violet)}
+
+/* VATS */
+.vbody{display:grid;grid-template-columns:230px 1fr 200px;gap:10px;padding:10px 16px 14px;flex:1}
+.vpl,.vpr{display:flex;flex-direction:column;gap:7px}
+.vpt{font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;border-bottom:1px solid var(--wire);padding-bottom:5px;margin-bottom:5px}
+.zcard{border:1px solid var(--wire);background:rgba(11,24,13,.3);padding:8px 9px;cursor:pointer;transition:all .2s}
+.zcard:hover,.zcard.on{border-color:var(--signal);background:var(--glow2)}
+.zch{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.zcn{font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:2px;color:var(--white)}
+.zcc{font-size:5px;color:var(--signal)}
+.zsigs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px}
+.zsig{font-size:4.5px;padding:2px 4px;border:1px solid;letter-spacing:1px;text-transform:uppercase}
+.zsig.s{color:var(--signal);border-color:var(--signal)}
+.zsig.a{color:var(--amber);border-color:var(--amber)}
+.zsig.c{color:var(--cyan);border-color:var(--cyan)}
+.zsig.v{color:var(--violet);border-color:var(--violet)}
+.zsig.p{color:var(--pink);border-color:var(--pink)}
+.zcd{font-size:5.5px;color:var(--dim);line-height:1.5}
+.vview{border:1px solid var(--wire);background:rgba(2,7,5,.7);position:relative;min-height:460px}
+.sbox{border:1px solid var(--wire);background:rgba(2,7,5,.55);padding:9px;flex:1;overflow-y:auto;max-height:280px}
+.srow{font-size:6px;line-height:1.9;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(22,51,32,.3);padding:2px 0}
+.slab{color:var(--dim)}
+.sval{font-size:5px;letter-spacing:1px}
+
+/* LATTICE */
+.lbody{display:grid;grid-template-columns:1fr 185px;gap:10px;padding:10px 16px 14px;flex:1}
+.cli{background:rgba(2,7,5,.9);border:1px solid var(--wire2);display:flex;flex-direction:column;min-height:360px}
+.clih{border-bottom:1px solid var(--wire);padding:5px 10px;display:flex;align-items:center;gap:5px}
+.clid{width:5px;height:5px;border-radius:50%}
+.clititle{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-left:4px}
+.clio{flex:1;padding:9px;overflow-y:auto;max-height:320px;font-size:7px;line-height:1.8;color:var(--muted)}
+.cl{display:flex;gap:6px}
+.cp{color:var(--signal);flex-shrink:0}
+.cc{color:var(--white)}
+.co{color:var(--dim);padding-left:16px;line-height:1.7}
+.co.hi{color:var(--cyan)}
+.co.mt{color:var(--amber)}
+.co.nd{color:var(--violet)}
+.co.er{color:var(--rose)}
+.clirow{border-top:1px solid var(--wire);padding:6px 10px;display:flex;align-items:center;gap:6px}
+.clips{color:var(--signal);font-size:9px}
+.cliinput{background:transparent;border:none;outline:none;color:var(--white);font-family:var(--mono);font-size:7px;flex:1}
+.cliinput::placeholder{color:var(--wire2)}
+.cmdref{border:1px solid var(--wire);background:rgba(11,24,13,.3);padding:9px;margin-top:8px}
+.crt{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:5px}
+.crrow{display:flex;gap:5px;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.4)}
+.crn{font-size:6px;color:var(--cyan);width:110px;flex-shrink:0}
+.crd{font-size:5.5px;color:var(--dim);line-height:1.5}
+.lr{display:flex;flex-direction:column;gap:5px}
+.ln{border:1px solid var(--wire);background:rgba(11,24,13,.35);padding:7px;cursor:pointer;transition:all .2s}
+.ln:hover,.ln.on{border-color:var(--cyan);background:rgba(0,255,238,.04)}
+.lnid{font-size:5px;color:var(--dim);letter-spacing:2px;margin-bottom:2px}
+.lnlabel{font-size:6px;color:var(--white);margin-bottom:2px}
+.lnres{font-size:5.5px;color:var(--signal)}
+.lntags{display:flex;flex-wrap:wrap;gap:2px;margin-top:3px}
+.lntag{font-size:4.5px;padding:1px 3px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+
+/* SOCIAL */
+.sg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+.sn{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.snbadge{display:inline-block;font-size:5px;padding:2px 5px;border:1px solid var(--pink);color:var(--pink);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.sntitle{font-family:var(--cond);font-size:14px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:5px}
+.sndesc{font-size:6.5px;color:var(--muted);line-height:1.6;margin-bottom:7px}
+.snlist{display:flex;flex-direction:column;gap:2px}
+.sni{font-size:6px;color:var(--dim);padding-left:8px;position:relative;line-height:1.5}
+.sni::before{content:'◇';position:absolute;left:0;color:var(--pink);font-size:5px}
+.fieldviz{border:1px solid var(--wire);background:rgba(2,7,5,.5);padding:11px;margin:0 16px 14px}
+.fvl{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+.fvgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.fvcell{text-align:center}
+.fvtag{font-size:6px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.fvval{font-family:var(--cond);font-size:28px;font-weight:900;line-height:1;margin-bottom:4px}
+
+/* SIGMA */
+.sigrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;flex:1}
+.sigb{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.sigtitle{font-family:var(--cond);font-size:14px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--wire)}
+.sigitem{padding:5px 0;border-bottom:1px solid rgba(22,51,32,.4);font-size:6.5px;color:var(--muted);line-height:1.5}
+.sigitem strong{color:var(--white);display:block;font-size:6px;letter-spacing:.5px;font-weight:400}
+</style>
+
+<div class="mm" id="mm">
+<canvas id="bg"></canvas>
+
+<!-- TOPBAR -->
+<div class="tb">
+  <div class="lm">M</div>
+  <span class="lt">MASTERMIND</span>
+  <div class="sep"></div>
+  <span class="tg">SESSION</span><span class="tv" style="color:var(--amber)">MIMI·2026·05·12</span>
+  <div class="sep"></div>
+  <span class="tg">NODES</span><span class="tv" style="color:var(--cyan)">47</span>
+  <div class="sep"></div>
+  <span class="tg">STATUS</span><span class="tv" style="color:var(--signal)">● LIVE</span>
+  <div class="tr">
+    <button class="tbtn on" onclick="go('welcome')">HOME</button>
+    <button class="tbtn" onclick="go('arch')">ARCH</button>
+    <button class="tbtn" onclick="go('pat')">PAT</button>
+    <button class="tbtn" onclick="go('vats')">VATS</button>
+    <button class="tbtn" onclick="go('latt')">ALK</button>
+    <button class="tbtn" onclick="go('social')">SOCIAL</button>
+    <button class="tbtn" onclick="go('sigma')">SIGMA</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nv">
+  <button class="nt on" id="nt-welcome" onclick="go('welcome')">WELCOME</button>
+  <button class="nt" id="nt-arch" onclick="go('arch')">ARCHITECTURE</button>
+  <button class="nt" id="nt-pat" onclick="go('pat')">.PAT FILE SPEC</button>
+  <button class="nt" id="nt-vats" onclick="go('vats')">VATS · BODY TARGETING</button>
+  <button class="nt" id="nt-latt" onclick="go('latt')">ASSOCIATIVE LATTICE</button>
+  <button class="nt" id="nt-social" onclick="go('social')">SOCIAL MODULE</button>
+  <button class="nt" id="nt-sigma" onclick="go('sigma')">SIGMA · ENTROPY</button>
+</div>
+
+<!-- ══ WELCOME ══ -->
+<div class="pn on wc" id="pane-welcome">
+  <div class="we">MASTERMIND · BEHAVIORAL INTELLIGENCE SUITE · v0.1</div>
+  <div class="wn">MIMI</div>
+  <div class="ws">SIGNAL ANALYST · PATTERN ARCHITECT · MEANING MAKER</div>
+  <div class="wd"></div>
+  <div class="ww">WELCOME BACK</div>
+  <div class="wtag">THE LAB AWAITS.</div>
+  <button class="wcta" onclick="go('arch')">LET'S ARCHITECT <span>→</span></button>
+  <div class="wmods">
+    <div class="wmod" onclick="go('arch')"><div class="wmi" style="color:var(--signal)">◈</div><div class="wml">Architecture</div><div class="wmd">Core layers · pipeline</div></div>
+    <div class="wmod" onclick="go('pat')"><div class="wmi" style="color:var(--amber)">◉</div><div class="wml">.pat File</div><div class="wmd">Session schema · record</div></div>
+    <div class="wmod" onclick="go('vats')"><div class="wmi" style="color:var(--cyan)">⊕</div><div class="wml">VATS Module</div><div class="wmd">Body zones · manual log</div></div>
+    <div class="wmod" onclick="go('latt')"><div class="wmi" style="color:var(--violet)">⬡</div><div class="wml">Assoc. Lattice</div><div class="wmd">Memory · resonance · CLI</div></div>
+    <div class="wmod" onclick="go('sigma')"><div class="wmi" style="color:var(--pink)">◎</div><div class="wml">Sigma · Entropy</div><div class="wmd">Dysregulation · confidence</div></div>
+  </div>
+</div>
+
+<!-- ══ ARCHITECTURE ══ -->
+<div class="pn" id="pane-arch">
+  <div class="sh">ARCHITECTURE · MASTERMIND BEHAVIORAL INTELLIGENCE SYSTEM</div>
+  <div class="ag">
+    <div class="node hi" onclick="sendPrompt('Spec out the full signal detection layer — hand gestures, mirror neurons, gaze, expression, posture')">
+      <div class="nbadge bs">INPUT</div>
+      <div class="ntag">LAYER 01 · DETECTION</div>
+      <div class="ntitle">SIGNAL DETECTION</div>
+      <div class="ndesc">Multi-layer simultaneous detection from video. All behavioral signal classes run in parallel per frame.</div>
+      <div class="nlist">
+        <div class="ni">Hand gestures — pointing, waving, self-touch, mirroring</div>
+        <div class="ni">Mirror neuron signals — mimicry, empathy indicators</div>
+        <div class="ni">Regulating strategies — self-soothing, grounding</div>
+        <div class="ni">Gaze direction — target, duration, avoidance, dart</div>
+        <div class="ni">Posture state — open, collapsed, protective, grounded</div>
+        <div class="ni">Facial expression — micro + macro, valence, tension</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('What should the full .pat file schema look like?')">
+      <div class="nbadge ba">CANONICAL</div>
+      <div class="ntag">LAYER 02 · RECORD</div>
+      <div class="ntitle">.PAT FILE</div>
+      <div class="ndesc">Single unified session record. Timestamped. Dated. All detection layers merged into one canonical source of truth.</div>
+      <div class="nlist">
+        <div class="ni">session_id · timestamp · date · duration</div>
+        <div class="ni">subject_count · data_directory path</div>
+        <div class="ni">signal_events[] — per-frame detection</div>
+        <div class="ni">vats_overrides[] — manual annotations</div>
+        <div class="ni">entropy_log[] — sigma scores + confidence</div>
+        <div class="ni">lattice_refs[] — associated node IDs</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('How does the Associative Lattice build meaning — nodes, edges, resonance scoring, CLI?')">
+      <div class="nbadge bc">MEMORY</div>
+      <div class="ntag">LAYER 03 · MEANING</div>
+      <div class="ntitle">ASSOC. LATTICE</div>
+      <div class="ndesc">Pattern memory. Each observation becomes a node. Nodes connect by resonance score. Meaning emerges from clusters.</div>
+      <div class="nlist">
+        <div class="ni">Node = observation + metadata</div>
+        <div class="ni">Edge = resonance ≥ threshold (default 0.72)</div>
+        <div class="ni">/find — semantic search</div>
+        <div class="ni">/connect — manual edge creation</div>
+        <div class="ni">Clusters = emergent meaning groups</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('Fully spec the VATS body targeting module — all 8 zones and full signal vocabulary per zone')">
+      <div class="nbadge ba">SHARP</div>
+      <div class="ntag">MODULE 01 · TARGETING</div>
+      <div class="ntitle">VATS</div>
+      <div class="ndesc">Fallout-inspired body zone overlay. Hover to reveal. Click to log. Fills what detector cannot confirm.</div>
+      <div class="nlist">
+        <div class="ni">8 zones: face, eyes, mouth, neck, L/R hand, torso, posture</div>
+        <div class="ni">Hover → ring activates with zone label</div>
+        <div class="ni">Click → signal picker for that zone</div>
+        <div class="ni">Log: zone · signal · timestamp · conf override</div>
+        <div class="ni">Writes to .pat vats_overrides[]</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('How does slope-based entropy detection work in the Sigma layer?')">
+      <div class="nbadge bv">PROBABILISTIC</div>
+      <div class="ntag">MODULE 02 · ENTROPY</div>
+      <div class="ntitle">SIGMA LAYER</div>
+      <div class="ndesc">Slope-based entropy detection. Multiple deductions per observation. Everything probabilistic unless threshold crossed.</div>
+      <div class="nlist">
+        <div class="ni">Slope = rate of change over rolling 3s window</div>
+        <div class="ni">High slope + variance = dysregulation flag</div>
+        <div class="ni">Each deduction: label + entropy + confidence</div>
+        <div class="ni">Deterministic only at confidence ≥ 0.95</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('Spec the Social Module — multi-person relational field, synchrony, mirroring, attunement, tension')">
+      <div class="nbadge bp">RELATIONAL</div>
+      <div class="ntag">MODULE 03 · SOCIAL</div>
+      <div class="ntitle">SOCIAL MODULE</div>
+      <div class="ndesc">Activates on 2+ subjects. Maps the relational field — synchrony, attunement, mirroring, tension. Feeds Sigma layer.</div>
+      <div class="nlist">
+        <div class="ni">Synchrony — lag-corrected gesture alignment</div>
+        <div class="ni">Mirroring — latency-typed (voluntary / involuntary)</div>
+        <div class="ni">Attunement — composite relational index</div>
+        <div class="ni">Tension — oppositional signal density</div>
+      </div>
+    </div>
+  </div>
+  <div class="pipe">
+    <span style="color:var(--muted)">VIDEO INPUT</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--muted)">ALK DETECTION</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--amber)">.PAT FILE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--cyan)">ASSOC. LATTICE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--violet)">SIGMA LAYER</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--pink)">SOCIAL MODULE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--white)">INSIGHT</span>
+  </div>
+</div>
+
+<!-- ══ PAT FILE ══ -->
+<div class="pn" id="pane-pat">
+  <div class="sh">.PAT FILE · SESSION SCHEMA · CANONICAL BEHAVIORAL RECORD</div>
+  <div class="pg">
+    <div class="pb">
+      <div class="pbt">SESSION METADATA</div>
+      <div class="pr"><span class="pk">session_id</span><span class="pv" style="color:var(--signal)">MIMI-20260512-001</span></div>
+      <div class="pr"><span class="pk">created_at</span><span class="pv">2026-05-12T09:14:32Z</span></div>
+      <div class="pr"><span class="pk">duration_s</span><span class="pv">1847</span></div>
+      <div class="pr"><span class="pk">data_dir</span><span class="pv">/sessions/mimi/2026-05-12/</span></div>
+      <div class="pr"><span class="pk">subject_count</span><span class="pv" style="color:var(--amber)">2</span></div>
+      <div class="pr"><span class="pk">frame_rate</span><span class="pv">30 fps</span></div>
+      <div class="pr"><span class="pk">schema_version</span><span class="pv" style="color:var(--cyan)">0.4.1</span></div>
+    </div>
+    <div class="pb">
+      <div class="pbt">LAYER COUNTS</div>
+      <div class="pr"><span class="pk">signal_events[]</span><span class="pv" style="color:var(--signal)">2,847 events</span></div>
+      <div class="pr"><span class="pk">vats_overrides[]</span><span class="pv" style="color:var(--amber)">34 manual</span></div>
+      <div class="pr"><span class="pk">entropy_log[]</span><span class="pv" style="color:var(--violet)">912 entries</span></div>
+      <div class="pr"><span class="pk">lattice_refs[]</span><span class="pv" style="color:var(--cyan)">67 node refs</span></div>
+      <div class="pr"><span class="pk">social_field{}</span><span class="pv" style="color:var(--pink)">active · 2 subjects</span></div>
+      <div class="pr"><span class="pk">avg_confidence</span><span class="pv" style="color:var(--signal)">0.84</span></div>
+      <div class="pr"><span class="pk">peak_entropy</span><span class="pv" style="color:var(--amber)">0.91 @ 00:14:22</span></div>
+    </div>
+  </div>
+  <div class="schema">
+<span class="sc2">// .pat file · JSON schema · v0.4.1</span>
+{
+  <span class="sk">"session"</span>: { <span class="sk">"id"</span>: <span class="sv">"MIMI-20260512-001"</span>, <span class="sk">"created_at"</span>: <span class="sv">"2026-05-12T09:14:32Z"</span>, <span class="sk">"data_dir"</span>: <span class="sv">"/sessions/mimi/2026-05-12/"</span>, <span class="sk">"subject_count"</span>: <span class="sv">2</span> },
+  <span class="sk">"signal_events"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">0.033</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"layer"</span>: <span class="sv">"hands"</span>, <span class="sk">"signal"</span>: <span class="sv">"self_touch"</span>, <span class="sk">"subtype"</span>: <span class="sv">"hair_touch"</span>, <span class="sk">"confidence"</span>: <span class="sv">0.91</span>, <span class="sk">"bbox"</span>: [<span class="sv">312,188,44,38</span>] }
+  ],
+  <span class="sk">"vats_overrides"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">47.2</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"zone"</span>: <span class="sv">"face"</span>, <span class="sk">"signal"</span>: <span class="sv">"jaw_tension"</span>, <span class="sk">"confidence_override"</span>: <span class="sv">0.88</span>, <span class="sk">"annotator"</span>: <span class="sv">"mimi"</span>, <span class="sk">"notes"</span>: <span class="sv">""</span> }
+  ],
+  <span class="sk">"entropy_log"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">47.2</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"slope_window_s"</span>: <span class="sv">3.0</span>, <span class="sk">"deterministic"</span>: <span class="sv">false</span>,
+      <span class="sk">"deductions"</span>: [
+        { <span class="sk">"label"</span>: <span class="sv">"dysregulation"</span>, <span class="sk">"entropy"</span>: <span class="sv">0.73</span>, <span class="sk">"confidence"</span>: <span class="sv">0.81</span> },
+        { <span class="sk">"label"</span>: <span class="sv">"ungrounded"</span>, <span class="sk">"entropy"</span>: <span class="sv">0.54</span>, <span class="sk">"confidence"</span>: <span class="sv">0.67</span> }
+      ]
+    }
+  ],
+  <span class="sk">"lattice_refs"</span>: [ { <span class="sk">"node_id"</span>: <span class="sv">"NODE-07"</span>, <span class="sk">"resonance"</span>: <span class="sv">0.94</span>, <span class="sk">"t"</span>: <span class="sv">47.2</span> } ],
+  <span class="sk">"social_field"</span>: { <span class="sk">"active"</span>: <span class="sv">true</span>, <span class="sk">"subjects"</span>: [<span class="sv">0</span>,<span class="sv">1</span>], <span class="sk">"synchrony"</span>: <span class="sv">0.78</span>, <span class="sk">"mirroring"</span>: <span class="sv">0.65</span>, <span class="sk">"attunement"</span>: <span class="sv">0.71</span>, <span class="sk">"tension"</span>: <span class="sv">0.22</span> }
+}</div>
+</div>
+
+<!-- ══ VATS ══ -->
+<div class="pn" id="pane-vats">
+  <div class="sh">VATS · BODY TARGETING SYSTEM · ZONE SIGNAL VOCABULARY · MANUAL LOG</div>
+  <div class="vbody">
+    <!-- LEFT: zone cards -->
+    <div class="vpl">
+      <div class="vpt">SIGNAL ZONES · CLICK TO LOG</div>
+      <div class="zcard on" id="zc-face" onclick="selZone('face')">
+        <div class="zch"><span class="zcn">FACE</span><span class="zcc" id="zconf-face">87%</span></div>
+        <div class="zsigs"><span class="zsig c">gaze·left</span><span class="zsig c">gaze·right</span><span class="zsig c">gaze·down</span><span class="zsig a">jaw·tension</span><span class="zsig v">brow·raise</span><span class="zsig v">brow·furrow</span><span class="zsig s">soft·blink</span><span class="zsig p">micro·expr</span></div>
+        <div class="zcd">Primary affect readout. Gaze direction is highest-value signal. Override micro-expressions manually.</div>
+      </div>
+      <div class="zcard" id="zc-lhand" onclick="selZone('lhand')">
+        <div class="zch"><span class="zcn">L. HAND</span><span class="zcc" id="zconf-lhand">92%</span></div>
+        <div class="zsigs"><span class="zsig s">self-touch</span><span class="zsig s">hair·touch</span><span class="zsig a">fidget</span><span class="zsig c">open·palm</span><span class="zsig v">arm·cross</span><span class="zsig p">wrist·rot</span></div>
+        <div class="zcd">Regulatory behavior primary site. Self-soothing patterns cluster here.</div>
+      </div>
+      <div class="zcard" id="zc-rhand" onclick="selZone('rhand')">
+        <div class="zch"><span class="zcn">R. HAND</span><span class="zcc" id="zconf-rhand">78%</span></div>
+        <div class="zsigs"><span class="zsig s">pointing</span><span class="zsig c">waving</span><span class="zsig a">grip</span><span class="zsig v">reach</span><span class="zsig p">signal·gest</span></div>
+        <div class="zcd">Directive and communicative gesture site. Pointing encodes intent direction.</div>
+      </div>
+      <div class="zcard" id="zc-posture" onclick="selZone('posture')">
+        <div class="zch"><span class="zcn">POSTURE</span><span class="zcc" id="zconf-posture">65%</span></div>
+        <div class="zsigs"><span class="zsig v">collapsed</span><span class="zsig p">lean·in</span><span class="zsig s">grounded</span><span class="zsig a">prot·cross</span><span class="zsig c">open·chest</span><span class="zsig a">shoulder·drop</span></div>
+        <div class="zcd">Whole-body state. Lowest auto-confidence. Manual logging most critical here.</div>
+      </div>
+      <div class="zcard" id="zc-gaze" onclick="selZone('gaze')">
+        <div class="zch"><span class="zcn">GAZE</span><span class="zcc" id="zconf-gaze">83%</span></div>
+        <div class="zsigs"><span class="zsig c">target·lock</span><span class="zsig a">averted</span><span class="zsig v">dart·pattern</span><span class="zsig s">soft·gaze</span><span class="zsig p">downcast</span></div>
+        <div class="zcd">Attentional and relational signal. Dart = threat. Soft = safety. Averted = discomfort.</div>
+      </div>
+    </div>
+
+    <!-- CENTER: figure -->
+    <div class="vview">
+      <svg viewBox="0 0 320 480" width="100%" height="100%" style="position:absolute;inset:0">
+        <circle cx="160" cy="64" r="40" fill="rgba(11,24,13,.55)" stroke="#163320" stroke-width="1"/>
+        <rect x="148" y="100" width="24" height="18" fill="rgba(11,24,13,.5)" stroke="#163320" stroke-width="1"/>
+        <rect x="112" y="114" width="96" height="118" rx="6" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <rect x="80" y="118" width="30" height="90" rx="12" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <rect x="210" y="118" width="30" height="90" rx="12" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <ellipse cx="95" cy="220" rx="17" ry="12" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <ellipse cx="225" cy="220" rx="17" ry="12" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <rect x="120" y="232" width="32" height="105" rx="10" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <rect x="168" y="232" width="32" height="105" rx="10" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <ellipse cx="136" cy="346" rx="18" ry="8" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <ellipse cx="184" cy="346" rx="18" ry="8" fill="rgba(11,24,13,.45)" stroke="#163320" stroke-width="1"/>
+        <!-- zone rings -->
+        <circle id="zr-face" cx="160" cy="64" r="46" fill="transparent" stroke="#00ffee" stroke-width="1" stroke-dasharray="4 3" opacity="0.35" style="cursor:crosshair" onclick="selZone('face')"/>
+        <ellipse id="zr-lhand" cx="95" cy="220" rx="23" ry="17" fill="transparent" stroke="#ffcc00" stroke-width="1" stroke-dasharray="4 3" opacity="0.4" style="cursor:crosshair" onclick="selZone('lhand')"/>
+        <ellipse id="zr-rhand" cx="225" cy="220" rx="23" ry="17" fill="transparent" stroke="#ffcc00" stroke-width="1" stroke-dasharray="4 3" opacity="0.4" style="cursor:crosshair" onclick="selZone('rhand')"/>
+        <rect id="zr-posture" x="106" y="108" width="108" height="128" rx="8" fill="transparent" stroke="#cc88ff" stroke-width="1" stroke-dasharray="4 3" opacity="0.3" style="cursor:crosshair" onclick="selZone('posture')"/>
+        <ellipse id="zr-gaze" cx="160" cy="56" rx="22" ry="11" fill="transparent" stroke="#39ff6a" stroke-width="1" stroke-dasharray="3 2" opacity="0.5" style="cursor:crosshair" onclick="selZone('gaze')"/>
+        <!-- labels -->
+        <text x="160" y="118" text-anchor="middle" font-family="'Azeret Mono'" font-size="5" fill="#00ffee" opacity="0.5" letter-spacing="1.5">FACE</text>
+        <text x="58" y="238" font-family="'Azeret Mono'" font-size="5" fill="#ffcc00" opacity="0.5" letter-spacing="1">L.HAND</text>
+        <text x="232" y="238" font-family="'Azeret Mono'" font-size="5" fill="#ffcc00" opacity="0.5" letter-spacing="1">R.HAND</text>
+        <text x="160" y="180" text-anchor="middle" font-family="'Azeret Mono'" font-size="5" fill="#cc88ff" opacity="0.4" letter-spacing="1.5">POSTURE</text>
+        <text x="10" y="60" font-family="'Azeret Mono'" font-size="5" fill="#39ff6a" opacity="0.45" letter-spacing="1">GAZE</text>
+        <!-- active reticle -->
+        <g id="reticle" opacity="0" style="transition:opacity .3s;pointer-events:none">
+          <circle cx="160" cy="64" r="55" fill="none" stroke="#39ff6a" stroke-width="0.8" stroke-dasharray="3 3"/>
+          <line x1="148" y1="64" x2="172" y2="64" stroke="#39ff6a" stroke-width="1"/>
+          <line x1="160" y1="52" x2="160" y2="76" stroke="#39ff6a" stroke-width="1"/>
+        </g>
+      </svg>
+      <div style="position:absolute;bottom:6px;left:10px;font-size:5px;letter-spacing:1.5px;color:var(--dim);opacity:.5;text-transform:uppercase">CLICK ZONE TO LOG · HOVER TO REVEAL</div>
+    </div>
+
+    <!-- RIGHT: sigma log + entry spec -->
+    <div class="vpr">
+      <div class="vpt">SIGMA · ENTROPY LOG</div>
+      <div class="sbox" id="slog">
+        <div class="srow"><span class="slab">dysregulation</span><span class="sval" style="color:var(--violet)">Σ0.73·0.81</span></div>
+        <div class="srow"><span class="slab">ungrounded</span><span class="sval" style="color:var(--amber)">Σ0.54·0.67</span></div>
+        <div class="srow"><span class="slab">stable</span><span class="sval" style="color:var(--signal)">Σ0.22·0.94</span></div>
+        <div class="srow"><span class="slab">prot·cross</span><span class="sval" style="color:var(--cyan)">Σ0.61·0.73</span></div>
+      </div>
+      <div class="vpt" style="margin-top:8px">LOG ENTRY FIELDS</div>
+      <div style="font-size:6px;color:var(--dim);line-height:1.9;border:1px solid var(--wire);padding:8px;background:rgba(2,7,5,.4)">
+        <div>· zone identifier</div>
+        <div>· signal label</div>
+        <div>· timestamp (seconds)</div>
+        <div>· subject index</div>
+        <div>· confidence override</div>
+        <div>· annotator ID</div>
+        <div>· notes (free text)</div>
+        <div style="margin-top:5px;color:var(--signal)">→ writes to .pat vats_overrides[]</div>
+        <div style="color:var(--cyan)">→ triggers Sigma recompute</div>
+        <div style="color:var(--violet)">→ queues Lattice resonance scan</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LATTICE ══ -->
+<div class="pn" id="pane-latt">
+  <div class="sh">ASSOCIATIVE LATTICE KERNEL · MEMORY · MEANING · RESONANCE</div>
+  <div class="lbody">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="cli">
+        <div class="clih">
+          <div class="clid" style="background:var(--rose)"></div>
+          <div class="clid" style="background:var(--amber)"></div>
+          <div class="clid" style="background:var(--signal)"></div>
+          <span class="clititle">ALK COMMAND LINE · v0.4.1</span>
+        </div>
+        <div class="clio" id="clio">
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">SYSTEM ONLINE</span></div>
+          <div class="co">Associative Lattice Kernel initialized. 47 nodes loaded.</div>
+          <div class="co">Resonance threshold: 0.72 · Clusters: 8 · Edges: 114</div>
+          <div class="co hi">Commands: /find · /connect · /inspect · /cluster · /graph</div>
+          <div class="co">&nbsp;</div>
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">/find self-soothing</span></div>
+          <div class="co mt">MATCH · NODE-07 · "self-touch regulatory" · res: 0.94</div>
+          <div class="co mt">MATCH · NODE-03 · "hair touching sequence" · res: 0.88</div>
+          <div class="co mt">MATCH · NODE-11 · "breath regulation cycle" · res: 0.79</div>
+          <div class="co">&nbsp;</div>
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">/connect NODE-07 NODE-03</span></div>
+          <div class="co nd">EDGE CREATED · NODE-07 ↔ NODE-03 · weight: 0.88</div>
+          <div class="co">Cluster [regulatory-touch] updated · 3 nodes · avg res: 0.87</div>
+          <div class="co">&nbsp;</div>
+        </div>
+        <div class="clirow">
+          <span class="clips">ALK›</span>
+          <input class="cliinput" id="cliinput" placeholder="/find [pattern]  ·  /connect [a] [b]  ·  /inspect [id]  ·  /cluster" onkeydown="handleCLI(event)">
+        </div>
+      </div>
+      <div class="cmdref">
+        <div class="crt">COMMAND REFERENCE</div>
+        <div class="crrow"><span class="crn">/find [query]</span><span class="crd">Semantic search. Returns nodes by resonance ≥ threshold. Query is label, tag, or free text.</span></div>
+        <div class="crrow"><span class="crn">/connect [a] [b]</span><span class="crd">Create edge between two nodes. Computes mutual resonance. Logs to .pat lattice_refs[].</span></div>
+        <div class="crrow"><span class="crn">/inspect [id]</span><span class="crd">Full node dump — label, tags, all edges, resonance history, session origin.</span></div>
+        <div class="crrow"><span class="crn">/cluster</span><span class="crd">List all clusters, node counts, avg resonance, dominant signal type.</span></div>
+        <div class="crrow" style="border:none"><span class="crn">/graph</span><span class="crd">Render live node graph of full lattice with edge weights visualized.</span></div>
+      </div>
+    </div>
+    <div class="lr">
+      <div class="vpt">ACTIVE NODES</div>
+      <div class="ln on" id="ln-07" onclick="inspectNode('NODE-07','self-touch regulatory pattern',0.94,['hands','soothing','regulatory'])">
+        <div class="lnid">NODE-07</div><div class="lnlabel">self-touch regulatory</div>
+        <div class="lnres">res 0.94</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">soothing</span></div>
+      </div>
+      <div class="ln" id="ln-03" onclick="inspectNode('NODE-03','hair touching sequence',0.88,['hands','self-touch','comfort'])">
+        <div class="lnid">NODE-03</div><div class="lnlabel">hair touching sequence</div>
+        <div class="lnres">res 0.88</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">comfort</span></div>
+      </div>
+      <div class="ln" id="ln-11" onclick="inspectNode('NODE-11','breath regulation cycle',0.79,['grounding','somatic'])">
+        <div class="lnid">NODE-11</div><div class="lnlabel">breath regulation cycle</div>
+        <div class="lnres">res 0.79</div>
+        <div class="lntags"><span class="lntag">grounding</span><span class="lntag">somatic</span></div>
+      </div>
+      <div class="ln" id="ln-02" onclick="inspectNode('NODE-02','mirroring gesture lean-in',0.85,['mirror','empathy','social'])">
+        <div class="lnid">NODE-02</div><div class="lnlabel">mirroring — lean-in</div>
+        <div class="lnres">res 0.85</div>
+        <div class="lntags"><span class="lntag">mirror</span><span class="lntag">social</span></div>
+      </div>
+      <div class="ln" id="ln-05" onclick="inspectNode('NODE-05','averted gaze discomfort',0.76,['gaze','dysregulation'])">
+        <div class="lnid">NODE-05</div><div class="lnlabel">averted gaze</div>
+        <div class="lnres">res 0.76</div>
+        <div class="lntags"><span class="lntag">gaze</span><span class="lntag">dysreg</span></div>
+      </div>
+      <div class="ln" id="ln-09" onclick="inspectNode('NODE-09','pointing directive intent',0.82,['hands','gesture','directive'])">
+        <div class="lnid">NODE-09</div><div class="lnlabel">pointing — directive</div>
+        <div class="lnres">res 0.82</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">directive</span></div>
+      </div>
+      <div class="ln" id="ln-14" onclick="inspectNode('NODE-14','jaw tension sustained',0.77,['face','tension','somatic'])">
+        <div class="lnid">NODE-14</div><div class="lnlabel">jaw tension — sustained</div>
+        <div class="lnres">res 0.77</div>
+        <div class="lntags"><span class="lntag">face</span><span class="lntag">tension</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SOCIAL MODULE ══ -->
+<div class="pn" id="pane-social">
+  <div class="sh">SOCIAL MODULE · RELATIONAL FIELD DETECTION · MULTI-SUBJECT MAPPING</div>
+  <div class="sg2">
+    <div class="sn">
+      <div class="snbadge">ACTIVATES ON 2+ SUBJECTS</div>
+      <div class="sntitle">SYNCHRONY</div>
+      <div class="sndesc">Lag-corrected gesture and posture alignment between subjects. Measures movement rhythm, not just simultaneity. High synchrony = attunement, rapport, or mirroring dynamic.</div>
+      <div class="snlist">
+        <div class="sni">Cross-correlation of posture signals over 2s window</div>
+        <div class="sni">Lag tolerance: ±400ms (accounts for social latency)</div>
+        <div class="sni">Output: 0.0–1.0 synchrony index per frame</div>
+        <div class="sni">Logs to .pat social_field.synchrony</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">MIRROR NEURONS</div>
+      <div class="sntitle">MIRRORING</div>
+      <div class="sndesc">Detects when one subject replicates gestures, expressions, or posture of another. Voluntary vs involuntary distinguished by latency. Involuntary = empathy. Voluntary = rapport building.</div>
+      <div class="snlist">
+        <div class="sni">Latency &lt;300ms = involuntary (empathy signal)</div>
+        <div class="sni">Latency 300–900ms = conscious mirroring</div>
+        <div class="sni">Source subject tracked per mirror event</div>
+        <div class="sni">Logs to .pat social_field.mirroring[]</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">RELATIONAL FIELD</div>
+      <div class="sntitle">ATTUNEMENT</div>
+      <div class="sndesc">Composite index combining synchrony, mirroring, gaze reciprocity, and co-regulation. Two attuned subjects show coordinated nervous system states — not just behavioral similarity.</div>
+      <div class="snlist">
+        <div class="sni">Inputs: synchrony + mirroring + gaze reciprocity</div>
+        <div class="sni">Co-regulation: shared entropy slope trajectory</div>
+        <div class="sni">Output: attunement_index per 5s window</div>
+        <div class="sni">Feeds Sigma layer as social entropy modifier</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">OPPOSITIONAL FIELD</div>
+      <div class="sntitle">TENSION FIELD</div>
+      <div class="sndesc">Detects oppositional signals — one opens, one closes; one leans in, one retracts. Concurrent avoidance + approach = high tension flag. Behavioral signature of unresolved relational friction.</div>
+      <div class="snlist">
+        <div class="sni">Oppositional posture pairs logged as tension events</div>
+        <div class="sni">Concurrent avoidance + approach = high tension</div>
+        <div class="sni">Tension score: 0.0–1.0 per window</div>
+        <div class="sni">Logs to .pat social_field.tension</div>
+      </div>
+    </div>
+  </div>
+  <div class="fieldviz">
+    <div class="fvl">RELATIONAL FIELD · LIVE INDICES · SESSION MIMI-20260512-001</div>
+    <div class="fvgrid">
+      <div class="fvcell">
+        <div class="fvtag">SYNCHRONY</div>
+        <div class="fvval" style="color:var(--signal)" id="fv-sync">0.78</div>
+        <div class="cbar"><div class="cfill" style="width:78%"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">MIRRORING</div>
+        <div class="fvval" style="color:var(--cyan)" id="fv-mirror">0.65</div>
+        <div class="cbar"><div class="cfill" style="width:65%;background:var(--cyan)"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">ATTUNEMENT</div>
+        <div class="fvval" style="color:var(--violet)" id="fv-attu">0.71</div>
+        <div class="cbar"><div class="cfill" style="width:71%;background:var(--violet)"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">TENSION</div>
+        <div class="fvval" style="color:var(--rose)" id="fv-tension">0.22</div>
+        <div class="cbar"><div class="cfill" style="width:22%;background:var(--rose)"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIGMA ══ -->
+<div class="pn" id="pane-sigma">
+  <div class="sh">SIGMA LAYER · ENTROPY DETECTION · PROBABILISTIC BEHAVIORAL DEDUCTION</div>
+  <div class="sigrid">
+    <div class="sigb">
+      <div class="sigtitle">SLOPE DETECTION</div>
+      <div class="sigitem"><strong>SLOPE WINDOW</strong>Rate of signal change computed over rolling 3s window. High slope = rapid behavioral shift = entropy flag.</div>
+      <div class="cbar" style="margin:5px 0 9px"><div class="cfill" style="width:73%;background:var(--violet)"></div></div>
+      <div class="sigitem"><strong>THRESHOLD</strong>Slope ≥ 0.6 over window triggers dysregulation check. Configurable per session in .pat schema.</div>
+      <div class="sigitem"><strong>MULTI-LAYER</strong>Slope computed independently per signal layer. Simultaneous spikes across layers = stronger combined signal.</div>
+    </div>
+    <div class="sigb">
+      <div class="sigtitle">DEDUCTION ENGINE</div>
+      <div class="sigitem"><strong>MULTIPLE DEDUCTIONS</strong>Each observation produces N deductions. Never one answer. Always a probability distribution over states.</div>
+      <div class="sigitem"><strong>CONFIDENCE SCORE</strong>0.0–1.0 per deduction. Deterministic only at ≥ 0.95 and only for well-established signal combinations.</div>
+      <div class="cbar" style="margin:5px 0 9px"><div class="cfill" style="width:84%;background:var(--amber)"></div></div>
+      <div class="sigitem"><strong>UNCERTAINTY AS DATA</strong>The system holds uncertainty as signal — not noise to eliminate. Low-confidence deductions are still logged.</div>
+    </div>
+    <div class="sigb">
+      <div class="sigtitle">STATE VOCABULARY</div>
+      <div class="sigitem"><strong style="color:var(--violet)">DYSREGULATED</strong>High entropy, multi-layer slope spike, low predictability. Multiple simultaneous dysregulation indicators.</div>
+      <div class="sigitem"><strong style="color:var(--amber)">UNGROUNDED</strong>Moderate entropy, postural instability, gaze dart, fragmented gesture sequence.</div>
+      <div class="sigitem"><strong style="color:var(--cyan)">ACTIVATING</strong>Entropy rising from stable baseline — mobilization, not dysregulation. Context-dependent.</div>
+      <div class="sigitem"><strong style="color:var(--signal)">STABLE</strong>Low entropy, coherent posture, sustained gaze, regulatory behavior absent or minimal.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mm -->
+
+<script>
+// ── LATTICE BACKGROUND ─────────────────────────────────────────────
+const canvas = document.getElementById('bg');
+const mm = document.getElementById('mm');
+let pts = [], raf;
+
+function initBg(){
+  canvas.width = mm.offsetWidth || 680;
+  canvas.height = Math.max(mm.scrollHeight, mm.offsetHeight, 860);
+  pts = Array.from({length:70}, ()=>({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    vx: (Math.random()-.5)*.22,
+    vy: (Math.random()-.5)*.22,
+    r: Math.random()*1.6+.4,
+    ph: Math.random()*Math.PI*2
+  }));
+}
+
+function drawBg(){
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  pts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>canvas.width) p.vx*=-1;
+    if(p.y<0||p.y>canvas.height) p.vy*=-1;
+    p.ph+=.013;
+  });
+  // spokes
+  for(let i=0;i<pts.length;i++){
+    for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<150){
+        const a=(1-d/150)*.15;
+        ctx.strokeStyle=`rgba(57,255,106,${a})`;
+        ctx.lineWidth=.5;
+        ctx.beginPath();
+        ctx.moveTo(pts[i].x,pts[i].y);
+        ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+  // dots
+  pts.forEach(p=>{
+    const pulse=.5+.5*Math.sin(p.ph);
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r*(1+.3*pulse),0,Math.PI*2);
+    ctx.fillStyle=`rgba(57,255,106,${.12+.22*pulse})`;
+    ctx.fill();
+  });
+  raf=requestAnimationFrame(drawBg);
+}
+
+initBg();
+requestAnimationFrame(drawBg);
+new ResizeObserver(()=>{ cancelAnimationFrame(raf); initBg(); requestAnimationFrame(drawBg); }).observe(mm);
+
+// ── NAV ──────────────────────────────────────────────────────────
+const panes=['welcome','arch','pat','vats','latt','social','sigma'];
+function go(id){
+  panes.forEach(p=>{
+    document.getElementById('pane-'+p).classList.toggle('on',p===id);
+    document.getElementById('nt-'+p).classList.toggle('on',p===id);
+  });
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('on'));
+  // update bg height after pane switch
+  setTimeout(()=>{ cancelAnimationFrame(raf); initBg(); requestAnimationFrame(drawBg); }, 60);
+}
+
+// ── VATS ─────────────────────────────────────────────────────────
+const zoneSignals={
+  face:['gaze·shift','jaw·tension','brow·furrow','micro·expression','nostril·flare','soft·blink'],
+  lhand:['self-soothing','hair·touch','fidget','arm·cross','palm·press','wrist·rotation'],
+  rhand:['pointing','wave','grip·object','reach','signal·gesture','touch·surface'],
+  posture:['collapse','lean·in','protective·cross','shoulder·drop','open·chest','ground·anchor'],
+  gaze:['target·lock','averted','dart·pattern','soft·gaze','downcast','scan·room']
+};
+const sigColors=['var(--violet)','var(--amber)','var(--cyan)','var(--signal)','var(--pink)'];
+
+function selZone(z){
+  document.querySelectorAll('.zcard').forEach(c=>c.classList.remove('on'));
+  const c=document.getElementById('zc-'+z); if(c) c.classList.add('on');
+  const sig=(zoneSignals[z]||['signal'])[Math.floor(Math.random()*6)];
+  const e=(Math.random()*.82).toFixed(2);
+  const conf=(.55+Math.random()*.42).toFixed(2);
+  const col=sigColors[Math.floor(Math.random()*sigColors.length)];
+  const log=document.getElementById('slog');
+  const row=document.createElement('div');
+  row.className='srow';
+  row.innerHTML=`<span class="slab">${z}·${sig}</span><span class="sval" style="color:${col}">Σ${e}·${conf}</span>`;
+  log.insertBefore(row,log.firstChild);
+  if(log.children.length>10) log.removeChild(log.lastChild);
+}
+
+// ── LATTICE CLI ──────────────────────────────────────────────────
+function handleCLI(e){
+  if(e.key!=='Enter') return;
+  const inp=document.getElementById('cliinput');
+  const cmd=inp.value.trim(); if(!cmd){return;}
+  inp.value='';
+  const out=document.getElementById('clio');
+  const add=(cls,txt)=>{const d=document.createElement('div');d.className='co '+(cls||'');d.textContent=txt;out.appendChild(d);};
+  const addCmd=c=>{const d=document.createElement('div');d.className='cl';d.innerHTML=`<span class="cp">ALK›</span><span class="cc">${c}</span>`;out.appendChild(d);};
+  const br=()=>{const d=document.createElement('div');d.className='co';d.innerHTML='&nbsp;';out.appendChild(d);};
+
+  addCmd(cmd);
+  const c=cmd.toLowerCase();
+
+  if(c.startsWith('/find ')){
+    const q=cmd.slice(6);
+    add('','Searching lattice for: "'+q+'"...');
+    const r1=(0.7+Math.random()*.28).toFixed(2);
+    const r2=(0.6+Math.random()*.25).toFixed(2);
+    const r3=(0.55+Math.random()*.2).toFixed(2);
+    const n1=String(Math.floor(Math.random()*20)+1).padStart(2,'0');
+    const n2=String(Math.floor(Math.random()*20)+1).padStart(2,'0');
+    add('mt',`MATCH · NODE-${n1} · "${q} cluster" · res: ${r1}`);
+    add('mt',`MATCH · NODE-${n2} · "${q} behavioral trace" · res: ${r2}`);
+    if(Math.random()>.4) add('mt',`WEAK MATCH · NODE-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')} · "${q} adjacent" · res: ${r3}`);
+  } else if(c.startsWith('/connect ')){
+    const parts=cmd.slice(9).trim().split(/\s+/);
+    const a=parts[0]||'NODE-?', b=parts[1]||'NODE-?';
+    const w=(0.65+Math.random()*.3).toFixed(2);
+    add('nd',`EDGE CREATED · ${a} ↔ ${b} · weight: ${w}`);
+    add('','Cluster updated. Resonance propagated.');
+    add('','Logged to .pat lattice_refs[]');
+  } else if(c.startsWith('/inspect ')){
+    const id=cmd.slice(9).trim().toUpperCase();
+    add('nd',`NODE: ${id}`);
+    add('','Label: behavioral pattern observation');
+    add('','Tags: [signal] [layer] [context]');
+    add('','Edges: '+(Math.floor(Math.random()*8)+2)+' connections');
+    add('','Origin session: MIMI-20260512-001');
+  } else if(c==='/cluster'){
+    add('hi','CLUSTERS (8 active)');
+    add('mt','[regulatory-touch] · 3 nodes · avg res: 0.87');
+    add('mt','[gaze-avoidance] · 4 nodes · avg res: 0.79');
+    add('mt','[mirroring-social] · 5 nodes · avg res: 0.83');
+    add('mt','[entropy-spike] · 6 nodes · avg res: 0.74');
+  } else if(c==='/graph'){
+    add('hi','Rendering lattice graph...');
+    add('','47 nodes · 114 edges · 8 clusters');
+    add('nd','→ /graph visual overlay — build next sprint');
+  } else {
+    add('er','Unknown command. Try: /find · /connect · /inspect · /cluster · /graph');
+  }
+  br();
+  out.scrollTop=out.scrollHeight;
+}
+
+function inspectNode(id,label,res,tags){
+  document.querySelectorAll('.ln').forEach(n=>n.classList.remove('on'));
+  const el=document.getElementById('ln-'+id.toLowerCase().replace('node-',''));
+  if(el) el.classList.add('on');
+  const out=document.getElementById('clio');
+  const add=(cls,txt)=>{const d=document.createElement('div');d.className='co '+(cls||'');d.textContent=txt;out.appendChild(d);};
+  const addCmd=c=>{const d=document.createElement('div');d.className='cl';d.innerHTML=`<span class="cp">ALK›</span><span class="cc">${c}</span>`;out.appendChild(d);};
+  const br=()=>{const d=document.createElement('div');d.className='co';d.innerHTML='&nbsp;';out.appendChild(d);};
+  addCmd('/inspect '+id);
+  add('nd','NODE: '+id);
+  add('','Label: '+label);
+  add('','Tags: ['+tags.join('] [')+']');
+  add('','Resonance: '+res);
+  add('','Edges: '+(Math.floor(Math.random()*6)+2)+' · Session: MIMI-20260512-001');
+  br();
+  out.scrollTop=out.scrollHeight;
+  go('latt');
+}
+
+// ── SOCIAL: animate indices ───────────────────────────────────────
+function drift(id, target, color){
+  const el=document.getElementById(id);
+  if(!el) return;
+  let v=parseFloat(el.textContent);
+  const step=()=>{
+    v+=(target-v)*.04+(Math.random()-.5)*.008;
+    v=Math.max(0,Math.min(1,v));
+    el.textContent=v.toFixed(2);
+    const bar=el.parentElement.querySelector('.cfill');
+    if(bar) bar.style.width=Math.round(v*100)+'%';
+    setTimeout(step, 200+Math.random()*300);
+  };
+  step();
+}
+setTimeout(()=>{
+  drift('fv-sync',.78,'');
+  drift('fv-mirror',.65,'');
+  drift('fv-attu',.71,'');
+  drift('fv-tension',.22,'');
+},800);
+</script>

@@ -1,0 +1,1752 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300;0,400;0,700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#020705;--surface:#0b180d;--wire:#163320;--wire2:#1f4a2c;
+  --dim:#2e6640;--mid:#4a9960;--muted:#78c490;--bright:#b4e8c0;--white:#e8f8ec;
+  --signal:#39ff6a;--glow:rgba(57,255,106,.11);--glow2:rgba(57,255,106,.06);
+  --amber:#ffcc00;--rose:#ff4455;--cyan:#00ffee;--violet:#cc88ff;--pink:#ff6eb4;
+  --mono:'Azeret Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+.mm{background:var(--ink);color:var(--bright);font-family:var(--mono);min-height:860px;position:relative;overflow:hidden;border-radius:8px}
+canvas#bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+
+/* TOPBAR */
+.tb{position:relative;z-index:20;background:rgba(2,7,5,.97);border-bottom:1px solid var(--wire);display:flex;align-items:center;padding:0 14px;height:40px;gap:10px;flex-wrap:nowrap}
+.lm{width:15px;height:15px;border:1px solid var(--signal);display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--signal);animation:blink 3s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{box-shadow:0 0 4px var(--signal)}50%{box-shadow:0 0 16px var(--signal)}}
+.lt{font-family:var(--cond);font-size:13px;font-weight:900;letter-spacing:5px;color:var(--white)}
+.sep{width:1px;height:13px;background:var(--wire);flex-shrink:0}
+.tg{font-size:6px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.tv{font-size:6px;letter-spacing:1px;margin-left:3px}
+.tr{margin-left:auto;display:flex;gap:5px;align-items:center}
+.tbtn{font-size:6px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;font-family:var(--mono);text-transform:uppercase;transition:all .15s;height:22px}
+.tbtn:hover{color:var(--white);border-color:var(--muted)}
+.tbtn.on{color:var(--signal);border-color:var(--signal);background:var(--glow)}
+
+/* NAV */
+.nv{display:flex;border-bottom:1px solid var(--wire);position:relative;z-index:20;background:rgba(4,10,7,.93);overflow-x:auto}
+.nv::-webkit-scrollbar{height:0}
+.nt{font-size:6px;letter-spacing:2px;text-transform:uppercase;padding:7px 11px;cursor:pointer;color:var(--dim);border-bottom:1px solid transparent;transition:all .2s;font-family:var(--mono);background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;flex-shrink:0}
+.nt:hover{color:var(--muted)}
+.nt.on{color:var(--signal);border-bottom-color:var(--signal)}
+
+/* PANES */
+.pn{display:none;position:relative;z-index:10;flex-direction:column;min-height:800px}
+.pn.on{display:flex}
+.sh{font-size:5px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding:12px 16px 9px;border-bottom:1px solid var(--wire);flex-shrink:0}
+
+/* SHARED COMPONENTS */
+.node{border:1px solid var(--wire);background:rgba(11,24,13,.45);padding:11px;position:relative;cursor:pointer;transition:border-color .2s,background .2s}
+.node:hover{border-color:var(--signal);background:var(--glow2)}
+.node.hi{border-color:var(--wire2)}
+.nbadge{position:absolute;top:7px;right:7px;font-size:5px;letter-spacing:1.5px;padding:2px 4px;border:1px solid;text-transform:uppercase}
+.ntag{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.ntitle{font-family:var(--cond);font-size:15px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:4px}
+.ndesc{font-size:6.5px;color:var(--muted);line-height:1.6}
+.nlist{margin-top:6px;display:flex;flex-direction:column;gap:2px}
+.ni{font-size:5.5px;color:var(--dim);padding-left:9px;position:relative;line-height:1.5}
+.ni::before{content:'›';position:absolute;left:0;color:var(--signal)}
+.bs{color:var(--signal);border-color:var(--signal)}
+.ba{color:var(--amber);border-color:var(--amber)}
+.bc{color:var(--cyan);border-color:var(--cyan)}
+.bv{color:var(--violet);border-color:var(--violet)}
+.bp{color:var(--pink);border-color:var(--pink)}
+.cbar{height:2px;background:var(--wire);margin-top:3px}
+.cfill{height:100%;background:var(--signal);transition:width .8s}
+
+/* WELCOME */
+.wc{align-items:center;justify-content:center;min-height:800px;text-align:center;padding:40px 20px}
+.we{font-size:6px;letter-spacing:4px;color:var(--dim);text-transform:uppercase;margin-bottom:22px}
+.wn{font-family:var(--cond);font-size:68px;font-weight:900;letter-spacing:10px;color:var(--white);line-height:1;margin-bottom:5px}
+.ws{font-size:10px;letter-spacing:4px;color:var(--muted);margin-bottom:28px}
+.wd{width:130px;height:1px;background:linear-gradient(to right,transparent,var(--signal),transparent);margin:0 auto 26px}
+.ww{font-size:9px;letter-spacing:2px;color:var(--bright);margin-bottom:4px}
+.wtag{font-family:var(--cond);font-size:30px;font-weight:700;letter-spacing:5px;color:var(--white);margin-bottom:32px}
+.wcta{display:inline-flex;align-items:center;gap:10px;font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:4px;color:var(--signal);border:1px solid var(--signal);background:var(--glow);padding:11px 28px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.wcta:hover{background:rgba(57,255,106,.22)}
+.wcta span{transition:transform .2s}
+.wcta:hover span{transform:translateX(5px)}
+.wmods{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:30px;width:100%;max-width:680px}
+.wmod{border:1px solid var(--wire);background:rgba(11,24,13,.45);padding:10px 8px;text-align:left;cursor:pointer;transition:all .2s}
+.wmod:hover{border-color:var(--signal);background:var(--glow2)}
+.wmi{font-size:13px;margin-bottom:4px}
+.wml{font-size:6px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.wmd{font-size:5.5px;color:var(--dim);line-height:1.5}
+
+/* ARCH */
+.ag{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px}
+.pipe{border:1px solid var(--wire);padding:8px 14px;background:rgba(2,7,5,.5);display:flex;align-items:center;gap:6px;font-size:6px;color:var(--dim);letter-spacing:1px;flex-wrap:wrap;margin:0 16px 14px}
+
+/* PAT */
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+.pb{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.pbt{font-family:var(--cond);font-size:13px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--wire)}
+.pr{display:flex;justify-content:space-between;align-items:flex-start;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.5);gap:8px}
+.pk{font-size:5.5px;letter-spacing:1px;color:var(--dim);flex-shrink:0}
+.pv{font-size:5.5px;color:var(--muted);text-align:right;line-height:1.5}
+.schema{background:rgba(2,7,5,.85);border:1px solid var(--wire2);padding:11px 14px;font-size:6.5px;color:var(--dim);line-height:1.9;letter-spacing:.3px;overflow-x:auto;white-space:pre;font-family:var(--mono);margin:0 16px 14px}
+.sk{color:var(--cyan)}.sv{color:var(--amber)}.sc2{color:var(--dim)}.ss{color:var(--signal)}.ssp{color:var(--violet)}
+
+/* VATS */
+.vbody{display:grid;grid-template-columns:230px 1fr 200px;gap:10px;padding:10px 16px 14px;flex:1}
+.vpl,.vpr{display:flex;flex-direction:column;gap:7px}
+.vpt{font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;border-bottom:1px solid var(--wire);padding-bottom:5px;margin-bottom:5px}
+.zcard{border:1px solid var(--wire);background:rgba(11,24,13,.3);padding:8px 9px;cursor:pointer;transition:all .2s}
+.zcard:hover,.zcard.on{border-color:var(--signal);background:var(--glow2)}
+.zch{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.zcn{font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:2px;color:var(--white)}
+.zcc{font-size:5px;color:var(--signal)}
+.zsigs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px}
+.zsig{font-size:4.5px;padding:2px 4px;border:1px solid;letter-spacing:1px;text-transform:uppercase}
+.zsig.s{color:var(--signal);border-color:var(--signal)}
+.zsig.a{color:var(--amber);border-color:var(--amber)}
+.zsig.c{color:var(--cyan);border-color:var(--cyan)}
+.zsig.v{color:var(--violet);border-color:var(--violet)}
+.zsig.p{color:var(--pink);border-color:var(--pink)}
+.zcd{font-size:5.5px;color:var(--dim);line-height:1.5}
+.vview{border:1px solid var(--wire);background:rgba(2,7,5,.7);position:relative;min-height:460px}
+.sbox{border:1px solid var(--wire);background:rgba(2,7,5,.55);padding:9px;flex:1;overflow-y:auto;max-height:280px}
+.srow{font-size:6px;line-height:1.9;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(22,51,32,.3);padding:2px 0}
+.slab{color:var(--dim)}
+.sval{font-size:5px;letter-spacing:1px}
+
+/* LATTICE */
+.lbody{display:grid;grid-template-columns:1fr 185px;gap:10px;padding:10px 16px 14px;flex:1}
+.cli{background:rgba(2,7,5,.9);border:1px solid var(--wire2);display:flex;flex-direction:column;min-height:360px}
+.clih{border-bottom:1px solid var(--wire);padding:5px 10px;display:flex;align-items:center;gap:5px}
+.clid{width:5px;height:5px;border-radius:50%}
+.clititle{font-size:6px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-left:4px}
+.clio{flex:1;padding:9px;overflow-y:auto;max-height:320px;font-size:7px;line-height:1.8;color:var(--muted)}
+.cl{display:flex;gap:6px}
+.cp{color:var(--signal);flex-shrink:0}
+.cc{color:var(--white)}
+.co{color:var(--dim);padding-left:16px;line-height:1.7}
+.co.hi{color:var(--cyan)}
+.co.mt{color:var(--amber)}
+.co.nd{color:var(--violet)}
+.co.er{color:var(--rose)}
+.clirow{border-top:1px solid var(--wire);padding:6px 10px;display:flex;align-items:center;gap:6px}
+.clips{color:var(--signal);font-size:9px}
+.cliinput{background:transparent;border:none;outline:none;color:var(--white);font-family:var(--mono);font-size:7px;flex:1}
+.cliinput::placeholder{color:var(--wire2)}
+.cmdref{border:1px solid var(--wire);background:rgba(11,24,13,.3);padding:9px;margin-top:8px}
+.crt{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:5px}
+.crrow{display:flex;gap:5px;padding:3px 0;border-bottom:1px solid rgba(22,51,32,.4)}
+.crn{font-size:6px;color:var(--cyan);width:110px;flex-shrink:0}
+.crd{font-size:5.5px;color:var(--dim);line-height:1.5}
+.lr{display:flex;flex-direction:column;gap:5px}
+.ln{border:1px solid var(--wire);background:rgba(11,24,13,.35);padding:7px;cursor:pointer;transition:all .2s}
+.ln:hover,.ln.on{border-color:var(--cyan);background:rgba(0,255,238,.04)}
+.lnid{font-size:5px;color:var(--dim);letter-spacing:2px;margin-bottom:2px}
+.lnlabel{font-size:6px;color:var(--white);margin-bottom:2px}
+.lnres{font-size:5.5px;color:var(--signal)}
+.lntags{display:flex;flex-wrap:wrap;gap:2px;margin-top:3px}
+.lntag{font-size:4.5px;padding:1px 3px;border:1px solid var(--wire2);color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+
+/* SOCIAL */
+.sg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+.sn{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.snbadge{display:inline-block;font-size:5px;padding:2px 5px;border:1px solid var(--pink);color:var(--pink);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.sntitle{font-family:var(--cond);font-size:14px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:5px}
+.sndesc{font-size:6.5px;color:var(--muted);line-height:1.6;margin-bottom:7px}
+.snlist{display:flex;flex-direction:column;gap:2px}
+.sni{font-size:6px;color:var(--dim);padding-left:8px;position:relative;line-height:1.5}
+.sni::before{content:'◇';position:absolute;left:0;color:var(--pink);font-size:5px}
+.fieldviz{border:1px solid var(--wire);background:rgba(2,7,5,.5);padding:11px;margin:0 16px 14px}
+.fvl{font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+.fvgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.fvcell{text-align:center}
+.fvtag{font-size:6px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.fvval{font-family:var(--cond);font-size:28px;font-weight:900;line-height:1;margin-bottom:4px}
+
+/* SIGMA */
+.sigrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;flex:1}
+.sigb{border:1px solid var(--wire);background:rgba(11,24,13,.4);padding:11px}
+.sigtitle{font-family:var(--cond);font-size:14px;font-weight:700;letter-spacing:3px;color:var(--white);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--wire)}
+.sigitem{padding:5px 0;border-bottom:1px solid rgba(22,51,32,.4);font-size:6.5px;color:var(--muted);line-height:1.5}
+.sigitem strong{color:var(--white);display:block;font-size:6px;letter-spacing:.5px;font-weight:400}
+</style>
+
+<div class="mm" id="mm">
+<canvas id="bg"></canvas>
+
+<!-- TOPBAR -->
+<div class="tb">
+  <div class="lm">M</div>
+  <span class="lt">MASTERMIND</span>
+  <div class="sep"></div>
+  <span class="tg">SESSION</span><span class="tv" style="color:var(--amber)">MIMI·2026·05·12</span>
+  <div class="sep"></div>
+  <span class="tg">NODES</span><span class="tv" style="color:var(--cyan)">47</span>
+  <div class="sep"></div>
+  <span class="tg">STATUS</span><span class="tv" style="color:var(--signal)">● LIVE</span>
+  <div class="tr">
+    <button class="tbtn on" onclick="go('welcome')">HOME</button>
+    <button class="tbtn" onclick="go('arch')">ARCH</button>
+    <button class="tbtn" onclick="go('pat')">PAT</button>
+    <button class="tbtn" onclick="go('vats')">VATS</button>
+    <button class="tbtn" onclick="go('latt')">ALK</button>
+    <button class="tbtn" onclick="go('social')">SOCIAL</button>
+    <button class="tbtn" onclick="go('sigma')">SIGMA</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nv">
+  <button class="nt on" id="nt-welcome" onclick="go('welcome')">WELCOME</button>
+  <button class="nt" id="nt-arch" onclick="go('arch')">ARCHITECTURE</button>
+  <button class="nt" id="nt-pat" onclick="go('pat')">.PAT FILE SPEC</button>
+  <button class="nt" id="nt-vats" onclick="go('vats')">VATS · BODY TARGETING</button>
+  <button class="nt" id="nt-latt" onclick="go('latt')">ASSOCIATIVE LATTICE</button>
+  <button class="nt" id="nt-social" onclick="go('social')">SOCIAL MODULE</button>
+  <button class="nt" id="nt-sigma" onclick="go('sigma')">SIGMA · ENTROPY</button>
+</div>
+
+<!-- ══ WELCOME ══ -->
+<div class="pn on wc" id="pane-welcome">
+  <div class="we">MASTERMIND · BEHAVIORAL INTELLIGENCE SUITE · v0.1</div>
+  <div class="wn">MIMI</div>
+  <div class="ws">SIGNAL ANALYST · PATTERN ARCHITECT · MEANING MAKER</div>
+  <div class="wd"></div>
+  <div class="ww">WELCOME BACK</div>
+  <div class="wtag">THE LAB AWAITS.</div>
+  <button class="wcta" onclick="go('arch')">LET'S ARCHITECT <span>→</span></button>
+  <div class="wmods">
+    <div class="wmod" onclick="go('arch')"><div class="wmi" style="color:var(--signal)">◈</div><div class="wml">Architecture</div><div class="wmd">Core layers · pipeline</div></div>
+    <div class="wmod" onclick="go('pat')"><div class="wmi" style="color:var(--amber)">◉</div><div class="wml">.pat File</div><div class="wmd">Session schema · record</div></div>
+    <div class="wmod" onclick="go('vats')"><div class="wmi" style="color:var(--cyan)">⊕</div><div class="wml">VATS Module</div><div class="wmd">Body zones · manual log</div></div>
+    <div class="wmod" onclick="go('latt')"><div class="wmi" style="color:var(--violet)">⬡</div><div class="wml">Assoc. Lattice</div><div class="wmd">Memory · resonance · CLI</div></div>
+    <div class="wmod" onclick="go('sigma')"><div class="wmi" style="color:var(--pink)">◎</div><div class="wml">Sigma · Entropy</div><div class="wmd">Dysregulation · confidence</div></div>
+  </div>
+</div>
+
+<!-- ══ ARCHITECTURE ══ -->
+<div class="pn" id="pane-arch">
+  <div class="sh">ARCHITECTURE · MASTERMIND BEHAVIORAL INTELLIGENCE SYSTEM</div>
+  <div class="ag">
+    <div class="node hi" onclick="sendPrompt('Spec out the full signal detection layer — hand gestures, mirror neurons, gaze, expression, posture')">
+      <div class="nbadge bs">INPUT</div>
+      <div class="ntag">LAYER 01 · DETECTION</div>
+      <div class="ntitle">SIGNAL DETECTION</div>
+      <div class="ndesc">Multi-layer simultaneous detection from video. All behavioral signal classes run in parallel per frame.</div>
+      <div class="nlist">
+        <div class="ni">Hand gestures — pointing, waving, self-touch, mirroring</div>
+        <div class="ni">Mirror neuron signals — mimicry, empathy indicators</div>
+        <div class="ni">Regulating strategies — self-soothing, grounding</div>
+        <div class="ni">Gaze direction — target, duration, avoidance, dart</div>
+        <div class="ni">Posture state — open, collapsed, protective, grounded</div>
+        <div class="ni">Facial expression — micro + macro, valence, tension</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('What should the full .pat file schema look like?')">
+      <div class="nbadge ba">CANONICAL</div>
+      <div class="ntag">LAYER 02 · RECORD</div>
+      <div class="ntitle">.PAT FILE</div>
+      <div class="ndesc">Single unified session record. Timestamped. Dated. All detection layers merged into one canonical source of truth.</div>
+      <div class="nlist">
+        <div class="ni">session_id · timestamp · date · duration</div>
+        <div class="ni">subject_count · data_directory path</div>
+        <div class="ni">signal_events[] — per-frame detection</div>
+        <div class="ni">vats_overrides[] — manual annotations</div>
+        <div class="ni">entropy_log[] — sigma scores + confidence</div>
+        <div class="ni">lattice_refs[] — associated node IDs</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('How does the Associative Lattice build meaning — nodes, edges, resonance scoring, CLI?')">
+      <div class="nbadge bc">MEMORY</div>
+      <div class="ntag">LAYER 03 · MEANING</div>
+      <div class="ntitle">ASSOC. LATTICE</div>
+      <div class="ndesc">Pattern memory. Each observation becomes a node. Nodes connect by resonance score. Meaning emerges from clusters.</div>
+      <div class="nlist">
+        <div class="ni">Node = observation + metadata</div>
+        <div class="ni">Edge = resonance ≥ threshold (default 0.72)</div>
+        <div class="ni">/find — semantic search</div>
+        <div class="ni">/connect — manual edge creation</div>
+        <div class="ni">Clusters = emergent meaning groups</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('Fully spec the VATS body targeting module — all 8 zones and full signal vocabulary per zone')">
+      <div class="nbadge ba">SHARP</div>
+      <div class="ntag">MODULE 01 · TARGETING</div>
+      <div class="ntitle">VATS</div>
+      <div class="ndesc">Fallout-inspired body zone overlay. Hover to reveal. Click to log. Fills what detector cannot confirm.</div>
+      <div class="nlist">
+        <div class="ni">8 zones: face, eyes, mouth, neck, L/R hand, torso, posture</div>
+        <div class="ni">Hover → ring activates with zone label</div>
+        <div class="ni">Click → signal picker for that zone</div>
+        <div class="ni">Log: zone · signal · timestamp · conf override</div>
+        <div class="ni">Writes to .pat vats_overrides[]</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('How does slope-based entropy detection work in the Sigma layer?')">
+      <div class="nbadge bv">PROBABILISTIC</div>
+      <div class="ntag">MODULE 02 · ENTROPY</div>
+      <div class="ntitle">SIGMA LAYER</div>
+      <div class="ndesc">Slope-based entropy detection. Multiple deductions per observation. Everything probabilistic unless threshold crossed.</div>
+      <div class="nlist">
+        <div class="ni">Slope = rate of change over rolling 3s window</div>
+        <div class="ni">High slope + variance = dysregulation flag</div>
+        <div class="ni">Each deduction: label + entropy + confidence</div>
+        <div class="ni">Deterministic only at confidence ≥ 0.95</div>
+      </div>
+    </div>
+    <div class="node" onclick="sendPrompt('Spec the Social Module — multi-person relational field, synchrony, mirroring, attunement, tension')">
+      <div class="nbadge bp">RELATIONAL</div>
+      <div class="ntag">MODULE 03 · SOCIAL</div>
+      <div class="ntitle">SOCIAL MODULE</div>
+      <div class="ndesc">Activates on 2+ subjects. Maps the relational field — synchrony, attunement, mirroring, tension. Feeds Sigma layer.</div>
+      <div class="nlist">
+        <div class="ni">Synchrony — lag-corrected gesture alignment</div>
+        <div class="ni">Mirroring — latency-typed (voluntary / involuntary)</div>
+        <div class="ni">Attunement — composite relational index</div>
+        <div class="ni">Tension — oppositional signal density</div>
+      </div>
+    </div>
+  </div>
+  <div class="pipe">
+    <span style="color:var(--muted)">VIDEO INPUT</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--muted)">ALK DETECTION</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--amber)">.PAT FILE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--cyan)">ASSOC. LATTICE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--violet)">SIGMA LAYER</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--pink)">SOCIAL MODULE</span><span style="color:var(--signal)">→</span>
+    <span style="color:var(--white)">INSIGHT</span>
+  </div>
+</div>
+
+<!-- ══ PAT FILE ══ -->
+<div class="pn" id="pane-pat">
+  <div class="sh">.PAT FILE · SESSION SCHEMA · CANONICAL BEHAVIORAL RECORD</div>
+  <div class="pg">
+    <div class="pb">
+      <div class="pbt">SESSION METADATA</div>
+      <div class="pr"><span class="pk">session_id</span><span class="pv" style="color:var(--signal)">MIMI-20260512-001</span></div>
+      <div class="pr"><span class="pk">created_at</span><span class="pv">2026-05-12T09:14:32Z</span></div>
+      <div class="pr"><span class="pk">duration_s</span><span class="pv">1847</span></div>
+      <div class="pr"><span class="pk">data_dir</span><span class="pv">/sessions/mimi/2026-05-12/</span></div>
+      <div class="pr"><span class="pk">subject_count</span><span class="pv" style="color:var(--amber)">2</span></div>
+      <div class="pr"><span class="pk">frame_rate</span><span class="pv">30 fps</span></div>
+      <div class="pr"><span class="pk">schema_version</span><span class="pv" style="color:var(--cyan)">0.4.1</span></div>
+    </div>
+    <div class="pb">
+      <div class="pbt">LAYER COUNTS</div>
+      <div class="pr"><span class="pk">signal_events[]</span><span class="pv" style="color:var(--signal)">2,847 events</span></div>
+      <div class="pr"><span class="pk">vats_overrides[]</span><span class="pv" style="color:var(--amber)">34 manual</span></div>
+      <div class="pr"><span class="pk">entropy_log[]</span><span class="pv" style="color:var(--violet)">912 entries</span></div>
+      <div class="pr"><span class="pk">lattice_refs[]</span><span class="pv" style="color:var(--cyan)">67 node refs</span></div>
+      <div class="pr"><span class="pk">social_field{}</span><span class="pv" style="color:var(--pink)">active · 2 subjects</span></div>
+      <div class="pr"><span class="pk">avg_confidence</span><span class="pv" style="color:var(--signal)">0.84</span></div>
+      <div class="pr"><span class="pk">peak_entropy</span><span class="pv" style="color:var(--amber)">0.91 @ 00:14:22</span></div>
+    </div>
+  </div>
+  <div class="schema">
+<span class="sc2">// .pat file · JSON schema · v0.4.1</span>
+{
+  <span class="sk">"session"</span>: { <span class="sk">"id"</span>: <span class="sv">"MIMI-20260512-001"</span>, <span class="sk">"created_at"</span>: <span class="sv">"2026-05-12T09:14:32Z"</span>, <span class="sk">"data_dir"</span>: <span class="sv">"/sessions/mimi/2026-05-12/"</span>, <span class="sk">"subject_count"</span>: <span class="sv">2</span> },
+  <span class="sk">"signal_events"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">0.033</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"layer"</span>: <span class="sv">"hands"</span>, <span class="sk">"signal"</span>: <span class="sv">"self_touch"</span>, <span class="sk">"subtype"</span>: <span class="sv">"hair_touch"</span>, <span class="sk">"confidence"</span>: <span class="sv">0.91</span>, <span class="sk">"bbox"</span>: [<span class="sv">312,188,44,38</span>] }
+  ],
+  <span class="sk">"vats_overrides"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">47.2</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"zone"</span>: <span class="sv">"face"</span>, <span class="sk">"signal"</span>: <span class="sv">"jaw_tension"</span>, <span class="sk">"confidence_override"</span>: <span class="sv">0.88</span>, <span class="sk">"annotator"</span>: <span class="sv">"mimi"</span>, <span class="sk">"notes"</span>: <span class="sv">""</span> }
+  ],
+  <span class="sk">"entropy_log"</span>: [
+    { <span class="sk">"t"</span>: <span class="sv">47.2</span>, <span class="sk">"subject"</span>: <span class="sv">0</span>, <span class="sk">"slope_window_s"</span>: <span class="sv">3.0</span>, <span class="sk">"deterministic"</span>: <span class="sv">false</span>,
+      <span class="sk">"deductions"</span>: [
+        { <span class="sk">"label"</span>: <span class="sv">"dysregulation"</span>, <span class="sk">"entropy"</span>: <span class="sv">0.73</span>, <span class="sk">"confidence"</span>: <span class="sv">0.81</span> },
+        { <span class="sk">"label"</span>: <span class="sv">"ungrounded"</span>, <span class="sk">"entropy"</span>: <span class="sv">0.54</span>, <span class="sk">"confidence"</span>: <span class="sv">0.67</span> }
+      ]
+    }
+  ],
+  <span class="sk">"lattice_refs"</span>: [ { <span class="sk">"node_id"</span>: <span class="sv">"NODE-07"</span>, <span class="sk">"resonance"</span>: <span class="sv">0.94</span>, <span class="sk">"t"</span>: <span class="sv">47.2</span> } ],
+  <span class="sk">"social_field"</span>: { <span class="sk">"active"</span>: <span class="sv">true</span>, <span class="sk">"subjects"</span>: [<span class="sv">0</span>,<span class="sv">1</span>], <span class="sk">"synchrony"</span>: <span class="sv">0.78</span>, <span class="sk">"mirroring"</span>: <span class="sv">0.65</span>, <span class="sk">"attunement"</span>: <span class="sv">0.71</span>, <span class="sk">"tension"</span>: <span class="sv">0.22</span> }
+}</div>
+</div>
+
+<!-- ══ VATS ══ -->
+<div class="pn" id="pane-vats" style="min-height:800px">
+  <div class="sh">VATS · LIVE WEBCAM · BONE MAP · FACE MESH · SKIN MAP · PATTERN SYNTHESIS · AUTO .PAT</div>
+
+  <!-- VATS MAIN LAYOUT -->
+  <div style="display:grid;grid-template-columns:210px 1fr 210px;gap:0;flex:1;min-height:760px">
+
+    <!-- LEFT: zone cards -->
+    <div style="border-right:1px solid var(--wire);display:flex;flex-direction:column;gap:0;overflow:hidden">
+      <div style="padding:8px 10px;border-bottom:1px solid var(--wire);font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase">SIGNAL ZONES · LIVE</div>
+      <div style="overflow-y:auto;flex:1;padding:6px 8px;display:flex;flex-direction:column;gap:5px">
+        <div class="zcard on" id="zc-face" onclick="vatsSelZone('face')">
+          <div class="zch"><span class="zcn">FACE</span><span class="zcc" id="zconf-face">—</span></div>
+          <div class="zsigs"><span class="zsig c">gaze·left</span><span class="zsig c">gaze·right</span><span class="zsig a">jaw·tension</span><span class="zsig v">brow·furrow</span><span class="zsig s">soft·blink</span><span class="zsig p">micro·expr</span></div>
+          <div class="zcd">Primary affect. 468-landmark mesh. Gaze = highest value signal.</div>
+        </div>
+        <div class="zcard" id="zc-lhand" onclick="vatsSelZone('lhand')">
+          <div class="zch"><span class="zcn">L. HAND</span><span class="zcc" id="zconf-lhand">—</span></div>
+          <div class="zsigs"><span class="zsig s">self-touch</span><span class="zsig s">hair·touch</span><span class="zsig a">fidget</span><span class="zsig c">open·palm</span><span class="zsig v">arm·cross</span></div>
+          <div class="zcd">Regulatory behavior. Self-soothing cluster. 21 hand landmarks.</div>
+        </div>
+        <div class="zcard" id="zc-rhand" onclick="vatsSelZone('rhand')">
+          <div class="zch"><span class="zcn">R. HAND</span><span class="zcc" id="zconf-rhand">—</span></div>
+          <div class="zsigs"><span class="zsig s">pointing</span><span class="zsig c">waving</span><span class="zsig a">grip</span><span class="zsig v">reach</span><span class="zsig p">signal·gest</span></div>
+          <div class="zcd">Directive gesture. Intent direction. 21 hand landmarks.</div>
+        </div>
+        <div class="zcard" id="zc-posture" onclick="vatsSelZone('posture')">
+          <div class="zch"><span class="zcn">POSTURE</span><span class="zcc" id="zconf-posture">—</span></div>
+          <div class="zsigs"><span class="zsig v">collapsed</span><span class="zsig p">lean·in</span><span class="zsig s">grounded</span><span class="zsig a">prot·cross</span><span class="zsig c">open·chest</span></div>
+          <div class="zcd">Whole-body state. 33 pose landmarks. Torso geometry.</div>
+        </div>
+        <div class="zcard" id="zc-gaze" onclick="vatsSelZone('gaze')">
+          <div class="zch"><span class="zcn">GAZE</span><span class="zcc" id="zconf-gaze">—</span></div>
+          <div class="zsigs"><span class="zsig c">target·lock</span><span class="zsig a">averted</span><span class="zsig v">dart</span><span class="zsig s">soft·gaze</span><span class="zsig p">downcast</span></div>
+          <div class="zcd">Iris tracking via face mesh. Left/right/up/down.</div>
+        </div>
+        <div class="zcard" id="zc-skin" onclick="vatsSelZone('skin')">
+          <div class="zch"><span class="zcn">SKIN</span><span class="zcc" id="zconf-skin">—</span></div>
+          <div class="zsigs"><span class="zsig a">flush</span><span class="zsig c">pallor</span><span class="zsig v">tension·map</span><span class="zsig s">sweat</span><span class="zsig p">micro·move</span></div>
+          <div class="zcd">Pixel-level skin analysis. Color variance → arousal proxy.</div>
+        </div>
+        <div class="zcard" id="zc-voice" onclick="vatsSelZone('voice')">
+          <div class="zch"><span class="zcn">VOICE</span><span class="zcc" id="zconf-voice">—</span></div>
+          <div class="zsigs"><span class="zsig a">pitch·rise</span><span class="zsig v">tremor</span><span class="zsig s">flat·affect</span><span class="zsig c">prosody·brk</span></div>
+          <div class="zcd">Web Audio API. Pitch + energy + spectral centroid.</div>
+        </div>
+      </div>
+      <!-- hotkeys reference -->
+      <div style="border-top:1px solid var(--wire);padding:7px 10px;font-size:5px;color:var(--dim);line-height:1.9;letter-spacing:.5px">
+        <div style="color:var(--amber);letter-spacing:2px;margin-bottom:3px">HOTKEYS</div>
+        <div><span style="color:var(--signal)">V</span> — toggle VATS red overlay</div>
+        <div><span style="color:var(--signal)">M</span> — toggle mesh/bones</div>
+        <div><span style="color:var(--signal)">S</span> — toggle skin map</div>
+        <div><span style="color:var(--signal)">C</span> — toggle CLR panel</div>
+        <div><span style="color:var(--signal)">CLICK</span> zone ring → zoom + log</div>
+        <div><span style="color:var(--signal)">ESC</span> — exit zoom</div>
+      </div>
+    </div>
+
+    <!-- CENTER: live video + overlay canvas -->
+    <div style="position:relative;background:#000;overflow:hidden;display:flex;flex-direction:column">
+
+      <!-- video element (webcam or file) -->
+      <video id="vatsVid" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block"></video>
+
+      <!-- skin map canvas (behind mesh) -->
+      <canvas id="skinCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .3s;mix-blend-mode:screen"></canvas>
+
+      <!-- mesh + vats overlay canvas -->
+      <canvas id="vatsCanvas" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair"></canvas>
+
+      <!-- no-cam prompt -->
+      <div id="vatsCamPrompt" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5;pointer-events:none">
+        <div style="font-size:10px;letter-spacing:4px;color:var(--wire2);font-family:var(--cond);font-weight:900;margin-bottom:8px">AWAITING FEED</div>
+        <button id="startCamBtn" onclick="initCam()" style="pointer-events:all;font-family:var(--mono);font-size:6px;letter-spacing:2px;padding:7px 18px;border:1px solid var(--signal);background:var(--glow);color:var(--signal);cursor:pointer;text-transform:uppercase;margin-bottom:8px">▶ START WEBCAM</button>
+        <label style="pointer-events:all;font-family:var(--mono);font-size:5.5px;letter-spacing:2px;padding:5px 14px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;text-transform:uppercase">
+          LOAD VIDEO FILE <input type="file" accept="video/*" id="vatsFileIn" onchange="loadVideoFile(this)" style="display:none">
+        </label>
+        <div style="margin-top:10px;font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase">OR PRESS <span style="color:var(--amber)">V</span> TO ACTIVATE VATS IN DEMO MODE</div>
+      </div>
+
+      <!-- VATS active flash -->
+      <div id="vatsActiveBadge" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:20;display:none;white-space:nowrap">
+        <div style="font-size:6px;letter-spacing:3px;color:#ff4455;border:1px solid #ff4455;padding:4px 14px;background:rgba(255,68,85,.12);font-family:var(--mono);animation:blink 1.5s ease-in-out infinite">⬤ VATS ACTIVE — YOU ARE LOCKED</div>
+      </div>
+
+      <!-- zoom viewport overlay -->
+      <div id="vatsZoom" style="position:absolute;inset:0;z-index:30;display:none;background:rgba(2,7,5,.92);flex-direction:column;align-items:center;justify-content:center">
+        <div id="vatsZoomLabel" style="font-family:var(--cond);font-size:22px;font-weight:900;letter-spacing:6px;color:var(--signal);margin-bottom:10px">FACE</div>
+        <canvas id="vatsZoomCanvas" style="border:1px solid var(--signal);max-width:90%;max-height:70%"></canvas>
+        <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+          <div id="vatsZoomCLR" style="font-size:6px;letter-spacing:1.5px;color:var(--bright);line-height:2"></div>
+          <button onclick="closeZoom()" style="font-family:var(--mono);font-size:5.5px;letter-spacing:2px;padding:5px 14px;border:1px solid var(--wire2);background:transparent;color:var(--dim);cursor:pointer;text-transform:uppercase">ESC · CLOSE</button>
+        </div>
+      </div>
+
+      <!-- CLR panel -->
+      <div id="vatsCLR" style="position:absolute;top:8px;left:8px;z-index:15;background:rgba(2,7,5,.93);border:1px solid var(--signal);padding:10px 12px;min-width:200px;backdrop-filter:blur(4px);transition:opacity .25s">
+        <div style="font-size:5px;letter-spacing:3px;color:var(--signal);text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--wire)">CLR · COMPOSITE LIVE READOUT</div>
+        <div id="clrBody"></div>
+        <div style="margin-top:5px;padding-top:4px;border-top:1px solid var(--wire)">
+          <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase">ΣENTROPY</span>
+            <span id="clrSigma" style="font-size:5px;font-weight:700;color:var(--rose)">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase">STATE</span>
+            <span id="clrState" style="font-size:5px;font-weight:700;color:var(--signal)">STABLE</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase">PATTERN</span>
+            <span id="clrPattern" style="font-size:4.5px;font-weight:700;color:var(--amber)">SCANNING</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- bottom status bar -->
+      <div style="position:absolute;bottom:0;left:0;right:0;z-index:15;background:rgba(2,7,5,.9);border-top:1px solid var(--wire);display:flex;align-items:center;gap:8px;padding:4px 10px;flex-wrap:nowrap">
+        <button onclick="toggleVATS()" id="btnV" style="font-family:var(--mono);font-size:5.5px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--rose);background:rgba(255,68,85,.08);color:var(--rose);cursor:pointer;text-transform:uppercase;white-space:nowrap">V · VATS</button>
+        <button onclick="toggleMesh()" id="btnM" style="font-family:var(--mono);font-size:5.5px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;text-transform:uppercase;white-space:nowrap">M · MESH</button>
+        <button onclick="toggleSkin()" id="btnS" style="font-family:var(--mono);font-size:5.5px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;text-transform:uppercase;white-space:nowrap">S · SKIN</button>
+        <button onclick="toggleCLR()" id="btnC" style="font-family:var(--mono);font-size:5.5px;letter-spacing:1.5px;padding:3px 9px;border:1px solid var(--signal);background:var(--glow);color:var(--signal);cursor:pointer;text-transform:uppercase;white-space:nowrap">C · CLR ON</button>
+        <div style="flex:1;height:2px;background:var(--wire)"><div id="patSynthBar" style="height:100%;width:0%;background:var(--signal);transition:width .5s"></div></div>
+        <span id="patSynthLabel" style="font-size:5px;letter-spacing:1px;color:var(--dim);white-space:nowrap">SYNTHESIS 0%</span>
+        <span id="vatsStatus" style="font-size:5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;white-space:nowrap">STANDBY</span>
+      </div>
+
+      <!-- toast -->
+      <div id="vatsToast" style="position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(2,7,5,.94);border:1px solid var(--amber);padding:4px 14px;font-size:5.5px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap"></div>
+
+    </div>
+
+    <!-- RIGHT: PAT feed + sigma log -->
+    <div style="border-left:1px solid var(--wire);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:6px 10px;border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:5px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase">.PAT FEED</span>
+        <span id="patCount" style="font-size:5px;color:var(--cyan)">0 patterns</span>
+      </div>
+      <div id="patFeed" style="flex:1;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:4px;max-height:480px"></div>
+
+      <!-- sigma live -->
+      <div style="border-top:1px solid var(--wire);padding:8px 10px">
+        <div style="font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:6px">SIGMA · LIVE</div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)"><span style="font-size:5px;color:var(--dim)">SLOPE</span><span id="sigSlope" style="font-size:5px;color:var(--violet)">—</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)"><span style="font-size:5px;color:var(--dim)">ENTROPY</span><span id="sigEntropy" style="font-size:5px;color:var(--rose)">—</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,51,32,.3)"><span style="font-size:5px;color:var(--dim)">CONF</span><span id="sigConf" style="font-size:5px;color:var(--amber)">—</span></div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0"><span style="font-size:5px;color:var(--dim)">NOVEL PATS</span><span id="sigNovel" style="font-size:5px;color:var(--cyan)">0</span></div>
+        <div id="sigStateBox" style="margin-top:6px;text-align:center;font-family:var(--cond);font-size:18px;font-weight:900;letter-spacing:4px;color:var(--signal);padding:6px;border:1px solid var(--wire)">STABLE</div>
+      </div>
+
+      <!-- audio viz -->
+      <div style="border-top:1px solid var(--wire);padding:8px 10px">
+        <div style="font-size:5px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">AUDIO · <span id="audioStatus" style="color:var(--amber)">OFF</span></div>
+        <canvas id="audioViz" style="width:100%;height:36px;background:rgba(2,7,5,.6);border:1px solid var(--wire);display:block"></canvas>
+        <button onclick="initAudio()" id="btnAudio" style="margin-top:4px;width:100%;font-family:var(--mono);font-size:5px;letter-spacing:1.5px;padding:3px;border:1px solid var(--wire2);background:transparent;color:var(--mid);cursor:pointer;text-transform:uppercase">START MIC</button>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+</div><!-- /pane-vats -->
+
+<!-- ══ LATTICE ══ -->
+<div class="pn" id="pane-latt">
+  <div class="sh">ASSOCIATIVE LATTICE KERNEL · MEMORY · MEANING · RESONANCE</div>
+  <div class="lbody">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="cli">
+        <div class="clih">
+          <div class="clid" style="background:var(--rose)"></div>
+          <div class="clid" style="background:var(--amber)"></div>
+          <div class="clid" style="background:var(--signal)"></div>
+          <span class="clititle">ALK COMMAND LINE · v0.4.1</span>
+        </div>
+        <div class="clio" id="clio">
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">SYSTEM ONLINE</span></div>
+          <div class="co">Associative Lattice Kernel initialized. 47 nodes loaded.</div>
+          <div class="co">Resonance threshold: 0.72 · Clusters: 8 · Edges: 114</div>
+          <div class="co hi">Commands: /find · /connect · /inspect · /cluster · /graph</div>
+          <div class="co">&nbsp;</div>
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">/find self-soothing</span></div>
+          <div class="co mt">MATCH · NODE-07 · "self-touch regulatory" · res: 0.94</div>
+          <div class="co mt">MATCH · NODE-03 · "hair touching sequence" · res: 0.88</div>
+          <div class="co mt">MATCH · NODE-11 · "breath regulation cycle" · res: 0.79</div>
+          <div class="co">&nbsp;</div>
+          <div class="cl"><span class="cp">ALK›</span><span class="cc">/connect NODE-07 NODE-03</span></div>
+          <div class="co nd">EDGE CREATED · NODE-07 ↔ NODE-03 · weight: 0.88</div>
+          <div class="co">Cluster [regulatory-touch] updated · 3 nodes · avg res: 0.87</div>
+          <div class="co">&nbsp;</div>
+        </div>
+        <div class="clirow">
+          <span class="clips">ALK›</span>
+          <input class="cliinput" id="cliinput" placeholder="/find [pattern]  ·  /connect [a] [b]  ·  /inspect [id]  ·  /cluster" onkeydown="handleCLI(event)">
+        </div>
+      </div>
+      <div class="cmdref">
+        <div class="crt">COMMAND REFERENCE</div>
+        <div class="crrow"><span class="crn">/find [query]</span><span class="crd">Semantic search. Returns nodes by resonance ≥ threshold. Query is label, tag, or free text.</span></div>
+        <div class="crrow"><span class="crn">/connect [a] [b]</span><span class="crd">Create edge between two nodes. Computes mutual resonance. Logs to .pat lattice_refs[].</span></div>
+        <div class="crrow"><span class="crn">/inspect [id]</span><span class="crd">Full node dump — label, tags, all edges, resonance history, session origin.</span></div>
+        <div class="crrow"><span class="crn">/cluster</span><span class="crd">List all clusters, node counts, avg resonance, dominant signal type.</span></div>
+        <div class="crrow" style="border:none"><span class="crn">/graph</span><span class="crd">Render live node graph of full lattice with edge weights visualized.</span></div>
+      </div>
+    </div>
+    <div class="lr">
+      <div class="vpt">ACTIVE NODES</div>
+      <div class="ln on" id="ln-07" onclick="inspectNode('NODE-07','self-touch regulatory pattern',0.94,['hands','soothing','regulatory'])">
+        <div class="lnid">NODE-07</div><div class="lnlabel">self-touch regulatory</div>
+        <div class="lnres">res 0.94</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">soothing</span></div>
+      </div>
+      <div class="ln" id="ln-03" onclick="inspectNode('NODE-03','hair touching sequence',0.88,['hands','self-touch','comfort'])">
+        <div class="lnid">NODE-03</div><div class="lnlabel">hair touching sequence</div>
+        <div class="lnres">res 0.88</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">comfort</span></div>
+      </div>
+      <div class="ln" id="ln-11" onclick="inspectNode('NODE-11','breath regulation cycle',0.79,['grounding','somatic'])">
+        <div class="lnid">NODE-11</div><div class="lnlabel">breath regulation cycle</div>
+        <div class="lnres">res 0.79</div>
+        <div class="lntags"><span class="lntag">grounding</span><span class="lntag">somatic</span></div>
+      </div>
+      <div class="ln" id="ln-02" onclick="inspectNode('NODE-02','mirroring gesture lean-in',0.85,['mirror','empathy','social'])">
+        <div class="lnid">NODE-02</div><div class="lnlabel">mirroring — lean-in</div>
+        <div class="lnres">res 0.85</div>
+        <div class="lntags"><span class="lntag">mirror</span><span class="lntag">social</span></div>
+      </div>
+      <div class="ln" id="ln-05" onclick="inspectNode('NODE-05','averted gaze discomfort',0.76,['gaze','dysregulation'])">
+        <div class="lnid">NODE-05</div><div class="lnlabel">averted gaze</div>
+        <div class="lnres">res 0.76</div>
+        <div class="lntags"><span class="lntag">gaze</span><span class="lntag">dysreg</span></div>
+      </div>
+      <div class="ln" id="ln-09" onclick="inspectNode('NODE-09','pointing directive intent',0.82,['hands','gesture','directive'])">
+        <div class="lnid">NODE-09</div><div class="lnlabel">pointing — directive</div>
+        <div class="lnres">res 0.82</div>
+        <div class="lntags"><span class="lntag">hands</span><span class="lntag">directive</span></div>
+      </div>
+      <div class="ln" id="ln-14" onclick="inspectNode('NODE-14','jaw tension sustained',0.77,['face','tension','somatic'])">
+        <div class="lnid">NODE-14</div><div class="lnlabel">jaw tension — sustained</div>
+        <div class="lnres">res 0.77</div>
+        <div class="lntags"><span class="lntag">face</span><span class="lntag">tension</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SOCIAL MODULE ══ -->
+<div class="pn" id="pane-social">
+  <div class="sh">SOCIAL MODULE · RELATIONAL FIELD DETECTION · MULTI-SUBJECT MAPPING</div>
+  <div class="sg2">
+    <div class="sn">
+      <div class="snbadge">ACTIVATES ON 2+ SUBJECTS</div>
+      <div class="sntitle">SYNCHRONY</div>
+      <div class="sndesc">Lag-corrected gesture and posture alignment between subjects. Measures movement rhythm, not just simultaneity. High synchrony = attunement, rapport, or mirroring dynamic.</div>
+      <div class="snlist">
+        <div class="sni">Cross-correlation of posture signals over 2s window</div>
+        <div class="sni">Lag tolerance: ±400ms (accounts for social latency)</div>
+        <div class="sni">Output: 0.0–1.0 synchrony index per frame</div>
+        <div class="sni">Logs to .pat social_field.synchrony</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">MIRROR NEURONS</div>
+      <div class="sntitle">MIRRORING</div>
+      <div class="sndesc">Detects when one subject replicates gestures, expressions, or posture of another. Voluntary vs involuntary distinguished by latency. Involuntary = empathy. Voluntary = rapport building.</div>
+      <div class="snlist">
+        <div class="sni">Latency &lt;300ms = involuntary (empathy signal)</div>
+        <div class="sni">Latency 300–900ms = conscious mirroring</div>
+        <div class="sni">Source subject tracked per mirror event</div>
+        <div class="sni">Logs to .pat social_field.mirroring[]</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">RELATIONAL FIELD</div>
+      <div class="sntitle">ATTUNEMENT</div>
+      <div class="sndesc">Composite index combining synchrony, mirroring, gaze reciprocity, and co-regulation. Two attuned subjects show coordinated nervous system states — not just behavioral similarity.</div>
+      <div class="snlist">
+        <div class="sni">Inputs: synchrony + mirroring + gaze reciprocity</div>
+        <div class="sni">Co-regulation: shared entropy slope trajectory</div>
+        <div class="sni">Output: attunement_index per 5s window</div>
+        <div class="sni">Feeds Sigma layer as social entropy modifier</div>
+      </div>
+    </div>
+    <div class="sn">
+      <div class="snbadge">OPPOSITIONAL FIELD</div>
+      <div class="sntitle">TENSION FIELD</div>
+      <div class="sndesc">Detects oppositional signals — one opens, one closes; one leans in, one retracts. Concurrent avoidance + approach = high tension flag. Behavioral signature of unresolved relational friction.</div>
+      <div class="snlist">
+        <div class="sni">Oppositional posture pairs logged as tension events</div>
+        <div class="sni">Concurrent avoidance + approach = high tension</div>
+        <div class="sni">Tension score: 0.0–1.0 per window</div>
+        <div class="sni">Logs to .pat social_field.tension</div>
+      </div>
+    </div>
+  </div>
+  <div class="fieldviz">
+    <div class="fvl">RELATIONAL FIELD · LIVE INDICES · SESSION MIMI-20260512-001</div>
+    <div class="fvgrid">
+      <div class="fvcell">
+        <div class="fvtag">SYNCHRONY</div>
+        <div class="fvval" style="color:var(--signal)" id="fv-sync">0.78</div>
+        <div class="cbar"><div class="cfill" style="width:78%"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">MIRRORING</div>
+        <div class="fvval" style="color:var(--cyan)" id="fv-mirror">0.65</div>
+        <div class="cbar"><div class="cfill" style="width:65%;background:var(--cyan)"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">ATTUNEMENT</div>
+        <div class="fvval" style="color:var(--violet)" id="fv-attu">0.71</div>
+        <div class="cbar"><div class="cfill" style="width:71%;background:var(--violet)"></div></div>
+      </div>
+      <div class="fvcell">
+        <div class="fvtag">TENSION</div>
+        <div class="fvval" style="color:var(--rose)" id="fv-tension">0.22</div>
+        <div class="cbar"><div class="cfill" style="width:22%;background:var(--rose)"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIGMA ══ -->
+<div class="pn" id="pane-sigma">
+  <div class="sh">SIGMA LAYER · ENTROPY DETECTION · PROBABILISTIC BEHAVIORAL DEDUCTION</div>
+  <div class="sigrid">
+    <div class="sigb">
+      <div class="sigtitle">SLOPE DETECTION</div>
+      <div class="sigitem"><strong>SLOPE WINDOW</strong>Rate of signal change computed over rolling 3s window. High slope = rapid behavioral shift = entropy flag.</div>
+      <div class="cbar" style="margin:5px 0 9px"><div class="cfill" style="width:73%;background:var(--violet)"></div></div>
+      <div class="sigitem"><strong>THRESHOLD</strong>Slope ≥ 0.6 over window triggers dysregulation check. Configurable per session in .pat schema.</div>
+      <div class="sigitem"><strong>MULTI-LAYER</strong>Slope computed independently per signal layer. Simultaneous spikes across layers = stronger combined signal.</div>
+    </div>
+    <div class="sigb">
+      <div class="sigtitle">DEDUCTION ENGINE</div>
+      <div class="sigitem"><strong>MULTIPLE DEDUCTIONS</strong>Each observation produces N deductions. Never one answer. Always a probability distribution over states.</div>
+      <div class="sigitem"><strong>CONFIDENCE SCORE</strong>0.0–1.0 per deduction. Deterministic only at ≥ 0.95 and only for well-established signal combinations.</div>
+      <div class="cbar" style="margin:5px 0 9px"><div class="cfill" style="width:84%;background:var(--amber)"></div></div>
+      <div class="sigitem"><strong>UNCERTAINTY AS DATA</strong>The system holds uncertainty as signal — not noise to eliminate. Low-confidence deductions are still logged.</div>
+    </div>
+    <div class="sigb">
+      <div class="sigtitle">STATE VOCABULARY</div>
+      <div class="sigitem"><strong style="color:var(--violet)">DYSREGULATED</strong>High entropy, multi-layer slope spike, low predictability. Multiple simultaneous dysregulation indicators.</div>
+      <div class="sigitem"><strong style="color:var(--amber)">UNGROUNDED</strong>Moderate entropy, postural instability, gaze dart, fragmented gesture sequence.</div>
+      <div class="sigitem"><strong style="color:var(--cyan)">ACTIVATING</strong>Entropy rising from stable baseline — mobilization, not dysregulation. Context-dependent.</div>
+      <div class="sigitem"><strong style="color:var(--signal)">STABLE</strong>Low entropy, coherent posture, sustained gaze, regulatory behavior absent or minimal.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mm -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// BACKGROUND LATTICE
+// ══════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('bg');
+const mm = document.getElementById('mm');
+let pts = [], raf;
+function initBg(){
+  canvas.width = mm.offsetWidth || 680;
+  canvas.height = Math.max(mm.scrollHeight, mm.offsetHeight, 860);
+  pts = Array.from({length:70}, ()=>({ x:Math.random()*canvas.width, y:Math.random()*canvas.height, vx:(Math.random()-.5)*.22, vy:(Math.random()-.5)*.22, r:Math.random()*1.6+.4, ph:Math.random()*Math.PI*2 }));
+}
+function drawBg(){
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  pts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; if(p.x<0||p.x>canvas.width) p.vx*=-1; if(p.y<0||p.y>canvas.height) p.vy*=-1; p.ph+=.013; });
+  for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+    const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<150){ ctx.strokeStyle=`rgba(57,255,106,${(1-d/150)*.15})`; ctx.lineWidth=.5; ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke(); }
+  }
+  pts.forEach(p=>{ const pulse=.5+.5*Math.sin(p.ph); ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1+.3*pulse),0,Math.PI*2); ctx.fillStyle=`rgba(57,255,106,${.12+.22*pulse})`; ctx.fill(); });
+  raf=requestAnimationFrame(drawBg);
+}
+initBg(); requestAnimationFrame(drawBg);
+new ResizeObserver(()=>{ cancelAnimationFrame(raf); initBg(); requestAnimationFrame(drawBg); }).observe(mm);
+
+// ══════════════════════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════════════════════
+const panes=['welcome','arch','pat','vats','latt','social','sigma'];
+function go(id){
+  panes.forEach(p=>{ document.getElementById('pane-'+p).classList.toggle('on',p===id); document.getElementById('nt-'+p).classList.toggle('on',p===id); });
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('on'));
+  setTimeout(()=>{ cancelAnimationFrame(raf); initBg(); requestAnimationFrame(drawBg); }, 60);
+  if(id==='vats') setTimeout(initVATS, 100);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LATTICE CLI
+// ══════════════════════════════════════════════════════════════════════
+function handleCLI(e){
+  if(e.key!=='Enter') return;
+  const inp=document.getElementById('cliinput'), cmd=inp.value.trim(); if(!cmd) return;
+  inp.value='';
+  const out=document.getElementById('clio');
+  const add=(cls,txt)=>{const d=document.createElement('div');d.className='co '+(cls||'');d.textContent=txt;out.appendChild(d);};
+  const addCmd=c=>{const d=document.createElement('div');d.className='cl';d.innerHTML=`<span class="cp">ALK›</span><span class="cc">${c}</span>`;out.appendChild(d);};
+  const br=()=>{const d=document.createElement('div');d.className='co';d.innerHTML='&nbsp;';out.appendChild(d);};
+  addCmd(cmd); const c=cmd.toLowerCase();
+  if(c.startsWith('/find ')){
+    const q=cmd.slice(6); add('','Searching: "'+q+'"...');
+    add('mt',`MATCH · NODE-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')} · "${q} cluster" · res: ${(0.7+Math.random()*.28).toFixed(2)}`);
+    add('mt',`MATCH · NODE-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')} · "${q} trace" · res: ${(0.6+Math.random()*.25).toFixed(2)}`);
+  } else if(c.startsWith('/connect ')){
+    const [a,b]=(cmd.slice(9).trim().split(/\s+/));
+    add('nd',`EDGE CREATED · ${a||'NODE-?'} ↔ ${b||'NODE-?'} · weight: ${(0.65+Math.random()*.3).toFixed(2)}`);
+    add('','Cluster updated. Logged to .pat lattice_refs[]');
+  } else if(c.startsWith('/inspect ')){
+    const id=cmd.slice(9).trim().toUpperCase();
+    add('nd','NODE: '+id); add('','Edges: '+(Math.floor(Math.random()*8)+2)+' · Session: MIMI-20260512-001');
+  } else if(c==='/cluster'){
+    add('hi','CLUSTERS (8 active)'); add('mt','[regulatory-touch] · 3 · avg 0.87'); add('mt','[gaze-avoidance] · 4 · avg 0.79'); add('mt','[entropy-spike] · 6 · avg 0.74');
+  } else if(c==='/graph'){
+    add('hi','47 nodes · 114 edges · 8 clusters'); add('nd','→ visual graph — build next sprint');
+  } else add('er','Unknown command. Try: /find · /connect · /inspect · /cluster · /graph');
+  br(); out.scrollTop=out.scrollHeight;
+}
+function inspectNode(id,label,res,tags){
+  document.querySelectorAll('.ln').forEach(n=>n.classList.remove('on'));
+  const el=document.getElementById('ln-'+id.toLowerCase().replace('node-','')); if(el) el.classList.add('on');
+  const out=document.getElementById('clio');
+  const add=(cls,txt)=>{const d=document.createElement('div');d.className='co '+(cls||'');d.textContent=txt;out.appendChild(d);};
+  const addCmd=c=>{const d=document.createElement('div');d.className='cl';d.innerHTML=`<span class="cp">ALK›</span><span class="cc">${c}</span>`;out.appendChild(d);};
+  const br=()=>{const d=document.createElement('div');d.className='co';d.innerHTML='&nbsp;';out.appendChild(d);};
+  addCmd('/inspect '+id); add('nd','NODE: '+id); add('','Label: '+label); add('','Tags: ['+tags.join('] [')+']'); add('','Resonance: '+res); br();
+  out.scrollTop=out.scrollHeight; go('latt');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SOCIAL: animate indices
+// ══════════════════════════════════════════════════════════════════════
+function drift(id,target){
+  const el=document.getElementById(id); if(!el) return;
+  let v=parseFloat(el.textContent);
+  const step=()=>{ v+=(target-v)*.04+(Math.random()-.5)*.008; v=Math.max(0,Math.min(1,v)); el.textContent=v.toFixed(2); const bar=el.parentElement.querySelector('.cfill'); if(bar) bar.style.width=Math.round(v*100)+'%'; setTimeout(step,200+Math.random()*300); };
+  step();
+}
+setTimeout(()=>{ drift('fv-sync',.78); drift('fv-mirror',.65); drift('fv-attu',.71); drift('fv-tension',.22); },800);
+
+// ══════════════════════════════════════════════════════════════════════
+// ██ VATS ENGINE ██
+// ══════════════════════════════════════════════════════════════════════
+
+// ── State ──
+const VS = {
+  vatsOn: false, meshOn: true, skinOn: false, clrOn: true,
+  camActive: false, audioActive: false,
+  selectedZone: 'face', zoomZone: null,
+  // live signal values 0-1
+  sig: { face:0, gaze:0, lhand:0, rhand:0, posture:0, skin:0, voice:0 },
+  sigHistory: { face:[], gaze:[], lhand:[], rhand:[], posture:[], skin:[], voice:[] },
+  sigma: 0, slope: 0, entropy: 0, conf: 0,
+  patCount: 0, novelCount: 0,
+  patLog: [],
+  // learned patterns (starts with built-ins, grows automatically)
+  learnedPatterns: [],
+  observationBuffer: [], // last N signal snapshots for novel pattern mining
+  frameCount: 0,
+  audioAnalyser: null, audioData: null,
+  // mediapipe results
+  faceLandmarks: null, poseLandmarks: null,
+  // zone bounding boxes on canvas (populated each frame)
+  zoneBounds: {},
+};
+
+// ── Built-in pattern definitions ──
+const BUILTIN_PATTERNS = [
+  { id:'REG-TOUCH', label:'Regulatory Touch', zones:['lhand','face'], test:s=>s.lhand>0.55&&s.face>0.5&&s.voice<0.45, color:'#39ff6a', modules:['video','audio'] },
+  { id:'GAZE-AVOID', label:'Gaze Avoidance', zones:['gaze','face'], test:s=>s.gaze<0.28&&s.face>0.4, color:'#ffcc00', modules:['video'] },
+  { id:'VOCAL-STRESS', label:'Vocal Stress', zones:['voice','face'], test:s=>s.voice>0.65&&s.face>0.55, color:'#ff4455', modules:['audio','video'] },
+  { id:'DYSREG', label:'Dysregulation', zones:['face','voice','posture'], test:s=>s.face>0.65&&s.voice>0.5&&s.posture>0.5, color:'#cc88ff', modules:['video','audio'] },
+  { id:'GROUNDED', label:'Grounded State', zones:['posture','gaze'], test:s=>s.posture<0.3&&s.gaze>0.55&&s.sigma<0.28, color:'#39ff6a', modules:['video'] },
+  { id:'HEDGE-BURST', label:'Hedge/Filler Burst', zones:['voice'], test:s=>s.voice>0.72, color:'#ff6eb4', modules:['audio'] },
+  { id:'SKIN-FLUSH', label:'Skin Flush/Arousal', zones:['skin','face'], test:s=>s.skin>0.6&&s.face>0.4, color:'#ffcc00', modules:['video'] },
+  { id:'MIRROR', label:'Social Mirroring', zones:['posture','gaze','lhand'], test:s=>s.posture>0.45&&s.gaze>0.55&&s.lhand>0.4, color:'#00ffee', modules:['video'] },
+];
+VS.learnedPatterns = BUILTIN_PATTERNS.map(p=>({...p, learned:false, hits:0, lastSeen:0}));
+
+// ── Canvas setup ──
+let vatsC, vatsCtx, skinC, skinCtx, audioVizC, audioVizCtx;
+
+function initVATS(){
+  vatsC = document.getElementById('vatsCanvas');
+  skinC = document.getElementById('skinCanvas');
+  audioVizC = document.getElementById('audioViz');
+  if(!vatsC) return;
+  vatsCtx = vatsC.getContext('2d');
+  skinCtx = skinC.getContext('2d');
+  audioVizCtx = audioVizC.getContext('2d');
+  resizeVATS();
+  window.addEventListener('resize', resizeVATS);
+  vatsC.addEventListener('click', onVATSClick);
+  buildCLRPanel();
+  // start render loop
+  requestAnimationFrame(vatsLoop);
+}
+
+function resizeVATS(){
+  if(!vatsC) return;
+  const parent = vatsC.parentElement;
+  const w = parent.clientWidth, h = parent.clientHeight - 30; // minus controls bar
+  vatsC.width = w; vatsC.height = h;
+  skinC.width = w; skinC.height = h;
+  skinC.style.width = w+'px'; skinC.style.height = h+'px';
+  vatsC.style.width = w+'px'; vatsC.style.height = h+'px';
+}
+
+// ── Webcam ──
+async function initCam(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{width:1280,height:720,facingMode:'user'}, audio:false });
+    const vid = document.getElementById('vatsVid');
+    vid.srcObject = stream;
+    vid.style.display = 'block';
+    document.getElementById('vatsCamPrompt').style.display = 'none';
+    VS.camActive = true;
+    vatsStatus('CAM LIVE');
+    // init MediaPipe
+    initMediaPipe();
+  } catch(e) {
+    vatsStatus('CAM DENIED — DEMO MODE');
+    document.getElementById('vatsCamPrompt').style.display = 'none';
+    VS.camActive = false; // will run in demo mode
+  }
+}
+
+function loadVideoFile(input){
+  const file = input.files[0]; if(!file) return;
+  const vid = document.getElementById('vatsVid');
+  vid.srcObject = null;
+  vid.src = URL.createObjectURL(file);
+  vid.controls = false;
+  vid.loop = true;
+  vid.play();
+  vid.style.display = 'block';
+  document.getElementById('vatsCamPrompt').style.display = 'none';
+  VS.camActive = true;
+  vatsStatus('FILE LOADED · '+file.name.substring(0,20));
+  initMediaPipe();
+}
+
+// ── MediaPipe ──
+let mpFaceMesh = null, mpPose = null, mpHands = null;
+let mpFaceResults = null, mpPoseResults = null, mpHandsResults = null;
+
+function initMediaPipe(){
+  // Load MediaPipe from CDN
+  if(typeof FaceMesh === 'undefined') {
+    loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js', ()=>{
+      loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js', ()=>{
+        loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js', ()=>{
+          loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js', startMP);
+        });
+      });
+    });
+  } else {
+    startMP();
+  }
+}
+
+function loadScript(src, cb){
+  const s = document.createElement('script'); s.src = src; s.onload = cb; document.head.appendChild(s);
+}
+
+function startMP(){
+  const vid = document.getElementById('vatsVid');
+
+  mpFaceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+  mpFaceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  mpFaceMesh.onResults(r => { mpFaceResults = r; });
+
+  mpPose = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
+  mpPose.setOptions({ modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  mpPose.onResults(r => { mpPoseResults = r; });
+
+  mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  mpHands.setOptions({ maxNumHands:2, modelComplexity:1, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  mpHands.onResults(r => { mpHandsResults = r; });
+
+  // Use camera_utils to drive all three
+  const camera = new Camera(vid, {
+    onFrame: async () => {
+      await mpFaceMesh.send({ image: vid });
+      await mpPose.send({ image: vid });
+      await mpHands.send({ image: vid });
+    },
+    width:1280, height:720
+  });
+  camera.start();
+  vatsStatus('MEDIAPIPE ONLINE');
+  document.getElementById('vatsCamPrompt').style.display = 'none';
+}
+
+// ── Audio ──
+async function initAudio(){
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    VS.audioAnalyser = analyser;
+    VS.audioData = new Uint8Array(analyser.frequencyBinCount);
+    VS.audioActive = true;
+    document.getElementById('audioStatus').textContent = 'LIVE';
+    document.getElementById('audioStatus').style.color = 'var(--signal)';
+    document.getElementById('btnAudio').textContent = 'MIC ACTIVE';
+    document.getElementById('btnAudio').style.color = 'var(--signal)';
+  } catch(e) {
+    document.getElementById('audioStatus').textContent = 'DENIED';
+  }
+}
+
+// ── Main render loop ──
+let lastSignalStep = 0;
+function vatsLoop(ts){
+  requestAnimationFrame(vatsLoop);
+  if(!vatsC) return;
+  VS.frameCount++;
+
+  // Step signals
+  if(ts - lastSignalStep > 80) { stepSignals(); lastSignalStep = ts; }
+
+  // Draw
+  const w = vatsC.width, h = vatsC.height;
+  vatsCtx.clearRect(0,0,w,h);
+
+  const vid = document.getElementById('vatsVid');
+  const hasVideo = VS.camActive && vid.readyState >= 2;
+
+  drawZoneRingsOnVideo(w, h, hasVideo, vid);
+  if(VS.skinOn) drawSkinMap(w, h, hasVideo, vid);
+  if(VS.meshOn || VS.vatsOn) drawMeshOverlay(w, h);
+  if(VS.vatsOn) drawVATSRedHighlight(w, h);
+  drawAudioViz();
+  updateCLR();
+  updateSigmaPanel();
+  detectPatterns();
+}
+
+// ── Signal simulation + real data integration ──
+function stepSignals(){
+  const r = Math.random;
+  // If mediapipe running, use real data
+  if(mpFaceResults && mpFaceResults.multiFaceLandmarks && mpFaceResults.multiFaceLandmarks.length > 0) {
+    const fl = mpFaceResults.multiFaceLandmarks[0];
+    // Gaze: iris landmarks (468-477 for left, 473-477 for right with refineLandmarks)
+    VS.sig.face = clamp(VS.sig.face*0.7 + estimateFaceActivation(fl)*0.3);
+    VS.sig.gaze = clamp(VS.sig.gaze*0.7 + estimateGaze(fl)*0.3);
+  } else {
+    // demo drift
+    VS.sig.face = clamp(VS.sig.face + (r()-0.48)*0.09 + Math.sin(VS.frameCount*0.03)*0.04);
+    VS.sig.gaze = clamp(VS.sig.gaze + (r()-0.5)*0.07 + Math.cos(VS.frameCount*0.02)*0.03);
+  }
+  if(mpPoseResults && mpPoseResults.poseLandmarks) {
+    VS.sig.posture = clamp(VS.sig.posture*0.7 + estimatePosture(mpPoseResults.poseLandmarks)*0.3);
+    VS.sig.lhand = clamp(VS.sig.lhand*0.7 + estimateHandActivity(mpPoseResults.poseLandmarks,'left')*0.3);
+    VS.sig.rhand = clamp(VS.sig.rhand*0.7 + estimateHandActivity(mpPoseResults.poseLandmarks,'right')*0.3);
+  } else {
+    VS.sig.posture = clamp(VS.sig.posture + (r()-0.5)*0.06);
+    VS.sig.lhand = clamp(VS.sig.lhand + (r()-0.49)*0.08 + Math.sin(VS.frameCount*0.05)*0.03);
+    VS.sig.rhand = clamp(VS.sig.rhand + (r()-0.49)*0.08 + Math.cos(VS.frameCount*0.04)*0.03);
+  }
+  // Audio
+  if(VS.audioActive && VS.audioAnalyser) {
+    VS.audioAnalyser.getByteFrequencyData(VS.audioData);
+    const energy = VS.audioData.reduce((a,v)=>a+v,0) / (VS.audioData.length*255);
+    VS.sig.voice = clamp(VS.sig.voice*0.6 + energy*3*0.4);
+  } else {
+    VS.sig.voice = clamp(VS.sig.voice + (r()-0.48)*0.07 + (r()<0.04?0.25:0));
+  }
+  // Skin (pixel color variance proxy)
+  VS.sig.skin = clamp(VS.sig.skin + (r()-0.48)*0.05);
+
+  // Push history
+  const s = VS.sig;
+  Object.keys(VS.sigHistory).forEach(k=>{ VS.sigHistory[k].push(s[k]); if(VS.sigHistory[k].length>60) VS.sigHistory[k].shift(); });
+
+  // Sigma
+  const vals = Object.values(s);
+  const mean = vals.reduce((a,v)=>a+v,0)/vals.length;
+  const variance = vals.reduce((a,v)=>a+(v-mean)**2,0)/vals.length;
+  VS.entropy = Math.sqrt(variance);
+  const h = VS.sigHistory.face;
+  const old = h.length > 10 ? h[h.length-10] : h[0]||0;
+  VS.slope = Math.abs(s.face - old);
+  VS.sigma = clamp(VS.entropy*0.6 + VS.slope*0.4);
+  VS.conf = clamp(1 - VS.entropy + 0.2);
+
+  // Store for novel pattern mining
+  VS.observationBuffer.push({...s, sigma:VS.sigma, t:Date.now()});
+  if(VS.observationBuffer.length > 200) VS.observationBuffer.shift();
+}
+
+// ── Real landmark estimators ──
+function estimateFaceActivation(lm){
+  // Jaw openness: landmarks 13 (upper lip) vs 14 (lower lip)
+  const jaw = Math.abs((lm[13].y - lm[14].y)) * 20;
+  // Brow distance: 107 vs 336
+  const brow = Math.abs(lm[107].y - lm[9].y) * 8;
+  return clamp(jaw * 0.5 + brow * 0.5);
+}
+function estimateGaze(lm){
+  // Use nose tip (1) vs eye center as gaze proxy
+  // Left iris center ~468, right ~473
+  if(lm.length > 473){
+    const lIris = lm[468], rIris = lm[473];
+    const nose = lm[1];
+    const gazeX = ((lIris.x + rIris.x)/2) - nose.x;
+    return clamp(0.5 + gazeX * 3);
+  }
+  return 0.5;
+}
+function estimatePosture(lm){
+  // shoulder y diff = tilt; wrist-to-hip distance = arm position
+  const ls = lm[11], rs = lm[12];
+  const tilt = Math.abs(ls.y - rs.y) * 5;
+  return clamp(tilt);
+}
+function estimateHandActivity(lm, side){
+  const wrist = side==='left' ? lm[15] : lm[16];
+  const hip = side==='left' ? lm[23] : lm[24];
+  if(!wrist || !hip) return 0;
+  const dist = Math.sqrt((wrist.x-hip.x)**2 + (wrist.y-hip.y)**2);
+  return clamp(1 - dist * 2); // high when wrist near hip (self-touch)
+}
+
+// ── Draw zone rings ──
+function drawZoneRingsOnVideo(w, h, hasVideo, vid){
+  if(!hasVideo && !VS.vatsOn && !VS.meshOn) return;
+  // compute zone positions from pose/face landmarks or defaults
+  const zones = computeZoneBounds(w, h);
+  VS.zoneBounds = zones;
+
+  Object.entries(zones).forEach(([zone, z]) => {
+    const active = zone === VS.selectedZone;
+    const sig = VS.sig[zone] || 0;
+    const col = ZONE_COLORS[zone] || '#39ff6a';
+    const t = Date.now()/1000;
+    const pulse = 0.5 + 0.5*Math.sin(t*2.5 + Object.keys(ZONE_COLORS).indexOf(zone));
+    const alpha = VS.vatsOn ? 0.15 + sig*0.55 + (active?0.2:0) : 0.08 + sig*0.3 + (active?0.15:0);
+
+    // outer dashed ring
+    vatsCtx.save();
+    vatsCtx.strokeStyle = col;
+    vatsCtx.globalAlpha = alpha * (0.6 + 0.4*pulse);
+    vatsCtx.lineWidth = active ? 1.5 : 0.8;
+    vatsCtx.setLineDash([5,3]);
+    vatsCtx.beginPath();
+    vatsCtx.ellipse(z.cx, z.cy, z.rx*(1+pulse*0.04), z.ry*(1+pulse*0.04), 0, 0, Math.PI*2);
+    vatsCtx.stroke();
+    vatsCtx.setLineDash([]);
+
+    // fill when VATS on
+    if(VS.vatsOn){
+      vatsCtx.fillStyle = col;
+      vatsCtx.globalAlpha = 0.03 + sig*0.07;
+      vatsCtx.beginPath();
+      vatsCtx.ellipse(z.cx, z.cy, z.rx, z.ry, 0, 0, Math.PI*2);
+      vatsCtx.fill();
+    }
+
+    // label
+    vatsCtx.globalAlpha = 0.5 + sig*0.4;
+    vatsCtx.font = '500 8px Azeret Mono';
+    vatsCtx.fillStyle = col;
+    vatsCtx.fillText(zone.toUpperCase()+' '+(sig*100).toFixed(0)+'%', z.cx - z.rx + 2, z.cy - z.ry - 4);
+
+    // active reticle
+    if(active || (VS.vatsOn && sig > 0.5)){
+      vatsCtx.globalAlpha = 0.4 + sig*0.5;
+      vatsCtx.strokeStyle = col;
+      vatsCtx.lineWidth = 0.7;
+      const cs = 10;
+      vatsCtx.beginPath(); vatsCtx.moveTo(z.cx-cs,z.cy); vatsCtx.lineTo(z.cx+cs,z.cy); vatsCtx.stroke();
+      vatsCtx.beginPath(); vatsCtx.moveTo(z.cx,z.cy-cs); vatsCtx.lineTo(z.cx,z.cy+cs); vatsCtx.stroke();
+    }
+    vatsCtx.restore();
+  });
+}
+
+const ZONE_COLORS = { face:'#00ffee', gaze:'#39ff6a', lhand:'#ffcc00', rhand:'#ffcc00', posture:'#cc88ff', skin:'#ff6eb4', voice:'#ff6eb4' };
+
+function computeZoneBounds(w, h){
+  // Try to use real landmarks, fallback to proportional defaults
+  const pose = mpPoseResults && mpPoseResults.poseLandmarks;
+  const face = mpFaceResults && mpFaceResults.multiFaceLandmarks && mpFaceResults.multiFaceLandmarks[0];
+
+  const lm = (lms, i) => lms ? { x: lms[i].x * w, y: lms[i].y * h } : null;
+
+  // Face center
+  const nosePt = face ? { x: face[1].x*w, y: face[1].y*h } : { x:w*0.5, y:h*0.22 };
+  const faceW = face ? Math.abs(face[234].x - face[454].x)*w : w*0.22;
+  const faceH = faceW * 1.3;
+
+  // Gaze (eye region)
+  const eyeL = face ? { x:face[159].x*w, y:face[159].y*h } : { x:w*0.44, y:h*0.18 };
+  const eyeR = face ? { x:face[386].x*w, y:face[386].y*h } : { x:w*0.56, y:h*0.18 };
+  const eyeCx = (eyeL.x+eyeR.x)/2, eyeCy = (eyeL.y+eyeR.y)/2;
+  const eyeW = Math.abs(eyeR.x - eyeL.x) * 1.8;
+
+  // Hands
+  const lw = pose ? lm(mpPoseResults.poseLandmarks, 15) : { x:w*0.26, y:h*0.55 };
+  const rw = pose ? lm(mpPoseResults.poseLandmarks, 16) : { x:w*0.74, y:h*0.55 };
+
+  // Posture (torso)
+  const ls = pose ? lm(mpPoseResults.poseLandmarks, 11) : { x:w*0.37, y:h*0.38 };
+  const rs = pose ? lm(mpPoseResults.poseLandmarks, 12) : { x:w*0.63, y:h*0.38 };
+  const lh = pose ? lm(mpPoseResults.poseLandmarks, 23) : { x:w*0.40, y:h*0.62 };
+  const rh = pose ? lm(mpPoseResults.poseLandmarks, 24) : { x:w*0.60, y:h*0.62 };
+  const torsoW = Math.abs((rs||{x:w*0.63}).x - (ls||{x:w*0.37}).x)*0.7;
+  const torsoH = Math.abs((lh||{y:h*0.62}).y - (ls||{y:h*0.38}).y)*0.55;
+  const torsoCx = ((ls||{x:w*0.5}).x + (rs||{x:w*0.5}).x)/2;
+  const torsoCy = ((ls||{y:h*0.5}).y + (lh||{y:h*0.6}).y)/2;
+
+  return {
+    face:    { cx: nosePt.x, cy: nosePt.y, rx: faceW*0.55, ry: faceH*0.55 },
+    gaze:    { cx: eyeCx,    cy: eyeCy,    rx: eyeW*0.5,   ry: eyeW*0.25 },
+    lhand:   { cx: (lw||{x:w*0.26}).x, cy: (lw||{y:h*0.55}).y, rx: w*0.07, ry: h*0.05 },
+    rhand:   { cx: (rw||{x:w*0.74}).x, cy: (rw||{y:h*0.55}).y, rx: w*0.07, ry: h*0.05 },
+    posture: { cx: torsoCx, cy: torsoCy, rx: Math.max(torsoW, w*0.10), ry: Math.max(torsoH, h*0.10) },
+    skin:    { cx: nosePt.x, cy: nosePt.y + faceH*0.1, rx: faceW*0.4, ry: faceH*0.4 },
+    voice:   { cx: w*0.5, cy: h*0.85, rx: w*0.06, ry: h*0.04 },
+  };
+}
+
+// ── Mesh overlay (face + body bones) ──
+function drawMeshOverlay(w, h){
+  // ── FACE MESH (468 landmarks) ──
+  const faceRes = mpFaceResults && mpFaceResults.multiFaceLandmarks;
+  if(faceRes && faceRes.length > 0){
+    const lm = faceRes[0];
+    // face mesh connections — draw tessellation
+    if(window.FACEMESH_TESSELATION){
+      vatsCtx.strokeStyle = VS.vatsOn ? 'rgba(255,68,85,0.30)' : 'rgba(0,255,238,0.18)';
+      vatsCtx.lineWidth = 0.5;
+      FACEMESH_TESSELATION.forEach(([a,b])=>{
+        vatsCtx.beginPath();
+        vatsCtx.moveTo(lm[a].x*w, lm[a].y*h);
+        vatsCtx.lineTo(lm[b].x*w, lm[b].y*h);
+        vatsCtx.stroke();
+      });
+    } else {
+      // fallback: draw dots + rough outline
+      vatsCtx.fillStyle = VS.vatsOn ? 'rgba(255,68,85,0.5)' : 'rgba(0,255,238,0.35)';
+      lm.forEach((p,i)=>{
+        if(i%4===0){ // thin out for perf
+          vatsCtx.beginPath();
+          vatsCtx.arc(p.x*w, p.y*h, 0.8, 0, Math.PI*2);
+          vatsCtx.fill();
+        }
+      });
+      // outline silhouette
+      const outline = [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+      vatsCtx.strokeStyle = VS.vatsOn ? 'rgba(255,68,85,0.6)' : 'rgba(0,255,238,0.4)';
+      vatsCtx.lineWidth = 1;
+      vatsCtx.beginPath();
+      outline.forEach((i,n)=>{ const p=lm[i]; n===0?vatsCtx.moveTo(p.x*w,p.y*h):vatsCtx.lineTo(p.x*w,p.y*h); });
+      vatsCtx.closePath(); vatsCtx.stroke();
+    }
+  } else {
+    // demo: animated face dots
+    drawDemoFaceMesh(w, h);
+  }
+
+  // ── POSE / BONE MAP ──
+  const poseRes = mpPoseResults && mpPoseResults.poseLandmarks;
+  if(poseRes){
+    drawBones(poseRes, w, h);
+  } else {
+    drawDemoBones(w, h);
+  }
+}
+
+function drawBones(lm, w, h){
+  const CONNECTIONS = [
+    [11,12],[11,13],[13,15],[12,14],[14,16], // arms
+    [11,23],[12,24],[23,24], // torso
+    [23,25],[25,27],[24,26],[26,28], // legs
+    [15,17],[15,19],[16,18],[16,20], // hands
+  ];
+  const col = VS.vatsOn ? 'rgba(255,68,85,' : 'rgba(57,255,106,';
+  vatsCtx.lineWidth = 1.5;
+  CONNECTIONS.forEach(([a,b])=>{
+    if(!lm[a]||!lm[b]) return;
+    const vis = Math.min(lm[a].visibility||0.5, lm[b].visibility||0.5);
+    vatsCtx.strokeStyle = col+(0.15+vis*0.6)+')';
+    vatsCtx.beginPath();
+    vatsCtx.moveTo(lm[a].x*w, lm[a].y*h);
+    vatsCtx.lineTo(lm[b].x*w, lm[b].y*h);
+    vatsCtx.stroke();
+  });
+  // joint dots
+  lm.forEach((p,i)=>{
+    if(i > 10 && i < 29){
+      vatsCtx.beginPath();
+      vatsCtx.arc(p.x*w, p.y*h, 3, 0, Math.PI*2);
+      vatsCtx.fillStyle = VS.vatsOn ? `rgba(255,68,85,${0.4+(p.visibility||0.5)*0.5})` : `rgba(57,255,106,${0.3+(p.visibility||0.5)*0.5})`;
+      vatsCtx.fill();
+    }
+  });
+}
+
+// ── Demo face mesh (no mediapipe) ──
+const DEMO_FACE = [];
+for(let i=0;i<120;i++){
+  const a=(i/120)*Math.PI*2, ri=0.5+Math.random()*0.3;
+  DEMO_FACE.push({ bx:0.5+Math.cos(a)*0.10*ri, by:0.22+Math.sin(a)*0.13*ri, ph:Math.random()*Math.PI*2 });
+}
+function drawDemoFaceMesh(w,h){
+  const t=Date.now()/1000;
+  vatsCtx.fillStyle = VS.vatsOn ? 'rgba(255,68,85,0.45)' : 'rgba(0,255,238,0.28)';
+  DEMO_FACE.forEach(p=>{
+    const bx = p.bx + Math.sin(t*0.6+p.ph)*0.003;
+    const by = p.by + Math.cos(t*0.5+p.ph)*0.002;
+    vatsCtx.beginPath(); vatsCtx.arc(bx*w, by*h, 1.0, 0, Math.PI*2); vatsCtx.fill();
+  });
+  // cheeks
+  const cx=0.5*w, cy=0.22*h;
+  vatsCtx.strokeStyle = VS.vatsOn ? 'rgba(255,68,85,0.45)' : 'rgba(0,255,238,0.3)';
+  vatsCtx.lineWidth=0.7;
+  for(let i=0;i<120;i+=6){
+    const a=(i/120)*Math.PI*2, a2=((i+6)/120)*Math.PI*2;
+    const r1=w*0.09+Math.sin(t+i)*w*0.003, r2=w*0.085+Math.sin(t+i+0.2)*w*0.003;
+    vatsCtx.beginPath();
+    vatsCtx.moveTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*h/w*r1*1.4);
+    vatsCtx.lineTo(cx+Math.cos(a2)*r2, cy+Math.sin(a2)*h/w*r2*1.4);
+    vatsCtx.stroke();
+  }
+}
+
+const DEMO_BONES = [
+  [[0.5,0.22],[0.5,0.42]], // spine neck-torso
+  [[0.37,0.38],[0.63,0.38]], // shoulders
+  [[0.37,0.38],[0.26,0.56]], // l upper arm
+  [[0.26,0.56],[0.22,0.72]], // l forearm
+  [[0.63,0.38],[0.74,0.56]], // r upper arm
+  [[0.74,0.56],[0.78,0.72]], // r forearm
+  [[0.40,0.62],[0.60,0.62]], // hips
+  [[0.37,0.38],[0.40,0.62]], // l torso
+  [[0.63,0.38],[0.60,0.62]], // r torso
+  [[0.40,0.62],[0.38,0.82]], // l thigh
+  [[0.60,0.62],[0.62,0.82]], // r thigh
+];
+function drawDemoBones(w,h){
+  const t=Date.now()/1000;
+  const sway = Math.sin(t*0.4)*0.006;
+  const breathe = Math.sin(t*0.9)*0.005;
+  vatsCtx.strokeStyle = VS.vatsOn ? 'rgba(255,68,85,0.55)' : 'rgba(57,255,106,0.35)';
+  vatsCtx.lineWidth = 1.5;
+  DEMO_BONES.forEach(([a,b])=>{
+    vatsCtx.beginPath();
+    vatsCtx.moveTo((a[0]+sway)*w, (a[1]+breathe)*h);
+    vatsCtx.lineTo((b[0]+sway)*w, (b[1]+breathe*0.5)*h);
+    vatsCtx.stroke();
+  });
+  // joints
+  DEMO_BONES.flat().forEach(([x,y])=>{
+    vatsCtx.beginPath();
+    vatsCtx.arc((x+sway)*w, (y+breathe)*h, 3, 0, Math.PI*2);
+    vatsCtx.fillStyle = VS.vatsOn ? 'rgba(255,68,85,0.65)' : 'rgba(57,255,106,0.5)';
+    vatsCtx.fill();
+  });
+}
+
+// ── VATS red highlight ──
+function drawVATSRedHighlight(w, h){
+  const t = Date.now()/1000;
+  // full-body red vignette
+  const grad = vatsCtx.createRadialGradient(w/2, h/2, h*0.2, w/2, h/2, h*0.75);
+  grad.addColorStop(0, 'rgba(255,68,85,0)');
+  grad.addColorStop(0.7, 'rgba(255,68,85,0)');
+  grad.addColorStop(1, `rgba(255,68,85,${0.12+Math.sin(t*2)*0.04})`);
+  vatsCtx.fillStyle = grad;
+  vatsCtx.fillRect(0,0,w,h);
+
+  // scan line sweep
+  const scanY = ((t*0.12) % 1.0) * h;
+  const scanGrad = vatsCtx.createLinearGradient(0, scanY-15, 0, scanY+15);
+  scanGrad.addColorStop(0,'rgba(255,68,85,0)');
+  scanGrad.addColorStop(0.5,`rgba(255,68,85,${0.08+Math.sin(t*3)*0.03})`);
+  scanGrad.addColorStop(1,'rgba(255,68,85,0)');
+  vatsCtx.fillStyle = scanGrad;
+  vatsCtx.fillRect(0, scanY-15, w, 30);
+
+  // corner brackets
+  const bSize = 18;
+  vatsCtx.strokeStyle = `rgba(255,68,85,${0.7+Math.sin(t*3)*0.2})`;
+  vatsCtx.lineWidth = 1.5;
+  [[0,0,1,1],[w,0,-1,1],[0,h,1,-1],[w,h,-1,-1]].forEach(([x,y,dx,dy])=>{
+    vatsCtx.beginPath(); vatsCtx.moveTo(x+dx*bSize,y); vatsCtx.lineTo(x,y); vatsCtx.lineTo(x,y+dy*bSize); vatsCtx.stroke();
+  });
+}
+
+// ── Skin map ──
+function drawSkinMap(w, h, hasVideo, vid){
+  if(!hasVideo) return;
+  try {
+    const tmp = document.createElement('canvas'); tmp.width = 80; tmp.height = 60;
+    const tCtx = tmp.getContext('2d');
+    tCtx.drawImage(vid, 0, 0, 80, 60);
+    const px = tCtx.getImageData(0,0,80,60);
+    // Write colored overlay based on skin detection
+    skinCtx.clearRect(0,0,w,h);
+    for(let y=0;y<60;y++) for(let x=0;x<80;x++){
+      const i=(y*80+x)*4;
+      const r=px.data[i],g=px.data[i+1],b=px.data[i+2];
+      // simple skin tone detection
+      if(r>80&&g>40&&b>20&&r>g&&r>b&&(r-g)>10){
+        skinCtx.fillStyle=`rgba(255,${Math.round(g*0.5)},0,0.35)`;
+        skinCtx.fillRect((x/80)*w, (y/60)*h, w/80+1, h/60+1);
+      }
+    }
+  } catch(e){}
+}
+
+// ── Audio viz ──
+function drawAudioViz(){
+  if(!audioVizC||!audioVizCtx) return;
+  const w = audioVizC.width = audioVizC.offsetWidth || 180;
+  const h = audioVizC.height = 36;
+  audioVizCtx.clearRect(0,0,w,h);
+  audioVizCtx.fillStyle = 'rgba(2,7,5,0.6)';
+  audioVizCtx.fillRect(0,0,w,h);
+  if(VS.audioActive && VS.audioData){
+    const step = Math.floor(VS.audioData.length / w);
+    for(let x=0;x<w;x++){
+      const v = VS.audioData[x*step] / 255;
+      const bh = v * h;
+      audioVizCtx.fillStyle = `rgba(57,255,106,${0.3+v*0.7})`;
+      audioVizCtx.fillRect(x, h-bh, 1, bh);
+    }
+  } else {
+    // demo waveform
+    const t = Date.now()/1000;
+    audioVizCtx.strokeStyle = 'rgba(57,255,106,0.3)';
+    audioVizCtx.lineWidth = 1;
+    audioVizCtx.beginPath();
+    for(let x=0;x<w;x++){
+      const v = 0.5 + 0.4*Math.sin(x*0.12+t*3) * Math.sin(x*0.05+t*1.5);
+      x===0?audioVizCtx.moveTo(x,h/2-v*h/2):audioVizCtx.lineTo(x,h/2-v*h/2);
+    }
+    audioVizCtx.stroke();
+  }
+}
+
+// ── Pattern detection ──
+let lastPatCheck = 0;
+function detectPatterns(){
+  const now = Date.now();
+  if(now - lastPatCheck < 700) return;
+  lastPatCheck = now;
+
+  const sig = {...VS.sig, sigma:VS.sigma};
+
+  VS.learnedPatterns.forEach(pat=>{
+    if(pat.test(sig)){
+      pat.hits++;
+      pat.lastSeen = now;
+      const conf = clamp(0.5 + Math.random()*0.45);
+      const key = pat.id + Math.floor(now/8000); // 8s bucket
+      if(!VS._patKeys) VS._patKeys = {};
+      if(VS._patKeys[key]) return; // dedup
+      VS._patKeys[key] = true;
+      logPAT(pat, conf, sig);
+    }
+  });
+
+  // Novel pattern mining every ~5s
+  if(VS.observationBuffer.length > 50 && now - (VS._lastMine||0) > 5000){
+    VS._lastMine = now;
+    mineNovelPattern();
+  }
+}
+
+function mineNovelPattern(){
+  const buf = VS.observationBuffer;
+  if(buf.length < 30) return;
+  // Find which signals co-occur at high values
+  const keys = ['face','gaze','lhand','rhand','posture','skin','voice'];
+  const highCo = {};
+  buf.slice(-30).forEach(s=>{
+    const high = keys.filter(k=>s[k]>0.55);
+    if(high.length >= 2){
+      const key = high.sort().join('+');
+      highCo[key] = (highCo[key]||0)+1;
+    }
+  });
+  // Find most frequent co-occurrence not already a named pattern
+  const existing = new Set(VS.learnedPatterns.map(p=>p.zones.sort().join('+')));
+  const novel = Object.entries(highCo).filter(([k,v])=>v>4&&!existing.has(k)).sort((a,b)=>b[1]-a[1]);
+  if(novel.length > 0){
+    const [combo, freq] = novel[0];
+    const zones = combo.split('+');
+    const threshold = 0.5 + Math.random()*0.1;
+    const newPat = {
+      id: 'AUTO-'+String(VS.novelCount+1).padStart(3,'0'),
+      label: 'Auto-Pattern · '+zones.join('+')+' co-activation',
+      zones,
+      test: s => zones.every(z=>s[z]>threshold),
+      color: ['#39ff6a','#ffcc00','#00ffee','#cc88ff','#ff6eb4'][VS.novelCount%5],
+      modules: zones.includes('voice') ? ['video','audio'] : ['video'],
+      learned: true, hits: freq, lastSeen: Date.now()
+    };
+    VS.learnedPatterns.push(newPat);
+    VS.novelCount++;
+    document.getElementById('sigNovel').textContent = VS.novelCount;
+    // announce in PAT feed
+    logPAT(newPat, 0.72, VS.sig, true);
+  }
+}
+
+function logPAT(pat, conf, sig, isNovel=false){
+  VS.patCount++;
+  const entry = {
+    id: pat.id, label: pat.label, zones: pat.zones,
+    modules: pat.modules, color: pat.color,
+    conf: conf.toFixed(2),
+    sigma: VS.sigma.toFixed(2),
+    t: (Date.now()/1000).toFixed(1),
+    novel: pat.learned||isNovel,
+    raw: Object.fromEntries(Object.entries(sig).map(([k,v])=>[k,typeof v==='number'?v.toFixed(2):v]))
+  };
+  VS.patLog.unshift(entry);
+  if(VS.patLog.length > 60) VS.patLog.pop();
+  renderPATEntry(entry);
+  updatePatCount();
+  updateSynthBar(conf);
+  // Update CLR pattern
+  document.getElementById('clrPattern').textContent = pat.id;
+  document.getElementById('clrPattern').style.color = pat.color;
+}
+
+function renderPATEntry(e){
+  const feed = document.getElementById('patFeed');
+  const div = document.createElement('div');
+  div.style.cssText = `border:1px solid ${e.novel?'var(--amber)':e.color.replace('#','#')+'44'};background:rgba(2,7,5,.4);padding:6px 8px;position:relative;animation:patIn .3s ease`;
+  if(!document.getElementById('patKeyframes')){
+    const s=document.createElement('style'); s.id='patKeyframes';
+    s.textContent='@keyframes patIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}';
+    document.head.appendChild(s);
+  }
+  div.innerHTML = `
+    ${e.novel?`<div style="position:absolute;top:3px;right:5px;font-size:4px;letter-spacing:1px;padding:1px 3px;border:1px solid var(--amber);color:var(--amber)">AUTO-LEARNED</div>`:''}
+    <div style="font-size:4.5px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;margin-bottom:2px">${e.modules.join('·')} · t=${e.t}s</div>
+    <div style="font-size:6px;color:var(--bright)">${e.label} <span style="color:${e.color}">[${e.zones.join('+')}]</span></div>
+    <div style="display:flex;justify-content:space-between;margin-top:3px">
+      <span style="font-size:4.5px;color:var(--dim)">Σ ${e.sigma}</span>
+      <span style="font-size:4.5px;color:${e.color}">conf ${e.conf}</span>
+    </div>
+  `;
+  feed.insertBefore(div, feed.firstChild);
+  while(feed.children.length > 20) feed.removeChild(feed.lastChild);
+}
+
+function updatePatCount(){ const n=VS.patCount; document.getElementById('patCount').textContent=n+' patterns'; }
+
+function updateSynthBar(conf=0){
+  const v = Math.round(conf*100);
+  document.getElementById('patSynthBar').style.width = v+'%';
+  document.getElementById('patSynthLabel').textContent = 'SYNTHESIS '+v+'%';
+}
+
+// ── CLR panel ──
+const CLR_ZONES = [
+  {key:'face',  label:'FACE',    color:'#00ffee'},
+  {key:'gaze',  label:'GAZE',    color:'#39ff6a'},
+  {key:'lhand', label:'L·HAND',  color:'#ffcc00'},
+  {key:'rhand', label:'R·HAND',  color:'#ffcc00'},
+  {key:'posture',label:'POSTURE',color:'#cc88ff'},
+  {key:'skin',  label:'SKIN',    color:'#ff6eb4'},
+  {key:'voice', label:'VOICE',   color:'#ff6eb4'},
+];
+function buildCLRPanel(){
+  const body = document.getElementById('clrBody'); if(!body) return;
+  body.innerHTML = CLR_ZONES.map(z=>`
+    <div style="margin-bottom:3px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase">${z.label}</span>
+        <span id="clrv-${z.key}" style="font-size:5px;font-weight:700;color:${z.color}">—</span>
+      </div>
+      <div style="height:1px;background:var(--wire);margin-top:1px"><div id="clrb-${z.key}" style="height:100%;width:0%;background:${z.color};transition:width .4s"></div></div>
+    </div>
+  `).join('');
+}
+function updateCLR(){
+  if(!VS.clrOn) return;
+  CLR_ZONES.forEach(z=>{
+    const v = VS.sig[z.key]||0;
+    const el = document.getElementById('clrv-'+z.key);
+    const bar = document.getElementById('clrb-'+z.key);
+    if(el) el.textContent = pickSigLabel(z.key,v)+' '+(v*100).toFixed(0)+'%';
+    if(bar) bar.style.width = (v*100).toFixed(0)+'%';
+  });
+  // update zone card confidence
+  ['face','gaze','lhand','rhand','posture','skin','voice'].forEach(k=>{
+    const el=document.getElementById('zconf-'+k); if(el) el.textContent=(VS.sig[k]*100).toFixed(0)+'%';
+  });
+  const sig=document.getElementById('clrSigma'); if(sig) sig.textContent=VS.sigma.toFixed(2);
+  // state
+  const states=[{l:'DYSREGULATED',v:0.65,c:'var(--violet)'},{l:'UNGROUNDED',v:0.45,c:'var(--amber)'},{l:'ACTIVATING',v:0.3,c:'var(--cyan)'},{l:'STABLE',v:0,c:'var(--signal)'}];
+  const st=states.find(s=>VS.sigma>=s.v)||states[states.length-1];
+  const se=document.getElementById('clrState'); if(se){se.textContent=st.l;se.style.color=st.c;}
+}
+function pickSigLabel(zone,v){
+  const m={
+    face:['blink','gaze·drift','brow·set','micro·expr','jaw·clench'],
+    gaze:['soft·gaze','averted','dart','target·lock','downcast'],
+    lhand:['rest','fidget','self-touch','hair-touch','arm·cross'],
+    rhand:['rest','signal','pointing','grip','reach'],
+    posture:['grounded','neutral','lean·in','prot·cross','collapsed'],
+    skin:['nominal','warm','flush','pallor','sweat·proxy'],
+    voice:['calm','hedging','tremor','prosody·brk','flat·affect'],
+  };
+  const arr=m[zone]||['—']; return arr[Math.min(arr.length-1,Math.floor(v*(arr.length-0.01)))];
+}
+
+// ── Sigma panel ──
+function updateSigmaPanel(){
+  const ss=document.getElementById('sigSlope'); if(ss) ss.textContent=VS.slope.toFixed(3);
+  const se=document.getElementById('sigEntropy'); if(se) se.textContent=VS.entropy.toFixed(3);
+  const sc=document.getElementById('sigConf'); if(sc) sc.textContent=VS.conf.toFixed(2);
+  const states=[{l:'DYSREGULATED',v:0.65,c:'var(--violet)'},{l:'UNGROUNDED',v:0.45,c:'var(--amber)'},{l:'ACTIVATING',v:0.3,c:'var(--cyan)'},{l:'STABLE',v:0,c:'var(--signal)'}];
+  const st=states.find(s=>VS.sigma>=s.v)||states[states.length-1];
+  const sb=document.getElementById('sigStateBox'); if(sb){sb.textContent=st.l;sb.style.color=st.c;sb.style.borderColor=st.c;}
+}
+
+// ── Toggles ──
+function toggleVATS(){
+  VS.vatsOn=!VS.vatsOn;
+  const btn=document.getElementById('btnV');
+  btn.style.borderColor=VS.vatsOn?'#ff4455':'var(--wire2)';
+  btn.style.color=VS.vatsOn?'#ff4455':'var(--mid)';
+  btn.style.background=VS.vatsOn?'rgba(255,68,85,.12)':'transparent';
+  const badge=document.getElementById('vatsActiveBadge');
+  badge.style.display=VS.vatsOn?'block':'none';
+  vatsStatus(VS.vatsOn?'VATS ACTIVE — TARGETING':'STANDBY');
+  vatsToast(VS.vatsOn?'VATS ON — YOU ARE LOCKED':'VATS OFF');
+  if(VS.vatsOn && !VS.camActive) initCam();
+}
+function toggleMesh(){
+  VS.meshOn=!VS.meshOn;
+  const btn=document.getElementById('btnM');
+  btn.style.borderColor=VS.meshOn?'var(--signal)':'var(--wire2)';
+  btn.style.color=VS.meshOn?'var(--signal)':'var(--mid)';
+  vatsToast(VS.meshOn?'MESH ON':'MESH OFF');
+}
+function toggleSkin(){
+  VS.skinOn=!VS.skinOn;
+  const btn=document.getElementById('btnS');
+  btn.style.borderColor=VS.skinOn?'var(--pink)':'var(--wire2)';
+  btn.style.color=VS.skinOn?'var(--pink)':'var(--mid)';
+  document.getElementById('skinCanvas').style.opacity=VS.skinOn?'0.7':'0';
+  vatsToast(VS.skinOn?'SKIN MAP ON':'SKIN MAP OFF');
+}
+function toggleCLR(){
+  VS.clrOn=!VS.clrOn;
+  const btn=document.getElementById('btnC');
+  const panel=document.getElementById('vatsCLR');
+  panel.style.opacity=VS.clrOn?'1':'0'; panel.style.pointerEvents=VS.clrOn?'all':'none';
+  btn.textContent='C · CLR '+(VS.clrOn?'ON':'OFF');
+  btn.style.borderColor=VS.clrOn?'var(--signal)':'var(--wire2)';
+  btn.style.color=VS.clrOn?'var(--signal)':'var(--mid)';
+  btn.style.background=VS.clrOn?'var(--glow)':'transparent';
+}
+
+// ── Zone selection + zoom ──
+function vatsSelZone(z){
+  VS.selectedZone=z;
+  document.querySelectorAll('.zcard').forEach(c=>c.classList.remove('on'));
+  const c=document.getElementById('zc-'+z); if(c) c.classList.add('on');
+  // open zoom
+  openZoom(z);
+}
+
+function onVATSClick(e){
+  if(!VS.vatsOn) return;
+  const r=vatsC.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(vatsC.width/r.width);
+  const my=(e.clientY-r.top)*(vatsC.height/r.height);
+  // find nearest zone
+  let nearest=null, minDist=Infinity;
+  Object.entries(VS.zoneBounds).forEach(([zone,z])=>{
+    const dx=(mx-z.cx)/z.rx, dy=(my-z.cy)/z.ry;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(d<2 && d<minDist){ minDist=d; nearest=zone; }
+  });
+  if(nearest){ vatsSelZone(nearest); }
+}
+
+function openZoom(zone){
+  const zd = document.getElementById('vatsZoom');
+  const lbl = document.getElementById('vatsZoomLabel');
+  const zc = document.getElementById('vatsZoomCanvas');
+  const clrDiv = document.getElementById('vatsZoomCLR');
+  VS.zoomZone = zone;
+  zd.style.display='flex';
+  lbl.textContent = zone.toUpperCase();
+  lbl.style.color = ZONE_COLORS[zone]||'var(--signal)';
+  // Draw zoomed region from video or canvas
+  const vid = document.getElementById('vatsVid');
+  const bounds = VS.zoneBounds[zone];
+  if(bounds && vid.readyState>=2){
+    const pad=40;
+    const sx=Math.max(0,(bounds.cx-bounds.rx-pad)/vatsC.width*vid.videoWidth);
+    const sy=Math.max(0,(bounds.cy-bounds.ry-pad)/vatsC.height*vid.videoHeight);
+    const sw=((bounds.rx*2+pad*2)/vatsC.width)*vid.videoWidth;
+    const sh=((bounds.ry*2+pad*2)/vatsC.height)*vid.videoHeight;
+    zc.width=Math.round(sw*2); zc.height=Math.round(sh*2);
+    const zCtx=zc.getContext('2d');
+    zCtx.drawImage(vid,sx,sy,sw,sh,0,0,zc.width,zc.height);
+    // overlay mesh on zoomed view
+    if(VS.vatsOn){
+      zCtx.fillStyle='rgba(255,68,85,0.08)'; zCtx.fillRect(0,0,zc.width,zc.height);
+      zCtx.strokeStyle='rgba(255,68,85,0.5)'; zCtx.lineWidth=2; zCtx.setLineDash([4,3]);
+      zCtx.strokeRect(4,4,zc.width-8,zc.height-8); zCtx.setLineDash([]);
+    }
+  } else {
+    zc.width=300; zc.height=220;
+    const zCtx=zc.getContext('2d');
+    zCtx.fillStyle='#000'; zCtx.fillRect(0,0,300,220);
+    zCtx.strokeStyle=ZONE_COLORS[zone]||'#39ff6a'; zCtx.lineWidth=1; zCtx.setLineDash([4,3]);
+    zCtx.strokeRect(10,10,280,200); zCtx.setLineDash([]);
+    zCtx.font='700 14px Barlow Condensed'; zCtx.fillStyle=ZONE_COLORS[zone]||'#39ff6a';
+    zCtx.textAlign='center'; zCtx.letterSpacing='4px';
+    zCtx.fillText(zone.toUpperCase()+' · DEMO MODE',150,115);
+  }
+  // CLR for this zone
+  const sig=VS.sig[zone]||0;
+  const sigs=ZONE_SIGNALS[zone]||[];
+  clrDiv.innerHTML=`
+    <div style="color:${ZONE_COLORS[zone]||'var(--signal)'};font-size:7px;letter-spacing:2px;margin-bottom:4px">${zone.toUpperCase()} SIGNALS</div>
+    ${sigs.map(s=>`<div style="font-size:5.5px;color:var(--muted);padding:1px 0">${s}</div>`).join('')}
+    <div style="margin-top:6px;font-size:5px;color:var(--dim)">SIG: ${(sig*100).toFixed(0)}% · Σ${VS.sigma.toFixed(2)}</div>
+  `;
+  // log the zone interaction
+  selZone(zone);
+}
+
+const ZONE_SIGNALS = {
+  face:['gaze·left','gaze·right','gaze·down','jaw·tension','brow·furrow','brow·raise','soft·blink','micro·expr','nostril·flare'],
+  gaze:['target·lock','averted','dart·pattern','soft·gaze','downcast','rapid·saccade'],
+  lhand:['self-soothing','hair·touch','fidget','arm·cross','palm·press','wrist·rotation','object·grip'],
+  rhand:['pointing','waving','grip·object','reach','signal·gesture','touch·surface'],
+  posture:['collapse','lean·in','protective·cross','shoulder·drop','open·chest','ground·anchor','lean·back'],
+  skin:['nominal','thermal·warm','visible·flush','pallor','tension·map','sweat·proxy'],
+  voice:['pitch·nominal','pitch·rise','tremor','flat·affect','prosody·break','volume·drop'],
+};
+
+function closeZoom(){
+  document.getElementById('vatsZoom').style.display='none';
+  VS.zoomZone=null;
+}
+
+// ── Helpers ──
+function clamp(v,mn=0,mx=1){ return Math.max(mn,Math.min(mx,v)); }
+function vatsStatus(msg){ const el=document.getElementById('vatsStatus'); if(el) el.textContent=msg; }
+let toastT;
+function vatsToast(msg){
+  const el=document.getElementById('vatsToast'); if(!el) return;
+  el.textContent=msg; el.style.opacity='1';
+  clearTimeout(toastT); toastT=setTimeout(()=>el.style.opacity='0',1600);
+}
+
+// ── Hotkeys ──
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  const k=e.key.toUpperCase();
+  // Only handle when VATS pane visible
+  const vatsPaneVisible = document.getElementById('pane-vats').classList.contains('on');
+  if(k==='V'){ toggleVATS(); }
+  else if(vatsPaneVisible){
+    if(k==='M') toggleMesh();
+    else if(k==='S') toggleSkin();
+    else if(k==='C') toggleCLR();
+    else if(k==='ESCAPE') closeZoom();
+  }
+});
+
+// Kick off VATS render loop right away (demo mode)
+setTimeout(()=>{
+  initVATS();
+  buildCLRPanel();
+}, 200);
+</script>

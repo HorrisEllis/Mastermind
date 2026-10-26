@@ -1,0 +1,4292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rheon Voice v7</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   RHEON VOICE v7 — main.css
+   Design: dark terminal aesthetic, readable fonts, beautiful mic UI
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&display=swap');
+
+/* ── RESET + ROOT ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* palette */
+  --bg:    #080b10;
+  --bg2:   #0b0f16;
+  --bg3:   #0e1219;
+  --bg4:   #111620;
+
+  --p:     #00ff88;
+  --p2:    #00cc66;
+  --p3:    rgba(0,255,136,0.35);
+  --p4:    rgba(0,255,136,0.10);
+  --p5:    rgba(0,255,136,0.04);
+
+  --amber:  #ffaa00;
+  --amber2: rgba(255,170,0,0.45);
+  --amber3: rgba(255,170,0,0.08);
+
+  --red:   #ff3355;
+  --red2:  rgba(255,51,85,0.45);
+  --red3:  rgba(255,51,85,0.07);
+
+  --blue:  #4da6ff;
+  --blue2: rgba(77,166,255,0.40);
+
+  --purple:  #cc88ff;
+  --purple2: rgba(204,136,255,0.40);
+
+  --cyan:  #00ffee;
+  --cyan2: rgba(0,255,238,0.35);
+
+  --gold:  #c8a96e;
+  --gold2: rgba(200,169,110,0.35);
+
+  --border:  rgba(0,255,136,0.06);
+  --border2: rgba(0,255,136,0.12);
+  --border3: rgba(0,255,136,0.22);
+
+  --text:  rgba(210,255,225,0.90);
+  --text2: rgba(210,255,225,0.58);
+  --text3: rgba(210,255,225,0.32);
+  --text4: rgba(210,255,225,0.14);
+
+  --scan:  rgba(0,255,136,0.008);
+
+  /* sigma regime */
+  --reg-stable:     var(--p);
+  --reg-activating: var(--amber);
+  --reg-ungrounded: var(--purple);
+  --reg-dysreg:     var(--red);
+  --reg-osc:        var(--cyan);
+  --reg-collapse:   rgba(255,100,0,0.95);
+  --reg-offline:    rgba(100,100,100,0.8);
+
+  /* typography scale — FIXED from 6/7px nightmare */
+  --fs-xs:   10px;
+  --fs-sm:   12px;
+  --fs-base: 14px;
+  --fs-md:   15px;
+  --fs-lg:   18px;
+  --fs-xl:   22px;
+  --fs-2xl:  28px;
+  --fs-3xl:  36px;
+
+  --font-mono:    'JetBrains Mono', monospace;
+  --font-display: 'Orbitron', monospace;
+  --font-ui:      'Inter', sans-serif;
+
+  /* layout */
+  --topbar-h: 52px;
+  --strip-h:  3px;
+  --right-w:  380px;
+}
+
+/* ── BODY ─────────────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* scanlines */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scan) 2px, var(--scan) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* grain */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.3;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────────────────── */
+.topbar {
+  height: var(--topbar-h);
+  background: linear-gradient(180deg, rgba(0,255,136,0.04), transparent);
+  border-bottom: 1px solid var(--border3);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+}
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--p3), transparent);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  color: var(--p);
+  text-shadow: 0 0 14px var(--p), 0 0 30px rgba(0,255,136,0.3);
+  user-select: none;
+}
+.logo-v {
+  font-size: var(--fs-xs);
+  color: var(--text3);
+  font-family: var(--font-mono);
+  margin-left: 4px;
+  vertical-align: super;
+}
+
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text4);
+  transition: all 0.3s;
+  flex-shrink: 0;
+  position: relative;
+}
+.live-dot.on  { background: var(--p); box-shadow: 0 0 10px var(--p), 0 0 20px rgba(0,255,136,0.4); }
+.live-dot.on::after { content: ''; position: absolute; inset: -5px; border-radius: 50%; border: 1px solid rgba(0,255,136,0.25); animation: ring-pulse 1.6s ease-out infinite; }
+.live-dot.flow { background: var(--cyan); box-shadow: 0 0 14px var(--cyan); animation: flow-pulse 1.2s ease-in-out infinite; }
+.live-dot.err  { background: var(--red); box-shadow: 0 0 10px var(--red); }
+
+@keyframes ring-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.8); opacity: 0; } }
+@keyframes flow-pulse { 0%,100% { box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0,255,238,0.3); } 50% { box-shadow: 0 0 24px var(--cyan), 0 0 48px rgba(0,255,238,0.6); } }
+
+#status-txt {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.15em;
+  color: var(--text2);
+}
+#status-txt.on  { color: var(--p); }
+#status-txt.err { color: var(--red); }
+
+.regime-badge {
+  font-size: var(--fs-xs);
+  padding: 3px 10px;
+  border: 1px solid;
+  letter-spacing: 0.12em;
+  font-family: var(--font-display);
+  transition: all 0.4s;
+}
+.offline-badge {
+  display: none;
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border: 1px solid var(--amber2);
+  color: var(--amber);
+  background: var(--amber3);
+}
+.offline-badge.show { display: inline-block; }
+
+.topbar-clock {
+  font-size: var(--fs-sm);
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.topbar-r { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+/* ── RECORD BUTTON — the centrepiece ───────────────────────────── */
+.btn-record {
+  position: relative;
+  background: none;
+  border: 2px solid var(--p3);
+  color: var(--p);
+  font-size: var(--fs-sm);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 8px 22px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  text-transform: uppercase;
+}
+.btn-record::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--p5);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
+}
+.btn-record:hover { border-color: var(--p); box-shadow: 0 0 18px rgba(0,255,136,0.3), inset 0 0 12px rgba(0,255,136,0.05); }
+.btn-record:hover::before { transform: scaleX(1); }
+
+.btn-record.recording {
+  border-color: var(--p);
+  color: var(--p);
+  box-shadow: 0 0 24px rgba(0,255,136,0.4), 0 0 48px rgba(0,255,136,0.15), inset 0 0 16px rgba(0,255,136,0.08);
+  animation: rec-btn-pulse 2s ease-in-out infinite;
+}
+@keyframes rec-btn-pulse {
+  0%,100% { box-shadow: 0 0 18px rgba(0,255,136,0.35), inset 0 0 12px rgba(0,255,136,0.06); }
+  50%      { box-shadow: 0 0 36px rgba(0,255,136,0.6), 0 0 60px rgba(0,255,136,0.2), inset 0 0 20px rgba(0,255,136,0.1); }
+}
+
+.btn-record .rec-icon {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--p);
+  margin-right: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 8px var(--p);
+  transition: all 0.2s;
+}
+.btn-record.recording .rec-icon {
+  border-radius: 2px;
+  background: var(--p);
+  animation: icon-blink 1.4s ease-in-out infinite;
+}
+@keyframes icon-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.tb-btn {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+.tb-btn:hover { border-color: var(--p3); color: var(--p); }
+.tb-btn.danger:hover { border-color: var(--red2); color: var(--red); }
+
+.data-ticker { position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--p3), transparent); animation: ticker-slide 5s ease-in-out infinite; }
+@keyframes ticker-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+/* ── PERM BANNER ─────────────────────────────────────────────── */
+.perm-banner {
+  display: none;
+  font-size: var(--fs-sm);
+  color: var(--red);
+  background: var(--red3);
+  border-bottom: 1px solid rgba(255,51,85,0.2);
+  padding: 8px 18px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+}
+.perm-banner.show { display: flex; }
+.perm-retry {
+  background: none;
+  border: 1px solid var(--red2);
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+}
+
+/* ── REGIME STRIP ────────────────────────────────────────────── */
+.regime-strip { height: var(--strip-h); background: var(--bg); flex-shrink: 0; overflow: hidden; }
+.regime-strip-fill { height: 100%; width: 0%; transition: width 0.5s, background 0.5s; }
+
+/* ── MAIN GRID ───────────────────────────────────────────────── */
+.main { flex: 1; display: grid; grid-template-columns: 1fr var(--right-w); overflow: hidden; min-height: 0; }
+
+/* ── LEFT COL ────────────────────────────────────────────────── */
+.left-col { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+
+.col-head {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(0,255,136,0.025), transparent);
+}
+.col-lbl { font-size: var(--fs-xs); letter-spacing: 0.28em; color: var(--text3); font-family: var(--font-display); }
+.node-counter { font-size: var(--fs-xs); color: var(--p3); }
+
+.search-in {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: 2px 6px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-in:focus { border-color: var(--p3); }
+.search-in::placeholder { color: var(--text4); }
+
+.transcript { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.transcript::-webkit-scrollbar { width: 3px; }
+.transcript::-webkit-scrollbar-thumb { background: var(--p4); border-radius: 2px; }
+
+/* ── EMPTY STATE ─────────────────────────────────────────────── */
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.empty-glyph { font-size: 38px; color: var(--text4); letter-spacing: 0.3em; font-family: var(--font-display); animation: empty-pulse 3s ease-in-out infinite; }
+.empty-t { font-size: var(--fs-lg); letter-spacing: 0.35em; color: var(--text3); font-family: var(--font-display); }
+.empty-s { font-size: var(--fs-sm); letter-spacing: 0.14em; color: var(--text4); }
+@keyframes empty-pulse { 0%,100% { opacity: 0.2; } 50% { opacity: 0.6; } }
+
+/* ── NODE ────────────────────────────────────────────────────── */
+.node {
+  padding: 10px 12px;
+  border-left: 2px solid var(--border2);
+  background: var(--p5);
+  position: relative;
+  animation: node-in 0.22s ease-out;
+  transition: background 0.2s;
+}
+@keyframes node-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.node::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--p); opacity: 0; transition: opacity 0.2s; }
+.node:hover::before { opacity: 0.5; }
+.node:hover { background: rgba(0,255,136,0.06); }
+
+.node.has-contra { border-left-color: var(--red2);    background: var(--red3); }
+.node.drift      { border-left-color: var(--purple2);  background: rgba(204,136,255,0.04); }
+.node.loop       { border-left-color: var(--blue2);    background: rgba(77,166,255,0.04); }
+.node.has-frame  { border-left-color: var(--amber2);   background: var(--amber3); }
+.node.flow-node  { border-left-color: var(--cyan2);    background: rgba(0,255,238,0.04); }
+.node.suppressed { border-left-color: rgba(200,169,110,0.4); background: rgba(200,169,110,0.03); }
+
+.node-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.node-idx  { font-size: var(--fs-xs); color: var(--text4); font-family: var(--font-display); min-width: 28px; }
+.node-ts   { font-size: var(--fs-xs); color: var(--text3); }
+.node-delta { font-size: var(--fs-xs); padding: 1px 5px; border: 1px solid var(--border2); color: var(--text3); }
+.node-delta.long  { border-color: var(--amber2); color: var(--amber); }
+.node-delta.vlong { border-color: var(--red2);   color: var(--red); }
+.node-wpm  { font-size: var(--fs-xs); color: var(--text3); }
+.node-res  { font-size: var(--fs-xs); padding: 1px 6px; border: 1px solid rgba(0,170,255,0.25); color: rgba(77,166,255,0.65); }
+.node-flow-badge { font-size: var(--fs-xs); padding: 2px 8px; border: 1px solid var(--cyan2); color: var(--cyan); letter-spacing: 0.1em; }
+
+.node-text { font-size: var(--fs-md); line-height: 1.75; color: var(--text); word-break: break-word; }
+
+.node-signals { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.sig-tag { font-size: var(--fs-xs); padding: 2px 7px; border: 1px solid; letter-spacing: 0.07em; border-radius: 1px; }
+.sig-tag.contra    { border-color: var(--red2);    color: var(--red); }
+.sig-tag.frame     { border-color: var(--amber2);  color: var(--amber); }
+.sig-tag.stutter   { border-color: var(--border3); color: var(--text2); }
+.sig-tag.drift     { border-color: var(--purple2); color: var(--purple); }
+.sig-tag.loop      { border-color: var(--blue2);   color: var(--blue); }
+.sig-tag.flow      { border-color: var(--cyan2);   color: var(--cyan); }
+.sig-tag.suppress  { border-color: var(--gold2);   color: var(--gold); }
+.sig-tag.cogload   { border-color: rgba(204,136,255,0.3); color: var(--purple); }
+.sig-tag.harm      { border-color: var(--p3);      color: var(--p); }
+.sig-tag.jitter    { border-color: rgba(255,170,0,0.3); color: var(--amber); }
+.sig-tag.drift-cluster { border-color: rgba(204,136,255,0.55); color: var(--purple); font-weight: bold; }
+.sig-tag.regime    { border: none; }
+
+.node-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.w-tag { font-size: var(--fs-xs); padding: 2px 6px; border: 1px solid var(--border); color: var(--text4); cursor: pointer; transition: all 0.12s; }
+.w-tag:hover { border-color: var(--p3); color: var(--p3); }
+
+.node-mirror-lbl { font-size: var(--fs-xs); letter-spacing: 0.22em; color: var(--text4); margin-top: 7px; margin-bottom: 3px; }
+.node-mirror { font-size: var(--fs-sm); line-height: 1.7; color: var(--text2); padding: 6px 8px; border: 1px solid var(--border); background: var(--p5); font-style: italic; white-space: pre-wrap; border-left: 2px solid var(--p4); }
+.node-mirror.offline-mirror { border-color: var(--border); color: var(--text3); }
+.node-mirror.streaming::after { content: '▌'; animation: blink 0.7s infinite; color: var(--p); }
+.node-mirror.api-mirror { border-left-color: var(--p3); }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ── LIVE INTERIM ────────────────────────────────────────────── */
+.interim-node { padding: 8px 12px; border-left: 2px solid var(--p); opacity: 0.75; background: rgba(0,255,136,0.03); }
+.interim-text { font-size: var(--fs-md); line-height: 1.75; color: rgba(0,255,136,0.6); white-space: pre-wrap; }
+.cursor-blink { display: inline-block; width: 9px; height: 2px; background: var(--p); margin-left: 3px; animation: blink 0.9s infinite; vertical-align: middle; }
+
+/* ── BOTTOM BARS ─────────────────────────────────────────────── */
+.interim-bar {
+  padding: 5px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-height: 28px;
+  background: rgba(0,255,136,0.015);
+}
+.interim-lbl { font-size: var(--fs-xs); letter-spacing: 0.26em; color: var(--text4); flex-shrink: 0; }
+.interim-box { font-size: var(--fs-sm); color: var(--p3); font-style: italic; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stats-bar {
+  padding: 6px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  background: var(--bg2);
+}
+.stat { font-size: var(--fs-xs); color: var(--text3); letter-spacing: 0.08em; }
+.stat span   { color: var(--text2); }
+.stat span.g  { color: var(--p); }
+.stat span.r  { color: var(--red); }
+.stat span.b  { color: var(--blue); }
+.stat span.fl { color: var(--cyan); }
+.stat span.a  { color: var(--amber); }
+
+/* ── RIGHT COL ───────────────────────────────────────────────── */
+.right-col { display: flex; flex-direction: column; overflow: hidden; background: var(--bg2); }
+
+/* ── MIC / VISUALIZER SECTION ─────────────────────────────────── */
+.mic-section {
+  flex-shrink: 0;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Big beautiful canvas */
+.osc-wrap { padding: 10px 14px 6px; position: relative; }
+.osc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.osc-lbl { font-size: var(--fs-xs); letter-spacing: 0.26em; color: var(--text3); font-family: var(--font-display); }
+.osc-stats { display: flex; gap: 12px; font-size: var(--fs-xs); color: var(--text3); }
+.osc-stats span { color: var(--text2); font-variant-numeric: tabular-nums; }
+.osc-hz { font-size: var(--fs-sm); color: var(--p3); font-variant-numeric: tabular-nums; font-weight: 500; }
+
+#osc-canvas {
+  width: 100%;
+  /* height set by JS — 110px logical */
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: default;
+}
+
+/* Input gain slider — GAPS.md #3 */
+.gain-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 0; flex-shrink: 0; }
+.gain-lbl { font-size: var(--fs-xs); letter-spacing: 0.2em; color: var(--text3); text-transform: uppercase; flex-shrink: 0; font-family: var(--font-display); }
+.gain-slider { flex: 1; height: 2px; accent-color: var(--p); cursor: pointer; background: var(--border2); }
+.gain-val { font-size: var(--fs-xs); color: var(--p3); width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Record button area below canvas */
+.mic-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 10px;
+  gap: 10px;
+}
+.mic-left  { display: flex; align-items: center; gap: 10px; }
+.mic-right { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--text3); }
+
+/* The big standalone record button in the mic section */
+.btn-rec-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 2px solid var(--p3);
+  color: var(--p);
+  font-family: var(--font-display);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 10px 26px;
+  cursor: pointer;
+  transition: all 0.2s;
+  overflow: hidden;
+  text-transform: uppercase;
+}
+.btn-rec-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(0,255,136,0.04) 100%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.btn-rec-main:hover {
+  border-color: var(--p);
+  box-shadow: 0 0 24px rgba(0,255,136,0.35), inset 0 0 16px rgba(0,255,136,0.06);
+}
+.btn-rec-main:hover::after { opacity: 1; }
+.btn-rec-main.recording {
+  border-color: var(--p);
+  box-shadow: 0 0 32px rgba(0,255,136,0.5), 0 0 64px rgba(0,255,136,0.18), inset 0 0 20px rgba(0,255,136,0.08);
+  animation: rec-main-pulse 2s ease-in-out infinite;
+}
+@keyframes rec-main-pulse {
+  0%,100% { box-shadow: 0 0 24px rgba(0,255,136,0.4), inset 0 0 14px rgba(0,255,136,0.07); }
+  50%      { box-shadow: 0 0 48px rgba(0,255,136,0.65), 0 0 80px rgba(0,255,136,0.22), inset 0 0 24px rgba(0,255,136,0.12); }
+}
+.btn-rec-main .rec-gem {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.5), var(--p));
+  box-shadow: 0 0 10px var(--p), 0 0 20px rgba(0,255,136,0.4);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.btn-rec-main.recording .rec-gem {
+  border-radius: 3px;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.4), var(--p));
+  animation: gem-pulse 1.4s ease-in-out infinite;
+}
+@keyframes gem-pulse { 0%,100% { opacity: 1; box-shadow: 0 0 8px var(--p); } 50% { opacity: 0.5; box-shadow: 0 0 20px var(--p), 0 0 40px rgba(0,255,136,0.4); } }
+
+/* ── METERS ─────────────────────────────────────────────────────── */
+.meters { padding: 6px 14px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; background: var(--bg2); }
+.meter-row { display: flex; align-items: center; gap: 8px; }
+.meter-lbl { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--text3); width: 76px; flex-shrink: 0; }
+.meter-bar-wrap {
+  flex: 1; height: 5px;
+  background: rgba(255,255,255,0.04);
+  position: relative; overflow: hidden;
+}
+.meter-bar-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent, transparent 9px, rgba(255,255,255,0.01) 9px, rgba(255,255,255,0.01) 10px);
+}
+.meter-bar { height: 100%; transition: width 0.09s; min-width: 2px; position: relative; }
+.meter-bar::after { content: ''; position: absolute; top: 0; right: 0; width: 4px; height: 100%; background: inherit; filter: brightness(1.9); }
+.meter-bar.green  { background: linear-gradient(90deg, rgba(0,255,136,0.2), var(--p)); }
+.meter-bar.red    { background: linear-gradient(90deg, rgba(255,51,85,0.2),  var(--red)); }
+.meter-bar.blue   { background: linear-gradient(90deg, rgba(77,166,255,0.2), var(--blue)); }
+.meter-bar.purple { background: linear-gradient(90deg, rgba(204,136,255,0.2),var(--purple)); }
+.meter-bar.flow   { background: linear-gradient(90deg, rgba(0,255,238,0.2),  var(--cyan)); }
+.meter-bar.amber  { background: linear-gradient(90deg, rgba(255,170,0,0.2),  var(--amber)); }
+.meter-val { font-size: var(--fs-xs); color: var(--text3); width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── SIGMA BAR ───────────────────────────────────────────────── */
+.sigma-bar {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  transition: all 0.5s;
+  background: var(--bg2);
+}
+.sig-label { font-size: var(--fs-xs); letter-spacing: 0.2em; color: var(--text3); font-family: var(--font-display); width: 88px; flex-shrink: 0; }
+.sig-regime-name { font-size: var(--fs-sm); font-family: var(--font-display); letter-spacing: 0.1em; transition: color 0.4s; min-width: 96px; }
+.sig-regime-detail { font-size: var(--fs-xs); color: var(--text3); margin-left: auto; }
+.sig-prog { flex: 1; height: 3px; background: rgba(255,255,255,0.04); position: relative; overflow: hidden; }
+.sig-prog-fill { height: 100%; transition: width 0.5s, background 0.5s; }
+
+/* ── TABS ────────────────────────────────────────────────────── */
+.right-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg3);
+}
+.rtab {
+  flex: 1;
+  padding: 8px 0;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  text-align: center;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--font-display);
+  user-select: none;
+}
+.rtab:hover { color: var(--text2); border-bottom-color: var(--border3); }
+.rtab.active { color: var(--p); border-bottom-color: var(--p); }
+
+/* ── PANELS ──────────────────────────────────────────────────── */
+.panel { display: none; flex: 1; overflow-y: auto; padding: 10px; }
+.panel::-webkit-scrollbar { width: 3px; }
+.panel::-webkit-scrollbar-thumb { background: var(--p4); }
+.panel.active { display: block; }
+
+.panel-lbl { font-size: var(--fs-xs); letter-spacing: 0.26em; color: var(--text3); font-family: var(--font-display); padding: 2px 0 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+
+.signal-section { margin-bottom: 14px; }
+.signal-section-lbl { font-size: var(--fs-xs); letter-spacing: 0.2em; color: var(--text3); font-family: var(--font-display); margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+
+.sig-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.sig-row-lbl { font-size: var(--fs-xs); color: var(--text3); width: 110px; flex-shrink: 0; }
+.sig-row-bar { flex: 1; height: 3px; background: rgba(255,255,255,0.04); position: relative; overflow: hidden; }
+.sig-row-fill { height: 100%; transition: width 0.35s, background 0.35s; }
+.sig-row-val { font-size: var(--fs-xs); color: var(--text2); width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── WORD BANK ───────────────────────────────────────────────── */
+.bank-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 4px 0; }
+.bchip {
+  font-size: var(--fs-xs);
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.12s;
+  position: relative;
+}
+.bchip:hover { border-color: var(--p3); color: var(--p); }
+.bchip.selected { border-color: var(--p); color: var(--p); background: var(--p5); }
+.bc { font-size: 10px; color: var(--p3); margin-left: 4px; }
+
+.co-occur { margin-top: 10px; }
+.co-lbl { font-size: var(--fs-xs); color: var(--text3); margin-bottom: 5px; letter-spacing: 0.08em; }
+.co-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.co-chip { font-size: var(--fs-xs); padding: 2px 7px; border: 1px solid var(--blue2); color: var(--blue); cursor: pointer; }
+.co-chip:hover { background: rgba(77,166,255,0.06); }
+
+/* ── DRIFT ITEMS ─────────────────────────────────────────────── */
+.drift-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; border-left: 2px solid var(--purple2); margin-bottom: 3px; background: rgba(204,136,255,0.03); font-size: var(--fs-xs); }
+.di-type { color: var(--purple); letter-spacing: 0.06em; }
+.drift-cluster-alert { padding: 6px 8px; border: 1px solid rgba(204,136,255,0.4); background: rgba(204,136,255,0.05); margin-top: 6px; }
+.dca-label { font-size: var(--fs-xs); color: var(--purple); letter-spacing: 0.12em; font-family: var(--font-display); margin-bottom: 3px; }
+.dca-desc { font-size: var(--fs-xs); color: var(--text3); }
+
+/* ── FRAMES ──────────────────────────────────────────────────── */
+.frame-item { padding: 5px 0; border-bottom: 1px solid var(--border); }
+.frame-type { font-size: var(--fs-xs); color: var(--amber); letter-spacing: 0.1em; font-family: var(--font-display); }
+.frame-count { font-size: var(--fs-xs); color: var(--text3); }
+.frame-ex { font-size: var(--fs-xs); color: var(--text4); font-style: italic; margin-top: 2px; }
+
+/* ── CONTRA ──────────────────────────────────────────────────── */
+.contra-item { padding: 7px 0; border-bottom: 1px solid var(--border); }
+.contra-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.contra-ts   { font-size: var(--fs-xs); color: var(--text3); }
+.contra-type { font-size: var(--fs-xs); color: var(--red); border: 1px solid var(--red2); padding: 1px 6px; }
+.contra-desc { font-size: var(--fs-sm); color: var(--text2); }
+.contra-quote { font-size: var(--fs-xs); color: var(--text3); font-style: italic; margin-top: 3px; }
+
+/* ── FLOW PANEL ──────────────────────────────────────────────── */
+.flow-panel-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 10px; }
+.flow-score-big { font-size: var(--fs-3xl); font-family: var(--font-display); color: var(--cyan); line-height: 1; }
+.flow-meta { font-size: var(--fs-xs); color: var(--text3); line-height: 1.6; }
+.flow-hist-item { display: flex; gap: 8px; align-items: center; padding: 4px 6px; border-left: 2px solid var(--border2); margin-bottom: 3px; font-size: var(--fs-xs); }
+.flow-hist-item.peak { border-left-color: var(--cyan2); }
+.fhi-ts    { color: var(--text3); }
+.fhi-dur   { color: var(--text2); flex: 1; }
+.fhi-score { color: var(--cyan); font-weight: 500; }
+
+/* ── RESONANCE PANEL ─────────────────────────────────────────── */
+.res-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.res-class { font-size: var(--fs-sm); color: var(--text3); letter-spacing: 0.1em; }
+.res-score-big { font-size: var(--fs-xl); font-family: var(--font-display); color: var(--text3); margin-left: auto; }
+.res-axes { }
+.receiver-grammar { margin-top: 10px; padding: 8px; border: 1px solid var(--border2); background: var(--p5); }
+.rg-mode { font-size: var(--fs-sm); color: var(--p); letter-spacing: 0.12em; font-family: var(--font-display); margin-bottom: 4px; }
+.rg-detail { font-size: var(--fs-xs); color: var(--text3); white-space: pre-wrap; line-height: 1.6; }
+
+/* ── TOPOLOGY PANEL ──────────────────────────────────────────── */
+.topo-state-big { font-size: var(--fs-xl); font-family: var(--font-display); letter-spacing: 0.12em; margin-bottom: 2px; }
+.topo-evidence-txt { font-size: var(--fs-xs); color: var(--text3); word-break: break-word; line-height: 1.6; }
+.topo-inv-list { font-size: var(--fs-sm); color: var(--text2); padding: 4px 0; word-break: break-word; line-height: 1.7; }
+
+/* ── ENERGY SPARKLINE ────────────────────────────────────────── */
+.sig-spark { display: flex; align-items: flex-end; gap: 2px; height: 20px; padding: 2px 0; }
+.spark-bar { width: 4px; min-height: 2px; border-radius: 1px; }
+
+/* ── MISC ────────────────────────────────────────────────────── */
+.no-item { font-size: var(--fs-xs); color: var(--text4); font-style: italic; padding: 6px 0; }
+
+/* Domain switcher buttons */
+.domain-btn {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+.domain-btn:hover {
+  border-color: var(--p3);
+  color: var(--p);
+  background: var(--p5);
+}
+.domain-btn.active {
+  border-color: var(--p);
+  color: var(--p);
+  background: var(--p5);
+  box-shadow: 0 0 10px rgba(0,255,136,0.2), inset 0 0 6px rgba(0,255,136,0.04);
+}
+.domain-btn::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  white-space: nowrap;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  background: var(--bg2);
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+}
+.domain-btn:hover::after { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<!-- ── TOPBAR ─────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="logo">RHEON<span class="logo-v">v7</span></div>
+  <div class="live-dot" id="live-dot"></div>
+  <div id="status-txt">READY</div>
+  <div class="regime-badge" id="regime-badge" style="display:none"></div>
+  <div class="offline-badge" id="offline-badge">LOCAL MIRROR</div>
+  <div class="topbar-clock" id="topbar-clock">--:--:--</div>
+
+  <!-- Domain switcher -->
+  <div style="display:flex;gap:4px;margin-left:8px">
+    <button class="domain-btn active" data-domain="voice"    onclick="setDomain('voice')"    title="Voice / General">◈</button>
+    <button class="domain-btn"        data-domain="therapy"  onclick="setDomain('therapy')"  title="Therapy / Emotional">⬡</button>
+    <button class="domain-btn"        data-domain="code"     onclick="setDomain('code')"     title="Code / Technical">⌥</button>
+    <button class="domain-btn"        data-domain="strategy" onclick="setDomain('strategy')" title="Strategy / Business">◆</button>
+    <button class="domain-btn"        data-domain="journal"  onclick="setDomain('journal')"  title="Journal / Reflection">⊗</button>
+  </div>
+
+  <div class="topbar-r">
+    <button class="tb-btn" onclick="openSearch()">SEARCH</button>
+    <button class="tb-btn" onclick="exportSession()">EXPORT</button>
+    <button class="tb-btn danger" onclick="clearSession()">CLEAR</button>
+  </div>
+  <div class="data-ticker"></div>
+</div>
+
+<!-- ── SIGMA STRIP ────────────────────────────────────────────── -->
+<div class="regime-strip"><div class="regime-strip-fill" id="regime-strip-fill"></div></div>
+
+<!-- ── PERM BANNER ───────────────────────────────────────────── -->
+<div class="perm-banner" id="perm-banner">
+  <span>MIC DENIED — allow microphone in browser settings then click Retry.</span>
+  <button class="perm-retry" onclick="retryMic()">RETRY</button>
+</div>
+
+<!-- ── MAIN ──────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ── LEFT: TRANSCRIPT ─────────────────────────────────────── -->
+  <div class="left-col">
+    <div class="col-head">
+      <div class="col-lbl">SESSION</div>
+      <div class="node-counter" id="node-counter">0 NODES</div>
+      <input class="search-in" type="text" placeholder="filter transcript…" id="search-in" oninput="filterNodes()">
+    </div>
+
+    <div class="transcript" id="transcript">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-glyph">▋▋▋</div>
+        <div class="empty-t">SILENCE</div>
+        <div class="empty-s">PRESS RECORD — EXTERNALIZE YOUR THINKING</div>
+      </div>
+    </div>
+
+    <div class="interim-bar">
+      <div class="interim-lbl">LIVE ▶</div>
+      <div class="interim-box" id="interim-box">—</div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">NODES <span id="st-nodes">0</span></div>
+      <div class="stat">WORDS <span id="st-words">0</span></div>
+      <div class="stat">WPM <span class="a" id="st-wpm">—</span></div>
+      <div class="stat">CONTRA <span class="r" id="st-contra">0</span></div>
+      <div class="stat">FLOW <span class="fl" id="st-flow">—</span></div>
+      <div class="stat">REGIME <span class="g" id="st-regime">—</span></div>
+      <div class="stat">DRIFT <span class="b" id="st-drift">0</span></div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: ANALYSIS PANEL ────────────────────────────────── -->
+  <div class="right-col">
+
+    <!-- MIC SECTION: oscilloscope + big record button -->
+    <div class="mic-section">
+      <div class="osc-wrap">
+        <div class="osc-header">
+          <span class="osc-lbl">WAVEFORM</span>
+          <div class="osc-stats">
+            RMS <span id="osc-rms">—</span>
+            ZCR <span id="osc-zcr">—</span>
+            HNR <span id="osc-hnr">—</span>
+          </div>
+          <span class="osc-hz" id="osc-hz">—</span>
+        </div>
+        <canvas id="osc-canvas"></canvas>
+        <div class="gain-row">
+          <span class="gain-lbl">INPUT GAIN</span>
+          <input type="range" class="gain-slider" min="1" max="32" step="0.5" value="8"
+            id="gain-slider" oninput="setInputGain(this.value)">
+          <span class="gain-val" id="gain-val">+18dB</span>
+        </div>
+      </div>
+
+      <div class="mic-controls">
+        <div class="mic-left">
+          <!-- THE RECORD BUTTON -->
+          <button class="btn-rec-main" id="rec-btn-main" onclick="toggleRecord()">
+            <span class="rec-gem"></span>
+            <span class="rec-label">RECORD</span>
+          </button>
+        </div>
+        <div class="mic-right">
+          <span id="mic-domain-label" style="letter-spacing:0.12em;color:var(--text3)">VOICE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- METERS -->
+    <div class="meters">
+      <div class="meter-row">
+        <div class="meter-lbl">PITCH F0</div>
+        <div class="meter-bar-wrap"><div class="meter-bar blue" id="m-pitch" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-pitch">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">VOLUME dB</div>
+        <div class="meter-bar-wrap"><div class="meter-bar green" id="m-vol" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-vol">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">JITTER</div>
+        <div class="meter-bar-wrap"><div class="meter-bar amber" id="m-jitter" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-jitter">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">DYSFLUENCY</div>
+        <div class="meter-bar-wrap"><div class="meter-bar red" id="m-dysfl" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-dysfl">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">TOPOLOGY</div>
+        <div class="meter-bar-wrap"><div class="meter-bar purple" id="m-topo" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-topo" style="color:var(--text3)">CALIB</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">RESONANCE</div>
+        <div class="meter-bar-wrap"><div class="meter-bar purple" id="m-res" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-res">—</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">FLOW STATE</div>
+        <div class="meter-bar-wrap"><div class="meter-bar flow" id="m-flow" style="width:0%"></div></div>
+        <div class="meter-val" id="mv-flow">—</div>
+      </div>
+    </div>
+
+    <!-- SIGMA REGIME BAR -->
+    <div class="sigma-bar">
+      <div class="sig-label">SIGMA REGIME</div>
+      <div class="sig-regime-name" id="sig-regime-name" style="color:var(--text3)">INSUFFICIENT DATA</div>
+      <div class="sig-prog"><div class="sig-prog-fill" id="sig-prog-fill" style="width:0%;background:var(--text3)"></div></div>
+      <div class="sig-regime-detail" id="sig-regime-detail">—</div>
+    </div>
+
+    <!-- TABS -->
+    <div class="right-tabs">
+      <div class="rtab active" id="rtab-bank"      onclick="switchTab('bank')">BANK</div>
+      <div class="rtab"        id="rtab-signals"   onclick="switchTab('signals')">SIGNALS</div>
+      <div class="rtab"        id="rtab-contra"    onclick="switchTab('contra')">CONTRA</div>
+      <div class="rtab"        id="rtab-flow"      onclick="switchTab('flow')">FLOW</div>
+      <div class="rtab"        id="rtab-resonance" onclick="switchTab('resonance')">RESON</div>
+      <div class="rtab"        id="rtab-topology"  onclick="switchTab('topology')">TOPO</div>
+      <div class="rtab"        id="rtab-extmic"    onclick="switchTab('extmic')">EXT MIC</div>
+    </div>
+
+    <!-- PANEL: WORD BANK -->
+    <div class="panel active" id="panel-bank">
+      <div class="panel-lbl">ASSOCIATIVE WORD BANK</div>
+      <div class="bank-chips" id="bank-chips">
+        <div class="no-item">no words yet</div>
+      </div>
+      <div class="co-occur" id="co-occur" style="display:none">
+        <div class="co-lbl">ASSOCIATED WITH <span id="co-word"></span>:</div>
+        <div class="co-row" id="co-row"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: SIGNALS -->
+    <div class="panel" id="panel-signals">
+      <div class="signal-section">
+        <div class="signal-section-lbl">SLOPE ENGINE — TRAJECTORY</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">ENERGY SLOPE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-energy" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-energy">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">RESONANCE SLOPE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-res" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-res">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">DYSFLUENCY TREND</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-dysf" style="width:50%"></div></div>
+          <div class="sig-row-val" id="sv-dysf">—</div>
+        </div>
+        <div class="signal-section-lbl" style="margin-top:8px">ENERGY HISTORY</div>
+        <div class="sig-spark" id="spark-energy"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">OSCILLATION ENGINE — RHYTHM</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">PERIOD (nodes)</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-per" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-per">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">AMPLITUDE</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-amp" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-amp">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">REGULARITY</div>
+          <div class="sig-row-bar"><div class="sig-row-fill" id="sp-osc-reg" style="width:0%;background:var(--cyan)"></div></div>
+          <div class="sig-row-val" id="sv-osc-reg">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">DRIFT ENGINE — 7 SIGNALS</div>
+        <div id="drift-list"><div class="no-item">no drift detected</div></div>
+        <div id="drift-cluster-container"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">FRAMEWORK PATTERNS</div>
+        <div id="frame-list"><div class="no-item">listening for structure…</div></div>
+      </div>
+    </div>
+
+    <!-- PANEL: CONTRADICTIONS -->
+    <div class="panel" id="panel-contra">
+      <div class="panel-lbl">CONTRADICTIONS</div>
+      <div id="contra-list"><div class="no-item">no contradictions yet</div></div>
+    </div>
+
+    <!-- PANEL: FLOW -->
+    <div class="panel" id="panel-flow">
+      <div class="panel-lbl">FLOW STATE</div>
+      <div class="flow-panel-head">
+        <div class="flow-score-big" id="fp-score">0%</div>
+        <div class="flow-meta" id="fp-meta">Not in flow state.</div>
+      </div>
+      <div class="panel-lbl" style="margin-top:8px">FLOW EPISODES</div>
+      <div id="flow-history"><div class="no-item">no flow episodes yet</div></div>
+    </div>
+
+    <!-- PANEL: RESONANCE -->
+    <div class="panel" id="panel-resonance">
+      <div class="panel-lbl">RESONANCE ENGINE</div>
+      <div class="res-head">
+        <div>
+          <div class="res-class" id="res-class" style="color:var(--text3)">INSUFFICIENT DATA</div>
+          <div style="font-size:var(--fs-xs);color:var(--text3);margin-top:2px">session-internal temporal resonance</div>
+        </div>
+        <div class="res-score-big" id="res-score-big" style="color:var(--text3)">—</div>
+      </div>
+      <div class="signal-section-lbl">RESONANCE AXES</div>
+      <div id="res-axes"></div>
+      <div class="receiver-grammar" id="receiver-grammar" style="display:none">
+        <div class="rg-mode" id="rg-mode">—</div>
+        <div class="rg-detail" id="rg-detail"></div>
+      </div>
+    </div>
+
+    <!-- PANEL: TOPOLOGY (codec-v2) -->
+    <div class="panel" id="panel-topology">
+      <div class="panel-lbl">TOPOLOGY ENGINE — CODEC v2</div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">COMPOSITE STATE</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:5px">
+          <div class="topo-state-big" id="topo-state" style="color:var(--text3)">CALIBRATING</div>
+          <div style="font-size:var(--fs-xs);color:var(--text3)" id="topo-warmup">warmup in progress</div>
+        </div>
+        <div class="topo-evidence-txt" id="topo-evidence"></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">POLARITY ENGINE</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">CURRENT POLARITY</div>
+          <div class="sig-row-val" id="topo-polarity" style="color:var(--text3)">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">SESSION ARC</div>
+          <div class="sig-row-val" id="topo-arc" style="color:var(--text3)">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">POLARITY FLIPS</div>
+          <div class="sig-row-val" id="topo-flips">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">ASSOCIATION ENGINE</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:3px">INVARIANT WORDS</div>
+        <div class="topo-inv-list" id="topo-invariants">none yet</div>
+        <div class="sig-row" style="margin-top:6px">
+          <div class="sig-row-lbl">REDUNDANCY</div>
+          <div class="sig-row-val" id="topo-redundant" style="color:var(--text3)">none</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">PREDICTIVE ENGINE</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">NEXT TAG</div>
+          <div class="sig-row-val" id="topo-prediction">—</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">NEXT WORDS</div>
+          <div class="sig-row-val" id="topo-word-pred" style="color:var(--blue)">—</div>
+        </div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">FRICTION ANALYZER</div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">FRICTION TYPES</div>
+          <div class="sig-row-val" id="topo-friction" style="color:var(--text3)">none</div>
+        </div>
+        <div class="sig-row">
+          <div class="sig-row-lbl">REDUNDANCY</div>
+          <div class="sig-row-val" id="topo-redundant2" style="color:var(--text3)">none</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL: EXT MIC (PeerJS host receiver) -->
+    <div class="panel" id="panel-extmic">
+      <div class="panel-lbl">EXTERNAL MIC — PEER RECEIVER</div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">CONNECT MIC CLIENT</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:8px;line-height:1.6">
+          Open <strong style="color:var(--text2)">mic.html</strong> on phone/tablet on same network.
+          Enter the same password on both sides.
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:var(--fs-xs);color:var(--text3);margin-bottom:5px;letter-spacing:0.15em">SESSION PASSWORD</div>
+          <div style="display:flex;gap:6px">
+            <input
+              type="password"
+              id="ext-mic-pw"
+              placeholder="enter password"
+              style="flex:1;background:none;border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-sm);padding:8px 10px;outline:none"
+              onkeydown="if(event.key==='Enter') extMicInit(document.getElementById('ext-mic-pw').value)"
+            >
+            <button
+              onclick="extMicInit(document.getElementById('ext-mic-pw').value)"
+              style="background:none;border:1px solid var(--p3);color:var(--p);font-family:var(--font-mono);font-size:var(--fs-xs);padding:8px 12px;cursor:pointer;letter-spacing:0.1em;white-space:nowrap"
+            >INIT HOST</button>
+          </div>
+        </div>
+        <button
+          onclick="extMicDisconnect()"
+          style="background:none;border:1px solid var(--red2);color:var(--red);font-family:var(--font-mono);font-size:var(--fs-xs);padding:6px 10px;cursor:pointer;letter-spacing:0.1em"
+        >DISCONNECT ALL</button>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">HOST STATUS</div>
+        <div id="ext-mic-status" style="font-size:var(--fs-xs);color:var(--text2);margin-bottom:5px">Not initialised.</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3)">ROOM ID</div>
+        <div id="ext-room-id" style="font-size:var(--fs-sm);color:var(--p3);letter-spacing:0.08em;margin-top:3px">—</div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">CONNECTED MICS</div>
+        <div id="ext-mic-conns"><div class="no-item">no mics connected</div></div>
+      </div>
+
+      <div class="signal-section">
+        <div class="signal-section-lbl">HOW IT WORKS</div>
+        <div style="font-size:var(--fs-xs);color:var(--text3);line-height:1.8">
+          mic.html runs STT locally → sends transcript over WebRTC data channel → appears as nodes here.<br>
+          Audio stream also arrives for waveform analysis.<br>
+          No server required — peer-to-peer via PeerJS.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /main -->
+
+<!-- PeerJS for ext mic peer-to-peer -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- SCRIPTS — load order is law -->
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RHEON VOICE v7 — codec-engines.js
+// All codec-v2 analytics engines: RollingStats, FrictionAnalyzer,
+// AssociationEngine, PredictiveEngine, InvariantBaseline,
+// PolarityEngine, TopologyEngine + scoreSentiment helper.
+//
+// Ported from ESM codec.js → plain var-scoped, no imports.
+// All classes use prototypal inheritance for v7 compatibility.
+// ═══════════════════════════════════════════════════════════════════
+
+// ── CONSTANTS ─────────────────────────────────────────────────────
+var ROLLING_WINDOW      = 20;
+var DECAY_HALFLIFE      = 10;
+var ENERGY_SIGMA_ALERT  = 2.0;
+var HEURISTIC_PROMOTE   = 3;
+var ASSOC_MIN_CHARS     = 4;
+var INVARIANT_THRESHOLD = 0.80;
+var TOPOLOGY_WARMUP_N   = 5;
+var COMPOSITE_ALERT_Z   = 2.0;
+var POLARITY_FLIP_THRESHOLD = 0.20;
+var POLARITY_WINDOW     = 20;
+
+// ── ROLLING STATS ─────────────────────────────────────────────────
+function RollingStats(windowSize) {
+  this._w    = windowSize || ROLLING_WINDOW;
+  this._buf  = [];
+  this._sum  = 0;
+  this._sum2 = 0;
+}
+RollingStats.prototype.push = function(v) {
+  if (this._buf.length >= this._w) {
+    var old = this._buf.shift();
+    this._sum  -= old;
+    this._sum2 -= old * old;
+  }
+  this._buf.push(v);
+  this._sum  += v;
+  this._sum2 += v * v;
+  return this;
+};
+Object.defineProperty(RollingStats.prototype, 'mean', {
+  get: function() { return this._buf.length ? this._sum / this._buf.length : 0; }
+});
+Object.defineProperty(RollingStats.prototype, 'variance', {
+  get: function() {
+    var n = this._buf.length;
+    if (n < 2) return 0;
+    return Math.max(0, this._sum2 / n - Math.pow(this._sum / n, 2));
+  }
+});
+Object.defineProperty(RollingStats.prototype, 'sigma', {
+  get: function() { return Math.sqrt(this.variance); }
+});
+Object.defineProperty(RollingStats.prototype, 'last', {
+  get: function() { return this._buf.length ? this._buf[this._buf.length - 1] : 0; }
+});
+Object.defineProperty(RollingStats.prototype, 'len', {
+  get: function() { return this._buf.length; }
+});
+RollingStats.prototype.zScore = function(v) {
+  return this.sigma > 0 ? (v - this.mean) / this.sigma : 0;
+};
+RollingStats.prototype.measure = function(v) {
+  var prev = this.last;
+  this.push(v);
+  return {
+    mean:    this.mean,
+    sigma:   this.sigma,
+    delta:   v - prev,
+    zScore:  this.zScore(v),
+    anomaly: Math.abs(this.zScore(v)) > ENERGY_SIGMA_ALERT
+  };
+};
+RollingStats.prototype.clear = function() {
+  this._buf = []; this._sum = 0; this._sum2 = 0;
+};
+RollingStats.prototype.decayMean = function() {
+  if (!this._buf.length) return 0;
+  var lambda = Math.LN2 / DECAY_HALFLIFE;
+  var ws = 0, wt = 0, n = this._buf.length;
+  for (var i = 0; i < n; i++) {
+    var age = n - 1 - i, w = Math.exp(-lambda * age);
+    ws += this._buf[i] * w; wt += w;
+  }
+  return wt > 0 ? ws / wt : 0;
+};
+RollingStats.prototype.entropy = function() {
+  if (this._buf.length < 3) return 0;
+  var min = Math.min.apply(null, this._buf), max = Math.max.apply(null, this._buf);
+  var range = max - min;
+  if (range === 0) return 0;
+  var bins = new Array(10).fill(0);
+  for (var i = 0; i < this._buf.length; i++) {
+    bins[Math.min(9, Math.floor(((this._buf[i] - min) / range) * 10))]++;
+  }
+  var H = 0, n = this._buf.length;
+  for (var j = 0; j < 10; j++) {
+    if (bins[j] > 0) { var p = bins[j] / n; H -= p * Math.log2(p); }
+  }
+  return H / Math.log2(10);
+};
+
+// ── FRICTION ANALYZER ─────────────────────────────────────────────
+var FRICTION_DISFLUENCY = new Set(['uh','uhh','uhhh','um','umm','ummm','er','err','ah','ahh','hm','hmm','hmmm','mm','mmm']);
+var FRICTION_CATS = {
+  filler:      [/\blike\b(?!\s+to\b|\s+a\b|\s+the\b)/,/\byou\s+know\b/,/\bi\s+mean\b/,/\bsort\s+of\b/,/\bkind\s+of\b/,/\bbasically\b/,/\bactually\b.*\bactually\b/,/\bright\?\s*right\?/],
+  memoryGap:   [/i\s+can'?t\s+remember/,/what\s+was\s+it/,/i\s+forget/,/i\s+forgot/,/what'?s\s+the\s+word/,/i\s+don'?t\s+recall/],
+  cognitiveLoad:[/\bwait\b/,/\bhold\s+on\b/,/\blet\s+me\s+think\b/,/\bjust\s+a\s+second\b/,/\bwhere\s+was\s+i\b/],
+  tension:     [/i\s+don'?t\s+know\s+(?:how|what|why|if)/,/i'?m\s+not\s+sure/,/it'?s\s+hard\s+to\s+say/,/i\s+can'?t\s+explain/,/tired/,/exhausted/],
+  denial:      [/it'?s\s+not\s+that/,/i'?m\s+not\s+saying/,/that'?s\s+not\s+what\s+i/,/i\s+didn'?t\s+mean/,/not\s+my\s+fault/]
+};
+
+function FrictionAnalyzer() {
+  this._rolling = new RollingStats(30);
+  this._counts  = {};
+}
+FrictionAnalyzer.prototype.analyze = function(text) {
+  if (!text) return null;
+  var lower = text.toLowerCase(), words = lower.split(/\s+/).filter(Boolean), found = [];
+  for (var i = 0; i < words.length; i++) {
+    if (FRICTION_DISFLUENCY.has(words[i])) found.push({ type: 'disfluency', marker: words[i] });
+  }
+  for (var cat in FRICTION_CATS) {
+    var patterns = FRICTION_CATS[cat];
+    for (var j = 0; j < patterns.length; j++) {
+      if (patterns[j].test(lower)) {
+        var m = lower.match(patterns[j]);
+        found.push({ type: cat, marker: m ? m[0] : cat });
+        this._counts[cat] = (this._counts[cat] || 0) + 1;
+      }
+    }
+  }
+  var density = words.length > 0 ? found.length / words.length : 0;
+  var stats   = this._rolling.measure(density);
+  var promoted = [];
+  for (var k in this._counts) {
+    if (this._counts[k] === HEURISTIC_PROMOTE) promoted.push({ pattern: k, count: this._counts[k] });
+  }
+  var types = [];
+  var seen  = {};
+  for (var fi = 0; fi < found.length; fi++) {
+    if (!seen[found[fi].type]) { seen[found[fi].type] = 1; types.push(found[fi].type); }
+  }
+  return {
+    friction:  found.length > 0,
+    markers:   found,
+    types:     types,
+    score:     Math.min(1, found.length / 3),
+    density:   Math.round(density * 1000) / 1000,
+    stats:     stats,
+    promoted:  promoted
+  };
+};
+FrictionAnalyzer.prototype.reset = function() { this._rolling.clear(); this._counts = {}; };
+
+// ── ASSOCIATION ENGINE ─────────────────────────────────────────────
+var CODEC_SW = new Set(['the','and','for','that','this','with','from','have','been','were','they','their','there','what','when','which','will','would','could','should','about','into','than','then','your','more','also','some','just','like','over','such','these','those','very','here','each','both','only','after','before','other','first','well','its','our','all','any','who','how','but','not','are','was','can','does','did','has','had','him','her','his','she','too','get','got','let','may','off','yet']);
+
+function AssociationEngine() {
+  this._nodes    = [];
+  this._edges    = [];
+  this._ngrams   = {};
+  this._invCache = null;
+}
+AssociationEngine.prototype._contentWords = function(text) {
+  return text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(function(w) {
+    return w.length >= ASSOC_MIN_CHARS && !CODEC_SW.has(w);
+  });
+};
+AssociationEngine.prototype._jaccard = function(a, b) {
+  if (!a.length || !b.length) return 0;
+  var setA = {}, inter = 0;
+  for (var i = 0; i < a.length; i++) setA[a[i]] = 1;
+  for (var j = 0; j < b.length; j++) { if (setA[b[j]]) inter++; }
+  var union = Object.keys(setA).length + b.length - inter;
+  return union > 0 ? inter / union : 0;
+};
+AssociationEngine.prototype.add = function(id, text) {
+  var words    = this._contentWords(text);
+  var node     = { id: id, words: words, text: text, ts: Date.now() };
+  var newEdges = [];
+  for (var i = 0; i < this._nodes.length; i++) {
+    var score = this._jaccard(words, this._nodes[i].words);
+    if (score > 0) {
+      var wordSet = {};
+      for (var wi = 0; wi < this._nodes[i].words.length; wi++) wordSet[this._nodes[i].words[wi]] = 1;
+      var shared  = words.filter(function(w) { return wordSet[w]; });
+      newEdges.push({ a: id, b: this._nodes[i].id, score: Math.round(score * 1000) / 1000, words: shared });
+    }
+  }
+  this._nodes.push(node);
+  for (var j = 0; j < newEdges.length; j++) this._edges.push(newEdges[j]);
+  this._updateNgrams(text);
+  this._invCache = null;
+  return newEdges;
+};
+AssociationEngine.prototype.redundancyCheck = function(text) {
+  var lower   = text.toLowerCase(), trigrams = this._extractNgrams(lower, 3), hits = [];
+  for (var i = 0; i < trigrams.length; i++) {
+    if ((this._ngrams[trigrams[i]] || 0) >= 2) hits.push(trigrams[i]);
+  }
+  return { redundant: hits.length > 0, phrases: hits };
+};
+AssociationEngine.prototype.invariants = function() {
+  if (this._invCache) return this._invCache;
+  if (this._nodes.length < 3) return { words: [], threshold: INVARIANT_THRESHOLD };
+  var freq = {};
+  for (var i = 0; i < this._nodes.length; i++) {
+    for (var j = 0; j < this._nodes[i].words.length; j++) {
+      var w = this._nodes[i].words[j];
+      freq[w] = (freq[w] || 0) + 1;
+    }
+  }
+  var thresh = this._nodes.length * INVARIANT_THRESHOLD;
+  var words  = Object.keys(freq).filter(function(w) { return freq[w] >= thresh; });
+  this._invCache = { words: words, threshold: INVARIANT_THRESHOLD, nodeCount: this._nodes.length };
+  return this._invCache;
+};
+AssociationEngine.prototype._updateNgrams = function(text) {
+  var grams = this._extractNgrams(text.toLowerCase(), 3);
+  for (var i = 0; i < grams.length; i++) {
+    this._ngrams[grams[i]] = (this._ngrams[grams[i]] || 0) + 1;
+  }
+};
+AssociationEngine.prototype._extractNgrams = function(text, n) {
+  var words = text.split(/\s+/).filter(function(w) { return w.length > 2; }), grams = [];
+  for (var i = 0; i <= words.length - n; i++) grams.push(words.slice(i, i + n).join(' '));
+  return grams;
+};
+AssociationEngine.prototype.reset = function() { this._nodes = []; this._edges = []; this._ngrams = {}; this._invCache = null; };
+
+// ── PREDICTIVE ENGINE ──────────────────────────────────────────────
+function PredictiveEngine() {
+  this._tagSeq      = [];
+  this._transitions = {};
+  this._wordTrigrams= {};
+  this._wordHistory = [];
+}
+PredictiveEngine.prototype.feed = function(tags, text) {
+  var primary = tags[0] || 'SYS';
+  this._tagSeq.push(primary);
+  this._updateTransitions(primary);
+  var words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(function(w) { return w.length > 3; });
+  for (var i = 0; i < words.length; i++) this._wordHistory.push(words[i]);
+  if (this._wordHistory.length > 200) this._wordHistory = this._wordHistory.slice(-200);
+  this._updateWordTrigrams(words);
+};
+PredictiveEngine.prototype.predictTag = function() {
+  if (this._tagSeq.length < 5) return null;
+  var prev = this._tagSeq[this._tagSeq.length - 1], prefix = prev + '→';
+  var candidates = {}, total = 0;
+  for (var k in this._transitions) {
+    if (k.indexOf(prefix) === 0) {
+      var next = k.slice(prefix.length);
+      candidates[next] = this._transitions[k];
+      total += this._transitions[k];
+    }
+  }
+  if (!total) return null;
+  var probs = Object.keys(candidates)
+    .map(function(tag) { return { tag: tag, p: Math.round(candidates[tag] / total * 100) / 100 }; })
+    .sort(function(a, b) { return b.p - a.p; });
+  return { predicted: probs[0] ? probs[0].tag : null, distribution: probs, basis: this._tagSeq.length + ' transitions' };
+};
+PredictiveEngine.prototype.predictWords = function() {
+  if (this._wordHistory.length < 10) return null;
+  var last2 = this._wordHistory.slice(-2).join(' '), prefix = last2 + ' ';
+  var candidates = {}, total = 0;
+  for (var k in this._wordTrigrams) {
+    if (k.indexOf(prefix) === 0) {
+      var next = k.slice(prefix.length);
+      candidates[next] = this._wordTrigrams[k];
+      total += this._wordTrigrams[k];
+    }
+  }
+  if (!total) return null;
+  var top = Object.keys(candidates)
+    .sort(function(a, b) { return candidates[b] - candidates[a]; })
+    .slice(0, 3)
+    .map(function(word) { return { word: word, p: Math.round(candidates[word] / total * 100) / 100 }; });
+  return { predicted: top[0] ? top[0].word : null, top3: top };
+};
+PredictiveEngine.prototype._updateTransitions = function(tag) {
+  if (this._tagSeq.length < 2) return;
+  var prev = this._tagSeq[this._tagSeq.length - 2];
+  var key  = prev + '→' + tag;
+  this._transitions[key] = (this._transitions[key] || 0) + 1;
+};
+PredictiveEngine.prototype._updateWordTrigrams = function(words) {
+  for (var i = 0; i < words.length - 2; i++) {
+    var key = words.slice(i, i + 3).join(' ');
+    this._wordTrigrams[key] = (this._wordTrigrams[key] || 0) + 1;
+  }
+};
+PredictiveEngine.prototype.reset = function() {
+  this._tagSeq = []; this._transitions = {}; this._wordTrigrams = {}; this._wordHistory = [];
+};
+
+// ── INVARIANT BASELINE ─────────────────────────────────────────────
+function InvariantBaseline(warmupN) {
+  this._warmupN  = warmupN || TOPOLOGY_WARMUP_N;
+  this._batches  = [];
+  this._baseline = null;
+  this._locked   = false;
+  this._wordMap  = {};
+}
+InvariantBaseline.prototype.feed = function(signals, assocEngine) {
+  if (!this._locked) {
+    this._batches.push(signals);
+    if (this._batches.length >= this._warmupN) this._lock();
+    else return { locked: false, warmupProgress: this._batches.length / this._warmupN };
+  }
+  var axes   = ['sentiment','friction','wordCount','energy','cadence'];
+  var zScores = {}, sumZ2 = 0, count = 0;
+  for (var ai = 0; ai < axes.length; ai++) {
+    var ax = axes[ai], v = signals[ax];
+    if (v === null || v === undefined) { zScores[ax] = null; continue; }
+    var b  = this._baseline[ax];
+    var z  = b.sigma > 0 ? (v - b.mean) / b.sigma : 0;
+    zScores[ax] = Math.round(z * 1000) / 1000;
+    sumZ2 += z * z; count++;
+  }
+  var compositeZ = count > 0 ? Math.round(Math.sqrt(sumZ2 / count) * 1000) / 1000 : 0;
+  var alert      = compositeZ >= COMPOSITE_ALERT_Z;
+
+  // Word-level signal lift
+  if (assocEngine) {
+    var invWords = (assocEngine.invariants().words || []);
+    var sigAxes  = ['energy','friction','sentiment'];
+    for (var wi = 0; wi < invWords.length; wi++) {
+      var word = invWords[wi];
+      if (!this._wordMap[word]) {
+        var buckets = {};
+        for (var si = 0; si < sigAxes.length; si++) {
+          buckets[sigAxes[si]] = { present: new RollingStats(10), absent: new RollingStats(10) };
+        }
+        this._wordMap[word] = buckets;
+      }
+      var isPresent = (signals.text || '').toLowerCase().indexOf(word) > -1;
+      var bucket = this._wordMap[word];
+      for (var bi = 0; bi < sigAxes.length; bi++) {
+        var lax = sigAxes[bi], val = signals[lax];
+        if (val !== null && val !== undefined) {
+          (isPresent ? bucket[lax].present : bucket[lax].absent).push(val);
+        }
+      }
+    }
+  }
+  var wordLifts = {};
+  for (var wrd in this._wordMap) {
+    wordLifts[wrd] = {};
+    ['energy','friction','sentiment'].forEach(function(lax) {
+      wordLifts[wrd][lax] = Math.round(
+        (this._wordMap[wrd][lax].present.mean - this._wordMap[wrd][lax].absent.mean) * 1000) / 1000;
+    }, this);
+  }
+  return { locked: true, baseline: this._baseline, zScores: zScores, compositeZ: compositeZ, alert: alert, wordLifts: wordLifts };
+};
+InvariantBaseline.prototype._lock = function() {
+  var axes = ['sentiment','friction','wordCount','energy','cadence'];
+  var raw  = {};
+  for (var i = 0; i < axes.length; i++) {
+    var ax   = axes[i];
+    var vals = this._batches.map(function(b) { return b[ax]; }).filter(function(v) { return v !== null && v !== undefined; });
+    if (!vals.length) { raw[ax] = { mean: 0, sigma: 0, n: 0 }; continue; }
+    var mean  = vals.reduce(function(s, v) { return s + v; }, 0) / vals.length;
+    var sigma = Math.sqrt(vals.reduce(function(s, v) { return s + (v - mean) * (v - mean); }, 0) / vals.length);
+    raw[ax] = { mean: Math.round(mean * 1e4) / 1e4, sigma: Math.round(sigma * 1e4) / 1e4, n: vals.length };
+  }
+  this._baseline = raw;
+  this._locked   = true;
+};
+InvariantBaseline.prototype.reset = function() { this._batches = []; this._baseline = null; this._locked = false; this._wordMap = {}; };
+
+// ── POLARITY ENGINE ────────────────────────────────────────────────
+function PolarityEngine() {
+  this._history   = [];
+  this._flips     = [];
+  this._lastLabel = 'neutral';
+}
+PolarityEngine.prototype.feed = function(sentiment, batchN, ts) {
+  this._history.push(sentiment);
+  var n    = this._history.length;
+  var win  = this._history.slice(-POLARITY_WINDOW);
+  var rollingMean = win.reduce(function(s, v) { return s + v; }, 0) / win.length;
+  var label;
+  if (rollingMean >  POLARITY_FLIP_THRESHOLD) label = 'positive';
+  else if (rollingMean < -POLARITY_FLIP_THRESHOLD) label = 'negative';
+  else label = 'neutral';
+  if (label !== this._lastLabel && label !== 'neutral') {
+    this._flips.push({ fromPolarity: this._lastLabel, toPolarity: label, batchN: batchN, ts: ts });
+  }
+  if (label !== 'neutral') this._lastLabel = label;
+  var sessionArc = 'stable';
+  if (n >= 4) {
+    var q = Math.max(1, Math.floor(n / 4));
+    var firstQ = this._history.slice(0, q).reduce(function(s,v){return s+v;},0)/q;
+    var lastQ  = this._history.slice(-q).reduce(function(s,v){return s+v;},0)/q;
+    var diff   = lastQ - firstQ;
+    if (diff > 0.15) sessionArc = 'improving'; else if (diff < -0.15) sessionArc = 'declining';
+  }
+  var pos = 0, neg = 0;
+  for (var i = 0; i < this._history.length; i++) {
+    if (this._history[i] > 0) pos++; else if (this._history[i] < 0) neg++;
+  }
+  var cum = this._history.reduce(function(s,v){return s+v;},0);
+  // OLS momentum
+  var ys = this._history.slice(-8), mn = ys.length, mom = 0;
+  if (mn >= 2) {
+    var sX=0,sY=0,sXY=0,sX2=0;
+    for (var j=0;j<mn;j++){sX+=j;sY+=ys[j];sXY+=j*ys[j];sX2+=j*j;}
+    var d=mn*sX2-sX*sX; if(d!==0) mom=(mn*sXY-sX*sY)/d;
+  }
+  return {
+    rollingMean:  Math.round(rollingMean * 1e4) / 1e4,
+    label:        label,
+    sessionArc:   sessionArc,
+    dominant:     pos > neg ? 'positive' : neg > pos ? 'negative' : 'neutral',
+    polarization: Math.round(Math.abs(cum) / n * 1e4) / 1e4,
+    momentum:     Math.round(mom * 1e4) / 1e4,
+    flipCount:    this._flips.length,
+    flips:        this._flips,
+    batchCount:   n
+  };
+};
+PolarityEngine.prototype.reset = function() { this._history = []; this._flips = []; this._lastLabel = 'neutral'; };
+
+// ── TOPOLOGY ENGINE ────────────────────────────────────────────────
+function TopologyEngine(warmupN) {
+  this._baseline   = new InvariantBaseline(warmupN);
+  this._polarity   = new PolarityEngine();
+  this._batchN     = 0;
+  this.lastPayload = null;
+}
+TopologyEngine.prototype.feed = function(signals, assocEngine) {
+  this._batchN++;
+  var baselineResult = this._baseline.feed(signals, assocEngine);
+  if (!baselineResult.locked) {
+    var payload = {
+      baseline:  baselineResult,
+      polarity:  null,
+      composite: { state: 'CALIBRATING', evidence: ['warmup ' + this._batchN + '/' + TOPOLOGY_WARMUP_N] }
+    };
+    this.lastPayload = payload;
+    return payload;
+  }
+  var polarityResult = this._polarity.feed(
+    signals.sentiment || 0, this._batchN, signals.ts || Date.now()
+  );
+  var evidence = [], state = 'STABLE';
+  if (baselineResult.alert) {
+    state = 'BASELINE_ALERT';
+    var zs  = baselineResult.zScores;
+    var top = Object.keys(zs)
+      .filter(function(ax) { return zs[ax] !== null && Math.abs(zs[ax]) >= COMPOSITE_ALERT_Z; })
+      .sort(function(a, b) { return Math.abs(zs[b]) - Math.abs(zs[a]); })
+      .slice(0, 3)
+      .map(function(ax) { return ax + ' ' + (zs[ax] > 0 ? '+' : '') + zs[ax] + 'σ'; });
+    evidence.push('compositeZ=' + baselineResult.compositeZ);
+    for (var i = 0; i < top.length; i++) evidence.push(top[i]);
+  } else if (polarityResult.label !== 'neutral' && Math.abs(polarityResult.rollingMean) > 0.35) {
+    state = 'POLARIZED';
+    evidence.push('polarity=' + polarityResult.label, 'mean=' + polarityResult.rollingMean);
+  } else {
+    evidence.push('compositeZ=' + baselineResult.compositeZ, 'polarity=' + polarityResult.label);
+  }
+  var payload = { baseline: baselineResult, polarity: polarityResult, composite: { state: state, evidence: evidence } };
+  this.lastPayload = payload;
+  return payload;
+};
+TopologyEngine.prototype.reset = function() {
+  this._baseline.reset(); this._polarity.reset(); this._batchN = 0; this.lastPayload = null;
+};
+
+// ── SENTIMENT SCORER ───────────────────────────────────────────────
+var SENT_POS  = {good:.5,great:.7,love:.8,happy:.7,calm:.5,grateful:.7,strong:.5,yes:.2,clear:.4,understand:.4,progress:.5,right:.3,confident:.6,hopeful:.5,excited:.6,peaceful:.5};
+var SENT_NEG  = {bad:.5,terrible:.8,hate:.8,sad:.6,anxious:.7,pain:.7,hurt:.7,lost:.5,confused:.5,struggle:.6,hopeless:.9,alone:.6,wrong:.4,afraid:.7,frustrated:.6,overwhelmed:.7,stuck:.5};
+var SENT_NEG2 = new Set(['not','no',"don't","doesn't","can't","never","won't"]);
+
+function scoreSentiment(text) {
+  var words = text.toLowerCase().replace(/[^a-z'\s]/g, '').split(/\s+/).filter(Boolean);
+  var raw = 0, m = 0;
+  for (var i = 0; i < words.length; i++) {
+    var w   = words[i];
+    var neg = i > 0 && SENT_NEG2.has(words[i-1]);
+    if (SENT_POS[w] !== undefined) { raw += (neg ? -1 : 1) * SENT_POS[w]; m++; }
+    else if (SENT_NEG[w] !== undefined) { raw += (neg ? 1 : -1) * SENT_NEG[w]; m++; }
+  }
+  return Math.round(Math.max(-1, Math.min(1, raw / Math.max(1, m))) * 1e4) / 1e4;
+}
+
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RHEON VOICE v7 — analysis-engine.js
+// Signal processing: SlopeEngine, StabilityEngine, OscillationEngine,
+// PitchEngine, ConfidencePropagator, ResonanceEngine, DriftEngine,
+// ReceiverGrammarDetector, FlowStateScorer.
+// Also: text analytics helpers (tok, sigTok, dysfluency, coherence,
+// frameworks, contradictions, wordBank).
+//
+// NO DOM access. Pure transforms. Reads/writes shared state via
+// the _state object passed in from app.js.
+// ═══════════════════════════════════════════════════════════════════
+
+// ── TEXT HELPERS ──────────────────────────────────────────────────
+var SW = {the:1,a:1,an:1,and:1,or:1,but:1,in:1,on:1,at:1,to:1,for:1,of:1,is:1,it:1,its:1,was:1,are:1,be:1,been:1,have:1,has:1,had:1,do:1,does:1,did:1,will:1,would:1,could:1,should:1,may:1,might:1,can:1,this:1,that:1,these:1,those:1,i:1,me:1,my:1,we:1,you:1,he:1,she:1,they:1,them:1,their:1,his:1,her:1,so:1,if:1,as:1,by:1,from:1,with:1,about:1,just:1,like:1,more:1,also:1,then:1,than:1,when:1,what:1,which:1,who:1,how:1,not:1,no:1,yes:1,up:1,out:1,into:1,over:1,after:1,before:1,because:1,all:1,some:1,any:1,there:1,here:1,very:1,really:1,right:1,okay:1,mean:1,means:1,kind:1,sort:1,know:1,think:1,feel:1,want:1,need:1,get:1,got:1,go:1,going:1,back:1,one:1,way:1,now:1,still:1,even:1,much:1,lot:1,thing:1,things:1,said:1,say:1,says:1,saying:1,yeah:1,well:1,um:1,uh:1,hmm:1};
+
+var FILLERS = ['um','uh','like','you know','i mean','sort of','kind of','basically','literally','actually','essentially'];
+
+function tok(t)    { return t.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(function(w){ return w.length > 2; }); }
+function sigTok(t) { return tok(t).filter(function(w){ return w.length > 3 && !SW[w]; }); }
+
+// Lexical-only dysfluency (text-pattern + raw ZCR). Kept as the fallback
+// path for scoreDysfluencyFused() when no acoustic snapshot is available.
+function scoreDysfluency(text, zcr) {
+  var words = tok(text), score = 0;
+  for (var i = 1; i < words.length; i++) {
+    if (words[i] === words[i-1]) score += 0.3;
+    if (i > 1 && words[i] === words[i-2]) score += 0.15;
+  }
+  for (var j = 2; j < words.length; j++) {
+    if (words[j] === words[j-2] && words[j-1] === words[j-3]) score += 0.25;
+  }
+  var start = words.slice(0, 3);
+  for (var k = 0; k < FILLERS.length; k++) { if (start.indexOf(FILLERS[k]) > -1) score += 0.1; }
+  if (zcr && zcr > 0.3) score += 0.2;
+  return Math.min(1, score);
+}
+
+// ── DYSFLUENCY FUSION — acoustic + lexical (MERGED from v4.2, GAPS.md #1) ──
+// acousticScore comes from AudioEngine.snapshot().acousticDysfluency — a
+// real-time signal (ZCR spike, pitch discontinuity, mid-utterance silence).
+// Lexical is post-hoc text analysis. Fused 60/40 acoustic/lexical, since
+// the acoustic signal is available before the utterance finishes.
+function scoreDysfluencyFused(text, acousticScore) {
+  var words = tok(text);
+  var lexical = 0;
+
+  for (var i = 1; i < words.length; i++) {
+    if (words[i] === words[i-1]) lexical += 0.3;
+    if (i > 1 && words[i] === words[i-2]) lexical += 0.15;
+  }
+  for (var j = 2; j < words.length; j++) {
+    if (words[j] === words[j-2] && j > 1 && words[j-1] === words[j-3]) lexical += 0.25;
+  }
+  var FILLER_FULL = ['um','uh','like','you know','i mean','sort of','kind of',
+    'basically','literally','actually','essentially','right','okay so',
+    'and um','so um','i guess','kind of like','sort of like','you know what'];
+  var lower = text.toLowerCase();
+  FILLER_FULL.forEach(function(f) { if (lower.indexOf(f) > -1) lexical += 0.1; });
+
+  if (/^(i i|the the|and and|so so|it it|that that)\b/i.test(text)) lexical += 0.4;
+
+  lexical = Math.min(1, lexical);
+
+  return Math.min(1, (acousticScore || 0) * 0.6 + lexical * 0.4);
+}
+
+// Plain word-overlap coherence (IoU). Kept only for reference/tests —
+// scoreCoherence() below is the TF-IDF version now used at the call site.
+function scoreCoherencePlain(text, nodes) {
+  if (!nodes || nodes.length < 2) return 0.5;
+  var recent = nodes.slice(-4).map(function(n){ return n.text; }).join(' ');
+  var curSet = {}, recSet = {};
+  var curWords = sigTok(text), recWords = sigTok(recent);
+  for (var i = 0; i < curWords.length; i++) curSet[curWords[i]] = 1;
+  for (var j = 0; j < recWords.length; j++) recSet[recWords[j]] = 1;
+  var curN = Object.keys(curSet).length, recN = Object.keys(recSet).length;
+  if (curN === 0 || recN === 0) return 0.5;
+  var shared = 0;
+  for (var w in curSet) { if (recSet[w]) shared++; }
+  var iou = shared / (curN + recN - shared);
+  return Math.round(iou * 100) / 100;
+}
+
+// ── COHERENCE — TF-IDF weighted cosine + recency decay (MERGED from
+// v4.2.2, GAPS.md #1) ───────────────────────────────────────────────
+// Rare words that recur across utterances score much higher than common
+// ones (IDF weighting). Nodes decay in influence 0.80^distance — recent
+// context matters more than the start of the session. Pure function: IDF
+// is rebuilt from the passed-in `nodes` each call rather than cached as
+// module state, per this file's no-side-effects contract.
+function scoreCoherence(text, nodes) {
+  if (!nodes || nodes.length < 2) return 0.5;
+  var curWords = sigTok(text);
+  if (curWords.length === 0) return 0.5;
+
+  var df = {};
+  var corpus = nodes.map(function(n){ return n.text; }).concat([text]);
+  corpus.forEach(function(t) {
+    var seen = {};
+    sigTok(t).forEach(function(w) { if (!seen[w]) { df[w] = (df[w]||0)+1; seen[w]=1; } });
+  });
+  var N = corpus.length;
+  var idf = {};
+  Object.keys(df).forEach(function(w) { idf[w] = Math.log((N+1)/(df[w]+1)) + 1; });
+
+  var curTF = {};
+  curWords.forEach(function(w) { curTF[w] = (curTF[w]||0)+1; });
+
+  var recent = nodes.slice(-6);
+  var totalSim = 0, totalWeight = 0;
+
+  recent.forEach(function(node, idx) {
+    var decay = Math.pow(0.80, recent.length - 1 - idx); // most recent = weight 1
+    var nodeTF = {};
+    sigTok(node.text).forEach(function(w) { nodeTF[w] = (nodeTF[w]||0)+1; });
+
+    var dot = 0, normA = 0, normB = 0;
+    var allWords = {};
+    Object.keys(curTF).forEach(function(w) { allWords[w] = 1; });
+    Object.keys(nodeTF).forEach(function(w) { allWords[w] = 1; });
+    Object.keys(allWords).forEach(function(w) {
+      var idfW = idf[w] || 1;
+      var a = (curTF[w]||0) * idfW;
+      var b = (nodeTF[w]||0) * idfW;
+      dot += a*b; normA += a*a; normB += b*b;
+    });
+    var sim = (normA > 0 && normB > 0) ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+    totalSim += sim * decay;
+    totalWeight += decay;
+  });
+
+  return totalWeight > 0 ? Math.round(Math.min(1, totalSim/totalWeight) * 100) / 100 : 0.5;
+}
+
+var FRAMEWORK_PATTERNS = [
+  {name:'CAUSAL',          re:/\b(because|therefore|leads to|causes|that'?s why|results in|due to|hence)\b/i},
+  {name:'CONDITIONAL',     re:/\b(if.{1,30}then|depends on|only when|unless|provided that|assuming)\b/i},
+  {name:'COMPARATIVE',     re:/\b(compared to|unlike|whereas|the difference|on the other hand|in contrast|more than|less than)\b/i},
+  {name:'NEGATION-REFRAME',re:/\b(not.{1,20}but|it'?s not that.{1,30}it'?s|rather than)\b/i},
+  {name:'DIALECTICAL',     re:/\b(on one hand.{1,40}on the other|both.{1,30}and|tension between|simultaneously|paradox)\b/i},
+  {name:'SYSTEMS',         re:/\b(feedback|loop|cycle|emergent|self.reinforcing|recursive|pattern|dynamic|equilibrium)\b/i},
+  {name:'META',            re:/\b(i'?m noticing|what i mean|the pattern here|what this tells me|i realize|i see that|i'?m aware)\b/i},
+  {name:'SUPPRESSION',     re:/\b(whatever|never mind|doesn'?t matter|forget it|i'?m fine|it'?s fine|drop it)\b/i},
+  {name:'OSCILLATORY',     re:/\b(but then again|on the other hand|although|however|yet also|but also)\b/i}
+];
+
+function detectFrameworks(text, frames) {
+  var found = [];
+  for (var i = 0; i < FRAMEWORK_PATTERNS.length; i++) {
+    var p = FRAMEWORK_PATTERNS[i], m = text.match(p.re);
+    if (m) {
+      found.push({name: p.name, example: m[0].trim()});
+      if (!frames[p.name]) frames[p.name] = {count:0, examples:[]};
+      frames[p.name].count++;
+      if (frames[p.name].examples.length < 3) frames[p.name].examples.push(text.slice(0, 60));
+    }
+  }
+  return found;
+}
+
+var CONTRA_PAIRS = [
+  ['always','never'],['everything','nothing'],['true','false'],['agree','disagree'],
+  ['can','cannot'],['will','wont'],['do','dont'],['have','havent'],['trust','distrust'],
+  ['want','dont want'],['need','dont need'],['like','hate'],['good','bad'],['right','wrong'],
+  ['open','closed'],['clear','confused'],['calm','upset'],['okay','not okay'],
+  ['possible','impossible'],['certain','uncertain'],['simple','complex'],['easy','hard'],
+  ['start','stop'],['grow','shrink'],['connect','disconnect'],['remember','forget'],
+  ['love','hate'],['safe','unsafe'],['free','trapped'],['together','alone'],
+  ['full','empty'],['strong','weak']
+];
+
+function detectContradictions(text, nodes) {
+  var curToks = tok(text), recent = nodes ? nodes.slice(-12) : [], found = [];
+  for (var p = 0; p < CONTRA_PAIRS.length; p++) {
+    var wA = CONTRA_PAIRS[p][0], wB = CONTRA_PAIRS[p][1];
+    var curA = curToks.indexOf(wA) > -1, curB = curToks.indexOf(wB) > -1;
+    for (var j = 0; j < recent.length; j++) {
+      var prev = tok(recent[j].text), prevA = prev.indexOf(wA) > -1, prevB = prev.indexOf(wB) > -1;
+      if (curA && prevB) { found.push({wA:wA,wB:wB,prevId:recent[j].id,prevText:recent[j].text.slice(0,60)}); break; }
+      if (curB && prevA) { found.push({wA:wB,wB:wA,prevId:recent[j].id,prevText:recent[j].text.slice(0,60)}); break; }
+    }
+  }
+  return found;
+}
+
+function updateWordBank(text, wordBank) {
+  var words = sigTok(text), ts = Date.now();
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i];
+    if (!wordBank[w]) wordBank[w] = {count:0, coOccurs:{}, firstTs:ts, lastTs:ts};
+    wordBank[w].count++; wordBank[w].lastTs = ts;
+    var ws = Math.max(0, i-4), we = Math.min(words.length-1, i+4);
+    for (var j = ws; j <= we; j++) {
+      if (j === i) continue;
+      var n = words[j];
+      if (n.length > 3 && !SW[n]) wordBank[w].coOccurs[n] = (wordBank[w].coOccurs[n] || 0) + 1;
+    }
+  }
+}
+
+function extractTags(text, wordBank) {
+  return sigTok(text)
+    .filter(function(w){ return w.length > 4; })
+    .sort(function(a,b){ return (wordBank[b]?wordBank[b].count:0) - (wordBank[a]?wordBank[a].count:0); })
+    .slice(0, 5);
+}
+
+function findConnectedNodes(text, nodes) {
+  var curSig = {}, connected = [];
+  var curWords = sigTok(text);
+  for (var i = 0; i < curWords.length; i++) curSig[curWords[i]] = 1;
+  for (var j = nodes.length-1; j >= Math.max(0, nodes.length-8); j--) {
+    var shared = sigTok(nodes[j].text).filter(function(w){ return curSig[w]; });
+    if (shared.length >= 2) connected.push(nodes[j].id);
+  }
+  return connected;
+}
+
+// ── SLOPE ENGINE — OLS regression ─────────────────────────────────
+function slopeEngine(values) {
+  var n = values.length;
+  if (n < 3) return {slope:0, direction:'flat', momentum:0};
+  var sX=0,sY=0,sXY=0,sX2=0;
+  for (var i=0;i<n;i++){sX+=i;sY+=values[i];sXY+=i*values[i];sX2+=i*i;}
+  var slope = (n*sXY - sX*sY) / (n*sX2 - sX*sX);
+  return {
+    slope:     slope,
+    direction: slope >  0.01 ? 'rising' : slope < -0.01 ? 'falling' : 'flat',
+    momentum:  Math.min(1, Math.abs(slope) * 20)
+  };
+}
+
+// ── STABILITY ENGINE ───────────────────────────────────────────────
+var SIGMA_REGIMES = ['INSUFFICIENT_DATA','STABLE','ACTIVATING','UNGROUNDED','DYSREGULATED','OSCILLATORY','COLLAPSING','OFFLINE'];
+var REGIME_COLORS = {
+  INSUFFICIENT_DATA: 'var(--text3)',
+  STABLE:      'var(--reg-stable)',
+  ACTIVATING:  'var(--reg-activating)',
+  UNGROUNDED:  'var(--reg-ungrounded)',
+  DYSREGULATED:'var(--reg-dysreg)',
+  OSCILLATORY: 'var(--reg-osc)',
+  COLLAPSING:  'var(--reg-collapse)',
+  OFFLINE:     'var(--reg-offline)'
+};
+
+function stabilityEngine(values) {
+  var n = values.length;
+  if (n < 4) return {regime:'INSUFFICIENT_DATA', cov:0, slopeFlips:0};
+  var mean = values.reduce(function(a,b){return a+b;},0)/n;
+  var std  = Math.sqrt(values.reduce(function(s,v){return s+(v-mean)*(v-mean);},0)/n);
+  var cov  = mean > 0.001 ? std/mean : 0;
+  var flips = 0;
+  for (var i=2;i<n;i++){
+    var d1=values[i-1]-values[i-2], d2=values[i]-values[i-1];
+    if((d1>0&&d2<0)||(d1<0&&d2>0)) flips++;
+  }
+  var slope = slopeEngine(values), regime;
+  if      (mean > 0.92)                                       regime = 'OFFLINE';
+  else if (slope.momentum > 0.72 && slope.direction==='rising') regime = 'COLLAPSING';
+  else if (flips >= 3)                                          regime = 'OSCILLATORY';
+  else if (cov > 0.45)                                          regime = 'DYSREGULATED';
+  else if (cov > 0.28)                                          regime = 'UNGROUNDED';
+  else if (slope.momentum > 0.18 && slope.direction==='rising') regime = 'ACTIVATING';
+  else                                                          regime = 'STABLE';
+  return {regime:regime, cov:cov, slopeFlips:flips, slope:slope};
+}
+
+// ── OSCILLATION ENGINE ─────────────────────────────────────────────
+function oscillationEngine(values) {
+  var n = values.length;
+  if (n < 5) return {period:0, amplitude:0, regularity:0, phase:'unknown'};
+  var peaks = [], troughs = [];
+  for (var i=1;i<n-1;i++){
+    if (values[i]>values[i-1]&&values[i]>values[i+1]) peaks.push(i);
+    else if (values[i]<values[i-1]&&values[i]<values[i+1]) troughs.push(i);
+  }
+  var period = 0;
+  if (peaks.length >= 2) {
+    var diffs = [];
+    for (var j=1;j<peaks.length;j++) diffs.push(peaks[j]-peaks[j-1]);
+    period = diffs.reduce(function(a,b){return a+b;},0)/diffs.length;
+  }
+  var amp = 0;
+  if (peaks.length>0&&troughs.length>0) {
+    var pM = peaks.map(function(i){return values[i];}).reduce(function(a,b){return a+b;},0)/peaks.length;
+    var tM = troughs.map(function(i){return values[i];}).reduce(function(a,b){return a+b;},0)/troughs.length;
+    amp = Math.max(0, pM-tM);
+  }
+  var regularity = 0;
+  if (peaks.length >= 3) {
+    var d2 = [];
+    for (var k=1;k<peaks.length;k++) d2.push(peaks[k]-peaks[k-1]);
+    var dM = d2.reduce(function(a,b){return a+b;},0)/d2.length;
+    var dS = Math.sqrt(d2.reduce(function(s,v){return s+(v-dM)*(v-dM);},0)/d2.length);
+    regularity = Math.max(0, 1 - dS/(dM+0.001));
+  }
+  return {
+    period:     Math.round(period*10)/10,
+    amplitude:  Math.round(amp*100)/100,
+    regularity: Math.round(regularity*100)/100,
+    phase:      values[n-1] > values[n-2] ? 'rising' : 'falling'
+  };
+}
+
+// ── PITCH ENGINE — jitter, shimmer, HNR ───────────────────────────
+function pitchEngine(pitchVals, ampVals) {
+  var n = Math.min(pitchVals.length, ampVals.length);
+  if (n < 4) return {jitter:0, shimmer:0, hnr:0, prosodyTag:'insufficient', voiced:false};
+  var jSum=0,jN=0,meanF0=0,voicedN=0;
+  for (var i=0;i<n;i++){if(pitchVals[i]>0){meanF0+=pitchVals[i];voicedN++;}}
+  meanF0 = voicedN > 0 ? meanF0/voicedN : 0;
+  for (var j=1;j<n;j++){if(pitchVals[j]>0&&pitchVals[j-1]>0){jSum+=Math.abs(pitchVals[j]-pitchVals[j-1]);jN++;}}
+  var jitter = (jN>0&&meanF0>0) ? jSum/jN/meanF0 : 0;
+  var shSum=0,shN=0,meanAmp=ampVals.reduce(function(a,b){return a+b;},0)/n;
+  for (var k=1;k<n;k++){shSum+=Math.abs(ampVals[k]-ampVals[k-1]);shN++;}
+  var shimmer = (shN>0&&meanAmp>0) ? shSum/shN/(meanAmp+0.0001) : 0;
+  var variance = ampVals.reduce(function(s,v){return s+Math.pow(v-meanAmp,2);},0)/ampVals.length;
+  var hnr = meanAmp > 0.001 ? Math.max(0, 1 - Math.sqrt(variance)/(meanAmp+0.0001)) : 0;
+  var prosodyTag;
+  if      (meanF0===0||voicedN/n<0.4)      prosodyTag = 'unvoiced';
+  else if (jitter>0.08&&shimmer>0.15)       prosodyTag = 'stressed';
+  else if (jitter>0.05)                     prosodyTag = 'tense';
+  else if (hnr>0.7&&jitter<0.03)            prosodyTag = 'clear';
+  else                                      prosodyTag = 'normal';
+  return {
+    jitter:     Math.round(jitter*1000)/1000,
+    shimmer:    Math.round(shimmer*1000)/1000,
+    hnr:        Math.round(hnr*100)/100,
+    prosodyTag: prosodyTag,
+    voiced:     voicedN/n > 0.4
+  };
+}
+
+// ── CONFIDENCE PROPAGATOR ──────────────────────────────────────────
+function confidencePropagator(signals) {
+  var result = signals.slice();
+  for (var i=0;i<result.length;i++){
+    if (result[i].confidence > 0.7) {
+      for (var j=0;j<result.length;j++){
+        if (i!==j&&result[j].confidence<0.5) {
+          result[j].score = Math.min(1, result[j].score * (1 + result[i].confidence * 0.4));
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// ── RESONANCE ENGINE ───────────────────────────────────────────────
+function computeResonance(curNode, prevNodes) {
+  if (!prevNodes || prevNodes.length < 2) return null;
+  var recent = prevNodes.slice(-4);
+  function nodeVec(node) {
+    return {
+      coherence:   node.coherenceScore  || 0.5,
+      dysfluency:  node.dysfluencyScore || 0,
+      wpm:         Math.min(1, (node.wpm  || 80)  / 200),
+      pitch:       Math.min(1, (node.pitch|| 150)  / 400),
+      amplitude:   Math.min(1, (node.amplitude||0.05)*10),
+      wordCount:   Math.min(1, (node.wordCount||10)/40)
+    };
+  }
+  function cosSim(a, b) {
+    var keys = Object.keys(a), dot=0, mA=0, mB=0;
+    for (var k=0;k<keys.length;k++){dot+=(a[keys[k]]||0)*(b[keys[k]]||0);mA+=(a[keys[k]]||0)*(a[keys[k]]||0);mB+=(b[keys[k]]||0)*(b[keys[k]]||0);}
+    return (mA===0||mB===0) ? 0 : dot/(Math.sqrt(mA)*Math.sqrt(mB));
+  }
+  var curVec  = nodeVec(curNode);
+  var sims    = recent.map(function(v){return cosSim(curVec, nodeVec(v));});
+  var temporal= sims.reduce(function(a,b){return a+b;},0)/sims.length;
+  var cohVals = recent.map(function(n){return n.coherenceScore||0.5;});
+  var cohMean = cohVals.reduce(function(a,b){return a+b;},0)/cohVals.length;
+  var structural = 1 - Math.abs((curNode.coherenceScore||0.5) - cohMean);
+  var dysVals = recent.map(function(n){return n.dysfluencyScore||0;});
+  var dysMean = dysVals.reduce(function(a,b){return a+b;},0)/dysVals.length;
+  var permeability = 1 - Math.abs((curNode.dysfluencyScore||0) - dysMean);
+  var wpmVals = recent.map(function(n){return n.wpm||80;});
+  var wpmMean = wpmVals.reduce(function(a,b){return a+b;},0)/wpmVals.length;
+  var rhythm  = 1 - Math.min(1, Math.abs((curNode.wpm||80) - wpmMean)/100);
+  var score   = Math.max(0, Math.min(1, 0.35*structural + 0.25*temporal + 0.2*permeability + 0.2*rhythm));
+  var cls;
+  if      (score > 0.78)      cls = 'HARMONIC_STABILITY';
+  else if (score > 0.60)      cls = 'GROWTH_FRICTION';
+  else if (temporal < 0.4)    cls = 'ASYNCHRONOUS_DRIFT';
+  else if (permeability<0.35) cls = 'VOLATILE_COUPLING';
+  else                        cls = 'LOW_INTERACTION_FIELD';
+  return {
+    score:          Math.round(score*100)/100,
+    classification: cls,
+    axes: {
+      structural:   Math.round(structural*100)/100,
+      temporal:     Math.round(temporal*100)/100,
+      permeability: Math.round(permeability*100)/100,
+      rhythm:       Math.round(rhythm*100)/100
+    }
+  };
+}
+
+// ── DRIFT ENGINE ───────────────────────────────────────────────────
+function driftEngine(nodes, energyHistory, contras) {
+  if (nodes.length < 5) return {signals:[], clusterCount:0};
+  var recent   = nodes.slice(-6);
+  var baseline = nodes.slice(0, Math.min(8, nodes.length-3));
+  var signals  = [];
+
+  var baseWpm = baseline.map(function(n){return n.wpm||80;}).reduce(function(a,b){return a+b;},0)/baseline.length;
+  var lastWpm = recent[recent.length-1].wpm || 80;
+  if (Math.abs(lastWpm-baseWpm) > baseWpm*0.5)
+    signals.push({type:'PACING_SHIFT', score:Math.min(1,Math.abs(lastWpm-baseWpm)/baseWpm), confidence:0.7});
+
+  var deltas = recent.filter(function(n){return n.silenceDelta>0;}).map(function(n){return n.silenceDelta;});
+  if (deltas.length >= 2) {
+    var dM = deltas.slice(0,-1).reduce(function(a,b){return a+b;},0)/(deltas.length-1);
+    var lD = deltas[deltas.length-1];
+    if (lD > dM*2.5) signals.push({type:'MICRO_HESITATION', score:Math.min(1,lD/dM/4), confidence:0.65});
+  }
+
+  var cohSlope = slopeEngine(recent.map(function(n){return n.coherenceScore||0.5;}));
+  if (cohSlope.direction==='falling'&&cohSlope.momentum>0.2)
+    signals.push({type:'BEHAVIORAL_DRIFT', score:cohSlope.momentum, confidence:0.75});
+
+  if (energyHistory && energyHistory.length >= 4) {
+    var ampSlope = slopeEngine(energyHistory.slice(-6));
+    if (ampSlope.momentum > 0.4) signals.push({type:'ENERGY_CHANGE', score:ampSlope.momentum, confidence:0.6});
+  }
+
+  var wpmH = nodes.slice(-10).map(function(n){return n.wpm||80;});
+  if (wpmH.length >= 4) {
+    var wM = wpmH.reduce(function(a,b){return a+b;},0)/wpmH.length;
+    var wV = Math.sqrt(wpmH.reduce(function(s,v){return s+(v-wM)*(v-wM);},0)/wpmH.length);
+    if (wV/wM > 0.45) signals.push({type:'RHYTHM_DISRUPTION', score:Math.min(1,wV/wM), confidence:0.65});
+  }
+
+  var lastNode = recent[recent.length-1];
+  if (lastNode.coherenceScore>0.5&&lastNode.dysfluencyScore>0.4)
+    signals.push({type:'PREDICTIVE_MISMATCH', score:lastNode.dysfluencyScore*lastNode.coherenceScore, confidence:0.6});
+
+  if (contras && contras.length > 0) {
+    var rC = contras.filter(function(c){return c.ts>Date.now()-60000;});
+    if (rC.length>0&&lastNode.coherenceScore>0.4)
+      signals.push({type:'EMOTIONAL_INCONGRUENCE', score:Math.min(1,rC.length*0.4), confidence:0.55});
+  }
+
+  var propagated = confidencePropagator(signals);
+  return {signals:propagated, clusterCount:propagated.length};
+}
+
+// ── RECEIVER GRAMMAR ───────────────────────────────────────────────
+function detectReceiverGrammar(nodes) {
+  if (nodes.length < 4) return null;
+  var recent = nodes.slice(-10), th=0, fe=0, so=0;
+  var THINK = /\b(because|therefore|logically|reason|evidence|conclude|analysis|system|pattern|structure|framework|model)\b/i;
+  var FEEL  = /\b(feel|felt|feeling|emotion|heart|sense|intuit|vibe|connection|trust|love|hurt|sad|happy|angry)\b/i;
+  var SOMAT = /\b(body|breath|chest|stomach|tense|tight|heavy|light|physical|energy|space|ground|present|moment)\b/i;
+  for (var i=0;i<recent.length;i++){var t=recent[i].text;if(THINK.test(t))th++;if(FEEL.test(t))fe++;if(SOMAT.test(t))so++;}
+  if (th+fe+so < 2) return null;
+  var mode, desc;
+  if (th>=fe&&th>=so){mode='THINK_FIRST';desc='Analytical processing dominant. Causal reasoning, structural framing.';}
+  else if (fe>=so)  {mode='FEEL_FIRST'; desc='Emotional processing dominant. Affect-oriented, relational language.';}
+  else              {mode='SOMATIC_FIRST';desc='Somatic processing dominant. Body-anchored, presence orientation.';}
+  return {mode:mode, scores:{think:th,feel:fe,somatic:so}, desc:desc};
+}
+
+// ── FLOW STATE SCORER ──────────────────────────────────────────────
+var _flowSamples = [];
+
+function computeFlowScore(nodes, wpmHistory, contras) {
+  if (nodes.length < 3) return 0;
+  var cohVals = nodes.slice(-5).map(function(n){return n.coherenceScore||0.5;});
+  var cohAvg  = cohVals.reduce(function(a,b){return a+b;},0)/cohVals.length;
+  var cohStab = 1 - (Math.max.apply(null,cohVals) - Math.min.apply(null,cohVals));
+  var cohScore= cohAvg*0.6 + cohStab*0.4;
+  var dysVals = nodes.slice(-5).map(function(n){return n.dysfluencyScore||0;});
+  var dysAvg  = dysVals.reduce(function(a,b){return a+b;},0)/dysVals.length;
+  var dysScore= Math.max(0, 1-dysAvg*2);
+  var wpmScore= 0.3;
+  if (wpmHistory && wpmHistory.length >= 3) {
+    var rw = wpmHistory.slice(-5);
+    var wA = rw.reduce(function(a,b){return a+b;},0)/rw.length;
+    var wV = rw.reduce(function(a,b){return a+Math.abs(b-wA);},0)/rw.length;
+    wpmScore = ((wA>=80&&wA<=220?1:0.4)*0.5) + (Math.max(0,1-wV/80)*0.5);
+  }
+  var rC = contras ? contras.filter(function(c){return c.ts>Date.now()-60000;}).length : 0;
+  var raw = (cohScore*0.35 + dysScore*0.35 + wpmScore*0.2 + Math.max(0,1-rC*0.3)*0.1) * 100;
+  _flowSamples.push(raw);
+  if (_flowSamples.length > 8) _flowSamples.shift();
+  return Math.round(Math.min(100, Math.max(0, _flowSamples.reduce(function(a,b){return a+b;},0)/_flowSamples.length)));
+}
+
+function resetFlowSamples() { _flowSamples = []; }
+
+// ── OFFLINE MIRROR ─────────────────────────────────────────────────
+var FILLER_RE = /\b(um|uh|like|you know|i mean|sort of|kind of|basically|literally|actually|essentially|right\?|okay so)\b/gi;
+var HEDGE_RE  = /\b(maybe|perhaps|i think|i guess|i feel like|it seems|it feels|something like)\b/gi;
+
+function offlineMirror(text) {
+  var s = text.replace(FILLER_RE,'').replace(HEDGE_RE,'').replace(/\s{2,}/g,' ').trim();
+  s = s.replace(/\b(\w+)\s+\1\b/gi, '$1');
+  if (s.length > 0) s = s[0].toUpperCase() + s.slice(1);
+  if (!/[.?!]$/.test(s)) s += '.';
+  return s.length < 6 ? text : s;
+}
+
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RHEON VOICE v7 — audio-engine.js
+// Manages: AudioContext, AnalyserNode, oscilloscope canvas, meters.
+//
+// FIXES vs v6:
+//   - Canvas sized via ResizeObserver — no stale W/H closure
+//   - ctx.scale() reset on every resize, not just init
+//   - Oscilloscope draws downsampled (max 512 pts) for clean waveform
+//   - getPitch() result cached per RAF frame — no double-compute
+//   - startOscilloscope() fully idempotent (cancels previous RAF)
+//   - Canvas height set programmatically (110px logical)
+//
+// Public API:
+//   AudioEngine.init(stream)      — call once per getUserMedia grant
+//   AudioEngine.snapshot()        → { pitch, amplitude, zcr, spectralCentroid,
+//                                      loudness, spectralFlux, pitchStability,
+//                                      acousticDysfluency, voicedState }
+//   AudioEngine.teardown()        — hard kill, page-unload only
+//   AudioEngine.setFlowScore(n)
+//   AudioEngine.setSigmaRegime(r)
+//   AudioEngine.setInputGain(v)   — 1..32, UI slider. Default 8 (+18dB).
+//   AudioEngine.getInputGainDb()  → current gain in dB, for UI label
+//   AudioEngine.isRecording       — writable property
+//
+// MERGED FROM v4.2 LINE (GAPS.md #1, #3 — 2026-08-01):
+//   loudness/spectralFlux/pitchStability/acousticDysfluency/voicedState
+//   and setInputGain were present in v4.2 (__1_/__2_), dropped in v5-v7.
+// ═══════════════════════════════════════════════════════════════════
+
+var AudioEngine = (function() {
+
+  // ── private ──────────────────────────────────────────────────
+  var _ctx        = null;
+  var _analyser   = null;
+  var _freqBuf    = null;
+  var _timeBuf    = null;
+  var _micStream  = null;
+  var _meterLoop  = null;
+  var _oscRAF     = null;
+  var _isRec      = false;
+  var _flowScore  = 0;
+  var _regime     = 'INSUFFICIENT_DATA';
+
+  // Cached per-frame values (computed once per RAF, read by snapshot)
+  var _cachedPitch = 0;
+  var _cachedRMS   = 0;
+  var _cachedZCR   = 0;
+  var _cachedSC    = 0;
+  var _lastCacheMs = 0;
+  var CACHE_TTL    = 50; // ms
+
+  // Canvas state — owned by ResizeObserver, never captured in closure
+  var _canvas = null;
+  var _ctx2d  = null;
+  var _canW   = 0;
+  var _canH   = 0;
+  var _dpr    = 1;
+
+  // Ring buffer
+  var _ringRec = null;
+  var _RING_MS = 120000;
+
+  // Gain — user-adjustable, calibrated for classifyFrame() thresholds below
+  var _gainNode  = null;
+  var _userGain  = 8; // 8x = +18dB default, matches v4.2 acoustic calibration
+
+  // Acoustic dysfluency fusion state (merged from v4.2 line — GAPS.md #1)
+  var _prevFreqBuf      = null;  // for spectral flux
+  var _acousticDysFluency = 0;
+  var _lastAcousticTs   = Date.now();
+  var _inSilence        = false;
+  var _silenceStartTs   = 0;
+  var _lastSoundTs      = Date.now();
+  var _silenceHistory   = [];
+  var _zcrHistory        = [];
+  var _pitchVarBuf       = [];   // recent voiced pitches, for stability CoV
+  var _vuHistory         = [];   // voiced/unvoiced/silence rolling window
+  var _vuState           = 'silence';
+
+  // Cached acoustic values (refreshed alongside pitch/rms/zcr/sc)
+  var _cachedLoudness         = -Infinity;
+  var _cachedSpectralFlux     = 0;
+  var _cachedPitchStability   = 0.5;
+  var _cachedAcousticDysfluency = 0;
+  var _cachedVoicedState      = 'silence';
+
+  // ── public ───────────────────────────────────────────────────
+  var pub = {};
+
+  Object.defineProperty(pub, 'isRecording', {
+    get: function() { return _isRec; },
+    set: function(v) { _isRec = !!v; }
+  });
+
+  pub.setFlowScore  = function(n) { _flowScore = n; };
+  pub.setSigmaRegime= function(r) { _regime    = r; };
+  pub.isReady       = function() { return _ctx !== null && _analyser !== null; };
+
+  // ── gain control — callable from UI slider (1x–32x) ────────────
+  // GAPS.md #3: was hardcoded 4.0. Restored as user control, default
+  // raised to 8x (+18dB) to match classifyFrame()'s calibrated thresholds.
+  pub.setInputGain = function(value) {
+    _userGain = Math.max(1, Math.min(32, Number(value) || 1));
+    if (_gainNode) _gainNode.gain.value = _userGain;
+    return _userGain;
+  };
+  pub.getInputGainDb = function() { return Math.round(20 * Math.log10(_userGain)); };
+
+  // ── init ─────────────────────────────────────────────────────
+  // Safe to call multiple times with same or new stream.
+  // Each call replaces the source node but reuses the AudioContext.
+  pub.init = function(stream) {
+    _micStream = stream;
+
+    if (!_ctx) {
+      try {
+        _ctx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch(e) {
+        console.error('[AudioEngine] AudioContext failed:', e);
+        return;
+      }
+    }
+
+    // Always resume — browsers suspend on page load
+    if (_ctx.state === 'suspended') _ctx.resume().catch(function(){});
+
+    if (!_analyser) {
+      _analyser = _ctx.createAnalyser();
+      _analyser.fftSize               = 2048;
+      _analyser.smoothingTimeConstant = 0.6; // faster response
+      _freqBuf = new Float32Array(_analyser.frequencyBinCount);
+      _timeBuf = new Float32Array(_analyser.fftSize);
+      _startMeterLoop();
+      _startOscilloscope();
+    }
+
+    try {
+      // GainNode — user-adjustable via setInputGain(), default 8x (+18dB).
+      // Does not cause clipping in the waveform display (analyser is read-only).
+      var src = _ctx.createMediaStreamSource(stream);
+      _gainNode = _ctx.createGain();
+      _gainNode.gain.value = _userGain;
+      src.connect(_gainNode);
+      _gainNode.connect(_analyser);
+      // Do NOT connect to destination — no speaker feedback
+    } catch(e) {
+      console.error('[AudioEngine] source connect failed:', e);
+      return;
+    }
+
+    _startRingBuffer(stream);
+  };
+
+  // ── stopStream — kill mic tracks without closing AudioContext ─
+  pub.stopStream = function() {
+    if (_micStream) {
+      _micStream.getTracks().forEach(function(t) { try { t.stop(); } catch(e){} });
+      _micStream = null;
+    }
+    if (_ringRec) { try { _ringRec.stop(); } catch(e){} _ringRec = null; }
+  };
+
+  // ── snapshot — cheap, reads cache ────────────────────────────
+  pub.snapshot = function() {
+    _refreshCache();
+    return {
+      pitch:              _cachedPitch,
+      amplitude:          _cachedRMS,
+      zcr:                _cachedZCR,
+      spectralCentroid:   _cachedSC,
+      // Fused acoustic signals — GAPS.md #1
+      loudness:           _cachedLoudness,
+      spectralFlux:       _cachedSpectralFlux,
+      pitchStability:     _cachedPitchStability,
+      acousticDysfluency: _cachedAcousticDysfluency,
+      voicedState:        _cachedVoicedState
+    };
+  };
+
+  // ── teardown — hard kill, page unload only ────────────────────
+  pub.teardown = function() {
+    if (_meterLoop) { clearInterval(_meterLoop); _meterLoop = null; }
+    if (_oscRAF)    { cancelAnimationFrame(_oscRAF); _oscRAF = null; }
+    if (_ringRec)   { try { _ringRec.stop(); } catch(e){} _ringRec = null; }
+    if (_micStream) { _micStream.getTracks().forEach(function(t){ t.stop(); }); _micStream = null; }
+    if (_ctx)       { try { _ctx.close(); } catch(e){} _ctx = null; }
+    _analyser = null; _freqBuf = null; _timeBuf = null;
+    _canvas = null; _ctx2d = null;
+    _gainNode = null; _prevFreqBuf = null;
+    _acousticDysFluency = 0; _inSilence = false;
+    _silenceHistory = []; _zcrHistory = []; _pitchVarBuf = []; _vuHistory = [];
+  };
+
+  // ── cache refresh ─────────────────────────────────────────────
+  function _refreshCache() {
+    var now = Date.now();
+    if (now - _lastCacheMs < CACHE_TTL) return;
+    _lastCacheMs = now;
+    if (!_analyser || !_timeBuf) return;
+    _analyser.getFloatTimeDomainData(_timeBuf);
+    _cachedPitch = _computePitch();
+    _cachedRMS   = _computeRMS();
+    _cachedZCR   = _computeZCR();
+    _cachedSC    = _computeSpectralCentroid();
+
+    // Fused acoustic signals — GAPS.md #1
+    _cachedVoicedState        = _classifyFrame(_cachedRMS, _cachedZCR);
+    _cachedLoudness           = _computeLoudness();
+    _cachedSpectralFlux       = _computeSpectralFlux();
+    if (_cachedPitch > 0) {
+      _pitchVarBuf.push(_cachedPitch);
+      if (_pitchVarBuf.length > 12) _pitchVarBuf.shift();
+    }
+    _cachedPitchStability      = _computePitchStability();
+    _cachedAcousticDysfluency  = _updateAcousticDysfluency(_cachedRMS, _cachedZCR, _cachedPitch);
+  }
+
+  // ── voiced/unvoiced/silence classifier ──────────────────────────
+  // Thresholds calibrated for signal AFTER pre-gain. At the +18dB (8x)
+  // default: silence < -72dBFS, speech > -45dBFS.
+  function _classifyFrame(rms, zcr) {
+    var state;
+    var energyDb = rms > 0 ? 20 * Math.log10(rms) : -120;
+    if (energyDb < -72) {
+      state = 'silence';
+    } else if (zcr > 0.18 && energyDb < -35) {
+      state = 'unvoiced'; // fricatives
+    } else {
+      state = 'voiced';
+    }
+    _vuHistory.push(state);
+    if (_vuHistory.length > 8) _vuHistory.shift();
+    var counts = { voiced: 0, unvoiced: 0, silence: 0 };
+    _vuHistory.forEach(function(s) { counts[s]++; });
+    _vuState = Object.keys(counts).reduce(function(a, b) { return counts[a] >= counts[b] ? a : b; });
+    return _vuState;
+  }
+
+  // ── perceptual loudness — A-weighted (IEC 61672 approximation) ──
+  function _computeLoudness() {
+    if (!_analyser || !_freqBuf) return -Infinity;
+    _analyser.getFloatFrequencyData(_freqBuf);
+    var sr = _ctx ? _ctx.sampleRate : 44100;
+    var nyq = sr / 2;
+    var binWidth = nyq / _freqBuf.length;
+    var weightedSum = 0, totalWeight = 0;
+    for (var i = 1; i < _freqBuf.length; i++) {
+      var f = i * binWidth;
+      var f2 = f * f, f4 = f2 * f2;
+      var aWeight = (12194 * 12194 * f4) /
+        ((f2 + 20.6 * 20.6) * Math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) * (f2 + 12194 * 12194));
+      var mag = Math.pow(10, _freqBuf[i] / 20);
+      weightedSum += aWeight * mag * aWeight * mag;
+      totalWeight += aWeight * aWeight;
+    }
+    if (totalWeight === 0) return -Infinity;
+    var weighted = Math.sqrt(weightedSum / totalWeight);
+    return weighted > 0 ? 20 * Math.log10(weighted) : -Infinity;
+  }
+
+  // ── spectral flux — detects abrupt phoneme changes ──────────────
+  function _computeSpectralFlux() {
+    if (!_analyser || !_freqBuf) return 0;
+    // _freqBuf already populated by _computeLoudness this cache cycle
+    if (!_prevFreqBuf) { _prevFreqBuf = _freqBuf.slice(); return 0; }
+    var flux = 0;
+    for (var i = 0; i < _freqBuf.length; i++) {
+      var d = _freqBuf[i] - _prevFreqBuf[i];
+      flux += d > 0 ? d : 0; // half-wave rectified
+    }
+    _prevFreqBuf = _freqBuf.slice();
+    return flux / _freqBuf.length;
+  }
+
+  // ── pitch stability — coefficient of variation of recent F0 ─────
+  // Low CoV = stable prosody = higher fluency signal.
+  function _computePitchStability() {
+    if (_pitchVarBuf.length < 6) return 0.5; // not enough data
+    var mean = _pitchVarBuf.reduce(function(a, b) { return a + b; }, 0) / _pitchVarBuf.length;
+    var variance = _pitchVarBuf.reduce(function(a, b) { return a + (b - mean) * (b - mean); }, 0) / _pitchVarBuf.length;
+    var cv = mean > 0 ? Math.sqrt(variance) / mean : 1;
+    return Math.max(0, Math.min(1, 1 - (cv - 0.05) / 0.35));
+  }
+
+  // ── acoustic dysfluency — real-time, three signals fused ────────
+  //   1. ZCR spike (glottal stops / stutter onset)
+  //   2. Pitch discontinuity (abrupt F0 jump mid-utterance)
+  //   3. Mid-utterance silence (pause 200ms–2s within a phrase)
+  // Decays exponentially toward 0 absent new evidence.
+  function _updateAcousticDysfluency(rms, zcr, pitch) {
+    var now = Date.now();
+    var dt = (now - _lastAcousticTs) / 1000;
+    _lastAcousticTs = now;
+    _acousticDysFluency *= Math.pow(0.85, dt * 5);
+
+    var voiced = rms > 0.003; // calibrated for post-gain signal at 8x default
+
+    if (voiced) {
+      if (_inSilence) {
+        var silDur = now - _silenceStartTs;
+        if (silDur > 200 && silDur < 2000) {
+          _silenceHistory.push(silDur);
+          if (_silenceHistory.length > 10) _silenceHistory.shift();
+          _acousticDysFluency = Math.min(1, _acousticDysFluency + 0.15);
+        }
+        _inSilence = false;
+      }
+      _lastSoundTs = now;
+    } else if (!_inSilence && _isRec && (now - _lastSoundTs) > 120) {
+      _inSilence = true;
+      _silenceStartTs = now;
+    }
+
+    _zcrHistory.push(zcr);
+    if (_zcrHistory.length > 8) _zcrHistory.shift();
+    if (_zcrHistory.length >= 4) {
+      var zcrMean = _zcrHistory.reduce(function(a, b) { return a + b; }, 0) / _zcrHistory.length;
+      if (zcr > zcrMean * 2.2 && voiced) {
+        _acousticDysFluency = Math.min(1, _acousticDysFluency + 0.12);
+      }
+    }
+
+    if (pitch > 0 && _pitchVarBuf.length > 0) {
+      var lastPitch = _pitchVarBuf[_pitchVarBuf.length - 1];
+      if (lastPitch > 0 && Math.abs(pitch - lastPitch) > 40) {
+        _acousticDysFluency = Math.min(1, _acousticDysFluency + 0.08);
+      }
+    }
+
+    return Math.max(0, _acousticDysFluency);
+  }
+
+  // ── signal extractors ─────────────────────────────────────────
+  function _computePitch() {
+    if (!_analyser || !_timeBuf) return 0;
+    // Need fresh time-domain data
+    var SIZE = _timeBuf.length, rms = 0;
+    for (var i = 0; i < SIZE; i++) rms += _timeBuf[i] * _timeBuf[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 0.01) return 0;
+    var half = Math.floor(SIZE / 2);
+    var corr = new Float32Array(half);
+    for (var lag = 0; lag < half; lag++) {
+      var sum = 0;
+      for (var j = 0; j < SIZE - lag; j++) sum += _timeBuf[j] * _timeBuf[j + lag];
+      corr[lag] = sum;
+    }
+    var peak = -1, peakVal = -1, dropped = false;
+    for (var k = 1; k < half; k++) {
+      if (!dropped && corr[k] < corr[k-1]) dropped = true;
+      if (dropped && corr[k] > peakVal) { peakVal = corr[k]; peak = k; }
+      if (dropped && corr[k] < peakVal * 0.5) break;
+    }
+    if (peak < 1 || peakVal < corr[0] * 0.2) return 0;
+    var sr   = _ctx ? _ctx.sampleRate : 44100;
+    var freq = Math.round(sr / peak);
+    return (freq >= 60 && freq <= 1200) ? freq : 0;
+  }
+
+  function _computeRMS() {
+    if (!_timeBuf) return 0;
+    var sum = 0;
+    for (var i = 0; i < _timeBuf.length; i++) sum += _timeBuf[i] * _timeBuf[i];
+    return Math.sqrt(sum / _timeBuf.length);
+  }
+
+  function _computeZCR() {
+    if (!_timeBuf) return 0;
+    var c = 0;
+    for (var i = 1; i < _timeBuf.length; i++) {
+      if ((_timeBuf[i] >= 0) !== (_timeBuf[i-1] >= 0)) c++;
+    }
+    return c / _timeBuf.length;
+  }
+
+  function _computeSpectralCentroid() {
+    if (!_analyser || !_freqBuf) return 0;
+    _analyser.getFloatFrequencyData(_freqBuf);
+    var num = 0, den = 0, nyq = (_ctx ? _ctx.sampleRate : 44100) / 2;
+    for (var i = 0; i < _freqBuf.length; i++) {
+      var mag  = Math.pow(10, _freqBuf[i] / 20);
+      var freq = (i / _freqBuf.length) * nyq;
+      num += freq * mag; den += mag;
+    }
+    return den > 0 ? num / den : 0;
+  }
+
+  // ── meter loop ────────────────────────────────────────────────
+  function _startMeterLoop() {
+    if (_meterLoop) clearInterval(_meterLoop);
+    _meterLoop = setInterval(function() {
+      if (!_analyser || !_timeBuf) return;
+      _analyser.getFloatTimeDomainData(_timeBuf);
+      _cachedPitch = _computePitch();
+      _cachedRMS   = _computeRMS();
+      _cachedZCR   = _computeZCR();
+      _lastCacheMs = Date.now();
+
+      var pitch = _cachedPitch, rms = _cachedRMS;
+      var db    = rms > 0 ? Math.max(0, 60 + 20 * Math.log10(rms)) : 0;
+      var pPct  = pitch > 0 ? Math.min(100, ((pitch - 60) / (500 - 60)) * 100) : 0;
+      var vPct  = Math.min(100, (db / 60) * 100);
+
+      _setMeter('pitch', pPct, pitch > 0 ? Math.round(pitch) + 'Hz' : '—', 'blue');
+      _setMeter('vol',   vPct, db > 0    ? Math.round(db) + 'dB'    : '—', vPct > 75 ? 'red' : 'green');
+
+      // Live osc stats
+      var hzEl  = document.getElementById('osc-hz');
+      var rmsEl = document.getElementById('osc-rms');
+      var zcrEl = document.getElementById('osc-zcr');
+      if (hzEl)  hzEl.textContent  = pitch > 0 ? Math.round(pitch) + ' Hz' : '—';
+      if (rmsEl) rmsEl.textContent = rms > 0   ? rms.toFixed(3) : '—';
+      if (zcrEl) zcrEl.textContent = _cachedZCR > 0 ? _cachedZCR.toFixed(3) : '—';
+    }, 80);
+  }
+
+  function _setMeter(id, pct, val, cls) {
+    var bar = document.getElementById('m-' + id);
+    var vEl = document.getElementById('mv-' + id);
+    if (bar) {
+      bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      if (cls) bar.className = 'meter-bar ' + cls;
+    }
+    if (vEl) vEl.textContent = val;
+  }
+
+  // ── oscilloscope — FIXED ──────────────────────────────────────
+  //
+  // BUG FIXED: W/H were captured once at init. Now we read _canW/_canH
+  // which are updated by ResizeObserver on every layout change.
+  //
+  // BUG FIXED: ctx.scale() was called once — it compounds on re-init.
+  // Now we resetTransform() before re-scaling.
+  //
+  // BUG FIXED: 2048 raw samples drawn across ~300px = severe aliasing.
+  // Now downsampled to max 512 points with min/max envelope per bucket.
+  //
+  function _startOscilloscope() {
+    _canvas = document.getElementById('osc-canvas');
+    if (!_canvas) return;
+    _ctx2d  = _canvas.getContext('2d');
+    _dpr    = window.devicePixelRatio || 1;
+
+    // Fixed logical height = 110px
+    var LOGICAL_H = 110;
+    _canvas.style.height = LOGICAL_H + 'px';
+
+    function _sizeCanvas() {
+      _canW = _canvas.offsetWidth  || 340;
+      _canH = LOGICAL_H;
+      _dpr  = window.devicePixelRatio || 1;
+      _canvas.width  = Math.round(_canW * _dpr);
+      _canvas.height = Math.round(_canH * _dpr);
+      // ALWAYS reset before scale — prevents compound scaling
+      if (_ctx2d.resetTransform) {
+        _ctx2d.resetTransform();
+      } else {
+        _ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      _ctx2d.scale(_dpr, _dpr);
+    }
+
+    _sizeCanvas();
+
+    // ResizeObserver keeps canvas live on any layout change
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function() { _sizeCanvas(); });
+      ro.observe(_canvas);
+    } else {
+      window.addEventListener('resize', _sizeCanvas);
+    }
+
+    if (_oscRAF) cancelAnimationFrame(_oscRAF);
+
+    function _waveColor() {
+      if (_flowScore >= 60) return [0, 255, 238];
+      if (_regime === 'DYSREGULATED' || _regime === 'COLLAPSING') return [255, 51, 85];
+      if (_regime === 'OSCILLATORY') return [0, 255, 238];
+      if (_regime === 'ACTIVATING')  return [255, 170, 0];
+      if (_isRec) return [0, 255, 136];
+      return [0, 160, 80];
+    }
+
+    // Downsample timeBuf to at most N_DRAW points using min/max envelope
+    var N_DRAW  = 512;
+    var _minBuf = new Float32Array(N_DRAW);
+    var _maxBuf = new Float32Array(N_DRAW);
+
+    function _downsample(src, minBuf, maxBuf, outN) {
+      var srcN    = src.length;
+      var bucketF = srcN / outN;
+      for (var b = 0; b < outN; b++) {
+        var start = Math.floor(b * bucketF);
+        var end   = Math.min(srcN, Math.floor((b + 1) * bucketF));
+        var mn = src[start], mx = src[start];
+        for (var i = start + 1; i < end; i++) {
+          if (src[i] < mn) mn = src[i];
+          if (src[i] > mx) mx = src[i];
+        }
+        minBuf[b] = mn;
+        maxBuf[b] = mx;
+      }
+    }
+
+    function _draw() {
+      _oscRAF = requestAnimationFrame(_draw);
+      var W = _canW, H = _canH;
+      var c = _waveColor();
+
+      _ctx2d.clearRect(0, 0, W, H);
+
+      // Grid
+      _ctx2d.strokeStyle = 'rgba(0,255,136,0.045)';
+      _ctx2d.lineWidth   = 0.5;
+      for (var gy = 0; gy <= 4; gy++) {
+        _ctx2d.beginPath();
+        _ctx2d.moveTo(0, H * gy / 4);
+        _ctx2d.lineTo(W, H * gy / 4);
+        _ctx2d.stroke();
+      }
+      for (var gx = 0; gx <= 8; gx++) {
+        _ctx2d.beginPath();
+        _ctx2d.moveTo(W * gx / 8, 0);
+        _ctx2d.lineTo(W * gx / 8, H);
+        _ctx2d.stroke();
+      }
+
+      if (!_analyser || !_timeBuf) {
+        // Idle breathing sine
+        var t = Date.now() / 1000;
+        _ctx2d.strokeStyle = 'rgba(0,255,136,0.18)';
+        _ctx2d.lineWidth   = 1;
+        _ctx2d.beginPath();
+        for (var xi = 0; xi < W; xi++) {
+          var yi = H / 2 + Math.sin(xi * 0.04 + t * 0.5) * 2.5;
+          xi === 0 ? _ctx2d.moveTo(xi, yi) : _ctx2d.lineTo(xi, yi);
+        }
+        _ctx2d.stroke();
+        return;
+      }
+
+      // Read audio data (already fresh from meter loop at 80ms)
+      _analyser.getFloatTimeDomainData(_timeBuf);
+
+      var n_pts  = Math.min(N_DRAW, W); // never more pts than pixels
+      _downsample(_timeBuf, _minBuf, _maxBuf, n_pts);
+
+      var alpha  = _isRec ? 1 : 0.28;
+      var cr = c[0], cg = c[1], cb = c[2];
+
+      // Wide glow
+      _ctx2d.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.06)';
+      _ctx2d.lineWidth   = 10;
+      _ctx2d.beginPath();
+      for (var i = 0; i < n_pts; i++) {
+        var x = (i / (n_pts - 1)) * W;
+        var y = (0.5 + (_minBuf[i] + _maxBuf[i]) / 2 * 0.42) * H;
+        i === 0 ? _ctx2d.moveTo(x, y) : _ctx2d.lineTo(x, y);
+      }
+      _ctx2d.stroke();
+
+      // Mid glow
+      _ctx2d.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.16)';
+      _ctx2d.lineWidth   = 3.5;
+      _ctx2d.beginPath();
+      for (var i2 = 0; i2 < n_pts; i2++) {
+        var x2 = (i2 / (n_pts - 1)) * W;
+        var y2 = (0.5 + (_minBuf[i2] + _maxBuf[i2]) / 2 * 0.42) * H;
+        i2 === 0 ? _ctx2d.moveTo(x2, y2) : _ctx2d.lineTo(x2, y2);
+      }
+      _ctx2d.stroke();
+
+      // Envelope fill (shows dynamic range)
+      if (_isRec) {
+        _ctx2d.fillStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',0.04)';
+        _ctx2d.beginPath();
+        for (var fi = 0; fi < n_pts; fi++) {
+          var fx = (fi / (n_pts - 1)) * W;
+          var fy = (0.5 + _maxBuf[fi] * 0.42) * H;
+          fi === 0 ? _ctx2d.moveTo(fx, fy) : _ctx2d.lineTo(fx, fy);
+        }
+        for (var fi2 = n_pts - 1; fi2 >= 0; fi2--) {
+          var fx2 = (fi2 / (n_pts - 1)) * W;
+          var fy2 = (0.5 + _minBuf[fi2] * 0.42) * H;
+          _ctx2d.lineTo(fx2, fy2);
+        }
+        _ctx2d.closePath();
+        _ctx2d.fill();
+      }
+
+      // Crisp midline
+      _ctx2d.strokeStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alpha + ')';
+      _ctx2d.lineWidth   = 1.5;
+      _ctx2d.beginPath();
+      for (var j = 0; j < n_pts; j++) {
+        var xj = (j / (n_pts - 1)) * W;
+        var yj = (0.5 + (_minBuf[j] + _maxBuf[j]) / 2 * 0.42) * H;
+        j === 0 ? _ctx2d.moveTo(xj, yj) : _ctx2d.lineTo(xj, yj);
+      }
+      _ctx2d.stroke();
+    }
+
+    _draw();
+  }
+
+  // ── ring buffer ───────────────────────────────────────────────
+  function _startRingBuffer(stream) {
+    var mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', ''];
+    var mime  = '';
+    for (var i = 0; i < mimes.length; i++) {
+      try {
+        if (!mimes[i] || MediaRecorder.isTypeSupported(mimes[i])) { mime = mimes[i]; break; }
+      } catch(e) {}
+    }
+    try {
+      _ringRec = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+    } catch(e) {
+      console.warn('[AudioEngine] ring buffer unavailable:', e);
+      return;
+    }
+    var _ringBuf = [];
+    _ringRec.ondataavailable = function(e) {
+      if (!e.data || e.data.size === 0) return;
+      var now = Date.now();
+      _ringBuf.push({ ts: now, blob: e.data });
+      var cutoff = now - _RING_MS;
+      while (_ringBuf.length > 0 && _ringBuf[0].ts < cutoff) _ringBuf.shift();
+    };
+    _ringRec.start(5000);
+  }
+
+  return pub;
+})();
+
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// RHEON VOICE v7 — app.js
+// Orchestrates all engines. Handles speech, LLM mirror, render, storage.
+// Depends on (load order):
+//   1. codec-engines.js  (RollingStats, FrictionAnalyzer, etc.)
+//   2. analysis-engine.js (slopeEngine, resonance, drift, etc.)
+//   3. audio-engine.js   (AudioEngine)
+//   4. app.js            (this file)
+// ═══════════════════════════════════════════════════════════════════
+
+var VERSION = '7.0.0';
+var SK      = 'rheon-voice-v7';
+var _ec     = 0;
+
+// ── DOMAIN SYSTEM ─────────────────────────────────────────────────
+// Each domain adds domain-specific framework patterns and contradiction pairs.
+// The 'voice' domain is always active (base patterns).
+var DOMAINS = {
+  voice:   { label: 'VOICE',   icon: '◈' },
+  therapy: { label: 'THERAPY', icon: '⬡' },
+  code:    { label: 'CODE',    icon: '⌥' },
+  strategy:{ label: 'STRATEGY',icon: '◆' },
+  journal: { label: 'JOURNAL', icon: '⊗' }
+};
+var _activeDomain = 'voice';
+
+// Domain-specific extra framework patterns
+var DOMAIN_PATTERNS = {
+  therapy: [
+    {name:'PROJECTION',   re:/\b(you always|you never|you make me|it'?s your fault|everyone does)\b/i},
+    {name:'CATASTROPHIZE',re:/\b(everything is ruined|nothing will work|it'?s hopeless|always happens to me)\b/i},
+    {name:'MINIMIZING',   re:/\b(it'?s not a big deal|i'?m fine|i don'?t care|it doesn'?t matter)\b/i},
+    {name:'ATTACHMENT',   re:/\b(abandonment|rejection|left alone|nobody cares|no one understands)\b/i}
+  ],
+  code: [
+    {name:'BUG_REASON',   re:/\b(bug|error|exception|crash|null|undefined|infinite loop|race condition)\b/i},
+    {name:'DESIGN_DEBT',  re:/\b(hack|workaround|tech debt|temporary|should be refactored|not ideal)\b/i},
+    {name:'UNCERTAINTY',  re:/\b(not sure why|don'?t know how|can'?t figure out|mystery|weird)\b/i}
+  ],
+  strategy: [
+    {name:'CONSTRAINT',   re:/\b(can'?t|blocked|limited by|no budget|no time|red tape|politics)\b/i},
+    {name:'LEVERAGE',     re:/\b(leverage|multiplier|exponential|compound|flywheel|network effect)\b/i},
+    {name:'RISK_FRAME',   re:/\b(risk|downside|upside|asymmetric|hedge|mitigate|exposure)\b/i}
+  ],
+  journal: [
+    {name:'SELF_COMPASSION',re:/\b(i deserve|i'?m allowed|it'?s okay to|be kind to myself|self-care)\b/i},
+    {name:'GRATITUDE',    re:/\b(grateful|thankful|appreciate|blessed|fortunate|glad)\b/i},
+    {name:'INTENTION',    re:/\b(i want to|my goal|i intend|i commit|i choose|going to try)\b/i}
+  ]
+};
+
+// ── SESSION STATE ──────────────────────────────────────────────────
+var _nodes        = [];
+var _wordBank     = {};
+var _frames       = {};
+var _contras      = [];
+var _wpmHistory   = [];
+var _lastNodeTs   = null;
+var _nodeStartTs  = null;
+var _totalWords   = 0;
+var _activeTab    = 'bank';
+var _selectedWord = null;
+
+// ── SPEECH STATE ──────────────────────────────────────────────────
+var _rec          = null;
+var _recState     = false;
+var _permDenied   = false;
+var _interim      = '';
+var _micStreamRef = null;  // persistent mic stream — never re-requested while active
+
+// ── AUDIO STATE (raw history for analysis) ─────────────────────────
+var _energyHistory  = [];
+var _pitchHistory   = [];
+var _jitterHistory  = [];
+var _MAX_STAT_WIN   = 12;
+var _pitchData      = { jitter:0, shimmer:0, hnr:0, prosodyTag:'—' };
+
+// ── SIGNAL STATE ──────────────────────────────────────────────────
+var _flowScore        = 0;
+var _flowHistory      = [];
+var _flowEpisodeStart = null;
+var _sigmaState       = { regime:'INSUFFICIENT_DATA', cov:0, slopeFlips:0 };
+var _driftState       = { signals:[], clusterCount:0 };
+var _resonanceState   = null;
+var _receiverGrammar  = null;
+var _oscillation      = { period:0, amplitude:0, regularity:0 };
+var _nodeSlopeData    = {
+  energy: { direction:'flat', momentum:0 },
+  res:    { direction:'flat', momentum:0 },
+  dysf:   { direction:'flat', momentum:0 }
+};
+
+// ── CODEC ENGINE INSTANCES ────────────────────────────────────────
+var _frictionEngine   = new FrictionAnalyzer();
+var _assocEngine      = new AssociationEngine();
+var _predictEngine    = new PredictiveEngine();
+var _topologyEngine   = new TopologyEngine();
+var _sentimentRolling = new RollingStats(ROLLING_WINDOW);
+var _wordCountRolling = new RollingStats(ROLLING_WINDOW);
+var _codecBatchN      = 0;
+
+var _lastTopology     = null;
+var _lastPrediction   = null;
+var _lastWordPrediction = null;
+var _lastFriction     = null;
+var _lastAssocEdges   = [];
+var _lastInvariants   = { words:[] };
+var _lastRedundancy   = { redundant:false };
+
+// ── LLM MIRROR ────────────────────────────────────────────────────
+var OLLAMA_URL  = 'http://localhost:11434/api/generate';
+var LLM_MODEL   = 'mistral:7b';
+var ANTH_URL    = 'https://api.anthropic.com/v1/messages';
+
+// ── EXT MIC — PeerJS host receiver ────────────────────────────────
+// Receives audio stream + transcript chunks from mic.html clients.
+// Architecture: Option C (STT on mic + audio analytics on host).
+// §MIC_INTEGRATION §4 Invariants: hash, ICE config, peerId format must
+// match mic.html exactly.
+
+var EXT_MIC_ICE = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    {
+      urls: ['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ]
+};
+
+// FNV-1a + djb2 — MUST be identical algorithm to mic.html micHashPw()
+function _vlHashPw(pw) {
+  var bytes = [];
+  for (var i = 0; i < pw.length; i++) bytes.push(pw.charCodeAt(i));
+  var h1 = 2166136261;
+  for (var j = 0; j < bytes.length; j++) { h1 ^= bytes[j]; h1 = Math.imul(h1, 16777619) >>> 0; }
+  var h2 = 5381;
+  for (var k = 0; k < bytes.length; k++) { h2 = (Math.imul(h2, 33) + bytes[k]) >>> 0; }
+  var hex = ('00000000' + h1.toString(16)).slice(-8) + ('00000000' + h2.toString(16)).slice(-8);
+  return 'nx_' + hex;
+}
+
+function _vlDeriveRoomId(pw) {
+  var hash = _vlHashPw(pw);
+  return 'NX-' + hash.slice(3, 9).toUpperCase() + '-' + hash.slice(9, 15).toUpperCase();
+}
+
+var _extMic = {
+  peer:     null,
+  conns:    [],       // active data connections [{conn, peerId, recording}]
+  calls:    [],       // active audio calls
+  streams:  [],       // received MediaStreams
+  roomId:   null,
+  enabled:  false,
+  lastFrame: null,    // most recent audio frame from remote stream
+  extAudioProcs: []   // GPGPUAudioProcessor instances on remote streams
+};
+
+function extMicInit(password) {
+  if (!password) { extMicSetStatus('No password.', 'err'); return; }
+  if (typeof Peer === 'undefined') { extMicSetStatus('PeerJS not loaded.', 'err'); return; }
+
+  var roomId = _vlDeriveRoomId(password);
+  var hostId = roomId + '-HOST';
+
+  if (_extMic.peer) { try { _extMic.peer.destroy(); } catch(e){} }
+
+  _extMic.roomId  = roomId;
+  _extMic.enabled = true;
+  _extMic.peer    = new Peer(hostId, { config: EXT_MIC_ICE, debug: 0 });
+
+  _extMic.peer.on('open', function(id) {
+    extMicSetStatus('HOST READY — ' + roomId, 'ok');
+    var el = document.getElementById('ext-room-id'); if (el) el.textContent = roomId;
+  });
+
+  _extMic.peer.on('connection', function(conn) {
+    extMicOnDataConn(conn);
+  });
+
+  _extMic.peer.on('call', function(call) {
+    extMicOnCall(call);
+  });
+
+  _extMic.peer.on('error', function(err) {
+    extMicSetStatus('PeerJS error: ' + (err.type || err.message), 'err');
+    console.error('[extMic] peer error:', err);
+  });
+
+  _extMic.peer.on('disconnected', function() {
+    extMicSetStatus('Disconnected — reconnecting…', 'warn');
+    setTimeout(function() {
+      if (_extMic.peer && !_extMic.peer.destroyed) _extMic.peer.reconnect();
+    }, 2000);
+  });
+}
+
+function extMicOnDataConn(conn) {
+  var entry = { conn: conn, peerId: conn.peer, recording: false };
+  _extMic.conns.push(entry);
+  extMicSetStatus('MIC CONNECTED: ' + conn.peer.slice(-10), 'ok');
+  extMicUpdateConnList();
+
+  conn.on('data', function(msg) {
+    extMicHandleMsg(msg, entry);
+  });
+
+  conn.on('close', function() {
+    _extMic.conns = _extMic.conns.filter(function(e) { return e.conn !== conn; });
+    extMicSetStatus(_extMic.conns.length > 0 ? _extMic.conns.length + ' mic(s) connected' : 'HOST READY — ' + _extMic.roomId, 'ok');
+    extMicUpdateConnList();
+  });
+
+  // Send current recording state so mic can sync
+  if (_recState) {
+    try { conn.send({ cmd: 'record_start' }); } catch(e){}
+  } else {
+    try { conn.send({ cmd: 'state_sync', recording: false }); } catch(e){}
+  }
+}
+
+function extMicOnCall(call) {
+  call.answer(); // no local stream — we just receive
+  _extMic.calls.push(call);
+
+  call.on('stream', function(remoteStream) {
+    _extMic.streams.push(remoteStream);
+    // Wire into AudioEngine as an additional analysis source
+    // AudioEngine will process this stream for energy/ZCR/cadence
+    // which enriches the next addNode() call from this mic's transcript
+    if (AudioEngine.isReady()) {
+      AudioEngine.init(remoteStream); // adds gain+analyser source
+    }
+  });
+
+  call.on('close', function() {
+    _extMic.calls = _extMic.calls.filter(function(c) { return c !== call; });
+  });
+}
+
+function extMicHandleMsg(msg, entry) {
+  if (!msg || !msg.cmd) return;
+  switch (msg.cmd) {
+    case 'transcript':
+      // Option C: mic ran STT locally, sends us the final text
+      if (msg.text && msg.text.trim().length > 1) {
+        var metrics = AudioEngine.isReady() ? AudioEngine.snapshot() : {};
+        metrics.source = 'ext-mic';
+        metrics.micPeer = entry.peerId;
+        addNode(msg.text.trim(), metrics);
+      }
+      break;
+    case 'recording_started':
+      entry.recording = true;
+      extMicUpdateConnList();
+      setStatus('EXT MIC RECORDING', 'on');
+      break;
+    case 'recording_stopped':
+      entry.recording = false;
+      extMicUpdateConnList();
+      break;
+    case 'pong':
+      // heartbeat acknowledged
+      break;
+    default:
+      console.log('[extMic] unknown cmd:', msg.cmd);
+  }
+}
+
+function extMicSyncRecord(isRecording) {
+  // When host starts/stops recording, tell all mics
+  _extMic.conns.forEach(function(entry) {
+    if (!entry.conn || !entry.conn.open) return;
+    try { entry.conn.send({ cmd: isRecording ? 'record_start' : 'record_stop' }); } catch(e){}
+  });
+}
+
+function extMicDisconnect() {
+  _extMic.conns.forEach(function(e) { try { e.conn.close(); } catch(e2){} });
+  _extMic.calls.forEach(function(c) { try { c.close(); } catch(e2){} });
+  if (_extMic.peer) { try { _extMic.peer.destroy(); } catch(e){} _extMic.peer = null; }
+  _extMic.conns = []; _extMic.calls = []; _extMic.streams = [];
+  _extMic.enabled = false;
+  extMicSetStatus('Disconnected.', '');
+  extMicUpdateConnList();
+}
+
+function extMicSetStatus(text, type) {
+  var el = document.getElementById('ext-mic-status');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = type === 'ok' ? 'var(--p)' : type === 'err' ? 'var(--red)' : type === 'warn' ? 'var(--amber)' : 'var(--text2)';
+}
+
+function extMicUpdateConnList() {
+  var el = document.getElementById('ext-mic-conns');
+  if (!el) return;
+  if (_extMic.conns.length === 0) {
+    el.innerHTML = '<div class="no-item">no mics connected</div>';
+    return;
+  }
+  el.innerHTML = _extMic.conns.map(function(e) {
+    return '<div style="font-size:var(--fs-xs);padding:3px 0;border-bottom:1px solid var(--border);color:var(--text2)">' +
+      '<span style="color:' + (e.recording ? 'var(--p)' : 'var(--text3)') + '">●</span> ' +
+      e.peerId.slice(-14) +
+      (e.recording ? ' <span style="color:var(--p)">REC</span>' : '') +
+      '</div>';
+  }).join('');
+}
+var _llmQueue   = [];
+var _llmRunning = false;
+var _useAnthAPI = true;
+
+// ── UTILITIES ─────────────────────────────────────────────────────
+function uid()    { _ec++; return 'rv7-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5)+'-'+_ec; }
+function esc(t)   { return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTs(ms){ var d=new Date(ms); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function pad(n)   { return n.toString().padStart(2,'0'); }
+function fmtDelta(ms){
+  if(!ms||ms<200) return '';
+  if(ms<1000)  return Math.round(ms)+'ms';
+  if(ms<60000) return (ms/1000).toFixed(1)+'s';
+  return Math.floor(ms/60000)+'m'+Math.round((ms%60000)/1000)+'s';
+}
+function fmtDur(ms){
+  if(!ms||ms<1000) return '<1s';
+  if(ms<60000) return Math.round(ms/1000)+'s';
+  return Math.floor(ms/60000)+'m'+Math.round((ms%60000)/1000)+'s';
+}
+
+// ── DOMAIN ────────────────────────────────────────────────────────
+function setDomain(domain) {
+  if (!DOMAINS[domain]) return;
+  _activeDomain = domain;
+  document.querySelectorAll('.domain-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.domain === domain);
+  });
+  setStatus('DOMAIN: ' + DOMAINS[domain].label, '');
+}
+
+function getDomainPatterns() {
+  var base = DOMAIN_PATTERNS[_activeDomain] || [];
+  return base; // framework patterns are in addition to base FRAMEWORK_PATTERNS
+}
+
+function detectAllFrameworks(text) {
+  var found = detectFrameworks(text, _frames);
+  // Domain-specific patterns
+  var domainPats = getDomainPatterns();
+  for (var i = 0; i < domainPats.length; i++) {
+    var p = domainPats[i], m = text.match(p.re);
+    if (m) {
+      found.push({name: '['+_activeDomain.toUpperCase()+'] '+p.name, example: m[0].trim()});
+      var fullName = _activeDomain + ':' + p.name;
+      if (!_frames[fullName]) _frames[fullName] = {count:0, examples:[]};
+      _frames[fullName].count++;
+      if (_frames[fullName].examples.length < 3) _frames[fullName].examples.push(text.slice(0,60));
+    }
+  }
+  return found;
+}
+
+// ── ADD NODE — central pipeline ───────────────────────────────────
+function addNode(text, audioMetrics) {
+  try {
+    if (!text || text.trim().length < 3) return;
+    text = text.trim();
+    var ts = Date.now();
+    audioMetrics = audioMetrics || {};
+
+    // Text analysis
+    updateWordBank(text, _wordBank);
+    var tags       = extractTags(text, _wordBank);
+    var wordCount  = tok(text).length;
+    _totalWords   += wordCount;
+    var silenceDelta = _lastNodeTs ? (ts - _lastNodeTs) : null;
+    _lastNodeTs    = ts;
+
+    // WPM
+    var wpm = 0;
+    if (_nodeStartTs) {
+      var dur = (ts - _nodeStartTs) / 1000 / 60;
+      if (dur > 0) wpm = Math.round(wordCount / dur);
+    }
+    _nodeStartTs = null;
+    if (wpm > 0 && wpm < 400) {
+      _wpmHistory.push(wpm);
+      if (_wpmHistory.length > 20) _wpmHistory.shift();
+    }
+    var medWpm = _wpmHistory.length ? Math.round(_wpmHistory.reduce(function(a,b){return a+b;},0)/_wpmHistory.length) : 0;
+
+    // Signal scoring
+    // GAPS.md #1: scoreDysfluencyFused uses AudioEngine's real-time acoustic
+    // dysfluency (ZCR spike / pitch discontinuity / mid-utterance silence)
+    // fused 60/40 with lexical pattern analysis. Falls back to the plain
+    // lexical+ZCR scorer if no acoustic snapshot came through (e.g. ext mic
+    // nodes before Option-C audio metrics arrive).
+    var dysfluency = (typeof audioMetrics.acousticDysfluency === 'number')
+      ? scoreDysfluencyFused(text, audioMetrics.acousticDysfluency)
+      : scoreDysfluency(text, audioMetrics.zcr || 0);
+    var coherence  = scoreCoherence(text, _nodes);
+    var frameworks = detectAllFrameworks(text);
+    var contras    = detectContradictions(text, _nodes);
+    var connected  = findConnectedNodes(text, _nodes);
+
+    // Codec pipeline
+    _codecBatchN++;
+    var batchId    = 'B' + String(_codecBatchN).padStart(4,'0');
+    var sentiment  = scoreSentiment(text);
+    _sentimentRolling.measure(sentiment);
+    _wordCountRolling.measure(wordCount);
+
+    _lastFriction    = _frictionEngine.analyze(text);
+    _lastAssocEdges  = _assocEngine.add(batchId, text);
+    _lastRedundancy  = _assocEngine.redundancyCheck(text);
+    _lastInvariants  = _assocEngine.invariants();
+
+    var codecTags = [];
+    if (_lastFriction && _lastFriction.friction) codecTags.push('FRICTION');
+    if (/blocked?|stuck|can't|cannot|unable/.test(text))        codecTags.push('BLOCK');
+    if (/again|same|every time|always|keep/.test(text))         codecTags.push('LOOP');
+    if (/gap|missing|unknown|don'?t know|unclear/.test(text))   codecTags.push('GAP');
+    if (/connect(?:ed|s)?|link(?:ed|s)?|relat(?:e|es|ed)/.test(text)) codecTags.push('REL');
+    if (!codecTags.length) codecTags.push('SYS');
+
+    _lastPrediction      = _predictEngine.predictTag();
+    _lastWordPrediction  = _predictEngine.predictWords();
+    _predictEngine.feed(codecTags, text);
+
+    _lastTopology = _topologyEngine.feed({
+      sentiment:  sentiment,
+      friction:   _lastFriction ? _lastFriction.score : 0,
+      wordCount:  wordCount,
+      text:       text,
+      batchId:    batchId,
+      ts:         ts,
+      energy:     audioMetrics.amplitude || null,
+      cadence:    null
+    }, _assocEngine);
+
+    var node = {
+      id:             uid(), eventTs: _ec, ts: ts,
+      text:           text, wordCount: wordCount, silenceDelta: silenceDelta,
+      wpm:            wpm,  wpmDelta: medWpm > 0 ? wpm - medWpm : 0,
+      pitch:          audioMetrics.pitch       || null,
+      amplitude:      audioMetrics.amplitude   || null,
+      spectralCentroid: audioMetrics.spectralCentroid || null,
+      zcr:            audioMetrics.zcr         || null,
+      dysfluencyScore: dysfluency,
+      coherenceScore:  coherence,
+      frameworks:     frameworks.map(function(f){ return f.name; }),
+      contradictions: contras.map(function(c){ return c.wA+'/'+c.wB; }),
+      tags:           tags, codecTags: codecTags,
+      mirror:         '', connectedTo: connected,
+      resonanceScore: null, resonanceClass: null,
+      sentiment:      sentiment,
+      frictionScore:  _lastFriction ? _lastFriction.score : 0,
+      topologyState:  _lastTopology ? _lastTopology.composite.state : null,
+      assocEdgeCount: _lastAssocEdges.length,
+      redundant:      _lastRedundancy ? _lastRedundancy.redundant : false,
+      domain:         _activeDomain
+    };
+
+    contras.forEach(function(c) {
+      var evt = {id:uid(), ts:ts, desc:'Said "'+c.wA+'" — previously said "'+c.wB+'"', wordA:c.wA, wordB:c.wB, nodeId:node.id, prevNodeId:c.prevId, prevText:c.prevText};
+      _contras.push(evt); renderContra(evt);
+    });
+
+    _nodes.push(node);
+
+    // Pitch engine
+    if (audioMetrics.pitch)    { _pitchHistory.push(audioMetrics.pitch);    if (_pitchHistory.length>20) _pitchHistory.shift(); }
+    if (audioMetrics.amplitude){ _jitterHistory.push(audioMetrics.amplitude);if (_jitterHistory.length>20) _jitterHistory.shift(); }
+    if (_pitchHistory.length>=4 && _jitterHistory.length>=4) {
+      _pitchData = pitchEngine(_pitchHistory, _jitterHistory);
+    }
+
+    // Flow
+    _flowScore = computeFlowScore(_nodes, _wpmHistory, _contras);
+    var isFlow = _flowScore >= 60;
+    if (isFlow && !_flowEpisodeStart) _flowEpisodeStart = Date.now();
+    else if (!isFlow && _flowEpisodeStart) {
+      var dur2 = Date.now() - _flowEpisodeStart;
+      if (dur2 >= 10000) { _flowHistory.push({ts:_flowEpisodeStart, score:_flowScore, duration:dur2}); if(_flowHistory.length>50)_flowHistory.shift(); }
+      _flowEpisodeStart = null;
+    }
+
+    // Update all signal state
+    _updateSignalState(node);
+
+    // Debounced save (avoids blocking on every utterance)
+    _scheduleSave();
+
+    renderNode(node);
+    updateStats();
+    _renderWordBankThrottled();
+    updateFramePanel();
+    updateFlowUI();
+    updateMeterNode(node);
+    scrollBottom();
+    enqueueMirror(node);
+
+  } catch(e) { console.error('[addNode] error:', e); }
+}
+
+function _updateSignalState(node) {
+  if (node.amplitude) {
+    _energyHistory.push(node.amplitude);
+    if (_energyHistory.length > _MAX_STAT_WIN) _energyHistory.shift();
+  }
+  if (_energyHistory.length >= 4) {
+    _sigmaState = stabilityEngine(_energyHistory);
+    AudioEngine.setSigmaRegime(_sigmaState.regime);
+    updateSigmaUI(_sigmaState);
+  }
+  if (_nodes.length >= 5) {
+    _oscillation = oscillationEngine(_nodes.slice(-12).map(function(n){return n.coherenceScore||0.5;}));
+    updateOscillationUI(_oscillation);
+  }
+  if (_nodes.length >= 4) {
+    _nodeSlopeData.energy = slopeEngine(_nodes.slice(-8).map(function(n){return n.amplitude||0;}));
+    _nodeSlopeData.res    = slopeEngine(_nodes.slice(-8).map(function(n){return n.resonanceScore||0.5;}));
+    _nodeSlopeData.dysf   = slopeEngine(_nodes.slice(-8).map(function(n){return n.dysfluencyScore||0;}));
+    updateSlopeUI();
+  }
+  _driftState    = driftEngine(_nodes, _energyHistory, _contras);
+  _resonanceState = computeResonance(node, _nodes.slice(0, -1));
+  if (_resonanceState) {
+    updateResonanceUI(_resonanceState);
+    node.resonanceScore = _resonanceState.score;
+    node.resonanceClass = _resonanceState.classification;
+  }
+  _receiverGrammar = detectReceiverGrammar(_nodes);
+  if (_receiverGrammar) updateReceiverGrammarUI(_receiverGrammar);
+  updateTopologyUI(_lastTopology);
+  if (_activeTab === 'signals') updateDriftUI(_driftState);
+}
+
+// ── METER UPDATE (from node data) ─────────────────────────────────
+function updateMeterNode(node) {
+  var dysP = node.dysfluencyScore * 100;
+  var jP   = Math.min(100, _pitchData.jitter * 800);
+  setMeter('jitter', jP, _pitchData.jitter > 0 ? _pitchData.jitter.toFixed(3) : '—', 'amber');
+  setMeter('dysfl',  dysP, node.dysfluencyScore.toFixed(2), 'red');
+  var hnrEl = document.getElementById('osc-hnr');
+  if (hnrEl) hnrEl.textContent = _pitchData.hnr > 0 ? _pitchData.hnr.toFixed(2) : '—';
+}
+
+function setMeter(id, pct, val, cls) {
+  var b = document.getElementById('m-' + id);
+  var v = document.getElementById('mv-' + id);
+  if (b) { b.style.width = Math.max(0, Math.min(100, pct)) + '%'; if(cls) b.className = 'meter-bar ' + cls; }
+  if (v) v.textContent = val;
+}
+
+// ── SIGNAL UIs ────────────────────────────────────────────────────
+function updateSigmaUI(state) {
+  var el     = document.getElementById('sig-regime-name');
+  var prog   = document.getElementById('sig-prog-fill');
+  var strip  = document.getElementById('regime-strip-fill');
+  var badge  = document.getElementById('regime-badge');
+  var stEl   = document.getElementById('st-regime');
+  var detail = document.getElementById('sig-regime-detail');
+  var c      = REGIME_COLORS[state.regime] || 'var(--text3)';
+  var pct    = {STABLE:20,ACTIVATING:38,UNGROUNDED:52,DYSREGULATED:72,OSCILLATORY:65,COLLAPSING:88,OFFLINE:100,INSUFFICIENT_DATA:5}[state.regime] || 5;
+  if (el)    { el.textContent = state.regime; el.style.color = c; }
+  if (prog)  { prog.style.width = pct+'%'; prog.style.background = c; }
+  if (strip) { strip.style.width = '100%'; strip.style.background = c; }
+  if (detail) detail.textContent = state.regime !== 'INSUFFICIENT_DATA' ? 'CoV '+state.cov.toFixed(2)+' · '+state.slopeFlips+' flips' : '';
+  if (stEl)  { stEl.textContent = state.regime; stEl.style.color = c; }
+  if (badge) {
+    var show = state.regime !== 'STABLE' && state.regime !== 'INSUFFICIENT_DATA';
+    badge.style.display = show ? '' : 'none';
+    badge.textContent   = state.regime;
+    badge.style.color   = c;
+    badge.style.borderColor = c;
+  }
+}
+
+function updateSlopeUI() {
+  function setSlopeRow(spId, svId, sd) {
+    var bar = document.getElementById(spId), val = document.getElementById(svId);
+    var pct = Math.max(5, Math.min(95, 50 + sd.slope * 500));
+    var c   = sd.direction==='rising' ? 'var(--p)' : sd.direction==='falling' ? 'var(--red)' : 'var(--text2)';
+    if (bar) { bar.style.width = pct+'%'; bar.style.background = c; }
+    if (val) { val.textContent = (sd.slope>0?'+':'')+sd.slope.toFixed(3)+' '+sd.direction; val.style.color = c; }
+  }
+  setSlopeRow('sp-energy','sv-energy', _nodeSlopeData.energy);
+  setSlopeRow('sp-res',   'sv-res',    _nodeSlopeData.res);
+  setSlopeRow('sp-dysf',  'sv-dysf',   _nodeSlopeData.dysf);
+  var spark = document.getElementById('spark-energy');
+  if (spark && _energyHistory.length > 1) {
+    var maxE = Math.max.apply(null, _energyHistory) || 0.001;
+    spark.innerHTML = _energyHistory.map(function(v) {
+      var h = Math.max(2, (v/maxE)*18);
+      var col = v>maxE*0.7?'var(--red)':v>maxE*0.4?'var(--amber)':'var(--p)';
+      return '<div class="spark-bar" style="height:'+h+'px;background:'+col+'"></div>';
+    }).join('');
+  }
+}
+
+function updateOscillationUI(osc) {
+  function setBar(id, vid, val, max) {
+    var b = document.getElementById(id), v = document.getElementById(vid);
+    if (b) b.style.width = Math.min(100, (val/max)*100)+'%';
+    if (v) v.textContent = val > 0 ? val : '—';
+  }
+  setBar('sp-osc-per','sv-osc-per', osc.period, 10);
+  setBar('sp-osc-amp','sv-osc-amp', osc.amplitude, 0.5);
+  setBar('sp-osc-reg','sv-osc-reg', osc.regularity, 1);
+}
+
+function updateDriftUI(drift) {
+  var list = document.getElementById('drift-list');
+  var stEl = document.getElementById('st-drift');
+  if (stEl) stEl.textContent = drift.clusterCount;
+  if (!list) return;
+  list.innerHTML = drift.signals.length === 0
+    ? '<div class="no-item">no drift detected</div>'
+    : drift.signals.map(function(s) {
+        return '<div class="drift-item"><div class="di-type">'+s.type+'</div><div>score '+s.score.toFixed(2)+' · conf '+s.confidence.toFixed(2)+'</div></div>';
+      }).join('');
+  var clC = document.getElementById('drift-cluster-container');
+  if (clC) {
+    clC.innerHTML = drift.clusterCount >= 3
+      ? '<div class="drift-cluster-alert"><div class="dca-label">⚠ DRIFT CLUSTER DETECTED</div><div class="dca-desc">'+drift.clusterCount+' co-occurring signals</div></div>'
+      : '';
+  }
+}
+
+var RESON_CLASS_COLORS = {
+  HARMONIC_STABILITY:'var(--p)', GROWTH_FRICTION:'var(--amber)',
+  ASYNCHRONOUS_DRIFT:'var(--purple)', VOLATILE_COUPLING:'var(--red)',
+  LOW_INTERACTION_FIELD:'var(--text2)'
+};
+
+function updateResonanceUI(r) {
+  var cls   = document.getElementById('res-class');
+  var score = document.getElementById('res-score-big');
+  var axes  = document.getElementById('res-axes');
+  var mBar  = document.getElementById('m-res');
+  var mVal  = document.getElementById('mv-res');
+  var c     = RESON_CLASS_COLORS[r.classification] || 'var(--text2)';
+  if (cls)   { cls.textContent = r.classification.replace(/_/g,' '); cls.style.color = c; }
+  if (score) { score.textContent = (r.score*100).toFixed(0)+'%'; score.style.color = c; }
+  if (mBar)  mBar.style.width = (r.score*100)+'%';
+  if (mVal)  mVal.textContent = (r.score*100).toFixed(0)+'%';
+  if (axes) {
+    axes.innerHTML = Object.keys(r.axes).map(function(k) {
+      var v = r.axes[k];
+      return '<div class="sig-row"><div class="sig-row-lbl">'+k.toUpperCase()+'</div>'+
+        '<div class="sig-row-bar"><div class="sig-row-fill" style="width:'+(v*100)+'%;background:'+c+'"></div></div>'+
+        '<div class="sig-row-val">'+v.toFixed(2)+'</div></div>';
+    }).join('');
+  }
+}
+
+function updateReceiverGrammarUI(rg) {
+  var el = document.getElementById('receiver-grammar');
+  if (!el) return;
+  el.style.display = '';
+  var mode = document.getElementById('rg-mode');
+  var det  = document.getElementById('rg-detail');
+  if (mode) mode.textContent = rg.mode;
+  if (det)  det.textContent  = rg.desc + '\nT:'+rg.scores.think+' F:'+rg.scores.feel+' S:'+rg.scores.somatic;
+}
+
+var TOPO_STATE_COLORS = {
+  CALIBRATING:'var(--text3)', STABLE:'var(--p)',
+  BASELINE_ALERT:'var(--amber)', POLARIZED:'var(--purple)'
+};
+
+function updateTopologyUI(topo) {
+  if (!topo) return;
+  var stateEl = document.getElementById('topo-state');
+  var evidEl  = document.getElementById('topo-evidence');
+  var polEl   = document.getElementById('topo-polarity');
+  var arcEl   = document.getElementById('topo-arc');
+  var flipEl  = document.getElementById('topo-flips');
+  var warmEl  = document.getElementById('topo-warmup');
+  var invEl   = document.getElementById('topo-invariants');
+  var predEl  = document.getElementById('topo-prediction');
+  var wPredEl = document.getElementById('topo-word-pred');
+  var frEl    = document.getElementById('topo-friction');
+  var redEl   = document.getElementById('topo-redundant');
+  var mBar    = document.getElementById('m-topo');
+  var mVal    = document.getElementById('mv-topo');
+
+  var state   = topo.composite ? topo.composite.state : 'CALIBRATING';
+  var c       = TOPO_STATE_COLORS[state] || 'var(--text3)';
+
+  if (stateEl) { stateEl.textContent = state; stateEl.style.color = c; }
+  if (mBar) { var pct = {CALIBRATING:12,STABLE:28,POLARIZED:62,BASELINE_ALERT:88}[state]||12; mBar.style.width=pct+'%'; mBar.style.background=c; }
+  if (mVal) { mVal.textContent = state.slice(0,6); mVal.style.color = c; }
+
+  if (topo.baseline && !topo.baseline.locked) {
+    var prog = Math.round((topo.baseline.warmupProgress||0)*100);
+    if (warmEl) warmEl.textContent = 'CALIBRATING… '+prog+'%';
+    if (evidEl) evidEl.textContent = '';
+  } else {
+    if (warmEl) warmEl.textContent = 'BASELINE LOCKED';
+    if (evidEl && topo.composite) evidEl.textContent = (topo.composite.evidence||[]).join(' · ');
+  }
+
+  if (topo.polarity) {
+    var pol = topo.polarity;
+    if (polEl) { polEl.textContent = pol.label.toUpperCase(); polEl.style.color = pol.label==='positive'?'var(--p)':pol.label==='negative'?'var(--red)':'var(--text3)'; }
+    if (arcEl) { arcEl.textContent = pol.sessionArc; arcEl.style.color = pol.sessionArc==='improving'?'var(--p)':pol.sessionArc==='declining'?'var(--red)':'var(--text3)'; }
+    if (flipEl) flipEl.textContent = pol.flipCount + ' flips';
+  }
+  if (invEl) {
+    var inv = _lastInvariants && _lastInvariants.words;
+    invEl.textContent = (inv && inv.length > 0) ? inv.slice(0,8).join(', ') : 'none yet';
+  }
+  if (predEl) predEl.textContent = _lastPrediction && _lastPrediction.predicted ? '→ '+_lastPrediction.predicted : '—';
+  if (wPredEl) wPredEl.textContent = _lastWordPrediction && _lastWordPrediction.top3 ? _lastWordPrediction.top3.map(function(w){return w.word;}).join(', ') : '—';
+  if (frEl) {
+    var ft = _lastFriction ? (_lastFriction.types || []) : [];
+    frEl.textContent = ft.length ? ft.join(', ') : 'none';
+    frEl.style.color = ft.length ? 'var(--amber)' : 'var(--text3)';
+  }
+  if (redEl) {
+    redEl.textContent = _lastRedundancy && _lastRedundancy.redundant ? '⚡ '+(_lastRedundancy.phrases||[]).join(', ') : 'none';
+    redEl.style.color = _lastRedundancy && _lastRedundancy.redundant ? 'var(--red)' : 'var(--text3)';
+  }
+}
+
+function updateFlowUI() {
+  setMeter('flow', _flowScore, _flowScore+'%', 'flow');
+  var stEl = document.getElementById('st-flow');
+  var dot  = document.getElementById('live-dot');
+  if (stEl) stEl.textContent = _flowScore+'%';
+  AudioEngine.setFlowScore(_flowScore);
+  if (_recState && dot) dot.className = 'live-dot'+(_flowScore>=60?' flow':' on');
+  if (_activeTab === 'flow') updateFlowPanel();
+}
+
+function updateFlowPanel() {
+  var scoreEl = document.getElementById('fp-score');
+  var metaEl  = document.getElementById('fp-meta');
+  var histEl  = document.getElementById('flow-history');
+  if (scoreEl) scoreEl.textContent = _flowScore+'%';
+  if (metaEl) {
+    var isF = _flowScore >= 60, lines = [];
+    var epDur = _flowEpisodeStart ? fmtDur(Date.now() - _flowEpisodeStart) : null;
+    if (isF && epDur) lines.push('IN FLOW for '+epDur);
+    else if (_flowScore >= 40) lines.push('Approaching flow state.');
+    else lines.push('Not in flow state.');
+    lines.push('Score: '+_flowScore+'/100');
+    if (_flowHistory.length > 0) {
+      var tot = _flowHistory.reduce(function(s,e){return s+e.duration;},0);
+      lines.push('Total flow time: '+fmtDur(tot));
+    }
+    metaEl.textContent = lines.join('\n');
+    metaEl.style.whiteSpace = 'pre';
+  }
+  if (histEl) {
+    if (_flowHistory.length === 0) { histEl.innerHTML = '<div class="no-item">no flow episodes yet</div>'; return; }
+    histEl.innerHTML = _flowHistory.slice().reverse().map(function(ep) {
+      return '<div class="flow-hist-item'+(ep.score>=75?' peak':'')+'">'+
+        '<span class="fhi-ts">'+fmtTs(ep.ts)+'</span>'+
+        '<span class="fhi-dur">'+fmtDur(ep.duration)+'</span>'+
+        '<span class="fhi-score">'+Math.round(ep.score)+'%</span></div>';
+    }).join('');
+  }
+}
+
+// ── LLM MIRROR ────────────────────────────────────────────────────
+function enqueueMirror(node) { _llmQueue.push(node); if (!_llmRunning) _processLLMQueue(); }
+function flushLLMQueue()     { _llmQueue = []; _llmRunning = false; }
+
+function _processLLMQueue() {
+  if (_llmQueue.length === 0) { _llmRunning = false; return; }
+  _llmRunning = true;
+  var node = _llmQueue.shift();
+  _streamMirror(node, function() { _processLLMQueue(); });
+}
+
+function _buildMirrorPrompt(node) {
+  var ctx = _nodes.slice(-5,-1).map(function(n){return n.text;}).join(' ');
+  var topoMeta = _lastTopology && _lastTopology.composite ? '\nTopology: '+_lastTopology.composite.state : '';
+  var frMeta   = _lastFriction && _lastFriction.types && _lastFriction.types.length ? '\nFriction: '+_lastFriction.types.join(', ') : '';
+  var domMeta  = _activeDomain !== 'voice' ? '\nDomain: '+DOMAINS[_activeDomain].label : '';
+  return (ctx ? 'Recent context: '+ctx+'\n\n' : '')+
+    'Speaker just said: '+node.text+'\n'+
+    'Dysfluency: '+node.dysfluencyScore.toFixed(2)+' · Coherence: '+node.coherenceScore.toFixed(2)+
+    (node.resonanceClass ? '\nResonance: '+node.resonanceClass : '')+
+    (_sigmaState.regime !== 'INSUFFICIENT_DATA' ? '\nSigma: '+_sigmaState.regime : '')+
+    topoMeta + frMeta + domMeta + '\n\n'+
+    'You are a precision translator mirror. Reflect exactly what the speaker said — cleaner, more precise language. '+
+    'Strip fillers, repetition, and hedges. Keep meaning exact. '+
+    (_activeDomain==='therapy' ? 'Apply empathetic, non-diagnostic reflection. ' : '')+
+    (_activeDomain==='code' ? 'Use technical precision. Mirror the problem statement. ' : '')+
+    (_activeDomain==='strategy' ? 'Mirror strategic framing. Keep causal logic intact. ' : '')+
+    'If sigma is DYSREGULATED or COLLAPSING, add one brief grounding phrase in [brackets]. '+
+    'Do not add interpretation or advice. Output one short paragraph.';
+}
+
+function _streamMirror(node, onDone) {
+  var el = document.getElementById('mirror-'+node.id);
+  if (!el) { if (onDone) onDone(); return; }
+  el.className = 'node-mirror streaming';
+  el.textContent = '';
+  if (_useAnthAPI) _streamAnth(node, el, onDone);
+  else _streamOllama(node, el, onDone);
+}
+
+function _streamAnth(node, el, onDone) {
+  var prompt = _buildMirrorPrompt(node), acc = '';
+  fetch(ANTH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:160, stream:true, messages:[{role:'user',content:prompt}] })
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    var ob = document.getElementById('offline-badge'); if (ob) ob.className = 'offline-badge';
+    el.className = 'node-mirror streaming api-mirror';
+    var reader = resp.body.getReader(), dec = new TextDecoder();
+    function read() {
+      return reader.read().then(function(chunk) {
+        if (chunk.done) { el.className='node-mirror api-mirror'; node.mirror=acc; _scheduleSave(); if(onDone)onDone(); return; }
+        dec.decode(chunk.value).split('\n').forEach(function(line) {
+          if (!line.startsWith('data:')) return;
+          var data = line.slice(5).trim(); if (data==='[DONE]') return;
+          try { var p=JSON.parse(data); if(p.type==='content_block_delta'&&p.delta&&p.delta.text){acc+=p.delta.text;el.textContent=acc;} } catch(e){}
+        });
+        return read();
+      });
+    }
+    return read();
+  }).catch(function() { _useAnthAPI = false; _streamOllama(node, el, onDone); });
+}
+
+function _streamOllama(node, el, onDone) {
+  var prompt = _buildMirrorPrompt(node), acc = '';
+  fetch(OLLAMA_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify({ model:LLM_MODEL, prompt:prompt, stream:true, options:{temperature:0.1,num_predict:140} })
+  }).then(function(resp) {
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    var ob = document.getElementById('offline-badge'); if (ob) ob.className = 'offline-badge';
+    var reader = resp.body.getReader(), dec = new TextDecoder();
+    function read() {
+      return reader.read().then(function(chunk) {
+        if (chunk.done) { el.className='node-mirror'; node.mirror=acc; _scheduleSave(); if(onDone)onDone(); return; }
+        dec.decode(chunk.value).split('\n').forEach(function(line) {
+          if (!line.trim()) return;
+          try { var p=JSON.parse(line); if(p.response){acc+=p.response;el.textContent=acc;} } catch(e){}
+        });
+        return read();
+      });
+    }
+    return read();
+  }).catch(function() {
+    var local = offlineMirror(node.text); node.mirror = local;
+    el.className = 'node-mirror offline-mirror'; el.textContent = local;
+    var ob = document.getElementById('offline-badge'); if (ob) ob.className = 'offline-badge show';
+    _scheduleSave(); if (onDone) onDone();
+  });
+}
+
+// ── SPEECH ENGINE ─────────────────────────────────────────────────
+function buildRecognizer() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  var rec = new SR();
+  rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US'; rec.maxAlternatives = 1;
+
+  rec.onstart = function() {
+    _permDenied = false;
+    hidePermBanner(); updateRecUI(true); setStatus('LISTENING','on'); _nodeStartTs = Date.now();
+  };
+  rec.onresult = function(event) {
+    var interim = '', final = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) final  += event.results[i][0].transcript;
+      else                          interim += event.results[i][0].transcript;
+    }
+    if (interim) {
+      _interim = interim;
+      var ib = document.getElementById('interim-box'); if (ib) ib.textContent = interim;
+      updateLiveInterim(interim);
+    }
+    if (final && final.trim().length > 1) {
+      var ib2 = document.getElementById('interim-box'); if (ib2) ib2.textContent = '—';
+      clearLiveInterim(); _interim = '';
+      var m = AudioEngine.isReady() ? AudioEngine.snapshot() : {};
+      addNode(final, m);
+      _nodeStartTs = Date.now();
+    }
+  };
+  rec.onerror = function(event) {
+    if (event.error==='no-speech' || event.error==='aborted') return;
+    if (event.error==='not-allowed'||event.error==='audio-capture'||event.error==='service-not-allowed') {
+      _permDenied = true; _recState = false; showPermBanner(); updateRecUI(false); setStatus('MIC DENIED','err'); return;
+    }
+    console.warn('[speech] error:', event.error);
+  };
+  rec.onend = function() {
+    if (_recState && !_permDenied) {
+      _rec = buildRecognizer();
+      if (!_rec) { _recState=false; updateRecUI(false); setStatus('SPEECH API GONE','err'); return; }
+      try { _rec.start(); setStatus('LISTENING','on'); }
+      catch(e) { console.warn('[speech] restart failed:', e.message); _recState=false; updateRecUI(false); setStatus('RESTART FAILED','err'); }
+    } else {
+      if (!_permDenied) setStatus('READY','');
+      updateRecUI(false);
+    }
+  };
+  return rec;
+}
+
+function toggleRecord() { if (_recState) stopRec(); else startRec(); }
+
+// GAPS.md #3 — proxy for the gain slider oninput handler in index.html.
+function setInputGain(value) {
+  var g = AudioEngine.setInputGain(value);
+  var db = AudioEngine.getInputGainDb();
+  var lbl = document.getElementById('gain-val');
+  if (lbl) lbl.textContent = (db >= 0 ? '+' : '') + db + 'dB';
+  return g;
+}
+
+function startRec() {
+  if (_permDenied) { showPermBanner(); return; }
+  if (_recState)   return;
+
+  // If we already have a live stream and AudioContext, just restart recognizer
+  if (AudioEngine.isReady() && _micStreamRef && _micStreamRef.active) {
+    if (AudioEngine._ctx && AudioEngine._ctx.state === 'suspended') {
+      AudioEngine._ctx.resume().catch(function(){});
+    }
+    _rec = buildRecognizer();
+    if (!_rec) { setStatus('USE CHROME FOR VOICE', 'err'); return; }
+    _recState = true;
+    AudioEngine.isRecording = true;
+    extMicSyncRecord(true);
+    updateRecUI(true);
+    try {
+      _rec.start();
+    } catch(e) {
+      console.error('[speech] start failed:', e);
+      _recState = false; AudioEngine.isRecording = false;
+      extMicSyncRecord(false);
+      updateRecUI(false); setStatus('START FAILED', 'err');
+    }
+    return;
+  }
+
+  // First time or after stream died — request mic
+  setStatus('REQUESTING MIC…', '');
+
+  // Max-sensitivity constraints: disable all processing that attenuates signal
+  var constraints = {
+    audio: {
+      echoCancellation:  false,
+      noiseSuppression:  false,
+      autoGainControl:   false,
+      sampleRate:        { ideal: 48000 },
+      channelCount:      { ideal: 1 },
+      latency:           { ideal: 0 }
+    },
+    video: false
+  };
+
+  navigator.mediaDevices.getUserMedia(constraints)
+    .catch(function() {
+      // Fallback: if browser rejects advanced constraints, try minimal
+      return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    })
+    .then(function(stream) {
+      _micStreamRef = stream;
+      AudioEngine.init(stream);
+
+      _rec = buildRecognizer();
+      if (!_rec) {
+        setStatus('USE CHROME FOR VOICE', 'err');
+        return;
+      }
+
+      _recState = true;
+      AudioEngine.isRecording = true;
+      extMicSyncRecord(true);
+      updateRecUI(true);
+
+      try {
+        _rec.start();
+      } catch(e) {
+        console.error('[speech] start failed:', e);
+        _recState = false; AudioEngine.isRecording = false;
+        extMicSyncRecord(false);
+        updateRecUI(false); setStatus('START FAILED', 'err');
+      }
+    })
+    .catch(function(e) {
+      _permDenied = true;
+      showPermBanner();
+      setStatus('MIC DENIED', 'err');
+      console.error('[speech] getUserMedia denied:', e);
+    });
+}
+
+function stopRec() {
+  _recState = false;
+  AudioEngine.isRecording = false;
+  extMicSyncRecord(false);
+
+  // Flush any buffered interim text as a final node
+  if (_interim && _interim.trim().length > 2) {
+    var m = AudioEngine.isReady() ? AudioEngine.snapshot() : {};
+    addNode(_interim, m);
+    _interim = '';
+  }
+
+  var ib = document.getElementById('interim-box');
+  if (ib) ib.textContent = '—';
+  clearLiveInterim();
+
+  // Stop recognizer — keep the mic stream alive for instant restart
+  if (_rec) { try { _rec.stop(); } catch(e){} _rec = null; }
+
+  updateRecUI(false);
+  setStatus('READY', '');
+
+  if (_flowEpisodeStart) {
+    var dur = Date.now() - _flowEpisodeStart;
+    if (dur >= 10000) {
+      _flowHistory.push({ ts: _flowEpisodeStart, score: _flowScore, duration: dur });
+      if (_flowHistory.length > 50) _flowHistory.shift();
+      _scheduleSave();
+    }
+    _flowEpisodeStart = null;
+  }
+  updateFlowPanel();
+}
+
+function retryMic() {
+  _permDenied = false;
+  // Kill existing stream so startRec does a fresh getUserMedia
+  if (_micStreamRef) {
+    _micStreamRef.getTracks().forEach(function(t) { try { t.stop(); } catch(e){} });
+    _micStreamRef = null;
+  }
+  hidePermBanner();
+  setStatus('READY', '');
+  startRec();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function updateLiveInterim(text) {
+  var el = document.getElementById('live-interim');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'live-interim'; el.className = 'interim-node';
+    el.innerHTML = '<div class="interim-text" id="live-interim-text"></div><div class="cursor-blink"></div>';
+    var t = document.getElementById('transcript'); if (t) t.appendChild(el);
+  }
+  var textEl = document.getElementById('live-interim-text'); if (textEl) textEl.textContent = text;
+  scrollBottom();
+}
+function clearLiveInterim() { var el = document.getElementById('live-interim'); if (el) el.remove(); }
+
+function updateRecUI(isRec) {
+  var btn = document.getElementById('rec-btn-main');
+  var dot = document.getElementById('live-dot');
+  if (btn) {
+    btn.classList.toggle('recording', isRec);
+    var gem  = btn.querySelector('.rec-gem');
+    var label= btn.querySelector('.rec-label');
+    if (label) label.textContent = isRec ? 'STOP' : 'RECORD';
+  }
+  if (dot && !isRec) dot.className = 'live-dot'+(_permDenied?' err':'');
+}
+function showPermBanner() { var b = document.getElementById('perm-banner'); if (b) b.className = 'perm-banner show'; }
+function hidePermBanner() { var b = document.getElementById('perm-banner'); if (b) b.className = 'perm-banner'; }
+function setStatus(text, type) {
+  var el  = document.getElementById('status-txt');
+  var dot = document.getElementById('live-dot');
+  if (el) { el.textContent = text; el.className = type==='on'?'on':type==='err'?'err':''; }
+  if (dot && !_permDenied && !_recState) dot.className = 'live-dot'+(type==='on'?' on':type==='err'?' err':'');
+}
+
+function renderNode(node) {
+  var t = document.getElementById('transcript'); if (!t) return;
+  var es = document.getElementById('empty-state'); if (es) es.style.display = 'none';
+
+  var isContra  = node.contradictions && node.contradictions.length > 0;
+  var isDrift   = node.coherenceScore < 0.12 && _nodes.length > 3;
+  var isLoop    = node.coherenceScore > 0.88 && _nodes.length > 3;
+  var isFlow    = _flowScore >= 60;
+  var hasFrame  = node.frameworks && node.frameworks.length > 0;
+  var isSuppress= node.frameworks && node.frameworks.indexOf('SUPPRESSION') > -1;
+
+  var cls = 'node';
+  if (isContra || node.topologyState==='BASELINE_ALERT') cls += ' has-contra';
+  else if (isDrift) cls += ' drift';
+  else if (isLoop || node.redundant) cls += ' loop';
+  else if (isSuppress) cls += ' suppressed';
+  else if (hasFrame) cls += ' has-frame';
+  if (isFlow) cls += ' flow-node';
+
+  var dStr  = fmtDelta(node.silenceDelta);
+  var dCls  = 'node-delta'; if (node.silenceDelta>12000) dCls+=' vlong'; else if (node.silenceDelta>4000) dCls+=' long';
+  var nIdx  = _nodes.indexOf(node) + 1;
+  var resC  = node.resonanceClass ? (RESON_CLASS_COLORS[node.resonanceClass]||'var(--text2)') : 'var(--text3)';
+  var topoC = node.topologyState  ? (TOPO_STATE_COLORS[node.topologyState]||'var(--text3)')  : 'var(--text3)';
+  var domIcon = _activeDomain !== 'voice' ? '<span style="font-size:10px;color:var(--text3);margin-left:3px">'+DOMAINS[_activeDomain].icon+'</span>' : '';
+
+  var h = '<div class="'+cls+'" id="node-'+esc(node.id)+'">';
+  h += '<div class="node-head">';
+  h += '<div class="node-idx">'+String(nIdx).padStart(3,'0')+'</div>';
+  h += '<div class="node-ts">'+fmtTs(node.ts)+'</div>';
+  h += domIcon;
+  if (dStr) h += '<div class="'+dCls+'">Δ '+esc(dStr)+'</div>';
+  if (node.wpm > 0) h += '<div class="node-wpm">'+node.wpm+' wpm</div>';
+  if (node.resonanceScore !== null) h += '<div class="node-res" style="border-color:'+resC+';color:'+resC+'">ρ '+(node.resonanceScore*100).toFixed(0)+'%</div>';
+  if (node.topologyState && node.topologyState !== 'CALIBRATING' && node.topologyState !== 'STABLE') h += '<div class="node-res" style="border-color:'+topoC+';color:'+topoC+'">⊕ '+esc(node.topologyState)+'</div>';
+  if (isFlow) h += '<div class="node-flow-badge">◈ FLOW '+_flowScore+'%</div>';
+  h += '</div>';
+  h += '<div class="node-text">'+esc(node.text)+'</div>';
+
+  var sigHtml = '';
+  if (node.contradictions) node.contradictions.forEach(function(c){ sigHtml += '<div class="sig-tag contra">⚡ CONTRA: '+esc(c)+'</div>'; });
+  if (node.frameworks) node.frameworks.forEach(function(f){ sigHtml += '<div class="sig-tag frame">◆ '+esc(f)+'</div>'; });
+  if (node.dysfluencyScore > 0.3) sigHtml += '<div class="sig-tag stutter">DYSFL '+node.dysfluencyScore.toFixed(2)+'</div>';
+  if (isDrift)  sigHtml += '<div class="sig-tag drift">↗ DRIFT</div>';
+  if (isLoop)   sigHtml += '<div class="sig-tag loop">↻ LOOP</div>';
+  if (isFlow)   sigHtml += '<div class="sig-tag flow">◈ FLOW</div>';
+  if (_pitchData.prosodyTag === 'stressed') sigHtml += '<div class="sig-tag jitter">JITTER '+_pitchData.jitter.toFixed(3)+'</div>';
+  if (node.resonanceClass) sigHtml += '<div class="sig-tag regime" style="border:1px solid '+resC+';color:'+resC+'">'+node.resonanceClass.replace(/_/g,' ')+'</div>';
+  if (_driftState && _driftState.clusterCount >= 3) sigHtml += '<div class="sig-tag drift-cluster">⚠ DRIFT×'+_driftState.clusterCount+'</div>';
+  if (_sigmaState.regime==='DYSREGULATED'||_sigmaState.regime==='COLLAPSING') sigHtml += '<div class="sig-tag stutter" style="border-color:var(--red);color:var(--red)">'+_sigmaState.regime+'</div>';
+  if (node.codecTags && node.codecTags.indexOf('FRICTION')>-1 && _lastFriction && _lastFriction.types.length) sigHtml += '<div class="sig-tag cogload">⚡ '+esc(_lastFriction.types.join('/'))+'</div>';
+  if (node.redundant) sigHtml += '<div class="sig-tag loop">↻ REDUNDANT</div>';
+  if (node.assocEdgeCount > 0) sigHtml += '<div class="sig-tag harm">⟷ '+node.assocEdgeCount+' ASSOC</div>';
+  if (node.topologyState === 'BASELINE_ALERT') sigHtml += '<div class="sig-tag contra">⊕ BASELINE ALERT</div>';
+  if (node.topologyState === 'POLARIZED') sigHtml += '<div class="sig-tag drift" style="border-color:var(--purple);color:var(--purple)">⊕ POLARIZED</div>';
+
+  if (sigHtml) h += '<div class="node-signals">'+sigHtml+'</div>';
+  if (node.tags && node.tags.length) {
+    h += '<div class="node-tags">';
+    node.tags.forEach(function(tag){ h += '<div class="w-tag" onclick="filterByTag(\''+esc(tag)+'\')">'+esc('#'+tag)+'</div>'; });
+    h += '</div>';
+  }
+  h += '<div class="node-mirror-lbl">▶ MIRROR</div>';
+  h += '<div class="node-mirror'+(node.mirror?'':' streaming')+'" id="mirror-'+esc(node.id)+'">'+( node.mirror ? esc(node.mirror) : '' )+'</div>';
+  h += '</div>';
+
+  var existing = document.getElementById('node-'+node.id);
+  if (existing) {
+    var el2 = document.createElement('div'); el2.innerHTML = h;
+    t.replaceChild(el2.firstChild, existing);
+  } else {
+    var el3 = document.createElement('div'); el3.innerHTML = h;
+    var liveEl = document.getElementById('live-interim');
+    if (liveEl) t.insertBefore(el3.firstChild, liveEl); else t.appendChild(el3.firstChild);
+  }
+}
+
+function renderAll() {
+  var t = document.getElementById('transcript'); if (!t) return;
+  t.innerHTML = '';
+  if (_nodes.length === 0) {
+    t.innerHTML = '<div class="empty-state" id="empty-state"><div class="empty-glyph">▋▋▋</div><div class="empty-t">SILENCE</div><div class="empty-s">PRESS RECORD — EXTERNALIZE YOUR THINKING</div></div>';
+    return;
+  }
+  _nodes.forEach(renderNode); scrollBottom();
+}
+
+function renderContra(evt) {
+  var cl = document.getElementById('contra-list'); if (!cl) return;
+  var ni = cl.querySelector('.no-item'); if (ni) ni.remove();
+  var div = document.createElement('div'); div.className = 'contra-item';
+  div.innerHTML = '<div class="contra-head"><span class="contra-ts">'+fmtTs(evt.ts)+'</span><span class="contra-type">CONTRA</span></div>'+
+    '<div class="contra-desc">'+esc(evt.desc)+'</div>'+
+    (evt.prevText ? '<div class="contra-quote">prev: \u201c'+esc(evt.prevText)+'\u201d</div>' : '');
+  cl.insertBefore(div, cl.firstChild);
+}
+
+function renderAllContras() {
+  var cl = document.getElementById('contra-list'); if (!cl) return;
+  cl.innerHTML = _contras.length ? '' : '<div class="no-item">no contradictions yet</div>';
+  _contras.slice().reverse().forEach(renderContra);
+}
+
+// Throttled word bank render — max 1/sec
+var _wbTimer = null;
+function _renderWordBankThrottled() {
+  if (_wbTimer) return;
+  _wbTimer = setTimeout(function() { _wbTimer = null; renderWordBank(); }, 1000);
+}
+
+function renderWordBank() {
+  var bc = document.getElementById('bank-chips'); if (!bc) return;
+  var top = Object.keys(_wordBank)
+    .filter(function(w){ return _wordBank[w].count >= 1; })
+    .sort(function(a,b){ return _wordBank[b].count - _wordBank[a].count; })
+    .slice(0, 40);
+  if (top.length === 0) { bc.innerHTML = '<div class="no-item">no words yet</div>'; return; }
+  bc.innerHTML = top.map(function(w) {
+    var sel = w === _selectedWord ? ' selected' : '';
+    return '<div class="bchip'+sel+'" onclick="selectBankWord(\''+esc(w)+'\')">'+esc(w)+'<span class="bc">'+_wordBank[w].count+'</span></div>';
+  }).join('');
+}
+
+function selectBankWord(word) {
+  _selectedWord = _selectedWord === word ? null : word;
+  renderWordBank();
+  if (_selectedWord) showCoOccur(_selectedWord);
+  else { var co = document.getElementById('co-occur'); if (co) co.style.display = 'none'; }
+}
+
+function showCoOccur(word) {
+  var wb = _wordBank[word]; if (!wb) return;
+  var co = wb.coOccurs, top = Object.keys(co).sort(function(a,b){return co[b]-co[a];}).slice(0,12);
+  var coS = document.getElementById('co-occur'), coW = document.getElementById('co-word'), coR = document.getElementById('co-row');
+  if (!coS || !coR) return;
+  if (coW) coW.textContent = word;
+  coR.innerHTML = top.map(function(w2){ return '<div class="co-chip" onclick="filterByTag(\''+esc(w2)+'\')">'+esc(w2)+'</div>'; }).join('');
+  coS.style.display = top.length > 0 ? 'block' : 'none';
+}
+
+function updateFramePanel() {
+  var fl = document.getElementById('frame-list'); if (!fl) return;
+  var names = Object.keys(_frames).sort(function(a,b){ return _frames[b].count - _frames[a].count; });
+  if (names.length === 0) { fl.innerHTML = '<div class="no-item">listening for structure\u2026</div>'; return; }
+  fl.innerHTML = names.map(function(name) {
+    var f = _frames[name], ex = f.examples[0] || '';
+    return '<div class="frame-item">'+
+      '<div class="frame-type">'+esc(name)+'</div>'+
+      '<div class="frame-count">'+f.count+' occurrence'+(f.count!==1?'s':'')+'</div>'+
+      (ex ? '<div class="frame-ex">\u201c'+esc(ex.slice(0,55))+(ex.length>55?'\u2026':'')+'\u201d</div>' : '')+
+      '</div>';
+  }).join('');
+}
+
+function updateStats() {
+  function s(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+  s('st-nodes', _nodes.length); s('st-words', _totalWords); s('st-contra', _contras.length);
+  var rw = _wpmHistory.slice(-5);
+  s('st-wpm', rw.length ? Math.round(rw.reduce(function(a,b){return a+b;},0)/rw.length) : '—');
+  var nc = document.getElementById('node-counter'); if (nc) nc.textContent = _nodes.length+' NODES';
+}
+
+function scrollBottom() { var t = document.getElementById('transcript'); if (t) t.scrollTop = t.scrollHeight; }
+
+function switchTab(tab) {
+  _activeTab = tab;
+  ['bank','signals','contra','flow','resonance','topology','extmic'].forEach(function(t) {
+    var te = document.getElementById('rtab-'+t), pe = document.getElementById('panel-'+t);
+    if (te) te.className = 'rtab'+(t===tab?' active':'');
+    if (pe) pe.className = 'panel'+(t===tab?' active':'');
+  });
+  if (tab==='bank')      renderWordBank();
+  if (tab==='signals')   { updateFramePanel(); updateDriftUI(_driftState); updateSlopeUI(); }
+  if (tab==='contra')    renderAllContras();
+  if (tab==='flow')      updateFlowPanel();
+  if (tab==='resonance') { if (_resonanceState) updateResonanceUI(_resonanceState); if (_receiverGrammar) updateReceiverGrammarUI(_receiverGrammar); }
+  if (tab==='topology')  updateTopologyUI(_lastTopology);
+}
+
+function filterNodes() {
+  var q = (document.getElementById('search-in').value || '').toLowerCase().trim();
+  document.querySelectorAll('.node').forEach(function(el) {
+    el.style.display = (!q || el.textContent.toLowerCase().indexOf(q) > -1) ? '' : 'none';
+  });
+}
+function filterByTag(tag) { var si = document.getElementById('search-in'); if (si) { si.value = tag; filterNodes(); } }
+function openSearch()     { var si = document.getElementById('search-in'); if (si) si.focus(); }
+
+// ── STORAGE — debounced to avoid blocking ─────────────────────────
+var _saveTimer = null;
+function _scheduleSave() {
+  if (_saveTimer) return;
+  _saveTimer = setTimeout(function() { _saveTimer = null; save(); }, 2000);
+}
+
+function save() {
+  var payload;
+  try { payload = JSON.stringify({v:VERSION,ec:_ec,nodes:_nodes,wordBank:_wordBank,frames:_frames,contras:_contras,flowHistory:_flowHistory,domain:_activeDomain}); }
+  catch(e) { return; }
+  if (window.storage) {
+    try { var r = window.storage.set(SK, payload); if (r && typeof r.catch==='function') r.catch(function(){}); } catch(e){}
+    return;
+  }
+  try { localStorage.setItem(SK, payload); } catch(e){}
+}
+
+function load(cb) {
+  function parse(raw) {
+    if (!raw) { if (cb) cb(); return; }
+    try {
+      var d = JSON.parse(raw);
+      if (d.nodes)       _nodes      = d.nodes;
+      if (d.wordBank)    _wordBank   = d.wordBank;
+      if (d.frames)      _frames     = d.frames;
+      if (d.contras)     _contras    = d.contras;
+      if (d.flowHistory) _flowHistory= d.flowHistory;
+      if (d.ec)          _ec         = d.ec;
+      if (d.domain)      _activeDomain = d.domain;
+      _totalWords = _nodes.reduce(function(s,n){return s+(n.wordCount||0);},0);
+      _wpmHistory = _nodes.filter(function(n){return n.wpm>0;}).map(function(n){return n.wpm;}).slice(-20);
+      _lastNodeTs = _nodes.length > 0 ? _nodes[_nodes.length-1].ts : null;
+    } catch(e){}
+    if (cb) cb();
+  }
+  if (window.storage) {
+    try {
+      var r = window.storage.get(SK);
+      if (r && typeof r.then==='function') r.then(function(res){parse(res&&res.value?res.value:null);}).catch(function(){if(cb)cb();});
+      else parse(r && r.value ? r.value : null);
+    } catch(e){ if(cb) cb(); }
+    return;
+  }
+  try { parse(localStorage.getItem(SK)); } catch(e){ if(cb) cb(); }
+}
+
+function clearStorage(cb) {
+  _nodes=[]; _wordBank={}; _frames={}; _contras=[]; _flowHistory=[]; _wpmHistory=[];
+  _totalWords=0; _lastNodeTs=null; _nodeStartTs=null;
+  _flowScore=0; _flowEpisodeStart=null;
+  _energyHistory=[]; _pitchHistory=[]; _jitterHistory=[];
+  _sigmaState={regime:'INSUFFICIENT_DATA',cov:0,slopeFlips:0};
+  _driftState={signals:[],clusterCount:0};
+  _resonanceState=null; _receiverGrammar=null;
+  _lastTopology=null; _lastPrediction=null; _lastWordPrediction=null;
+  _lastFriction=null; _lastAssocEdges=[]; _lastInvariants={words:[]}; _lastRedundancy={redundant:false};
+  _frictionEngine.reset(); _assocEngine.reset(); _predictEngine.reset(); _topologyEngine.reset();
+  _sentimentRolling.clear(); _wordCountRolling.clear(); _codecBatchN=0;
+  resetFlowSamples();
+  flushLLMQueue();
+  if (window.storage) {
+    try { var r = window.storage.delete(SK); if (r && typeof r.then==='function') r.then(function(){if(cb)cb();}).catch(function(){if(cb)cb();}); else if(cb) cb(); } catch(e){ if(cb) cb(); }
+    return;
+  }
+  try { localStorage.removeItem(SK); } catch(e){}
+  if (cb) cb();
+}
+
+function exportSession() {
+  if (_nodes.length === 0) { alert('Nothing to export.'); return; }
+  var data = JSON.stringify({
+    version:VERSION, exportedAt:new Date().toISOString(), domain:_activeDomain,
+    nodes:_nodes, wordBank:_wordBank, frames:_frames, contras:_contras,
+    flowHistory:_flowHistory, sigmaHistory:_energyHistory,
+    resonance:_resonanceState, receiverGrammar:_receiverGrammar,
+    topology:_lastTopology, invariants:_lastInvariants,
+    stats:{nodes:_nodes.length, words:_totalWords, contras:_contras.length, codecBatches:_codecBatchN}
+  }, null, 2);
+  var a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,'+encodeURIComponent(data);
+  a.download = 'rheon-voice-v7-'+_activeDomain+'-'+Date.now()+'.json';
+  a.click();
+}
+
+function clearSession() {
+  if (!confirm('Clear all session data?')) return;
+  if (_recState) stopRec();
+  clearStorage(function() {
+    renderAll(); renderWordBank(); renderAllContras(); updateFramePanel(); updateStats(); updateFlowPanel();
+    updateSigmaUI({regime:'INSUFFICIENT_DATA',cov:0,slopeFlips:0});
+    updateDriftUI({signals:[],clusterCount:0});
+    updateTopologyUI(null);
+    setStatus('CLEARED','');
+  });
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); openSearch(); }
+  if (e.key===' ' && document.activeElement===document.body) { e.preventDefault(); toggleRecord(); }
+});
+
+// ── CLOCK ─────────────────────────────────────────────────────────
+function updateClock() { var el = document.getElementById('topbar-clock'); if (el) el.textContent = fmtTs(Date.now()); }
+setInterval(updateClock, 1000); updateClock();
+
+// ── INIT ──────────────────────────────────────────────────────────
+// AudioEngine.init() is NOT called here — only on first getUserMedia grant.
+// But we still start the oscilloscope in idle mode (draws breathing line).
+// This is safe because AudioEngine.isReady() returns false until stream granted.
+
+load(function() {
+  if (_nodes.length > 0) _lastNodeTs = _nodes[_nodes.length-1].ts;
+  setDomain(_activeDomain);
+  renderAll(); renderAllContras(); renderWordBank(); updateFramePanel(); updateStats(); updateFlowPanel();
+  if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+    setStatus('USE CHROME FOR VOICE','err');
+    var btn = document.getElementById('rec-btn-main'); if (btn) btn.disabled = true;
+  } else {
+    setStatus('READY','');
+  }
+  if (_nodes.length > 0) setStatus('SESSION RESTORED — '+_nodes.length+' NODES','');
+  // Start idle oscilloscope
+  setTimeout(function() { AudioEngine.init && typeof AudioEngine._startOscOnce === 'function' ? AudioEngine._startOscOnce() : null; }, 100);
+});
+
+</script>
+
+<script>
+// ── INLINE INIT — runs after all modules loaded ─────────────────
+// Wire AudioEngine idle oscilloscope (runs even before mic granted)
+(function() {
+  // Start idle canvas draw — AudioEngine.init() is NOT called yet
+  // The oscilloscope guard on _analyser===null draws the breathing line
+  var canvas = document.getElementById('osc-canvas');
+  if (canvas) {
+    // Force a layout pass so offsetWidth is real before sizing
+    requestAnimationFrame(function() {
+      AudioEngine.init && AudioEngine.init._startOscilloscope
+        ? AudioEngine.init._startOscilloscope()
+        : null;
+      // Workaround: call the internal method via public API
+      // AudioEngine doesn't expose _startOscilloscope, so we trigger it
+      // by calling init with a fake stream flag — instead we patch init:
+    });
+  }
+
+  // Expose domain label update (called from setDomain in app.js)
+  var origSetDomain = window.setDomain;
+  window.setDomain = function(domain) {
+    origSetDomain(domain);
+    var lbl = document.getElementById('mic-domain-label');
+    if (lbl && window.DOMAINS && window.DOMAINS[domain]) {
+      lbl.textContent = DOMAINS[domain].icon + ' ' + DOMAINS[domain].label;
+    }
+    // Update domain button states
+    document.querySelectorAll('.domain-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.domain === domain);
+    });
+  };
+})();
+
+// Idle oscilloscope — draw breathing line without mic
+// We patch AudioEngine to expose a startIdleOsc method
+(function() {
+  var canvas = document.getElementById('osc-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W, H;
+  var raf = null;
+
+  function sizeCanvas() {
+    W = canvas.offsetWidth || 340;
+    H = 110;
+    canvas.style.height = H + 'px';
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    if (ctx.resetTransform) ctx.resetTransform();
+    else ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr, dpr);
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(function(){ dpr = window.devicePixelRatio||1; sizeCanvas(); }).observe(canvas);
+  } else {
+    window.addEventListener('resize', function(){ dpr = window.devicePixelRatio||1; sizeCanvas(); });
+  }
+
+  // Defer sizing until layout is complete
+  setTimeout(sizeCanvas, 0);
+
+  function drawIdle() {
+    raf = requestAnimationFrame(drawIdle);
+    if (!W || !H) return;
+    // Once AudioEngine is live it takes over; check by looking at canvas state
+    // We just draw the idle breathing sine — AudioEngine.init() will replace
+    // this RAF by calling its own startOscilloscope which cancels via _oscRAF
+    // But since they share the same canvas, we need to stop when AudioEngine takes over
+    if (AudioEngine.isReady()) { cancelAnimationFrame(raf); raf = null; return; }
+
+    ctx.clearRect(0, 0, W, H);
+    // Grid
+    ctx.strokeStyle = 'rgba(0,255,136,0.04)';
+    ctx.lineWidth   = 0.5;
+    for (var gy=0;gy<=4;gy++){ctx.beginPath();ctx.moveTo(0,H*gy/4);ctx.lineTo(W,H*gy/4);ctx.stroke();}
+    for (var gx=0;gx<=8;gx++){ctx.beginPath();ctx.moveTo(W*gx/8,0);ctx.lineTo(W*gx/8,H);ctx.stroke();}
+    // Breathing line
+    var t = Date.now() / 1000;
+    ctx.strokeStyle = 'rgba(0,255,136,0.18)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    for (var xi = 0; xi < W; xi++) {
+      var yi = H/2 + Math.sin(xi * 0.03 + t * 0.4) * (3 + Math.sin(t * 0.3) * 1.5);
+      xi === 0 ? ctx.moveTo(xi, yi) : ctx.lineTo(xi, yi);
+    }
+    ctx.stroke();
+  }
+
+  setTimeout(drawIdle, 50);
+})();
+</script>
+
+</body>
+</html>

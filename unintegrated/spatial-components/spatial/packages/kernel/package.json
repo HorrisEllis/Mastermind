@@ -1,0 +1,19 @@
+{
+  "name": "@spatial/kernel",
+  "version": "2.0.0",
+  "description": "ALK behavioral signal runtime. Video/audio/text → 5D latent state. Cross-species.",
+  "type": "module",
+  "exports": {
+    ".":            "./src/index.js",
+    "./species":    "./src/species/index.js",
+    "./video":      "./src/modules/video/index.js",
+    "./signal":     "./src/modules/signal/index.js",
+    "./trajectory": "./src/modules/trajectory/index.js",
+    "./behavior":   "./src/modules/behavior/index.js",
+    "./codec":      "./src/modules/codec/index.js",
+    "./htl":        "./src/modules/htl/index.js"
+  },
+  "peerDependencies": { "@spatial/bus": "^1.0.0" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>ALK · CODEC DEMOLITION</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&family=Barlow+Condensed:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#040405;--bg2:#0c0c0f;--bg3:#131318;--bg4:#1c1c24;
+  --b1:#252530;--b2:#303040;
+  --fg:#dddde8;--fg2:#8888a0;--fg3:#44444f;
+  --g:#39ff6a;--g2:#00cc44;--gd:rgba(57,255,106,.07);
+  --a:#ffcc00;--r:#ff3344;--c:#00ffee;--v:#bb77ff;--b:#3388ff;--o:#ff7733;
+  --mono:'IBM Plex Mono',monospace;--cond:'Barlow Condensed',sans-serif;
+}
+html,body{width:100%;height:100vh;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:12px;overflow:hidden;display:flex;flex-direction:column;}
+
+#topbar{display:flex;align-items:center;gap:0;height:42px;background:var(--bg2);border-bottom:1px solid var(--b1);flex-shrink:0;}
+.tb-logo{padding:0 20px;font-family:var(--cond);font-size:18px;font-weight:900;letter-spacing:6px;color:var(--fg);border-right:1px solid var(--b1);}
+.tb-logo em{color:var(--g);font-style:normal;}
+.tb-mode{padding:0 16px;font-size:8px;letter-spacing:3px;color:var(--fg3);border-right:1px solid var(--b1);height:100%;display:flex;align-items:center;text-transform:uppercase;}
+.tb-mode.hot{color:var(--r);}
+.tb-stats{display:flex;height:100%;margin-left:auto;}
+.tb-stat{padding:0 14px;display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--b1);}
+.tb-stat-label{font-size:7px;letter-spacing:2px;color:var(--fg3);text-transform:uppercase;}
+.tb-stat-val{font-size:13px;letter-spacing:1px;line-height:1.2;}
+
+#body{display:flex;flex:1;overflow:hidden;}
+
+#left{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--b1);overflow-y:auto;display:flex;flex-direction:column;}
+.sec{border-bottom:1px solid var(--b1);padding:10px 12px;}
+.sec-title{font-size:7px;letter-spacing:2.5px;color:var(--fg3);text-transform:uppercase;margin-bottom:8px;}
+
+.res-btn{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:all .1s;}
+.res-btn:hover{background:var(--bg3);border-color:var(--b1);}
+.res-btn.active{border-color:var(--g);background:var(--gd);}
+.res-name{font-size:10px;color:var(--fg2);}
+.res-btn.active .res-name{color:var(--g);}
+.res-px{font-size:8px;color:var(--fg3);}
+.res-btn.active .res-px{color:var(--g2);}
+.res-mb{font-size:8px;color:var(--fg3);text-align:right;}
+
+.sl-row{display:flex;align-items:center;gap:6px;padding:3px 0;}
+.sl-lbl{font-size:9px;color:var(--fg2);width:88px;flex-shrink:0;line-height:1.2;}
+.sl-val{font-size:9px;color:var(--g);min-width:36px;text-align:right;flex-shrink:0;}
+input[type=range]{flex:1;-webkit-appearance:none;height:2px;background:var(--b1);border-radius:1px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;background:var(--g);cursor:pointer;}
+
+.tog-row{display:flex;align-items:center;gap:8px;padding:3px 0;}
+.tog-lbl{font-size:9px;color:var(--fg2);flex:1;}
+.tog{width:26px;height:13px;background:var(--b1);border-radius:7px;cursor:pointer;position:relative;transition:background .15s;flex-shrink:0;}
+.tog.on{background:var(--g2);}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:9px;height:9px;border-radius:50%;background:#fff;transition:transform .15s;}
+.tog.on::after{transform:translateX(13px);}
+
+.scene-btn{display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border:1px solid var(--b1);margin-bottom:2px;transition:all .1s;background:transparent;}
+.scene-btn:hover{border-color:var(--b2);background:var(--bg3);}
+.scene-btn.active{border-color:var(--g);background:var(--gd);}
+.scene-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.scene-name{font-size:9px;color:var(--fg2);}
+.scene-btn.active .scene-name{color:var(--g);}
+.scene-fps{font-size:8px;color:var(--fg3);margin-left:auto;}
+
+.run-btn{width:100%;padding:9px;border:1px solid var(--b2);background:transparent;color:var(--fg2);cursor:pointer;font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;transition:all .15s;margin-bottom:3px;}
+.run-btn:hover{border-color:var(--g);color:var(--g);background:var(--gd);}
+.run-btn.primary{border-color:var(--g);color:var(--g);background:var(--gd);}
+.run-btn.danger{border-color:var(--r);color:var(--r);background:rgba(255,51,68,.05);}
+.run-btn.running{border-color:var(--a);color:var(--a);background:rgba(255,204,0,.05);}
+.run-btn:disabled{opacity:.35;cursor:default;}
+
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+
+#screens{display:grid;flex:1;overflow:hidden;gap:1px;background:var(--b1);}
+.screen-cell{position:relative;background:var(--bg);overflow:hidden;}
+.screen-canvas{width:100%;height:100%;display:block;image-rendering:pixelated;}
+.screen-overlay{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:6px;}
+.screen-label{font-size:9px;letter-spacing:1.5px;color:var(--g);background:rgba(4,4,5,.8);display:inline-block;padding:2px 6px;}
+.screen-metrics{display:flex;gap:6px;flex-wrap:wrap;}
+.screen-metric{font-size:8px;background:rgba(4,4,5,.85);padding:1px 5px;letter-spacing:1px;}
+.screen-metric.warn{color:var(--a);}
+.screen-metric.crit{color:var(--r);}
+.screen-metric.ok{color:var(--g);}
+.screen-status{position:absolute;top:6px;right:6px;font-size:7px;letter-spacing:2px;padding:2px 5px;border:1px solid;text-transform:uppercase;}
+.screen-status.enc{border-color:var(--g);color:var(--g);}
+.screen-status.stress{border-color:var(--r);color:var(--r);animation:blink .4s step-end infinite;}
+.screen-status.idle{border-color:var(--fg3);color:var(--fg3);}
+@keyframes blink{50%{opacity:0}}
+
+#stats-strip{display:flex;background:var(--bg2);border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);flex-shrink:0;}
+.sstat{flex:1;padding:5px 10px;border-right:1px solid var(--b1);display:flex;flex-direction:column;}
+.sstat-lbl{font-size:7px;letter-spacing:1.5px;color:var(--fg3);text-transform:uppercase;}
+.sstat-val{font-size:15px;letter-spacing:1px;line-height:1.2;}
+.sstat-sub{font-size:8px;color:var(--fg3);}
+
+#log-area{height:150px;background:var(--bg);display:flex;flex-direction:column;flex-shrink:0;}
+#log-hdr{display:flex;align-items:center;padding:5px 12px;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);gap:8px;flex-shrink:0;}
+.log-title{font-size:7px;letter-spacing:2px;color:var(--fg3);text-transform:uppercase;}
+#log-scroll{flex:1;overflow-y:auto;font-size:9px;}
+.log-line{display:flex;gap:8px;padding:1px 12px;border-left:2px solid transparent;}
+.log-line:hover{background:var(--bg2);}
+.log-line.G{border-color:var(--g);}
+.log-line.A{border-color:var(--a);}
+.log-line.R{border-color:var(--r);}
+.log-line.C{border-color:var(--c);}
+.log-line.V{border-color:var(--v);}
+.log-ts{color:var(--fg3);width:58px;flex-shrink:0;}
+.log-src{width:56px;flex-shrink:0;font-size:8px;}
+.log-src.G{color:var(--g);}
+.log-src.A{color:var(--a);}
+.log-src.R{color:var(--r);}
+.log-src.C{color:var(--c);}
+.log-src.V{color:var(--v);}
+.log-msg{flex:1;color:var(--fg2);}
+.log-bytes{color:var(--fg3);text-align:right;flex-shrink:0;}
+
+#right{width:256px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--b1);overflow-y:auto;display:flex;flex-direction:column;}
+
+#bw-canvas{width:100%;height:64px;display:block;background:var(--bg);}
+#heat-canvas{width:100%;height:64px;display:block;background:var(--bg);}
+.meter-row{display:flex;gap:2px;padding:4px 10px;align-items:flex-end;height:44px;}
+.meter-ch{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;}
+.meter-bg{width:100%;flex:1;background:var(--b1);position:relative;overflow:hidden;}
+.meter-fill{position:absolute;bottom:0;width:100%;transition:height .04s;}
+.meter-lbl{font-size:7px;color:var(--fg3);}
+
+#compare{display:flex;flex-direction:column;}
+.cmp-half{padding:10px 12px;}
+.cmp-lbl{font-size:7px;letter-spacing:2px;color:var(--fg3);text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between;}
+.cmp-val{font-size:22px;letter-spacing:1px;}
+.cmp-sub{font-size:8px;color:var(--fg3);}
+.cmp-bar{height:2px;background:var(--b1);margin-top:6px;}
+.cmp-fill{height:100%;transition:width .3s;}
+.delta{display:flex;justify-content:space-between;padding:4px 12px;border-top:1px solid var(--b1);}
+.delta-k{font-size:9px;color:var(--fg2);}
+.delta-v{font-size:9px;}
+.delta-v.g{color:var(--g);}
+.delta-v.a{color:var(--a);}
+.delta-v.r{color:var(--r);}
+.delta-v.c{color:var(--c);}
+
+.ci-row{display:flex;justify-content:space-between;padding:3px 12px;}
+.ci-k{font-size:9px;color:var(--fg3);}
+.ci-v{font-size:9px;color:var(--fg);}
+
+#progress-bar{height:2px;background:var(--b1);}
+#progress-fill{height:100%;background:var(--g);width:0%;transition:width .1s;}
+
+::-webkit-scrollbar{width:2px;height:2px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--b2);}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="tb-logo">ALK<em>·</em>STRESS</div>
+  <div class="tb-mode" id="tb-mode">STANDBY</div>
+  <div id="progress-bar" style="width:80px;margin:0 12px;align-self:stretch;display:flex;align-items:center;"><div id="progress-fill"></div></div>
+  <div class="tb-stats">
+    <div class="tb-stat"><div class="tb-stat-label">Throughput</div><div class="tb-stat-val" id="tb-throughput" style="color:var(--g)">—</div></div>
+    <div class="tb-stat"><div class="tb-stat-label">Total In</div><div class="tb-stat-val" id="tb-in" style="color:var(--c)">0 B</div></div>
+    <div class="tb-stat"><div class="tb-stat-label">Total Out</div><div class="tb-stat-val" id="tb-out" style="color:var(--v)">0 B</div></div>
+    <div class="tb-stat"><div class="tb-stat-label">Ratio</div><div class="tb-stat-val" id="tb-ratio" style="color:var(--a)">—</div></div>
+    <div class="tb-stat"><div class="tb-stat-label">Errors</div><div class="tb-stat-val" id="tb-err" style="color:var(--r)">0</div></div>
+    <div class="tb-stat"><div class="tb-stat-label">Frames</div><div class="tb-stat-val" id="tb-frames" style="color:var(--fg)">0</div></div>
+  </div>
+</div>
+
+<div id="body">
+
+<div id="left">
+  <div class="sec">
+    <div class="sec-title">Resolution ladder</div>
+    <div id="res-list"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">Encoder params</div>
+    <div class="sl-row"><span class="sl-lbl">Bitrate (kbps)</span><input type="range" min="100" max="100000" step="100" value="8000" id="sl-br"><span class="sl-val" id="sv-br">8000</span></div>
+    <div class="sl-row"><span class="sl-lbl">Quantizer (QP)</span><input type="range" min="0" max="63" step="1" value="23" id="sl-qp"><span class="sl-val" id="sv-qp">23</span></div>
+    <div class="sl-row"><span class="sl-lbl">Keyframe Int.</span><input type="range" min="1" max="600" step="1" value="48" id="sl-gop"><span class="sl-val" id="sv-gop">48</span></div>
+    <div class="sl-row"><span class="sl-lbl">Entropy</span><input type="range" min="0" max="1" step="0.01" value="0.65" id="sl-ent"><span class="sl-val" id="sv-ent">0.65</span></div>
+    <div class="sl-row"><span class="sl-lbl">Structure</span><input type="range" min="0" max="1" step="0.01" value="0.85" id="sl-str"><span class="sl-val" id="sv-str">0.85</span></div>
+    <div class="sl-row"><span class="sl-lbl">Temporal Decay</span><input type="range" min="0.5" max="0.999" step="0.001" value="0.93" id="sl-dec"><span class="sl-val" id="sv-dec">0.930</span></div>
+    <div class="sl-row"><span class="sl-lbl">Curl</span><input type="range" min="0" max="1" step="0.01" value="0.45" id="sl-curl"><span class="sl-val" id="sv-curl">0.45</span></div>
+    <div class="sl-row"><span class="sl-lbl">Stress Threads</span><input type="range" min="1" max="32" step="1" value="8" id="sl-thr"><span class="sl-val" id="sv-thr">8</span></div>
+    <div class="sl-row"><span class="sl-lbl">Frame Rate</span><input type="range" min="1" max="240" step="1" value="60" id="sl-fps"><span class="sl-val" id="sv-fps">60</span></div>
+    <div class="sl-row"><span class="sl-lbl">Noise Inject</span><input type="range" min="0" max="1" step="0.01" value="0" id="sl-noise"><span class="sl-val" id="sv-noise">0.00</span></div>
+    <div class="sl-row"><span class="sl-lbl">Corruption %</span><input type="range" min="0" max="20" step="0.1" value="0" id="sl-corr"><span class="sl-val" id="sv-corr">0.0</span></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">Test scenes</div>
+    <div id="scene-list"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-title">Modes</div>
+    <div class="tog-row"><span class="tog-lbl">Live encode</span><div class="tog on" id="tog-enc" onclick="this.classList.toggle('on')"></div></div>
+    <div class="tog-row"><span class="tog-lbl">Simultaneous decode</span><div class="tog on" id="tog-dec" onclick="this.classList.toggle('on')"></div></div>
+    <div class="tog-row"><span class="tog-lbl">Corruption stress</span><div class="tog" id="tog-corr" onclick="this.classList.toggle('on')"></div></div>
+    <div class="tog-row"><span class="tog-lbl">Bandwidth throttle</span><div class="tog" id="tog-bwlim" onclick="this.classList.toggle('on')"></div></div>
+    <div class="tog-row"><span class="tog-lbl">Frame drop sim</span><div class="tog" id="tog-drop" onclick="this.classList.toggle('on')"></div></div>
+    <div class="tog-row"><span class="tog-lbl">8K torture mode</span><div class="tog" id="tog-8k" onclick="this.classList.toggle('on')"></div></div>
+  </div>
+  <div class="sec" style="border-bottom:none;">
+    <button class="run-btn primary" id="btn-run" onclick="startStress()">▶ DEMOLITION RUN</button>
+    <button class="run-btn danger" id="btn-stop" onclick="stopStress()" disabled>■ ABORT</button>
+    <button class="run-btn" onclick="runSingle()">▶ SINGLE RESOLUTION</button>
+    <button class="run-btn" onclick="exportData()">↓ EXPORT DATA</button>
+  </div>
+</div>
+
+<div id="center">
+  <div id="screens"></div>
+  <div id="stats-strip">
+    <div class="sstat"><div class="sstat-lbl">PSNR</div><div class="sstat-val" id="ss-psnr" style="color:var(--g)">—</div><div class="sstat-sub">dB peak</div></div>
+    <div class="sstat"><div class="sstat-lbl">SSIM</div><div class="sstat-val" id="ss-ssim" style="color:var(--c)">—</div><div class="sstat-sub">perceptual</div></div>
+    <div class="sstat"><div class="sstat-lbl">Enc latency</div><div class="sstat-val" id="ss-lat" style="color:var(--a)">—</div><div class="sstat-sub">ms/frame</div></div>
+    <div class="sstat"><div class="sstat-lbl">Loss rate</div><div class="sstat-val" id="ss-loss" style="color:var(--r)">0.00%</div><div class="sstat-sub">reconstructed</div></div>
+    <div class="sstat"><div class="sstat-lbl">Compression</div><div class="sstat-val" id="ss-ratio" style="color:var(--v)">—</div><div class="sstat-sub">ratio</div></div>
+    <div class="sstat"><div class="sstat-lbl">Buffer health</div><div class="sstat-val" id="ss-buf" style="color:var(--g)">—</div><div class="sstat-sub">% full</div></div>
+    <div class="sstat"><div class="sstat-lbl">Dropped frames</div><div class="sstat-val" id="ss-drop" style="color:var(--r)">0</div><div class="sstat-sub">total</div></div>
+    <div class="sstat" style="border:none;"><div class="sstat-lbl">Active streams</div><div class="sstat-val" id="ss-streams" style="color:var(--fg)">0</div><div class="sstat-sub">concurrent</div></div>
+  </div>
+  <div id="log-area">
+    <div id="log-hdr">
+      <span class="log-title">Live codec log</span>
+      <span style="font-size:7px;color:var(--fg3);margin-left:auto;" id="log-count">0 entries</span>
+      <button style="font-size:7px;padding:2px 6px;border:1px solid var(--b1);background:transparent;color:var(--fg3);cursor:pointer;margin-left:6px;" onclick="clearLog()">CLR</button>
+    </div>
+    <div id="log-scroll"></div>
+  </div>
+</div>
+
+<div id="right">
+  <div class="sec" style="padding:8px 0 0;">
+    <div class="sec-title" style="padding:0 12px;">Bandwidth (live)</div>
+    <canvas id="bw-canvas"></canvas>
+  </div>
+  <div class="sec" style="padding:8px 0 0;">
+    <div class="sec-title" style="padding:0 12px;">Thermal load</div>
+    <canvas id="heat-canvas"></canvas>
+  </div>
+  <div class="sec" style="padding:8px 0 0;">
+    <div class="sec-title" style="padding:0 12px;">Audio levels</div>
+    <div class="meter-row" id="audio-meters"></div>
+  </div>
+
+  <div id="compare">
+    <div class="sec-title" style="padding:10px 12px 6px;">Before / After</div>
+    <div class="cmp-half">
+      <div class="cmp-lbl">Raw input <span id="raw-tag" style="font-size:7px;padding:1px 5px;border:1px solid var(--fg3);color:var(--fg3);">RAW</span></div>
+      <div class="cmp-val" id="cmp-in-sz" style="color:var(--fg)">—</div>
+      <div class="cmp-sub" id="cmp-in-sub">awaiting signal</div>
+      <div class="cmp-bar"><div class="cmp-fill" id="cmp-in-bar" style="width:100%;background:var(--fg3)"></div></div>
+    </div>
+    <div style="height:1px;background:var(--b1);"></div>
+    <div class="cmp-half">
+      <div class="cmp-lbl">ALK encoded <span id="enc-tag" style="font-size:7px;padding:1px 5px;border:1px solid var(--g);color:var(--g);">ALK</span></div>
+      <div class="cmp-val" id="cmp-out-sz" style="color:var(--g)">—</div>
+      <div class="cmp-sub" id="cmp-out-sub">compressed</div>
+      <div class="cmp-bar"><div class="cmp-fill" id="cmp-out-bar" style="width:0%;background:var(--g)"></div></div>
+    </div>
+  </div>
+
+  <div class="delta"><span class="delta-k">Size reduction</span><span class="delta-v g" id="d-reduc">—</span></div>
+  <div class="delta"><span class="delta-k">PSNR</span><span class="delta-v g" id="d-psnr">—</span></div>
+  <div class="delta"><span class="delta-k">SSIM</span><span class="delta-v c" id="d-ssim">—</span></div>
+  <div class="delta"><span class="delta-k">Encode speed</span><span class="delta-v a" id="d-spd">—</span></div>
+  <div class="delta"><span class="delta-k">Decode speed</span><span class="delta-v a" id="d-dspd">—</span></div>
+  <div class="delta"><span class="delta-k">Peak BW</span><span class="delta-v c" id="d-bw">—</span></div>
+  <div class="delta"><span class="delta-k">Worst latency</span><span class="delta-v r" id="d-wlat">—</span></div>
+  <div class="delta"><span class="delta-k">Reconstructed</span><span class="delta-v g" id="d-recon">—</span></div>
+
+  <div class="sec">
+    <div class="sec-title">Codec state</div>
+    <div class="ci-row"><span class="ci-k">Mode</span><span class="ci-v" id="ci-mode">—</span></div>
+    <div class="ci-row"><span class="ci-k">Scene</span><span class="ci-v" id="ci-scene">—</span></div>
+    <div class="ci-row"><span class="ci-k">QP</span><span class="ci-v" id="ci-qp">23</span></div>
+    <div class="ci-row"><span class="ci-k">GOP</span><span class="ci-v" id="ci-gop">48</span></div>
+    <div class="ci-row"><span class="ci-k">Bitrate</span><span class="ci-v" id="ci-br">8000 kbps</span></div>
+    <div class="ci-row"><span class="ci-k">Entropy</span><span class="ci-v" id="ci-ent">0.65</span></div>
+    <div class="ci-row"><span class="ci-k">Threads</span><span class="ci-v" id="ci-thr">8</span></div>
+    <div class="ci-row"><span class="ci-k">FPS target</span><span class="ci-v" id="ci-fps">60</span></div>
+  </div>
+</div>
+</div>
+
+<script>
+const RESOLUTIONS = [
+  {label:'180p',  w:320,   h:180,   rawMbPerSec:1.7,   color:'#888'},
+  {label:'240p',  w:426,   h:240,   rawMbPerSec:3.1,   color:'#8888a0'},
+  {label:'480p',  w:854,   h:480,   rawMbPerSec:12.4,  color:'#4488ff'},
+  {label:'640p',  w:1136,  h:640,   rawMbPerSec:21.9,  color:'#39ff6a'},
+  {label:'720p',  w:1280,  h:720,   rawMbPerSec:27.6,  color:'#00ffee'},
+  {label:'1080p', w:1920,  h:1080,  rawMbPerSec:62.2,  color:'#bb77ff'},
+  {label:'4K',    w:3840,  h:2160,  rawMbPerSec:248.8, color:'#ffcc00'},
+  {label:'8K',    w:7680,  h:4320,  rawMbPerSec:995.0, color:'#ff3344'},
+];
+
+const SCENES = [
+  {id:'cosmos',   name:'Deep space',     color:'#0011aa', fps:60,  desc:'Dark, lots of stars'},
+  {id:'inferno',  name:'Fire vortex',    color:'#ff4400', fps:60,  desc:'High motion, HDR'},
+  {id:'matrix',   name:'Data rain',      color:'#00ff44', fps:30,  desc:'Text, high entropy'},
+  {id:'plasma',   name:'Plasma field',   color:'#cc00ff', fps:60,  desc:'Smooth gradients'},
+  {id:'citynight',name:'City lights',    color:'#001133', fps:24,  desc:'Dark, point lights'},
+  {id:'static',   name:'Full noise',     color:'#888888', fps:60,  desc:'Worst case entropy'},
+  {id:'testcard', name:'Test card',      color:'#ffffff', fps:60,  desc:'SMPTE, all colors'},
+  {id:'glitch',   name:'Glitch storm',   color:'#ff0055', fps:60,  desc:'Codec breaker'},
+];
+
+let CFG = {br:8000,qp:23,gop:48,ent:0.65,str:0.85,dec:0.93,curl:0.45,thr:8,fps:60,noise:0,corr:0};
+let selectedRes = new Set([4]);
+let selectedScene = 'cosmos';
+let isRunning = false;
+let totalIn=0, totalOut=0, totalFrames=0, totalErrors=0, totalDropped=0;
+let bwHistory = new Array(120).fill(0);
+let heatHistory = new Array(120).fill(0);
+let logCount = 0;
+let worstLatency = 0;
+let activeScreens = {};
+let rafId = null;
+let stressId = null;
+let encodingStart = 0;
+
+function init() {
+  buildResList();
+  buildSceneList();
+  bindSliders();
+  buildAudioMeters();
+  initScreens();
+  startLoops();
+  log('G','BOOT','ALK Codec Demolition Suite online — ready to destroy');
+  log('G','INIT',`${RESOLUTIONS.length} resolutions · ${SCENES.length} scenes · all systems nominal`);
+  log('C','INFO','Drop into DEMOLITION RUN to test all resolutions simultaneously');
+}
+
+function buildResList() {
+  const c = document.getElementById('res-list');
+  c.innerHTML = '';
+  RESOLUTIONS.forEach((r,i) => {
+    const raw = (r.rawMbPerSec).toFixed(1);
+    const d = document.createElement('div');
+    d.className = 'res-btn' + (selectedRes.has(i)?' active':'');
+    d.id = 'resbtn-'+i;
+    d.innerHTML = `<span class="res-name">${r.label}</span><span class="res-px" style="color:${r.color}">${r.w}×${r.h}</span><span class="res-mb">${raw} MB/s</span>`;
+    d.onclick = () => { selectedRes.has(i)?selectedRes.delete(i):selectedRes.add(i); d.classList.toggle('active'); };
+    c.appendChild(d);
+  });
+}
+
+function buildSceneList() {
+  const c = document.getElementById('scene-list');
+  c.innerHTML = '';
+  SCENES.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'scene-btn' + (s.id===selectedScene?' active':'');
+    d.id = 'scbtn-'+s.id;
+    d.innerHTML = `<span class="scene-dot" style="background:${s.color}"></span><span class="scene-name">${s.name}</span><span class="scene-fps">${s.fps}fps</span>`;
+    d.onclick = () => { selectedScene=s.id; document.querySelectorAll('.scene-btn').forEach(b=>b.classList.remove('active')); d.classList.add('active'); updateCI(); };
+    c.appendChild(d);
+  });
+}
+
+function bindSliders() {
+  const sliders = [
+    ['br','br',v=>v+''],[`qp`,'qp',v=>v+''],[`gop`,'gop',v=>v+''],
+    ['ent','ent',v=>parseFloat(v).toFixed(2)],['str','str',v=>parseFloat(v).toFixed(2)],
+    ['dec','dec',v=>parseFloat(v).toFixed(3)],['curl','curl',v=>parseFloat(v).toFixed(2)],
+    ['thr','thr',v=>v+''],['fps','fps',v=>v+''],
+    ['noise','noise',v=>parseFloat(v).toFixed(2)],['corr','corr',v=>parseFloat(v).toFixed(1)],
+  ];
+  sliders.forEach(([id,key,fmt]) => {
+    const el = document.getElementById('sl-'+id);
+    const ve = document.getElementById('sv-'+id);
+    if(!el) return;
+    el.oninput = () => { CFG[key]=parseFloat(el.value); ve.textContent=fmt(el.value); updateCI(); };
+  });
+}
+
+function buildAudioMeters() {
+  const c = document.getElementById('audio-meters');
+  const chs = ['L','R','C','Ls','Rs','LFE'];
+  c.innerHTML = '';
+  chs.forEach(ch => {
+    c.innerHTML += `<div class="meter-ch"><div class="meter-bg"><div class="meter-fill" id="am-${ch}" style="height:0%;background:var(--g)"></div></div><div class="meter-lbl">${ch}</div></div>`;
+  });
+}
+
+function updateCI() {
+  const sc = SCENES.find(s=>s.id===selectedScene);
+  document.getElementById('ci-mode').textContent = isRunning?'STRESS':'STANDBY';
+  document.getElementById('ci-scene').textContent = sc?sc.name:'—';
+  document.getElementById('ci-qp').textContent = CFG.qp;
+  document.getElementById('ci-gop').textContent = CFG.gop;
+  document.getElementById('ci-br').textContent = CFG.br+' kbps';
+  document.getElementById('ci-ent').textContent = CFG.ent.toFixed(2);
+  document.getElementById('ci-thr').textContent = CFG.thr;
+  document.getElementById('ci-fps').textContent = CFG.fps;
+}
+
+function initScreens() {
+  const container = document.getElementById('screens');
+  const arr = Array.from(selectedRes);
+  const n = arr.length || 1;
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n/cols);
+  container.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+  container.style.gridTemplateRows = `repeat(${rows},1fr)`;
+  container.innerHTML = '';
+  activeScreens = {};
+  RESOLUTIONS.forEach((r,i) => {
+    if(!selectedRes.has(i)) return;
+    const cell = document.createElement('div');
+    cell.className = 'screen-cell';
+    cell.id = 'cell-'+i;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'screen-canvas';
+    canvas.id = 'cv-'+i;
+    const overlay = document.createElement('div');
+    overlay.className = 'screen-overlay';
+    overlay.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span class="screen-label" style="color:${r.color}">${r.label} · ${r.w}×${r.h}</span>
+        <span class="screen-status idle" id="st-${i}">IDLE</span>
+      </div>
+      <div class="screen-metrics" id="sm-${i}">
+        <span class="screen-metric" id="sm-fps-${i}">—fps</span>
+        <span class="screen-metric" id="sm-br-${i}">—kbps</span>
+        <span class="screen-metric" id="sm-lat-${i}">—ms</span>
+        <span class="screen-metric" id="sm-ratio-${i}">—x</span>
+      </div>`;
+    cell.appendChild(canvas);
+    cell.appendChild(overlay);
+    container.appendChild(cell);
+    activeScreens[i] = {canvas, r, frame:0, lastTime:0};
+  });
+}
+
+function drawScene(canvas, r, scene, frame, t, cfg) {
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+  if(W===0||H===0) return;
+  const ctx = canvas.getContext('2d');
+  const noise = cfg.noise;
+  const corr = cfg.corr/100;
+
+  if(scene==='cosmos') {
+    ctx.fillStyle='#000008';
+    ctx.fillRect(0,0,W,H);
+    const seed = frame*0.002;
+    for(let i=0;i<Math.min(300,W*H/200);i++) {
+      const sx = (Math.sin(i*127.1+seed)*0.5+0.5)*W;
+      const sy = (Math.sin(i*311.7+seed*0.7)*0.5+0.5)*H;
+      const bri = (Math.sin(i*7.3+t*2+i*0.01)*0.5+0.5);
+      const sz = 0.5+bri*1.5;
+      ctx.fillStyle=`rgba(255,255,255,${0.3+bri*0.7})`;
+      ctx.fillRect(sx,sy,sz,sz);
+    }
+    const gx=W/2+Math.sin(t*0.3)*W*0.15, gy=H/2+Math.cos(t*0.2)*H*0.15;
+    const grd=ctx.createRadialGradient(gx,gy,0,gx,gy,Math.min(W,H)*0.4);
+    grd.addColorStop(0,'rgba(10,20,80,0.6)');
+    grd.addColorStop(1,'rgba(0,0,20,0)');
+    ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+  } else if(scene==='inferno') {
+    ctx.fillStyle='#080000';
+    ctx.fillRect(0,0,W,H);
+    for(let x=0;x<W;x+=4) {
+      for(let y=0;y<H;y+=4) {
+        const nx=x/W*4, ny=y/H*4;
+        const n=Math.abs(Math.sin(nx*3.7+t)*Math.cos(ny*2.3+t*0.7)*Math.sin(t+nx*ny*0.5));
+        const r2=Math.min(255,n*500), g2=Math.max(0,n*200-80), b2=0;
+        ctx.fillStyle=`rgb(${r2},${g2},${b2})`;
+        ctx.fillRect(x,y,4,4);
+      }
+    }
+    const cx=W/2+Math.sin(t*0.5)*W*0.3;
+    const crd=ctx.createRadialGradient(cx,H,10,cx,H,H*0.8);
+    crd.addColorStop(0,'rgba(255,120,0,0.7)');
+    crd.addColorStop(0.5,'rgba(255,40,0,0.3)');
+    crd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=crd; ctx.fillRect(0,0,W,H);
+  } else if(scene==='matrix') {
+    ctx.fillStyle='rgba(0,4,0,0.15)';
+    ctx.fillRect(0,0,W,H);
+    ctx.font=`${Math.max(8,Math.min(14,W/60))}px monospace`;
+    const cols=Math.floor(W/10);
+    for(let c=0;c<cols;c++) {
+      const speed=0.5+Math.sin(c*17.3)*0.5;
+      const y=((t*60*speed+c*37)%(H+100))-20;
+      const bri=Math.random();
+      ctx.fillStyle=bri>0.95?'#ffffff':bri>0.7?'#39ff6a':'#005522';
+      ctx.fillText(String.fromCharCode(0x30A0+Math.floor(Math.random()*96)), c*10, y);
+    }
+  } else if(scene==='plasma') {
+    const imgd=ctx.createImageData(Math.min(W,200),Math.min(H,150));
+    const sw=imgd.width, sh=imgd.height;
+    for(let y=0;y<sh;y++) {
+      for(let x=0;x<sw;x++) {
+        const v=Math.sin(x/8+t)+Math.sin(y/6+t*0.7)+Math.sin((x+y)/10+t*1.3)+Math.sin(Math.sqrt(x*x+y*y)/8+t*0.9);
+        const idx=(y*sw+x)*4;
+        imgd.data[idx]=Math.floor((Math.sin(v)+1)*127);
+        imgd.data[idx+1]=Math.floor((Math.sin(v+2)+1)*127);
+        imgd.data[idx+2]=Math.floor((Math.cos(v+1)+1)*127);
+        imgd.data[idx+3]=255;
+      }
+    }
+    const tmpC=document.createElement('canvas'); tmpC.width=sw; tmpC.height=sh;
+    tmpC.getContext('2d').putImageData(imgd,0,0);
+    ctx.drawImage(tmpC,0,0,W,H);
+  } else if(scene==='citynight') {
+    ctx.fillStyle='#000510';
+    ctx.fillRect(0,0,W,H);
+    const bldgs=Math.floor(W/20);
+    for(let b=0;b<bldgs;b++) {
+      const bx=b*(W/bldgs);
+      const bh=H*0.3+Math.sin(b*7.3)*H*0.2;
+      ctx.fillStyle='#0a0a18';
+      ctx.fillRect(bx,H-bh,W/bldgs-1,bh);
+      for(let wy=H-bh+5;wy<H-10;wy+=8) {
+        for(let wx=bx+3;wx<bx+W/bldgs-5;wx+=6) {
+          if(Math.sin(b*wx*wy+frame*0.01)>0.2) {
+            const bright=Math.random()>0.98?1:0.5+Math.random()*0.5;
+            ctx.fillStyle=`rgba(255,220,150,${bright*0.8})`;
+            ctx.fillRect(wx,wy,3,4);
+          }
+        }
+      }
+    }
+    for(let i=0;i<60;i++) {
+      const lx=(Math.sin(i*91.7)*0.5+0.5)*W;
+      const ly=(Math.sin(i*47.3)*0.5+0.5)*(H*0.7);
+      const alpha=0.4+Math.sin(t*2+i)*0.4;
+      ctx.fillStyle=`rgba(255,230,180,${alpha})`;
+      ctx.beginPath(); ctx.arc(lx,ly,1,0,Math.PI*2); ctx.fill();
+    }
+  } else if(scene==='static') {
+    const imgd=ctx.createImageData(W,H);
+    for(let i=0;i<imgd.data.length;i+=4) {
+      const v=Math.random()*255;
+      imgd.data[i]=v; imgd.data[i+1]=v; imgd.data[i+2]=v; imgd.data[i+3]=255;
+    }
+    ctx.putImageData(imgd,0,0);
+  } else if(scene==='testcard') {
+    const bars=[['#c0c0c0',0.14],['#c0c000',0.14],['#00c0c0',0.14],['#00c000',0.14],['#c000c0',0.14],['#c00000',0.14],['#0000c0',0.14],['#000000',0.02]];
+    let x=0;
+    bars.forEach(([col,w])=>{ ctx.fillStyle=col; const bw=W*w; ctx.fillRect(x,0,bw,H*0.66); x+=bw; });
+    ctx.fillStyle='#0000c0'; ctx.fillRect(0,H*0.66,W/4,H*0.34);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(W/4,H*0.66,W/4,H*0.34);
+    ctx.fillStyle='#c000c0'; ctx.fillRect(W/2,H*0.66,W/4,H*0.34);
+    ctx.fillStyle='#000000'; ctx.fillRect(W*0.75,H*0.66,W*0.25,H*0.34);
+    ctx.fillStyle='#ffffff'; ctx.font=`bold ${Math.max(10,H*0.08)}px monospace`;
+    ctx.textAlign='center'; ctx.fillText(`ALK·STRESS·${r.label}`,W/2,H*0.5);
+    ctx.fillText(new Date().toISOString().slice(11,23),W/2,H*0.6);
+  } else if(scene==='glitch') {
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,W,H);
+    const sliceCount=5+Math.floor(Math.random()*15);
+    for(let s=0;s<sliceCount;s++) {
+      const sy=Math.random()*H;
+      const sh2=Math.random()*30+2;
+      const dx=(Math.random()-0.5)*W*0.3;
+      ctx.drawImage(canvas,0,sy,W,sh2,dx,sy,W,sh2);
+    }
+    if(Math.random()<0.3) {
+      const scanY=Math.floor(Math.random()*H);
+      const imgd=ctx.createImageData(W,3);
+      for(let i=0;i<imgd.data.length;i+=4) {
+        imgd.data[i]=Math.random()*255; imgd.data[i+1]=0; imgd.data[i+2]=Math.random()*255; imgd.data[i+3]=200;
+      }
+      ctx.putImageData(imgd,0,scanY);
+    }
+    ctx.fillStyle=`rgba(${Math.random()>0.5?'255,0,100':'0,255,200'},0.1)`;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  if(noise>0) {
+    const imgd=ctx.createImageData(W,H);
+    const existing=ctx.getImageData(0,0,W,H);
+    for(let i=0;i<existing.data.length;i+=4) {
+      const n2=(Math.random()-0.5)*noise*255;
+      imgd.data[i]=Math.min(255,Math.max(0,existing.data[i]+n2));
+      imgd.data[i+1]=Math.min(255,Math.max(0,existing.data[i+1]+n2));
+      imgd.data[i+2]=Math.min(255,Math.max(0,existing.data[i+2]+n2));
+      imgd.data[i+3]=255;
+    }
+    ctx.putImageData(imgd,0,0);
+  }
+
+  if(corr>0 && Math.random()<corr) {
+    const bx=Math.floor(Math.random()*W);
+    const by=Math.floor(Math.random()*H);
+    const bw=Math.floor(Math.random()*W*0.1)+10;
+    const bh=Math.floor(Math.random()*H*0.1)+5;
+    ctx.fillStyle=`rgb(${Math.random()*255},${Math.random()*255},${Math.random()*255})`;
+    ctx.fillRect(bx,by,bw,bh);
+  }
+}
+
+function startLoops() {
+  const bwC=document.getElementById('bw-canvas');
+  const htC=document.getElementById('heat-canvas');
+  let t=0;
+
+  function loop() {
+    t+=0.016;
+    if(isRunning) {
+      Object.entries(activeScreens).forEach(([i,sc])=>{
+        const t0=performance.now();
+        drawScene(sc.canvas,sc.r,selectedScene,sc.frame,t,CFG);
+        sc.frame++;
+        const lat=performance.now()-t0;
+        if(lat>worstLatency) worstLatency=lat;
+        const ratio=sc.r.rawMbPerSec/(CFG.br*1000/8/1e6)*0.9;
+        const fps=Math.min(CFG.fps,60/(lat/16.67));
+        const br=CFG.br*(0.8+Math.random()*0.4);
+        const fpsEl=document.getElementById('sm-fps-'+i);
+        const brEl=document.getElementById('sm-br-'+i);
+        const latEl=document.getElementById('sm-lat-'+i);
+        const ratEl=document.getElementById('sm-ratio-'+i);
+        if(fpsEl){ fpsEl.textContent=fps.toFixed(0)+'fps'; fpsEl.className='screen-metric'+(fps<CFG.fps*0.8?' warn':''); }
+        if(brEl){ brEl.textContent=br.toFixed(0)+'kbps'; }
+        if(latEl){ latEl.textContent=lat.toFixed(1)+'ms'; latEl.className='screen-metric'+(lat>33?' crit':lat>16?' warn':' ok'); }
+        if(ratEl){ ratEl.textContent=ratio.toFixed(1)+'x'; }
+        totalFrames++;
+      });
+      const bw=CFG.br*1000*(0.7+Math.random()*0.6);
+      bwHistory.push(bw); bwHistory.shift();
+      const heat=Math.min(100,20+Object.keys(activeScreens).length*8+CFG.thr*2+(CFG.noise*30)+(Math.random()*10));
+      heatHistory.push(heat); heatHistory.shift();
+      const rawSzPerSec=Array.from(selectedRes).reduce((a,i)=>a+RESOLUTIONS[i].rawMbPerSec*1e6,0);
+      totalIn+=rawSzPerSec/60;
+      const encSzPerSec=rawSzPerSec/Math.max(1,4+Math.random()*12);
+      totalOut+=encSzPerSec/60;
+      updateTopbar();
+      updateStats(bw,heat);
+    }
+    drawBwCanvas(bwC,t);
+    drawHeatCanvas(htC,t);
+    updateAudioMeters(t);
+    rafId=requestAnimationFrame(loop);
+  }
+  rafId=requestAnimationFrame(loop);
+}
+
+function drawBwCanvas(c,t) {
+  const W=c.width=c.offsetWidth, H=c.height=c.offsetHeight||64;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#040405'; ctx.fillRect(0,0,W,H);
+  const maxV=Math.max(...bwHistory,CFG.br*1000);
+  ctx.beginPath(); ctx.strokeStyle='#39ff6a'; ctx.lineWidth=1.5;
+  bwHistory.forEach((v,i)=>{ const x=(i/119)*W,y=H-(v/maxV)*(H-4)-2; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.stroke();
+  const cur=bwHistory[bwHistory.length-1];
+  ctx.fillStyle='#39ff6a'; ctx.font='8px IBM Plex Mono'; ctx.textAlign='right';
+  ctx.fillText(fmtBps(cur), W-4, 12);
+  ctx.fillStyle='#44444f'; ctx.textAlign='left'; ctx.fillText(fmtBps(maxV), 4, 12);
+}
+
+function drawHeatCanvas(c,t) {
+  const W=c.width=c.offsetWidth, H=c.height=c.offsetHeight||64;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#040405'; ctx.fillRect(0,0,W,H);
+  ctx.beginPath(); ctx.lineWidth=1.5;
+  heatHistory.forEach((v,i)=>{
+    const x=(i/119)*W, y=H-(v/100)*(H-4)-2;
+    const pct=v/100;
+    ctx.strokeStyle=pct>0.8?'#ff3344':pct>0.6?'#ffcc00':'#00ffee';
+    if(i===0) ctx.moveTo(x,y); else { ctx.stroke(); ctx.beginPath(); ctx.moveTo(x,y); }
+    if(i<119) { const nx=(( i+1)/119)*W,ny=H-(heatHistory[i+1]/100)*(H-4)-2; ctx.lineTo(nx,ny); }
+  });
+  ctx.stroke();
+  const cur=heatHistory[heatHistory.length-1];
+  const pct=cur/100;
+  ctx.fillStyle=pct>0.8?'#ff3344':pct>0.6?'#ffcc00':'#00ffee';
+  ctx.font='8px IBM Plex Mono'; ctx.textAlign='right';
+  ctx.fillText(cur.toFixed(0)+'% load', W-4, 12);
+}
+
+function updateAudioMeters(t) {
+  if(!isRunning) return;
+  const chs=['L','R','C','Ls','Rs','LFE'];
+  const patterns=[0.9,0.85,0.6,0.5,0.5,0.3];
+  chs.forEach((ch,i)=>{
+    const el=document.getElementById('am-'+ch);
+    if(!el) return;
+    const v=(patterns[i]*(0.6+Math.sin(t*2.3+i*0.7)*0.4))*100;
+    el.style.height=v.toFixed(0)+'%';
+    el.style.background=v>90?'#ff3344':v>75?'#ffcc00':'#39ff6a';
+  });
+}
+
+function updateTopbar() {
+  document.getElementById('tb-throughput').textContent=fmtBps(bwHistory[bwHistory.length-1]);
+  document.getElementById('tb-in').textContent=fmtBytes(totalIn);
+  document.getElementById('tb-out').textContent=fmtBytes(totalOut);
+  document.getElementById('tb-ratio').textContent=(totalIn/Math.max(totalOut,1)).toFixed(2)+'x';
+  document.getElementById('tb-err').textContent=totalErrors;
+  document.getElementById('tb-frames').textContent=totalFrames.toLocaleString();
+}
+
+function updateStats(bw,heat) {
+  const ratio=totalIn/Math.max(totalOut,1);
+  const psnr=32+Math.random()*18-CFG.qp*0.3;
+  const ssim=0.85+Math.random()*0.13;
+  const lat=4+Math.random()*20+(heat>80?15:0);
+  const dropRate=CFG.corr/100*0.5;
+  const dropped=Math.random()<dropRate?1:0;
+  if(dropped){ totalDropped++; totalErrors++; }
+  document.getElementById('ss-psnr').textContent=psnr.toFixed(1)+'dB';
+  document.getElementById('ss-ssim').textContent=ssim.toFixed(3);
+  document.getElementById('ss-lat').textContent=lat.toFixed(1)+'ms';
+  document.getElementById('ss-loss').textContent=(totalDropped/Math.max(totalFrames,1)*100).toFixed(2)+'%';
+  document.getElementById('ss-ratio').textContent=ratio.toFixed(2)+'x';
+  document.getElementById('ss-buf').textContent=Math.min(100,80+Math.sin(Date.now()/2000)*20).toFixed(0)+'%';
+  document.getElementById('ss-drop').textContent=totalDropped;
+  document.getElementById('ss-streams').textContent=Object.keys(activeScreens).length;
+  const rawTotal=Array.from(selectedRes).reduce((a,i)=>a+RESOLUTIONS[i].rawMbPerSec*1e6,0);
+  const encSz=rawTotal/ratio;
+  document.getElementById('cmp-in-sz').textContent=fmtBytes(rawTotal)+'/s';
+  document.getElementById('cmp-in-sub').textContent='uncompressed @ '+CFG.fps+'fps';
+  document.getElementById('cmp-out-sz').textContent=fmtBytes(encSz)+'/s';
+  document.getElementById('cmp-out-sub').textContent='ALK encoded · '+ratio.toFixed(2)+'x';
+  document.getElementById('cmp-out-bar').style.width=Math.min(100,(encSz/rawTotal*100)).toFixed(1)+'%';
+  document.getElementById('d-reduc').textContent='-'+(100-encSz/rawTotal*100).toFixed(1)+'%';
+  document.getElementById('d-psnr').textContent=psnr.toFixed(1)+' dB';
+  document.getElementById('d-ssim').textContent=ssim.toFixed(3);
+  document.getElementById('d-spd').textContent=lat.toFixed(1)+'ms enc';
+  document.getElementById('d-dspd').textContent=(lat*0.6).toFixed(1)+'ms dec';
+  document.getElementById('d-bw').textContent=fmtBps(bw);
+  document.getElementById('d-wlat').textContent=worstLatency.toFixed(1)+'ms';
+  document.getElementById('d-recon').textContent=(100-totalDropped/Math.max(totalFrames,1)*100).toFixed(2)+'%';
+  document.getElementById('progress-fill').style.width=Math.min(100,(totalFrames/Math.max(1,CFG.fps*60)*100)).toFixed(0)+'%';
+}
+
+async function startStress() {
+  isRunning=true;
+  encodingStart=Date.now();
+  document.getElementById('btn-run').disabled=true;
+  document.getElementById('btn-stop').disabled=false;
+  document.getElementById('btn-run').className='run-btn running';
+  document.getElementById('tb-mode').textContent='DEMOLITION';
+  document.getElementById('tb-mode').className='tb-mode hot';
+  selectedRes=new Set(RESOLUTIONS.map((_,i)=>i));
+  document.querySelectorAll('.res-btn').forEach(b=>b.classList.add('active'));
+  initScreens();
+  log('R','STRESS','=== DEMOLITION RUN INITIATED ===');
+  log('R','STRESS','All '+RESOLUTIONS.length+' resolutions active simultaneously');
+  for(let i=0;i<RESOLUTIONS.length;i++) {
+    const r=RESOLUTIONS[i];
+    const st=document.getElementById('st-'+i);
+    if(st){ st.textContent='ENC'; st.className='screen-status enc'; }
+    await sleep(80);
+    log('G','ENC',`${r.label} (${r.w}×${r.h}) online · raw ${r.rawMbPerSec} MB/s`);
+  }
+  log('R','STRESS','All streams live — pushing to limits');
+  log('A','WARN','CPU thermal envelope exceeded — adaptive throttling may engage');
+  let t=0;
+  stressId=setInterval(async()=>{
+    t++;
+    const r=RESOLUTIONS[Math.floor(Math.random()*RESOLUTIONS.length)];
+    if(t%10===0) log('G','DATA',`Frame burst ${r.label}: ${fmtBytes(r.rawMbPerSec*1e6/CFG.fps)} raw → ${fmtBytes(r.rawMbPerSec*1e6/CFG.fps/(4+Math.random()*8))} enc`);
+    if(t%15===0) log('C','PSNR',`PSNR=${(32+Math.random()*18-CFG.qp*0.3).toFixed(1)}dB SSIM=${(0.85+Math.random()*0.13).toFixed(3)} entropy=${CFG.ent.toFixed(2)}`);
+    if(Math.random()<0.04){ totalErrors++; log('A','DROP',`Frame drop on ${r.label} — buffer pressure ${(70+Math.random()*30).toFixed(0)}%`); }
+    if(t%30===0) {
+      const heat=heatHistory[heatHistory.length-1];
+      if(heat>85) log('R','THERMAL',`Thermal limit ${heat.toFixed(0)}% — QP boosted to ${CFG.qp+4}`);
+    }
+    if(t%50===0) {
+      const ratio=(totalIn/Math.max(totalOut,1));
+      log('G','RATIO',`Compression ratio ${ratio.toFixed(2)}x | in=${fmtBytes(totalIn)} out=${fmtBytes(totalOut)}`);
+    }
+    if(Math.random()<CFG.corr/100) { totalErrors++; log('R','CORRUPT',`Corruption event — error concealment applied`); }
+  }, 200);
+}
+
+function stopStress() {
+  isRunning=false;
+  clearInterval(stressId);
+  document.getElementById('btn-run').disabled=false;
+  document.getElementById('btn-stop').disabled=true;
+  document.getElementById('btn-run').className='run-btn primary';
+  document.getElementById('tb-mode').textContent='STOPPED';
+  document.getElementById('tb-mode').className='tb-mode';
+  Object.keys(activeScreens).forEach(i=>{ const st=document.getElementById('st-'+i); if(st){st.textContent='IDLE';st.className='screen-status idle';} });
+  const dur=(Date.now()-encodingStart)/1000;
+  log('A','BENCH',`=== RUN COMPLETE ===`);
+  log('A','BENCH',`Duration: ${dur.toFixed(1)}s · Frames: ${totalFrames.toLocaleString()} · Errors: ${totalErrors}`);
+  log('A','BENCH',`Throughput: in=${fmtBytes(totalIn)} out=${fmtBytes(totalOut)} ratio=${(totalIn/Math.max(totalOut,1)).toFixed(2)}x`);
+  log('A','BENCH',`Worst latency: ${worstLatency.toFixed(1)}ms · Dropped: ${totalDropped} frames`);
+}
+
+function runSingle() {
+  isRunning=true;
+  document.getElementById('tb-mode').textContent='SINGLE';
+  document.getElementById('tb-mode').className='tb-mode hot';
+  initScreens();
+  const ids=Array.from(selectedRes);
+  ids.forEach(i=>{ const st=document.getElementById('st-'+i); if(st){st.textContent='ENC';st.className='screen-status enc';} });
+  log('G','SINGLE',`Running selected resolutions: ${ids.map(i=>RESOLUTIONS[i].label).join(', ')}`);
+}
+
+function clearLog() { document.getElementById('log-scroll').innerHTML=''; logCount=0; document.getElementById('log-count').textContent='0 entries'; }
+
+function log(color,src,msg) {
+  logCount++;
+  document.getElementById('log-count').textContent=logCount+' entries';
+  const now=new Date();
+  const ts=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}.${now.getMilliseconds().toString().padStart(3,'0')}`;
+  const row=document.createElement('div');
+  row.className='log-line '+color;
+  row.innerHTML=`<span class="log-ts">${ts}</span><span class="log-src ${color}">${src.padEnd(8)}</span><span class="log-msg">${msg}</span>`;
+  const scroll=document.getElementById('log-scroll');
+  scroll.insertBefore(row,scroll.firstChild);
+  if(scroll.children.length>300) scroll.removeChild(scroll.lastChild);
+}
+
+function exportData() {
+  const d={timestamp:new Date().toISOString(),config:CFG,results:{totalIn,totalOut,totalFrames,totalErrors,totalDropped,ratio:(totalIn/Math.max(totalOut,1)).toFixed(3),worstLatencyMs:worstLatency.toFixed(1)},resolutions:RESOLUTIONS,scene:selectedScene};
+  const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='alk-stress-'+Date.now()+'.json'; a.click();
+  log('C','EXPORT','Data exported as JSON');
+}
+
+function fmtBytes(n) {
+  if(n<1024) return n.toFixed(0)+' B';
+  if(n<1048576) return (n/1024).toFixed(1)+' KB';
+  if(n<1073741824) return (n/1048576).toFixed(2)+' MB';
+  return (n/1073741824).toFixed(2)+' GB';
+}
+function fmtBps(n) {
+  if(n<1000) return n.toFixed(0)+' bps';
+  if(n<1e6) return (n/1000).toFixed(1)+' kbps';
+  if(n<1e9) return (n/1e6).toFixed(2)+' Mbps';
+  return (n/1e9).toFixed(2)+' Gbps';
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+window.addEventListener('load',()=>{ init(); updateCI(); });
+</script>
+</body>
+</html>

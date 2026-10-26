@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ALK · Signal Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d0d0d;--ink2:#2e2e2e;--ink3:#6b6b6b;--ink4:#a8a8a8;
+  --bg:#f7f5f0;--bg2:#efece5;--bg3:#e6e2d8;
+  --me-bg:#1a1a2e;--me-txt:#ffffff;
+  --ig:#e1306c;--sms:#34c759;--email:#0072c6;--dm:#1da1f2;--comment:#ff6b35;--screenshot:#7c4dff;
+  --green:#00b894;--amber:#f39c12;--red:#e74c3c;--accent:#c8522a;
+  --sse-live:#00b894;--sse-dead:#e74c3c;--sse-idle:#a8a8a8;
+  --guardian:#7c4dff;
+  --border:rgba(0,0,0,.07);--border2:rgba(0,0,0,.13);
+  --r:14px;
+  --f:'Bricolage Grotesque',sans-serif;--fm:'DM Mono',monospace;--fs:'Instrument Serif',serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--f)}
+@media(max-width:900px){html,body{overflow:auto;height:auto}}
+
+/* ROOT: 4 cols now — Guardian panel added on far right */
+.root{display:grid;grid-template-rows:58px 1fr;grid-template-columns:270px 1fr 270px 300px;height:100vh}
+@media(max-width:1200px){.root{grid-template-columns:250px 1fr 250px}}
+@media(max-width:900px){.root{display:flex;flex-direction:column;height:auto;min-height:100vh}}
+
+/* TOPBAR */
+.topbar{
+  grid-column:1/-1;display:grid;grid-template-columns:270px 1fr 270px 300px;
+  background:var(--ink);color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.07);z-index:50;flex-shrink:0
+}
+@media(max-width:1200px){.topbar{grid-template-columns:250px 1fr 250px}}
+@media(max-width:900px){.topbar{display:flex;flex-direction:column;height:auto}}
+.tb-me{display:flex;align-items:center;gap:9px;padding:0 14px;border-right:1px solid rgba(255,255,255,.08)}
+.tb-them{display:flex;align-items:center;gap:9px;padding:0 14px;border-left:1px solid rgba(255,255,255,.08);flex-direction:row-reverse}
+.tb-guardian{display:flex;align-items:center;gap:9px;padding:0 14px;border-left:1px solid rgba(255,255,255,.08)}
+@media(max-width:900px){.tb-me,.tb-them,.tb-guardian{border:none;padding:6px 14px;flex-direction:row!important}}
+@media(max-width:900px){.tb-them .tb-name-input,.tb-them .tb-handle{text-align:left!important}}
+.tb-ava{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;border:2px solid rgba(255,255,255,.18);transition:background .3s;cursor:pointer}
+.tb-ava:hover{border-color:var(--accent)}
+.tb-meta{flex:1;min-width:0}
+.tb-role{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);font-family:var(--fm);margin-bottom:1px}
+.tb-name-input{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,.15);color:#fff;font-family:var(--f);font-size:13px;font-weight:700;outline:none;width:100%;padding:1px 0;line-height:1.3}
+.tb-name-input:focus{border-bottom-color:var(--accent)}
+.tb-them .tb-name-input{text-align:right}
+.tb-handle{font-size:10px;color:rgba(255,255,255,.35);font-family:var(--fm);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-them .tb-handle{text-align:right}
+.tb-centre{display:flex;align-items:center;justify-content:center;padding:0 6px;overflow:hidden}
+@media(max-width:900px){.tb-centre{padding:6px;overflow-x:auto}}
+.src-tabs{display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:10px;padding:3px;flex-wrap:nowrap}
+.src-tab{padding:4px 8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,.4);transition:.15s;white-space:nowrap;font-family:var(--f)}
+.src-tab.active{background:rgba(255,255,255,.14);color:#fff}
+
+/* SSE STATUS dot in guardian topbar zone */
+.sse-dot{width:7px;height:7px;border-radius:50%;background:var(--sse-idle);flex-shrink:0;transition:background .3s}
+.sse-dot.live{background:var(--sse-live);box-shadow:0 0 0 2px rgba(0,184,148,.3);animation:pulse-dot 2s ease infinite}
+.sse-dot.dead{background:var(--sse-dead)}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 2px rgba(0,184,148,.3)}50%{box-shadow:0 0 0 5px rgba(0,184,148,.1)}}
+.sse-label{font-size:9px;font-family:var(--fm);color:rgba(255,255,255,.4)}
+
+/* MOBILE TABS */
+.mobile-tabs{display:none;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:40;flex-shrink:0}
+@media(max-width:900px){.mobile-tabs{display:flex}}
+.mtab{flex:1;padding:9px 4px;border:none;background:none;font-family:var(--f);font-size:10px;font-weight:700;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.mtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* LEFT PANEL */
+.lp{background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+@media(max-width:900px){.lp{border:none;border-bottom:1px solid var(--border)}}
+.lp-head{padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.lp-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:2px}
+.lp-sub{font-size:14px;font-weight:800;color:var(--ink)}
+.lp-body{flex:1;overflow-y:auto;padding:10px 0}
+
+/* DROPZONE */
+.dz{margin:0 12px 8px;border:1.5px dashed var(--border2);border-radius:16px;padding:13px 12px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg2)}
+.dz:hover,.dz.drag{border-color:var(--accent);background:rgba(200,82,42,.05)}
+.dz.has-file{border-style:solid;border-color:var(--green);background:rgba(0,184,148,.04)}
+.dz-ico{font-size:22px;margin-bottom:4px;display:block}
+.dz-main{font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:2px}
+.dz-sub{font-size:10px;color:var(--ink3);line-height:1.4}
+.dz-tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:6px}
+.dz-tag{font-size:9px;padding:1px 5px;border-radius:99px;background:var(--bg3);color:var(--ink2);font-family:var(--fm);border:1px solid var(--border2)}
+
+/* PHOTO QUEUE */
+.photo-queue{margin:0 12px 8px;display:none}
+.pq-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.pq-title{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.pq-clear{font-size:9px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--fm);padding:0}
+.pq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.pq-item{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--bg3);cursor:pointer;border:1.5px solid transparent}
+.pq-item img{width:100%;height:100%;object-fit:cover}
+.pq-item.active{border-color:var(--accent)}
+.pq-item .pq-rm{position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;border:none;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;line-height:1}
+.pq-item:hover .pq-rm{opacity:1}
+.pq-non-img{aspect-ratio:unset!important;padding:5px 6px;display:flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border)}
+.pq-fn{font-size:9px;font-family:var(--fm);color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pq-count{font-size:9px;font-family:var(--fm);color:var(--ink3);margin-top:3px;text-align:center}
+
+/* IMPORT OPTIONS */
+.import-row{margin:0 12px 8px;display:flex;gap:4px}
+.import-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 5px;border-radius:8px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--ink2);font-family:var(--f);font-size:10px;font-weight:700;cursor:pointer;transition:.2s}
+.import-btn:hover{border-color:var(--accent);background:rgba(200,82,42,.05)}
+.import-btn-ico{font-size:13px}
+
+/* URL INPUT */
+.url-wrap{margin:0 12px 8px}
+.field-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px}
+.url-row{display:flex;gap:4px}
+.url-inp{flex:1;font-family:var(--fm);font-size:10px;padding:6px 8px;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);color:var(--ink);outline:none;min-width:0;transition:.15s}
+.url-inp:focus{border-color:var(--green)}
+.url-go{padding:6px 9px;background:var(--ink);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer}
+
+/* SENDER TOGGLE */
+.sender-wrap{margin:0 12px 8px;display:flex;gap:4px}
+.sender-btn{flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--border2);background:transparent;color:var(--ink);font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.2s;text-align:center}
+
+/* PERSON LIST */
+.persons-section{margin:0 12px 6px}
+.ps-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.ps-new{font-size:9px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--f);font-weight:700;padding:0}
+.person-list{display:flex;flex-direction:column;gap:2px}
+.person-chip{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:8px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;transition:.15s}
+.person-chip:hover,.person-chip.selected{background:var(--bg3);border-color:var(--border2)}
+.person-chip.selected{border-color:var(--accent)}
+.pc-ava{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0}
+.pc-name{flex:1;font-size:11px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-cnt{font-size:9px;font-family:var(--fm);color:var(--ink3)}
+.pc-edit{width:16px;height:16px;border:none;background:none;cursor:pointer;color:var(--ink4);font-size:10px;flex-shrink:0}
+
+/* SEC HEADER */
+.sec{display:flex;align-items:center;gap:7px;padding:0 12px;margin:6px 0 4px}
+.sec-lbl{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.sec-line{flex:1;height:1px;background:var(--border2)}
+
+/* PIPELINE */
+.pipe{margin:0 12px;display:flex;flex-direction:column;gap:3px}
+.pi{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:9px;border:1px solid var(--border);background:var(--bg);transition:.2s;position:relative;overflow:hidden}
+.pi.running{border-color:var(--accent);background:rgba(200,82,42,.04)}
+.pi.done{border-color:var(--green);background:rgba(0,184,148,.04)}
+.pi-num{width:18px;height:18px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--ink3);flex-shrink:0;transition:.2s}
+.pi.running .pi-num{background:var(--accent);border-color:var(--accent);color:#fff}
+.pi.done .pi-num{background:var(--green);border-color:var(--green);color:#fff}
+.pi-txt{flex:1;min-width:0}
+.pi-name{font-size:11px;font-weight:700;color:var(--ink)}
+.pi-desc{font-size:9px;color:var(--ink3);font-family:var(--fm)}
+.pi-stat{font-size:9px;font-family:var(--fm);color:var(--ink3);flex-shrink:0}
+.pi-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--accent);transition:width .3s ease}
+.pi.done .pi-bar{background:var(--green)}
+.pi-conn{width:1px;height:5px;background:var(--border2);margin-left:20px}
+.run-wrap{padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.run-btn{width:100%;padding:10px;border:none;border-radius:var(--r);background:var(--ink);color:#fff;font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.2s}
+.run-btn:hover:not(:disabled){background:var(--ink2);transform:translateY(-1px)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.run-btn.live{background:var(--accent);animation:pbtn 1.4s ease infinite}
+@keyframes pbtn{0%,100%{opacity:1}50%{opacity:.8}}
+.spin{animation:rot .7s linear infinite;display:inline-block}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* CONVERSATION CANVAS */
+.conv{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.conv-bar{flex-shrink:0;display:flex;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg);gap:0}
+.cb-them{display:flex;align-items:center;gap:7px}
+.cb-me{display:flex;align-items:center;gap:7px;margin-left:auto}
+.cb-ava{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0}
+.cb-name{font-size:11px;font-weight:700;color:var(--ink)}
+.cb-handle{font-size:9px;color:var(--ink3);font-family:var(--fm)}
+.cb-sep{flex:1;text-align:center;font-size:10px;color:var(--ink4)}
+.type-pill{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin:0 8px;flex-shrink:0}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px}
+.mrow{display:flex;flex-direction:column;gap:2px}
+.mrow.left{align-self:flex-start;align-items:flex-start;max-width:72%}
+.mrow.right{align-self:flex-end;align-items:flex-end;max-width:72%}
+.mrow-inner{display:flex;align-items:flex-end;gap:6px}
+.mrow.right .mrow-inner{flex-direction:row-reverse}
+.m-ava{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0;margin-bottom:2px}
+.bbl{padding:8px 12px;font-size:13px;line-height:1.55;word-break:break-word;max-width:100%}
+.mrow.left .bbl{background:#fff;border:1px solid rgba(0,0,0,.08);color:var(--ink);border-radius:4px 16px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.mrow.right .bbl{background:var(--me-bg);color:var(--me-txt);border-radius:16px 4px 16px 16px}
+.bbl-who{font-size:9px;font-family:var(--fm);font-weight:700;margin-bottom:2px}
+.mrow.left .bbl-who{color:var(--ink3)}
+.mrow.right .bbl-who{color:rgba(255,255,255,.4);text-align:right}
+.bbl-scan-ts{font-size:8px;font-family:var(--fm);color:var(--accent);margin-bottom:3px;letter-spacing:.03em}
+.bbl-time{font-size:9px;font-family:var(--fm);margin-top:3px}
+.mrow.left .bbl-time{color:var(--ink4)}
+.mrow.right .bbl-time{color:rgba(255,255,255,.3);text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.chip{padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;font-family:var(--fm)}
+.chip-res{background:rgba(124,77,255,.12);color:#7c4dff}
+.chip-str{background:rgba(200,82,42,.12);color:var(--accent)}
+.chip-mirror{background:rgba(0,184,148,.12);color:var(--green)}
+.chip-complementary{background:rgba(243,156,18,.15);color:#856800}
+.chip-friction{background:rgba(231,76,60,.1);color:var(--red)}
+.chip-dissonant{background:rgba(100,100,100,.1);color:var(--ink3)}
+.chip-conf{background:rgba(0,0,0,.06);color:var(--ink3)}
+.chip-files{background:rgba(200,82,42,.08);color:var(--accent)}
+.sys{text-align:center;font-size:10px;font-family:var(--fm);color:var(--ink4);padding:2px 0;font-style:italic}
+.date-sep{display:flex;align-items:center;gap:8px;padding:4px 0;opacity:.7}
+.date-sep-line{flex:1;height:1px;background:var(--border2)}
+.date-sep-lbl{font-size:9px;font-family:var(--fm);color:var(--ink3);white-space:nowrap}
+.bbl-img{max-width:220px;border-radius:10px;display:block;margin-bottom:4px;cursor:pointer}
+.bbl-vid{width:100%;max-width:240px;border-radius:10px;display:block;background:#000;aspect-ratio:16/9}
+.bbl-yt{width:240px;height:135px;border-radius:10px;display:block;border:none}
+.ss-block{border-radius:10px;overflow:hidden;border:1px solid var(--border2);max-width:250px}
+.ss-bar{background:#e8e8e8;padding:5px 8px;font-size:9px;font-family:var(--fm);color:#888;display:flex;align-items:center;gap:4px}
+.ss-dot{width:6px;height:6px;border-radius:50%}
+.email-block{background:var(--bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:260px}
+.email-head{padding:9px 11px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.email-field{font-size:9px;color:var(--ink3);display:flex;gap:5px;margin-bottom:2px;font-family:var(--fm);line-height:1.5}
+.email-field b{color:var(--ink2)}
+.email-subj{font-size:11px;font-weight:700;color:var(--ink);margin-top:4px}
+.email-body{padding:9px 11px;font-size:11px;color:var(--ink2);line-height:1.6}
+.ig-block{background:#fff;border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:230px}
+.ig-head{padding:7px 9px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border)}
+.ig-ava-sm{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff}
+.ig-un{font-size:10px;font-weight:700;color:#111}
+.ig-img-area{width:100%;background:var(--bg2);aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:28px}
+.ig-cap{padding:7px 9px;font-size:10px;color:#111;line-height:1.5}
+.ig-acts{padding:5px 9px;display:flex;gap:10px;border-top:1px solid var(--border);font-size:12px;color:var(--ink3)}
+.cmt-block{background:var(--bg);border:1px solid var(--border2);border-radius:10px;overflow:hidden;max-width:250px}
+.cmt-post{background:var(--bg2);padding:7px 9px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)}
+.cmt-thumb{width:32px;height:32px;border-radius:6px;background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.cmt-body{padding:7px 9px}
+.cmt-txt{font-size:11px;color:var(--ink);line-height:1.5}
+.cmt-meta{font-size:9px;color:var(--ink3);font-family:var(--fm);margin-top:3px}
+.photo-grid-bbl{display:grid;gap:2px;margin-bottom:4px;max-width:240px}
+.photo-grid-bbl.g1{grid-template-columns:1fr}
+.photo-grid-bbl.g2{grid-template-columns:1fr 1fr}
+.photo-grid-bbl.g3{grid-template-columns:1fr 1fr}
+.photo-grid-bbl.g4,.photo-grid-bbl.gm{grid-template-columns:1fr 1fr}
+.photo-grid-bbl img{width:100%;border-radius:5px;object-fit:cover;display:block;aspect-ratio:1;cursor:pointer}
+.photo-grid-bbl .g3-main{grid-column:1/-1;aspect-ratio:16/9}
+.photo-grid-bbl .photo-more{background:rgba(0,0,0,.55);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;aspect-ratio:1}
+.canvas-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:var(--ink3)}
+.ce-icon{font-size:40px;opacity:.2}
+.ce-title{font-size:13px;font-weight:700;color:var(--ink2)}
+.ce-sub{font-size:11px;color:var(--ink3);text-align:center;max-width:220px;line-height:1.6}
+
+/* RIGHT PANEL — ASE Profile */
+.rp{background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rp-scroll{flex:1;overflow-y:auto}
+.rp-sec{padding:10px 13px;border-bottom:1px solid var(--border)}
+.rp-sec-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+
+/* ASE CARD */
+.ase-card{padding:12px 13px;border-bottom:1px solid var(--border);position:relative}
+.ase-card-edit{position:absolute;top:10px;right:10px;font-size:9px;color:var(--ink3);background:none;border:1px solid var(--border2);cursor:pointer;padding:2px 6px;border-radius:5px}
+.ase-card-edit:hover{background:var(--bg2)}
+.ase-photos{display:flex;gap:3px;margin-bottom:9px;overflow-x:auto;padding-bottom:2px}
+.ase-photo{width:38px;height:38px;border-radius:7px;object-fit:cover;flex-shrink:0;border:1.5px solid var(--border2);cursor:pointer}
+.ase-photo.add-btn{background:var(--bg2);border-style:dashed;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--ink3)}
+.ase-top{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.ase-big-ava{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;border:3px solid var(--border2);overflow:hidden}
+.ase-big-ava img{width:100%;height:100%;object-fit:cover}
+.ase-name{font-size:14px;font-weight:800;color:var(--ink)}
+.ase-handle{font-size:10px;color:var(--ink3);font-family:var(--fm)}
+.ase-tags{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0 7px}
+.ase-tag{font-size:9px;padding:2px 7px;border-radius:99px;font-family:var(--fm);font-weight:700}
+.ase-tag-mode{background:rgba(124,77,255,.1);color:#7c4dff}
+.ase-tag-custom{background:rgba(200,82,42,.1);color:var(--accent);cursor:pointer}
+.ase-tag-add{background:var(--bg3);color:var(--ink3);border:1px dashed var(--border2);cursor:pointer}
+.ase-notes-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px}
+.ase-notes{font-size:11px;color:var(--ink2);line-height:1.6;min-height:24px}
+.ase-notes-input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:5px 7px;font-family:var(--f);font-size:11px;color:var(--ink);outline:none;resize:vertical;min-height:44px;line-height:1.5;display:none}
+.ase-notes-input:focus{border-color:var(--accent)}
+.ase-edit-actions{display:none;gap:5px;margin-top:5px}
+
+/* SCAN LOG */
+.ase-scan-log{padding:10px 13px;border-bottom:1px solid var(--border)}
+.scan-group{margin-bottom:7px}
+.scan-date-label{font-size:9px;font-family:var(--fm);color:var(--ink3);margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.scan-date-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.scan-entry{display:flex;gap:6px;padding:4px 0;border-bottom:1px solid var(--border)}
+.scan-entry:last-child{border-bottom:none}
+.scan-ava{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;flex-shrink:0;margin-top:1px}
+.scan-body{flex:1;min-width:0}
+.scan-action{font-size:10px;font-weight:700;color:var(--ink)}
+.scan-detail{font-size:9px;color:var(--ink3);font-family:var(--fm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scan-ts{font-size:8px;color:var(--ink4);font-family:var(--fm);flex-shrink:0;align-self:flex-start;margin-top:2px}
+
+/* AXES */
+.ax-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ax-cell{background:var(--bg2);border-radius:7px;padding:6px 8px;border:1px solid var(--border)}
+.ax-lbl{font-size:8px;font-family:var(--fm);color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.ax-val{font-size:13px;font-weight:800;color:var(--ink)}
+.ax-bar{height:2px;border-radius:99px;margin-top:3px;background:var(--bg3);overflow:hidden}
+.ax-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.sc-row{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.sc-lbl{font-size:9px;font-family:var(--fm);color:var(--ink3);width:66px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis}
+.sc-track{flex:1;height:4px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.sc-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.sc-val{font-size:9px;font-family:var(--fm);font-weight:700;color:var(--ink);width:24px;text-align:right}
+.radar-wrap{padding:10px 13px;border-bottom:1px solid var(--border)}
+canvas.radar{display:block;margin:0 auto}
+.cmp-section{padding:10px 13px;border-bottom:1px solid var(--border)}
+.cmp-ax{margin-bottom:8px}
+.cmp-ax-name{font-size:8px;font-family:var(--fm);color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.log-section{padding:10px 13px;border-bottom:1px solid var(--border)}
+.log-entry{display:flex;gap:7px;padding:5px 0;border-bottom:1px solid var(--border)}
+.log-entry:last-child{border-bottom:none}
+.log-ava{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0}
+.log-body{flex:1;min-width:0}
+.log-name{font-size:11px;font-weight:700;color:var(--ink)}
+.log-action{font-size:9px;color:var(--ink3);font-family:var(--fm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-ts{font-size:8px;color:var(--ink4);font-family:var(--fm)}
+.err-section{padding:10px 13px}
+.err-log{background:#0a0a0a;border-radius:9px;padding:8px;max-height:110px;overflow-y:auto;font-family:var(--fm);font-size:9px}
+.el{padding:1px 0;line-height:1.8}
+.el-t{color:#444;margin-right:6px}
+.el-info{color:#00cec9}.el-success{color:#00b894}.el-warn{color:#f39c12}.el-error{color:#e74c3c}
+
+/* ══════════════════════════════════════════════════
+   GUARDIAN PANEL — 4th column
+   Control + Execution Layer
+   All Bridge/Nexus APIs catalogued + live SSE console
+══════════════════════════════════════════════════ */
+.gp{background:#0d0d14;border-left:1px solid rgba(124,77,255,.2);display:flex;flex-direction:column;overflow:hidden;color:#e0e0e0}
+@media(max-width:1200px){.gp{display:none}}
+@media(max-width:900px){.gp{display:flex;border:none;border-top:1px solid rgba(124,77,255,.2)}}
+.gp-head{padding:12px 14px 10px;border-bottom:1px solid rgba(124,77,255,.15);flex-shrink:0}
+.gp-title{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(124,77,255,.7);margin-bottom:2px;font-family:var(--fm)}
+.gp-sub{font-size:13px;font-weight:800;color:#e0e0e0;display:flex;align-items:center;gap:7px}
+
+/* SSE CONNECT CONTROL */
+.sse-control{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sse-url-row{display:flex;gap:5px;margin-bottom:6px}
+.sse-url-inp{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e0e0e0;font-family:var(--fm);font-size:10px;padding:5px 8px;outline:none}
+.sse-url-inp:focus{border-color:rgba(124,77,255,.6)}
+.sse-connect-btn{padding:5px 10px;border-radius:7px;border:none;font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+.sse-connect-btn.connect{background:rgba(0,184,148,.15);color:var(--green);border:1px solid rgba(0,184,148,.3)}
+.sse-connect-btn.connect:hover{background:rgba(0,184,148,.25)}
+.sse-connect-btn.disconnect{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.3)}
+.sse-status-row{display:flex;align-items:center;gap:6px}
+.sse-status-text{font-size:9px;font-family:var(--fm);color:rgba(255,255,255,.35)}
+.sse-session{font-size:9px;font-family:var(--fm);color:rgba(124,77,255,.6);margin-left:auto}
+
+/* SSE STREAM LOG */
+.sse-stream{flex:0 0 130px;border-bottom:1px solid rgba(255,255,255,.06);overflow-y:auto;font-family:var(--fm);font-size:9px;padding:6px 10px;background:#080810}
+.sse-line{padding:1px 0;line-height:1.7;display:flex;gap:5px}
+.sse-line-t{color:#2a2a4a;flex-shrink:0}
+.sse-line-evt{color:rgba(124,77,255,.7)}
+.sse-line-data{color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sse-line.in-chunk{color:var(--green)}
+.sse-line.in-heartbeat{color:#2a2a4a}
+.sse-line.in-error{color:var(--red)}
+.sse-line.out{color:rgba(200,82,42,.7)}
+
+/* GUARDIAN API REGISTRY */
+.api-registry{flex:1;overflow-y:auto}
+.api-section{border-bottom:1px solid rgba(255,255,255,.05)}
+.api-section-head{padding:8px 14px;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;transition:background .15s}
+.api-section-head:hover{background:rgba(255,255,255,.03)}
+.api-section-icon{font-size:12px;flex-shrink:0}
+.api-section-name{font-size:10px;font-weight:700;color:#c0c0d8;font-family:var(--f);flex:1}
+.api-section-count{font-size:9px;font-family:var(--fm);color:rgba(255,255,255,.2)}
+.api-section-arrow{font-size:9px;color:rgba(255,255,255,.2);transition:transform .2s}
+.api-section-arrow.open{transform:rotate(90deg)}
+.api-list{display:none;padding:0 0 4px 0}
+.api-list.open{display:block}
+.api-item{display:flex;align-items:flex-start;gap:7px;padding:5px 14px 5px 14px;cursor:pointer;transition:background .1s;position:relative}
+.api-item:hover{background:rgba(255,255,255,.04)}
+.api-item.active{background:rgba(124,77,255,.08)}
+.api-item-run{position:absolute;right:10px;top:50%;transform:translateY(-50%);opacity:0;background:rgba(124,77,255,.2);border:none;border-radius:4px;color:rgba(124,77,255,.9);font-size:9px;font-family:var(--fm);padding:2px 6px;cursor:pointer;transition:.15s}
+.api-item:hover .api-item-run{opacity:1}
+.api-item-run:hover{background:rgba(124,77,255,.4)}
+.api-method{font-size:8px;font-weight:800;font-family:var(--fm);padding:1px 5px;border-radius:4px;flex-shrink:0;margin-top:1px;min-width:34px;text-align:center}
+.method-GET{background:rgba(0,184,148,.15);color:#00b894}
+.method-POST{background:rgba(243,156,18,.15);color:#f39c12}
+.method-SSE{background:rgba(124,77,255,.15);color:#7c4dff}
+.method-MSG{background:rgba(29,161,242,.15);color:#1da1f2}
+.method-EVT{background:rgba(200,82,42,.15);color:var(--accent)}
+.api-item-body{flex:1;min-width:0;padding-right:40px}
+.api-item-path{font-size:10px;font-weight:700;color:#d0d0e8;font-family:var(--fm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.api-item-desc{font-size:9px;color:rgba(255,255,255,.3);line-height:1.4;margin-top:1px}
+
+/* EXECUTION PANEL (fires when api-item clicked) */
+.exec-panel{flex-shrink:0;border-top:1px solid rgba(124,77,255,.2);background:#060610;max-height:200px;overflow-y:auto;display:none}
+.exec-panel.open{display:block}
+.exec-head{padding:8px 12px;display:flex;align-items:center;gap:7px;border-bottom:1px solid rgba(255,255,255,.06)}
+.exec-head-name{font-size:10px;font-weight:700;color:#c0c0d8;font-family:var(--fm);flex:1}
+.exec-close{background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:12px}
+.exec-body{padding:8px 12px}
+.exec-field{margin-bottom:6px}
+.exec-label{font-size:8px;font-family:var(--fm);color:rgba(255,255,255,.3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em}
+.exec-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:5px;color:#e0e0e0;font-family:var(--fm);font-size:10px;padding:4px 7px;outline:none}
+.exec-inp:focus{border-color:rgba(124,77,255,.5)}
+.exec-fire{width:100%;padding:6px;background:rgba(124,77,255,.2);border:1px solid rgba(124,77,255,.4);border-radius:7px;color:#a070ff;font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.15s;margin-top:6px}
+.exec-fire:hover{background:rgba(124,77,255,.35)}
+.exec-result{font-size:9px;font-family:var(--fm);color:rgba(255,255,255,.4);margin-top:6px;white-space:pre-wrap;word-break:break-all;max-height:80px;overflow-y:auto;background:rgba(255,255,255,.03);border-radius:5px;padding:5px 7px;display:none}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.gp ::-webkit-scrollbar-thumb{background:rgba(124,77,255,.3)}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:5px;z-index:999;pointer-events:none}
+.toast{padding:8px 13px;border-radius:9px;font-size:11px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15);animation:tin .2s ease;transition:opacity .3s}
+.toast-info{background:var(--ink);color:#fff}
+.toast-success{background:var(--green);color:#fff}
+.toast-error{background:var(--red);color:#fff}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+
+/* LIGHTBOX */
+.lb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;display:none;align-items:center;justify-content:center}
+.lb-overlay.open{display:flex}
+.lb-img{max-width:90vw;max-height:88vh;border-radius:10px;display:block}
+.lb-close{position:fixed;top:14px;right:18px;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;z-index:301}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border-radius:18px;padding:20px;width:100%;max-width:370px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-title{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:14px}
+.modal-row{margin-bottom:10px}
+.modal-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px}
+.modal-inp{width:100%;padding:8px 10px;border:1.5px solid var(--border2);border-radius:9px;font-family:var(--f);font-size:13px;color:var(--ink);background:var(--bg2);outline:none;transition:.15s}
+.modal-inp:focus{border-color:var(--accent)}
+.modal-textarea{min-height:60px;resize:vertical}
+.modal-btns{display:flex;gap:7px;margin-top:14px}
+.modal-btn{flex:1;padding:9px;border:none;border-radius:10px;font-family:var(--f);font-size:13px;font-weight:700;cursor:pointer;transition:.15s}
+.modal-btn-cancel{background:var(--bg2);color:var(--ink3)}
+.modal-btn-save{background:var(--ink);color:#fff}
+.modal-btn-save:hover{background:var(--accent)}
+.modal-btn-danger{background:rgba(231,76,60,.12);color:var(--red)}
+
+/* IMPORT PICKER MODAL */
+.import-modal .modal{max-width:420px}
+.import-option{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);cursor:pointer;transition:.15s;margin-bottom:8px}
+.import-option:hover{border-color:var(--accent);background:rgba(200,82,42,.04)}
+.import-option-ico{font-size:24px;flex-shrink:0}
+.import-option-body{flex:1}
+.import-option-name{font-size:13px;font-weight:800;color:var(--ink)}
+.import-option-desc{font-size:10px;color:var(--ink3);margin-top:2px;line-height:1.4}
+.import-option-badge{font-size:9px;font-family:var(--fm);padding:2px 7px;border-radius:99px;background:var(--bg3);color:var(--ink3);border:1px solid var(--border2)}
+</style>
+</head>
+<body>
+<div class="root">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="tb-me">
+    <div class="tb-ava" id="me-ava" onclick="openPersonModal('me')" title="Manage profile">ER</div>
+    <div class="tb-meta">
+      <div class="tb-role">You · left ←</div>
+      <input class="tb-name-input" id="me-inp" value="Erosmancer" placeholder="your username" oninput="onMe(this.value)">
+      <div class="tb-handle" id="me-hnd">@erosmancer</div>
+    </div>
+  </div>
+  <div class="tb-centre">
+    <div class="src-tabs">
+      <button class="src-tab active" data-src="dm"         onclick="setSrc('dm',this)">💬 DM</button>
+      <button class="src-tab"        data-src="sms"        onclick="setSrc('sms',this)">📱 SMS</button>
+      <button class="src-tab"        data-src="ig"         onclick="setSrc('ig',this)">📷 IG</button>
+      <button class="src-tab"        data-src="email"      onclick="setSrc('email',this)">✉️ Email</button>
+      <button class="src-tab"        data-src="comment"    onclick="setSrc('comment',this)">💭 Comment</button>
+      <button class="src-tab"        data-src="screenshot" onclick="setSrc('screenshot',this)">🖼 Screenshot</button>
+    </div>
+  </div>
+  <div class="tb-them">
+    <div class="tb-ava" id="them-ava" onclick="openPersonModal('them')" title="Manage profile">UN</div>
+    <div class="tb-meta">
+      <div class="tb-role" style="text-align:right">→ right · Them</div>
+      <input class="tb-name-input" id="them-inp" value="Unknown" placeholder="their username" oninput="onThem(this.value)">
+      <div class="tb-handle" id="them-hnd" style="text-align:right">@unknown</div>
+    </div>
+  </div>
+  <div class="tb-guardian">
+    <div class="sse-dot" id="tb-sse-dot"></div>
+    <div class="tb-meta">
+      <div class="tb-role" style="font-size:9px">Guardian SSE</div>
+      <div style="font-size:12px;font-weight:800;color:#e0e0e0" id="tb-sse-status">Disconnected</div>
+      <div class="sse-label" id="tb-sse-detail">bridge · 127.0.0.1:3747</div>
+    </div>
+  </div>
+</header>
+
+<!-- MOBILE TABS -->
+<div class="mobile-tabs" id="mobile-tabs">
+  <button class="mtab active" onclick="switchMTab('upload',this)">Upload</button>
+  <button class="mtab" onclick="switchMTab('conv',this)">Convo</button>
+  <button class="mtab" onclick="switchMTab('profile',this)">Profile</button>
+  <button class="mtab" onclick="switchMTab('guardian',this)">Guardian</button>
+</div>
+
+<!-- LEFT PANEL -->
+<aside class="lp" id="panel-upload">
+  <div class="lp-head">
+    <div class="lp-title">Signal Input</div>
+    <div class="lp-sub">ALK Pipeline</div>
+  </div>
+  <div class="lp-body">
+
+    <!-- MULTI-FILE DROPZONE -->
+    <div class="dz" id="dz" onclick="document.getElementById('fi').click()" role="button" tabindex="0">
+      <span class="dz-ico" id="dz-ico">⬡</span>
+      <div class="dz-main" id="dz-main">Drop files or tap to upload</div>
+      <div class="dz-sub" id="dz-sub">Multiple photos · Video · Audio · PDF · Text</div>
+      <div class="dz-tags">
+        <span class="dz-tag">jpg</span><span class="dz-tag">png</span><span class="dz-tag">heic</span>
+        <span class="dz-tag">mp4</span><span class="dz-tag">mp3</span><span class="dz-tag">pdf</span>
+      </div>
+    </div>
+    <input type="file" id="fi" style="display:none" multiple accept="image/*,video/*,audio/*,.pdf,.txt,.json,.eml">
+
+    <!-- FILE QUEUE -->
+    <div class="photo-queue" id="photo-queue">
+      <div class="pq-header">
+        <span class="pq-title">Queue</span>
+        <button class="pq-clear" onclick="clearQueue()">Clear all</button>
+      </div>
+      <div class="pq-grid" id="pq-grid"></div>
+      <div class="pq-count" id="pq-count"></div>
+    </div>
+
+    <!-- CLOUD IMPORT -->
+    <div class="sec"><span class="sec-lbl">Import from</span><div class="sec-line"></div></div>
+    <div class="import-row">
+      <button class="import-btn" onclick="openImportModal('gdrive')">
+        <span class="import-btn-ico">📁</span> Google Drive
+      </button>
+      <button class="import-btn" onclick="openImportModal('icloud')">
+        <span class="import-btn-ico">☁️</span> iCloud
+      </button>
+    </div>
+
+    <!-- URL -->
+    <div class="url-wrap">
+      <div class="field-label">Stream URL</div>
+      <div class="url-row">
+        <input class="url-inp" id="url-inp" type="url" placeholder="https://… share link">
+        <button class="url-go" onclick="handleURL()">▶</button>
+      </div>
+    </div>
+
+    <!-- SENDER -->
+    <div class="sec"><span class="sec-lbl">Sender</span><div class="sec-line"></div></div>
+    <div class="sender-wrap">
+      <button class="sender-btn" id="snd-me" onclick="setSender('me')" style="background:var(--ink);color:#fff;border-color:var(--ink)">← Me</button>
+      <button class="sender-btn" id="snd-them" onclick="setSender('them')">Them →</button>
+    </div>
+
+    <!-- PERSONS -->
+    <div class="sec"><span class="sec-lbl">Persons</span><div class="sec-line"></div></div>
+    <div class="persons-section">
+      <div class="ps-header">
+        <span></span>
+        <button class="ps-new" onclick="openNewPersonModal()">+ New person</button>
+      </div>
+      <div class="person-list" id="person-list"></div>
+    </div>
+
+    <!-- PIPELINE -->
+    <div class="sec"><span class="sec-lbl">Pipeline</span><div class="sec-line"></div></div>
+    <div class="pipe">
+      <div class="pi" id="pi-codec"><div class="pi-num">1</div><div class="pi-txt"><div class="pi-name">Codec API</div><div class="pi-desc">lattice · extract · route</div></div><div class="pi-stat" id="ps-codec">idle</div><div class="pi-bar" id="pb-codec" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-router"><div class="pi-num">2</div><div class="pi-txt"><div class="pi-name">Router</div><div class="pi-desc">module selection</div></div><div class="pi-stat" id="ps-router">idle</div><div class="pi-bar" id="pb-router" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-resonance"><div class="pi-num">3</div><div class="pi-txt"><div class="pi-name">Resonance API</div><div class="pi-desc">structural · oscillation · temporal</div></div><div class="pi-stat" id="ps-resonance">idle</div><div class="pi-bar" id="pb-resonance" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-ase"><div class="pi-num">4</div><div class="pi-txt"><div class="pi-name">ASE API</div><div class="pi-desc">authorship · drift · fingerprint</div></div><div class="pi-stat" id="ps-ase">idle</div><div class="pi-bar" id="pb-ase" style="width:0"></div></div>
+      <div class="pi-conn"></div>
+      <div class="pi" id="pi-log"><div class="pi-num">5</div><div class="pi-txt"><div class="pi-name">Identity Log</div><div class="pi-desc">attributed · timestamped</div></div><div class="pi-stat" id="ps-log">idle</div><div class="pi-bar" id="pb-log" style="width:0"></div></div>
+    </div>
+  </div>
+  <div class="run-wrap">
+    <button class="run-btn" id="run-btn" onclick="runPipeline()">▶ Run Pipeline</button>
+  </div>
+</aside>
+
+<!-- CONVERSATION CANVAS -->
+<main class="conv" id="panel-conv">
+  <div class="conv-bar">
+    <div class="cb-them">
+      <div class="cb-ava" id="cb-them-ava" style="background:#7c4dff">UN</div>
+      <div>
+        <div class="cb-name" id="cb-them-name">Unknown</div>
+        <div class="cb-handle" id="cb-them-handle">@unknown · incoming ←</div>
+      </div>
+    </div>
+    <div class="cb-sep">⟷</div>
+    <div class="type-pill" id="type-pill" style="background:rgba(29,161,242,.12);color:#1da1f2">
+      <span id="tp-icon">💬</span><span id="tp-label">DM</span>
+    </div>
+    <div class="cb-me">
+      <div>
+        <div class="cb-name" id="cb-me-name" style="text-align:right">Erosmancer</div>
+        <div class="cb-handle" id="cb-me-handle" style="text-align:right">@erosmancer · outgoing →</div>
+      </div>
+      <div class="cb-ava" id="cb-me-ava" style="background:#1a1a2e">ER</div>
+    </div>
+  </div>
+  <div class="msgs" id="msgs">
+    <div class="canvas-empty" id="canvas-empty">
+      <div class="ce-icon">⬡</div>
+      <div class="ce-title">No signals yet</div>
+      <div class="ce-sub">Upload files or connect to Guardian, then Run Pipeline.</div>
+    </div>
+  </div>
+</main>
+
+<!-- RIGHT PANEL — ASE Profile -->
+<aside class="rp" id="panel-profile">
+  <div class="rp-scroll">
+    <div class="ase-card" id="ase-card">
+      <button class="ase-card-edit" onclick="enterEditMode()" id="edit-btn">✏️ Edit</button>
+      <div class="ase-photos" id="ase-photos"></div>
+      <div class="ase-top">
+        <div class="ase-big-ava" id="rp-them-ava" style="background:#7c4dff">UN</div>
+        <div>
+          <div class="ase-name" id="rp-them-name">Unknown</div>
+          <div class="ase-handle" id="rp-them-handle">@unknown</div>
+        </div>
+      </div>
+      <div class="ase-tags" id="ase-tags">
+        <span class="ase-tag ase-tag-mode" id="rp-them-mode">–</span>
+      </div>
+      <div class="ase-notes-label">Notes</div>
+      <div class="ase-notes" id="ase-notes-view" style="font-style:italic;color:var(--ink3)">No notes yet.</div>
+      <textarea class="ase-notes-input" id="ase-notes-input" placeholder="Notes…" oninput=""></textarea>
+      <div class="ase-edit-actions" id="ase-edit-actions">
+        <button class="modal-btn modal-btn-save" style="flex:1;padding:6px;font-size:12px" onclick="saveEdit()">Save</button>
+        <button class="modal-btn modal-btn-cancel" style="flex:1;padding:6px;font-size:12px" onclick="cancelEdit()">Cancel</button>
+      </div>
+      <div style="margin-top:9px">
+        <div class="rp-sec-title">Signal Axes</div>
+        <div class="ax-grid">
+          <div class="ax-cell"><div class="ax-lbl">Cognition</div><div class="ax-val" id="ax-cog">–</div><div class="ax-bar"><div class="ax-fill" id="axf-cog" style="width:0%;background:#7c4dff"></div></div></div>
+          <div class="ax-cell"><div class="ax-lbl">Affect</div><div class="ax-val" id="ax-aff">–</div><div class="ax-bar"><div class="ax-fill" id="axf-aff" style="width:0%;background:#c8522a"></div></div></div>
+          <div class="ax-cell"><div class="ax-lbl">Language</div><div class="ax-val" id="ax-lan">–</div><div class="ax-bar"><div class="ax-fill" id="axf-lan" style="width:0%;background:#00b894"></div></div></div>
+          <div class="ax-cell"><div class="ax-lbl">Entropy</div><div class="ax-val" id="ax-ent">–</div><div class="ax-bar"><div class="ax-fill" id="axf-ent" style="width:0%;background:#f39c12"></div></div></div>
+          <div class="ax-cell"><div class="ax-lbl">Intensity</div><div class="ax-val" id="ax-int">–</div><div class="ax-bar"><div class="ax-fill" id="axf-int" style="width:0%;background:#e74c3c"></div></div></div>
+          <div class="ax-cell"><div class="ax-lbl">Drift</div><div class="ax-val" id="ax-dft">–</div><div class="ax-bar"><div class="ax-fill" id="axf-dft" style="width:0%;background:#888"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="ase-scan-log" id="ase-scan-log">
+      <div class="rp-sec-title">Scan Log</div>
+      <div id="scan-log-body"><div style="font-size:10px;color:var(--ink3)">No scans yet.</div></div>
+    </div>
+    <div class="rp-sec">
+      <div class="rp-sec-title">Resonance Scores</div>
+      <div id="score-rows"><div style="font-size:10px;color:var(--ink3)">Run pipeline to compute.</div></div>
+    </div>
+    <div class="radar-wrap">
+      <div class="rp-sec-title">Signal Radar</div>
+      <canvas class="radar" id="radar" width="244" height="186" role="img"></canvas>
+    </div>
+    <div class="cmp-section">
+      <div class="rp-sec-title">Me vs Them</div>
+      <div id="cmp-rows"><div style="font-size:10px;color:var(--ink3)">Run pipeline to compare.</div></div>
+    </div>
+    <div class="log-section">
+      <div class="rp-sec-title">Identity Log</div>
+      <div id="id-log"><div style="font-size:10px;color:var(--ink3);padding:3px 0">Awaiting signals…</div></div>
+    </div>
+    <div class="err-section">
+      <div class="rp-sec-title">Error Log <span id="err-cnt" style="color:var(--ink4)">(0)</span></div>
+      <div class="err-log" id="err-log">
+        <div class="el"><span class="el-t">00:00</span><span class="el-info">[init]</span> ALK pipeline ready</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- GUARDIAN PANEL — 4th column: Control + Execution Layer -->
+<aside class="gp" id="panel-guardian">
+  <div class="gp-head">
+    <div class="gp-title">Guardian v3.4.0</div>
+    <div class="gp-sub">
+      <span>Bridge API + SSE</span>
+      <div class="sse-dot" id="gp-sse-dot"></div>
+    </div>
+  </div>
+
+  <!-- SSE CONNECT CONTROL -->
+  <div class="sse-control">
+    <div class="sse-url-row">
+      <input class="sse-url-inp" id="sse-url-inp" value="http://127.0.0.1:3747" placeholder="http://bridge:3747">
+      <button class="sse-connect-btn connect" id="sse-connect-btn" onclick="sseToggle()">Connect</button>
+    </div>
+    <div class="sse-status-row">
+      <div class="sse-dot" id="sse-dot-small"></div>
+      <span class="sse-status-text" id="sse-status-text">Not connected · Bridge at 127.0.0.1:3747</span>
+      <span class="sse-session" id="sse-session-id"></span>
+    </div>
+  </div>
+
+  <!-- LIVE SSE EVENT STREAM -->
+  <div class="sse-stream" id="sse-stream">
+    <div class="sse-line in-heartbeat"><span class="sse-line-t">--:--</span><span class="sse-line-evt">init</span><span class="sse-line-data">awaiting connection</span></div>
+  </div>
+
+  <!-- GUARDIAN API REGISTRY -->
+  <div class="api-registry" id="api-registry">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- EXECUTION PANEL (slides up when API item selected) -->
+  <div class="exec-panel" id="exec-panel">
+    <div class="exec-head">
+      <span class="exec-head-name" id="exec-title">—</span>
+      <button class="exec-close" onclick="closeExecPanel()">✕</button>
+    </div>
+    <div class="exec-body" id="exec-body"></div>
+  </div>
+</aside>
+
+</div><!-- /.root -->
+
+<!-- TOAST -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- LIGHTBOX -->
+<div class="lb-overlay" id="lb-overlay" onclick="closeLightbox()">
+  <button class="lb-close">✕</button>
+  <img class="lb-img" id="lb-img" src="" alt="">
+</div>
+
+<!-- PERSON MODAL -->
+<div class="modal-overlay" id="person-modal">
+  <div class="modal">
+    <div class="modal-title" id="person-modal-title">Person Profile</div>
+    <div class="modal-row"><div class="modal-label">Display Name</div><input class="modal-inp" id="pm-name" placeholder="Name"></div>
+    <div class="modal-row"><div class="modal-label">Username</div><input class="modal-inp" id="pm-username" placeholder="username"></div>
+    <div class="modal-row"><div class="modal-label">Notes</div><textarea class="modal-inp modal-textarea" id="pm-notes" placeholder="Notes…"></textarea></div>
+    <div class="modal-row"><div class="modal-label">Tags (comma-separated)</div><input class="modal-inp" id="pm-tags" placeholder="curious, analytical…"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-cancel" onclick="closePersonModal()">Cancel</button>
+      <button class="modal-btn modal-btn-danger" id="pm-delete-btn" onclick="deletePerson()" style="display:none">Delete</button>
+      <button class="modal-btn modal-btn-save" onclick="savePerson()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay import-modal" id="import-modal">
+  <div class="modal">
+    <div class="modal-title" id="import-modal-title">Import Files</div>
+    <div id="import-modal-body"></div>
+    <div class="modal-btns" style="margin-top:10px">
+      <button class="modal-btn modal-btn-cancel" onclick="closeImportModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// ALK PIPELINE v2.0.0 — Guardian SSE + API Control Layer
+// AXIOMS: §2.1 Persistence, §1.2 No silent failures, §5.1 Event bus
+// ═══════════════════════════════════════════════════════════════
+
+// ── Palettes ─────────────────────────────────────────────────
+const ME_PALETTE   = ['#1a1a2e','#2c3e50','#1a252f','#0d1b2a','#1b2838'];
+const THEM_PALETTE = ['#7c4dff','#c8522a','#00b894','#e74c3c','#f39c12','#0072c6','#e1306c','#1da1f2','#6c3483','#117a65'];
+const SRC = {
+  dm:         { icon:'💬', label:'DM',         bg:'rgba(29,161,242,.12)',  fg:'#1da1f2' },
+  sms:        { icon:'📱', label:'SMS',        bg:'rgba(52,199,89,.12)',   fg:'#34c759' },
+  ig:         { icon:'📷', label:'IG Post',    bg:'rgba(225,48,108,.12)',  fg:'#e1306c' },
+  email:      { icon:'✉️', label:'Email',      bg:'rgba(0,114,198,.12)',   fg:'#0072c6' },
+  comment:    { icon:'💭', label:'Comment',    bg:'rgba(255,107,53,.12)',  fg:'#ff6b35' },
+  screenshot: { icon:'🖼', label:'Screenshot', bg:'rgba(124,77,255,.12)',  fg:'#7c4dff' },
+};
+const MODES = ['systems-architect','symbolic-poet','deep-internal-processor','somatic-emotive',
+  'analytical-structured','relational-narrator','high-entropy-synthesizer','high-intensity-driver','adaptive-generalist'];
+
+// ── App State ─────────────────────────────────────────────────
+let S = {
+  me:         { name:'Erosmancer', handle:'@erosmancer', color:'#1a1a2e', initials:'ER' },
+  them:       { name:'Unknown',    handle:'@unknown',    color:'#7c4dff', initials:'UN' },
+  src:        'dm',
+  sender:     'me',
+  files:      [],
+  activeFile: null,
+  url:        null,
+  scores:     { me:{}, them:{} },
+  errCnt:     0,
+};
+
+// ── Persistence helpers (§2.1) ────────────────────────────────
+function loadPersons(){ try{ return JSON.parse(localStorage.getItem('alk_persons')||'{}'); }catch(e){ return {}; } }
+function savePersons(p){ localStorage.setItem('alk_persons', JSON.stringify(p)); }
+function loadScanLog(){ try{ return JSON.parse(localStorage.getItem('alk_scanlog')||'[]'); }catch(e){ return []; } }
+function saveScanLog(l){ localStorage.setItem('alk_scanlog', JSON.stringify(l)); }
+
+// ── Identity derivation ───────────────────────────────────────
+function initials(n){ const p=n.trim().split(/[\s_\-\.@]+/).filter(Boolean); if(!p.length)return'??'; if(p.length===1)return p[0].slice(0,2).toUpperCase(); return(p[0][0]+p[p.length-1][0]).toUpperCase(); }
+function colorFrom(n,pal){ let h=0;for(let i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return pal[Math.abs(h)%pal.length]; }
+function handle(n){ return'@'+n.trim().toLowerCase().replace(/[^a-z0-9_]/g,'_').replace(/__+/g,'_'); }
+
+function onMe(v){ if(!v.trim())return; S.me={name:v.trim(),handle:handle(v),color:colorFrom(v,ME_PALETTE),initials:initials(v)}; syncAll(); }
+function onThem(v){
+  if(!v.trim())return;
+  S.them={name:v.trim(),handle:handle(v),color:colorFrom(v,THEM_PALETTE),initials:initials(v)};
+  const p=loadPersons()[S.them.handle]||{};
+  S.them.notes=p.notes||''; S.them.tags=p.tags||[]; S.them.photos=p.photos||[];
+  syncAll(); renderPersonList(); renderASECard(); renderScanLog();
+}
+
+function syncAll(){
+  ava('me-ava',S.me.color,S.me.initials); ava('them-ava',S.them.color,S.them.initials);
+  txt('me-hnd',S.me.handle); txt('them-hnd',S.them.handle);
+  ava('cb-them-ava',S.them.color,S.them.initials); txt('cb-them-name',S.them.name);
+  txt('cb-them-handle',S.them.handle+' · incoming ←');
+  ava('cb-me-ava',S.me.color,S.me.initials); txt('cb-me-name',S.me.name);
+  txt('cb-me-handle',S.me.handle+' · outgoing →');
+  drawRadar(null);
+}
+function ava(id,color,init){ const e=document.getElementById(id); if(!e)return; e.style.background=color; if(!e.querySelector('img'))e.textContent=init; }
+function txt(id,val){ const e=document.getElementById(id); if(e)e.textContent=val; }
+
+// ── Source / Sender ───────────────────────────────────────────
+function setSrc(type,btn){
+  S.src=type;
+  document.querySelectorAll('.src-tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active');
+  const m=SRC[type]; const pill=document.getElementById('type-pill');
+  pill.style.background=m.bg; pill.style.color=m.fg; txt('tp-icon',m.icon); txt('tp-label',m.label);
+}
+function setSender(who){
+  S.sender=who;
+  const me=document.getElementById('snd-me'),them=document.getElementById('snd-them');
+  const on='background:var(--ink);color:#fff;border-color:var(--ink);flex:1;padding:6px;border-radius:8px;border:1.5px solid;font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.2s;text-align:center';
+  const off='background:transparent;color:var(--ink);border-color:var(--border2);flex:1;padding:6px;border-radius:8px;border:1.5px solid;font-family:var(--f);font-size:11px;font-weight:700;cursor:pointer;transition:.2s;text-align:center';
+  if(who==='me'){me.style.cssText=on;them.style.cssText=off;}else{them.style.cssText=on;me.style.cssText=off;}
+}
+
+// ── Multi-file upload ─────────────────────────────────────────
+function initDrop(){
+  const dz=document.getElementById('dz');
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag')}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag')}));
+  dz.addEventListener('drop',ev=>{ if(ev.dataTransfer.files.length)addFiles(Array.from(ev.dataTransfer.files)); });
+  document.getElementById('fi').addEventListener('change',ev=>{ if(ev.target.files.length)addFiles(Array.from(ev.target.files)); ev.target.value=''; });
+}
+function addFiles(newFiles){
+  S.files=[...S.files,...newFiles];
+  if(S.activeFile===null&&S.files.length>0)S.activeFile=0;
+  renderQueue();
+  const img=S.files.find(f=>f.type.startsWith('image'));
+  if(img){const d=detectSrc(img.name,img.type);if(d){const b=document.querySelector(`.src-tab[data-src="${d}"]`);if(b)setSrc(d,b);}}
+  txt('dz-ico',fIcon(S.files[0].name,S.files[0].type));
+  txt('dz-main',S.files.length+' file'+(S.files.length!==1?'s':'')+' queued');
+  txt('dz-sub','tap to add more');
+  document.getElementById('dz').classList.add('has-file');
+  elog('info',S.files.length+' file(s) queued');
+  toast('📎 '+S.files.length+' file'+(S.files.length>1?'s':'')+' queued','info');
+}
+function renderQueue(){
+  const grid=document.getElementById('pq-grid'),wrap=document.getElementById('photo-queue');
+  if(!S.files.length){wrap.style.display='none';return;}
+  wrap.style.display='block'; grid.innerHTML='';
+  S.files.forEach((f,i)=>{
+    const item=document.createElement('div');
+    if(f.type.startsWith('image')){
+      item.className='pq-item'+(i===S.activeFile?' active':'');
+      const img=document.createElement('img');img.src=URL.createObjectURL(f);img.loading='lazy';item.appendChild(img);
+    }else{
+      item.className='pq-item pq-non-img'+(i===S.activeFile?' active':'');
+      item.innerHTML=`<span style="font-size:14px">${fIcon(f.name,f.type)}</span><span class="pq-fn">${f.name.length>12?f.name.slice(0,10)+'…':f.name}</span>`;
+    }
+    item.onclick=e=>{if(!e.target.classList.contains('pq-rm')){S.activeFile=i;renderQueue();}};
+    const rm=document.createElement('button');rm.className='pq-rm';rm.textContent='✕';
+    rm.onclick=e=>{e.stopPropagation();S.files.splice(i,1);if(S.activeFile>=S.files.length)S.activeFile=S.files.length-1;if(!S.files.length)S.activeFile=null;renderQueue();};
+    item.appendChild(rm);grid.appendChild(item);
+  });
+  const ic=S.files.filter(f=>f.type.startsWith('image')).length;
+  txt('pq-count',ic+' photo'+(ic!==1?'s':'')+(S.files.length-ic>0?` + ${S.files.length-ic} other`:''));
+}
+function clearQueue(){
+  S.files=[];S.activeFile=null;renderQueue();
+  document.getElementById('dz').classList.remove('has-file');
+  txt('dz-ico','⬡');txt('dz-main','Drop files or tap to upload');txt('dz-sub','Multiple photos · Video · Audio · PDF · Text');
+}
+function handleURL(){ const v=document.getElementById('url-inp').value.trim();if(!v)return;S.url=v;elog('info','URL: '+v);toast('🔗 URL queued','info'); }
+function detectSrc(n,t){
+  n=n.toLowerCase();
+  if(n.includes('screenshot')||n.includes('screen'))return'screenshot';
+  if(n.includes('dm')||n.includes('direct'))return'dm';
+  if(n.includes('sms'))return'sms';
+  if(n.includes('email')||n.endsWith('.eml'))return'email';
+  if(n.includes('ig')||n.includes('instagram'))return'ig';
+  if(t.startsWith('image'))return'screenshot';
+  return null;
+}
+
+// ── Cloud Import ──────────────────────────────────────────────
+function openImportModal(provider){
+  const modal=document.getElementById('import-modal');
+  const body=document.getElementById('import-modal-body');
+  txt('import-modal-title', provider==='gdrive'?'Import from Google Drive':'Import from iCloud');
+
+  if(provider==='gdrive'){
+    body.innerHTML=`
+      <div class="import-option" onclick="triggerGDrivePicker()">
+        <div class="import-option-ico">📁</div>
+        <div class="import-option-body">
+          <div class="import-option-name">Google Drive Picker</div>
+          <div class="import-option-desc">Opens the Google Drive file picker. Requires Google sign-in in your browser. Photos, docs, and shared files supported.</div>
+        </div>
+        <span class="import-option-badge">OAuth</span>
+      </div>
+      <div class="import-option" onclick="triggerGDriveManual()">
+        <div class="import-option-ico">🔗</div>
+        <div class="import-option-body">
+          <div class="import-option-name">Paste Share Link</div>
+          <div class="import-option-desc">Paste a Google Drive share link — drive.google.com/file/d/… — and ALK will queue it as a stream URL.</div>
+        </div>
+        <span class="import-option-badge">URL</span>
+      </div>
+      <div style="font-size:9px;color:var(--ink3);font-family:var(--fm);padding:6px 4px;line-height:1.6">
+        ⚠️ Browser security restricts direct Drive API access from local HTML files.<br>
+        For full Drive integration, connect via Guardian bridge (POST /bus/emit) or run on a server with OAuth credentials.
+      </div>`;
+  } else {
+    body.innerHTML=`
+      <div class="import-option" onclick="triggerICloudLink()">
+        <div class="import-option-ico">☁️</div>
+        <div class="import-option-body">
+          <div class="import-option-name">iCloud Shared Link</div>
+          <div class="import-option-desc">Paste an iCloud.com shared photo or folder link. Works with shared albums and individual photo links.</div>
+        </div>
+        <span class="import-option-badge">URL</span>
+      </div>
+      <div class="import-option" onclick="document.getElementById('fi').click();closeImportModal()">
+        <div class="import-option-ico">📲</div>
+        <div class="import-option-body">
+          <div class="import-option-name">Upload from Device</div>
+          <div class="import-option-desc">On iOS/macOS: tap Browse → iCloud Drive to select files directly from your iCloud storage via the system file picker.</div>
+        </div>
+        <span class="import-option-badge">File picker</span>
+      </div>
+      <div style="font-size:9px;color:var(--ink3);font-family:var(--fm);padding:6px 4px;line-height:1.6">
+        ℹ️ iCloud has no public web API. The iOS file picker (Browse → iCloud Drive) gives the most reliable direct access. Shared links can be queued as stream URLs.
+      </div>`;
+  }
+  modal.classList.add('open');
+}
+function triggerGDrivePicker(){
+  closeImportModal();
+  const url=prompt('Paste a Google Drive share URL (drive.google.com/…):');
+  if(url&&url.includes('drive.google.com')){
+    document.getElementById('url-inp').value=url;
+    S.url=url; elog('info','GDrive URL: '+url); toast('📁 Google Drive URL queued','info');
+  }
+}
+function triggerGDriveManual(){ closeImportModal(); document.getElementById('url-inp').focus(); toast('Paste Google Drive share URL in the URL field','info'); }
+function triggerICloudLink(){
+  closeImportModal();
+  const url=prompt('Paste an iCloud shared link (icloud.com/…):');
+  if(url&&url.includes('icloud.com')){
+    document.getElementById('url-inp').value=url;
+    S.url=url; elog('info','iCloud URL: '+url); toast('☁️ iCloud URL queued','info');
+  }
+}
+function closeImportModal(){ document.getElementById('import-modal').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════
+// GUARDIAN SSE — Control + Execution Layer
+// Implements GEB (Guardian Event Bus) client-side clone for ALK
+// Bridge: http://127.0.0.1:3747  |  Nexus: 127.0.0.1:3748
+// §5.1: UUID + hook + event bus registration per module
+// §1.2: All failures surfaced explicitly
+// ═══════════════════════════════════════════════════════════════
+
+const SSE_EVENT_NAMES = [
+  'message','heartbeat','bus',
+  'guardian:response:chunk','guardian:response:done','guardian:response:timeout',
+  'guardian:listener:event','guardian:listener:start','guardian:listener:stopped',
+  'guardian:execute','guardian:dispatched','guardian:error',
+  'guardian:session:open','guardian:session:close','guardian:ready',
+  'cli:intent:dispatch','cli:pipeline:test','cli:guardian:status:viewed',
+  'cli:appid:created','RELAY_TO_PAGE','CHAT_EVENT','LISTENER_EVENT',
+];
+
+const SSE_STATE = {
+  es:         null,
+  alive:      false,
+  retryMs:    1000,
+  retryTimer: null,
+  stopped:    false,
+  bridgeUrl:  'http://127.0.0.1:3747',
+  sessionId:  null,
+  eventCount: 0,
+  retryCount: 0,
+};
+
+function sseEventsUrl(){ return SSE_STATE.bridgeUrl.replace(/\/$/,'')+'/events'; }
+function sseBusEmitUrl(){ return SSE_STATE.bridgeUrl.replace(/\/$/,'')+'/bus/emit'; }
+
+function sseConnect(){
+  if(SSE_STATE.stopped)return;
+  if(SSE_STATE.es){try{SSE_STATE.es.close();}catch(_){} SSE_STATE.es=null;}
+  clearTimeout(SSE_STATE.retryTimer);
+
+  sseSetStatus('connecting');
+  let es;
+  try{ es=new EventSource(sseEventsUrl()); }
+  catch(e){
+    sseSetStatus('dead');
+    elog('error','SSE: EventSource unavailable — '+e.message);
+    return;
+  }
+  SSE_STATE.es=es;
+
+  es.onopen=function(){
+    SSE_STATE.alive=true; SSE_STATE.retryMs=1000; SSE_STATE.retryCount=0;
+    SSE_STATE.sessionId='alk-'+Date.now().toString(36);
+    sseSetStatus('live');
+    sseLog('connect','connected','Bridge SSE online · '+sseEventsUrl());
+    elog('success','SSE connected → '+sseEventsUrl());
+    toast('⚡ Guardian Bridge connected','success');
+    ssePush('guardian:session:open',{sessionId:SSE_STATE.sessionId,client:'alk-pipeline',ts:Date.now()});
+  };
+
+  SSE_EVENT_NAMES.forEach(name=>{
+    es.addEventListener(name,function(e){
+      try{ sseDispatch(name, e.data); }catch(_){}
+    });
+  });
+  es.onmessage=function(e){ try{ sseDispatch('message',e.data); }catch(_){} };
+  es.onerror=function(){
+    SSE_STATE.alive=false; sseSetStatus('dead');
+    try{es.close();}catch(_){} SSE_STATE.es=null;
+    SSE_STATE.retryCount++;
+    const delay=(SSE_STATE.retryMs/1000).toFixed(1);
+    sseLog('error','error','Bridge disconnected — retry in '+delay+'s (attempt '+SSE_STATE.retryCount+')');
+    elog('warn','SSE disconnected — retry in '+delay+'s');
+    if(!SSE_STATE.stopped){
+      SSE_STATE.retryTimer=setTimeout(sseConnect,SSE_STATE.retryMs);
+      SSE_STATE.retryMs=Math.min(SSE_STATE.retryMs*2,30000);
+    }
+  };
+}
+
+function sseDisconnect(){
+  SSE_STATE.stopped=true;
+  clearTimeout(SSE_STATE.retryTimer);
+  if(SSE_STATE.es){try{SSE_STATE.es.close();}catch(_){} SSE_STATE.es=null;}
+  SSE_STATE.alive=false; sseSetStatus('dead');
+  sseLog('disconnect','stopped','Connection closed by user');
+  elog('info','SSE: disconnected by user');
+}
+
+function sseToggle(){
+  const btn=document.getElementById('sse-connect-btn');
+  if(SSE_STATE.alive||(!SSE_STATE.stopped&&SSE_STATE.es)){
+    sseDisconnect();
+    btn.textContent='Connect'; btn.className='sse-connect-btn connect';
+  } else {
+    SSE_STATE.stopped=false;
+    SSE_STATE.retryMs=1000;
+    SSE_STATE.bridgeUrl=document.getElementById('sse-url-inp').value.trim()||'http://127.0.0.1:3747';
+    txt('tb-sse-detail','bridge · '+SSE_STATE.bridgeUrl.replace('http://',''));
+    sseConnect();
+    btn.textContent='Disconnect'; btn.className='sse-connect-btn disconnect';
+  }
+}
+
+function sseDispatch(eventName, raw){
+  SSE_STATE.eventCount++;
+  let ev; try{ev=JSON.parse(raw);}catch(_){ev={type:eventName,data:raw};}
+  const type=ev.type||ev.event||eventName;
+  const isHb=type==='heartbeat'||type==='bridge.heartbeat';
+  if(isHb){
+    sseLog('heartbeat','♥',`sessions:${ev.data?.sessions||0}`);
+  } else {
+    const preview=typeof ev.data==='object'?JSON.stringify(ev.data).slice(0,60):String(ev.data||'').slice(0,60);
+    sseLog('in',type,preview);
+  }
+  // Route events into ALK pipeline if relevant
+  if(type==='guardian:response:done'&&ev.data?.text){
+    elog('info','Guardian response received: '+String(ev.data.text).slice(0,80));
+  }
+}
+
+function ssePush(eventType, data){
+  if(!SSE_STATE.bridgeUrl)return;
+  const body=JSON.stringify({type:eventType,data:data||{},ts:Date.now(),_source:'alk-pipeline',sessionId:SSE_STATE.sessionId});
+  fetch(sseBusEmitUrl(),{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(3000)})
+    .then(r=>{ if(!r.ok)sseLog('error','push-err','POST /bus/emit → HTTP '+r.status); })
+    .catch(e=>sseLog('error','push-fail',e.message));
+}
+
+function sseSetStatus(state){
+  // 'live' | 'dead' | 'connecting'
+  const dots=[document.getElementById('gp-sse-dot'),document.getElementById('tb-sse-dot'),document.getElementById('sse-dot-small')];
+  const statusText=document.getElementById('sse-status-text');
+  const tbStatus=document.getElementById('tb-sse-status');
+  const sesEl=document.getElementById('sse-session-id');
+  dots.forEach(d=>{if(!d)return; d.className='sse-dot'+(state==='live'?' live':state==='dead'?' dead':'');});
+  if(state==='live'){
+    txt('tb-sse-status','Connected'); if(statusText)statusText.textContent='Connected · '+SSE_STATE.bridgeUrl.replace('http://','');
+    if(sesEl)sesEl.textContent=SSE_STATE.sessionId||'';
+  } else if(state==='connecting'){
+    txt('tb-sse-status','Connecting…'); if(statusText)statusText.textContent='Connecting → '+SSE_STATE.bridgeUrl.replace('http://','');
+  } else {
+    txt('tb-sse-status','Disconnected'); if(statusText)statusText.textContent='Not connected · click Connect to start';
+    if(sesEl)sesEl.textContent='';
+  }
+}
+
+function sseLog(cls, event, data){
+  const stream=document.getElementById('sse-stream');
+  if(!stream)return;
+  const line=document.createElement('div');
+  const cls2=cls==='heartbeat'?'in-heartbeat':cls==='error'?'in-error':cls==='out'?'out':'';
+  const t=new Date().toTimeString().slice(0,8);
+  line.className='sse-line '+(cls2);
+  line.innerHTML=`<span class="sse-line-t">${t}</span><span class="sse-line-evt">${event}</span><span class="sse-line-data">${escHtml(String(data||'').slice(0,80))}</span>`;
+  stream.insertBefore(line,stream.firstChild);
+  while(stream.children.length>120)stream.removeChild(stream.lastChild);
+}
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════════════════════════════════════════════════════
+// GUARDIAN API REGISTRY
+// All Bridge + Nexus + Extension endpoints from Guardian v3.4.0
+// §1.1: All endpoints proven via Guardian source — not aspirational
+// ═══════════════════════════════════════════════════════════════
+
+const GUARDIAN_APIS = [
+  {
+    id:'bridge-core', name:'Bridge Core', icon:'🌉',
+    items:[
+      { method:'GET',  path:'/events',               desc:'SSE stream — persistent event bus fan-out. All live events. Use EventSource.',                          fields:[] },
+      { method:'POST', path:'/bus/emit',              desc:'Emit event into bridge SSE fan-out. Body: {type, data, ts, _source}',                                   fields:[{k:'type',l:'Event type',v:'guardian:session:open'},{k:'data',l:'JSON payload',v:'{}'}] },
+      { method:'GET',  path:'/guardian/bus-events',   desc:'Poll bridge bus events. Params: limit, since (seq). Fallback when SSE unavailable.',                    fields:[{k:'limit',l:'Limit',v:'20'},{k:'since',l:'Since seq',v:'0'}] },
+      { method:'POST', path:'/guardian/handshake',    desc:'Establish Guardian session. Body: {instanceId, appId, version, meshShortId}',                           fields:[{k:'instanceId',l:'Instance ID',v:'guardian-'+Date.now()},{k:'appId',l:'App ID (48-char hex)',v:''}] },
+      { method:'POST', path:'/guardian/heartbeat',    desc:'Send heartbeat. Body: {sessionToken, instanceId, status, sessions, listeners}',                         fields:[{k:'instanceId',l:'Instance ID',v:''},{k:'status',l:'Status',v:'connected'}] },
+      { method:'POST', path:'/guardian/response',     desc:'Push AI response into bridge log. Body: {sessionId, identity, text, complete, calltoId}',               fields:[{k:'sessionId',l:'Session ID',v:''},{k:'identity',l:'Identity',v:'claude'},{k:'text',l:'Response text',v:''}] },
+      { method:'POST', path:'/pulse',                 desc:'Mesh node pulse. Body: {instanceId, shortId, meshShortId, knownNodes, listeners}',                      fields:[{k:'instanceId',l:'Instance ID',v:''}] },
+      { method:'GET',  path:'/nodes',                 desc:'List all discovered mesh nodes.',                                                                        fields:[] },
+    ]
+  },
+  {
+    id:'callto', name:'Callto API', icon:'📡',
+    items:[
+      { method:'POST', path:'/callto',                desc:'Create callto packet. Body: {id, selector, fingerprint, tabId, url, routeSpec, intent}',                fields:[{k:'selector',l:'CSS selector',v:'.ProseMirror'},{k:'intent',l:'Intent',v:'capture'}] },
+      { method:'POST', path:'/callto/:id/exec',       desc:'Execute stored callto by ID. Body: {event, listenerId}',                                                 fields:[{k:'id',l:'Callto UUID',v:''},{k:'event',l:'JSON event data',v:'{}'}] },
+      { method:'POST', path:'/userscript/callto',     desc:'Push callto from userscript context. Body: {id, selector, fingerprint, tabId, url, seq}',               fields:[{k:'id',l:'Callto UUID',v:''},{k:'selector',l:'Selector',v:''}] },
+    ]
+  },
+  {
+    id:'data', name:'Data API', icon:'💾',
+    items:[
+      { method:'POST', path:'/data/push',             desc:'Push raw captured data (text, events). Body: {content, type, tabId, url, ts}',                          fields:[{k:'content',l:'Content',v:''},{k:'type',l:'Type',v:'text'}] },
+      { method:'GET',  path:'/data/pending',          desc:'Retrieve pending stored calltos. Returns unexecuted callto queue.',                                      fields:[] },
+      { method:'POST', path:'/data/cookies',          desc:'Push captured cookies. Body: {cookies, url, tabId}',                                                    fields:[{k:'url',l:'Page URL',v:''},{k:'cookies',l:'JSON cookies array',v:'[]'}] },
+    ]
+  },
+  {
+    id:'identity', name:'Identity Router', icon:'🪪',
+    items:[
+      { method:'MSG',  path:'CHECK_IDENTITY',         desc:'Extension msg: check if identity tab is open. Returns {tabId, url, open}',                              fields:[{k:'identity',l:'Identity',v:'claude'}] },
+      { method:'MSG',  path:'OPEN_TAB',               desc:'Extension msg: open a new identity tab (chatgpt/claude/gemini). Returns {tabId}',                       fields:[{k:'identity',l:'Identity',v:'claude'},{k:'url',l:'Override URL',v:''}] },
+      { method:'MSG',  path:'GUARDIAN_EXECUTE_INTENT',desc:'Extension msg: inject prompt + submit on identity tab. Runs full capture loop.',                        fields:[{k:'identity',l:'Identity',v:'claude'},{k:'prompt',l:'Prompt text',v:''},{k:'calltoId',l:'Callto ID',v:''}] },
+      { method:'MSG',  path:'GET_IDENTITIES',         desc:'Extension msg: return built-in + custom identity configs.',                                              fields:[] },
+      { method:'MSG',  path:'CLEAR_TAB_LOCK',         desc:'Extension msg: clear tab lock for identity. Call at start of each new pipeline run.',                   fields:[{k:'identity',l:'Identity',v:''}] },
+      { method:'MSG',  path:'POLL_RESPONSE',          desc:'Extension msg: poll _responseStore for identity result. Returns {text, complete, ts}',                  fields:[{k:'identity',l:'Identity',v:'claude'}] },
+      { method:'MSG',  path:'CLEAR_RESPONSE',         desc:'Extension msg: clear response store for identity.',                                                      fields:[{k:'identity',l:'Identity',v:'claude'}] },
+    ]
+  },
+  {
+    id:'listener', name:'Listener API', icon:'👂',
+    items:[
+      { method:'MSG',  path:'START_LISTENER',         desc:'Extension msg: attach MutationObserver to selector on tab. Returns {listenerId}',                       fields:[{k:'tabId',l:'Tab ID',v:''},{k:'selector',l:'CSS selector',v:'div.message'},{k:'mode',l:'Mode',v:'mutation'}] },
+      { method:'MSG',  path:'STOP_LISTENER',          desc:'Extension msg: detach listener by ID.',                                                                  fields:[{k:'listenerId',l:'Listener ID',v:''}] },
+      { method:'MSG',  path:'GET_LISTENERS',          desc:'Extension msg: return all active listeners with state.',                                                 fields:[] },
+      { method:'MSG',  path:'SET_LINK_TARGET',        desc:'Extension msg: set callto link target for listener output routing.',                                     fields:[{k:'listenerId',l:'Listener ID',v:''},{k:'target',l:'JSON RouteSpec',v:'{"type":"nexus"}'}] },
+      { method:'MSG',  path:'GLOBAL_KILLSWITCH',      desc:'Extension msg: stop ALL active listeners immediately.',                                                  fields:[] },
+      { method:'EVT',  path:'guardian:listener:event',desc:'SSE event: fired when a listener captures a DOM mutation. Data: {listenerId, eventData, ts}',           fields:[] },
+    ]
+  },
+  {
+    id:'session', name:'Session API', icon:'🔐',
+    items:[
+      { method:'MSG',  path:'PASTE_NEXUS_URI',        desc:'Extension msg: parse nexus://appId[@host:port] and initiate handshake.',                                fields:[{k:'uri',l:'Nexus URI',v:'nexus://'}] },
+      { method:'MSG',  path:'GET_APPID_STATE',        desc:'Extension msg: return current AppID + handshake state.',                                                fields:[] },
+      { method:'MSG',  path:'CLEAR_APPID',            desc:'Extension msg: reset handshake state, remove persisted appId.',                                         fields:[] },
+      { method:'MSG',  path:'GET_SESSIONS',           desc:'Extension msg: return all active tab sessions.',                                                         fields:[] },
+      { method:'MSG',  path:'FORCE_DISCONNECT',       desc:'Extension msg: force kill SSE + session permanently.',                                                  fields:[] },
+      { method:'EVT',  path:'guardian:session:open',  desc:'SSE event: new session registered from extension.',                                                     fields:[] },
+      { method:'EVT',  path:'guardian:session:close', desc:'SSE event: session closed.',                                                                            fields:[] },
+    ]
+  },
+  {
+    id:'ir', name:'IR Layer (Routing)', icon:'🔀',
+    items:[
+      { method:'MSG',  path:'IR_ROUTE',               desc:'Extension msg: execute a RouteSpec via IR layer. Types: nexus|local|mesh|device|analyze|pipeline|conditional|custom',fields:[{k:'routeSpec',l:'JSON RouteSpec',v:'{"type":"nexus"}'},{k:'payload',l:'JSON payload',v:'{}'}] },
+      { method:'MSG',  path:'GET_IR_STATS',           desc:'Extension msg: return IR layer stats, pulseLog, route counts.',                                          fields:[] },
+      { method:'MSG',  path:'DISPATCH_INTENT',        desc:'app.js msg: high-level intent dispatch through IR layer.',                                               fields:[{k:'intent',l:'Intent string',v:''},{k:'payload',l:'JSON payload',v:'{}'}] },
+    ]
+  },
+  {
+    id:'mesh', name:'Mesh / Nodes', icon:'🕸️',
+    items:[
+      { method:'MSG',  path:'GET_DISCOVERED_NODES',   desc:'Extension msg: return knownNodes map.',                                                                  fields:[] },
+      { method:'MSG',  path:'ADD_MANUAL_NODE',        desc:'Extension msg: add node by instanceId + url.',                                                           fields:[{k:'instanceId',l:'Instance ID',v:''},{k:'url',l:'Node URL',v:'http://127.0.0.1:3748'}] },
+      { method:'MSG',  path:'PROBE_NODE',             desc:'Extension msg: probe node health by instanceId.',                                                        fields:[{k:'instanceId',l:'Instance ID',v:''}] },
+      { method:'MSG',  path:'ROUTE_TO_NODE',          desc:'app.js msg: route callto to specific mesh node.',                                                        fields:[{k:'instanceId',l:'Target instance',v:''},{k:'callto',l:'JSON callto',v:'{}'}] },
+    ]
+  },
+  {
+    id:'diagnostics', name:'Diagnostics', icon:'🔬',
+    items:[
+      { method:'MSG',  path:'PING',                   desc:'Extension msg: liveness check. Returns {pong:true, instanceId}',                                        fields:[] },
+      { method:'MSG',  path:'BRIDGE_FETCH',           desc:'Extension msg: proxy a bridge HTTP request. Body: {path, method, body}',                                fields:[{k:'path',l:'Bridge path',v:'/events'},{k:'method',l:'Method',v:'GET'}] },
+      { method:'MSG',  path:'GET_CAPTURES',           desc:'Extension msg: return URCK capture graph, seq, version.',                                               fields:[] },
+      { method:'MSG',  path:'URCK_EVENT',             desc:'Extension msg: ingest custom event into URCK causal graph.',                                             fields:[{k:'event',l:'Event type',v:'custom.event'},{k:'data',l:'JSON data',v:'{}'}] },
+      { method:'MSG',  path:'COOKIES_CAPTURE',        desc:'Extension msg: trigger cookie capture for current tab.',                                                  fields:[{k:'tabId',l:'Tab ID',v:''}] },
+      { method:'GET',  path:'/nodes',                 desc:'Bridge: list mesh nodes.',                                                                               fields:[] },
+    ]
+  },
+];
+
+function renderAPIRegistry(){
+  const reg=document.getElementById('api-registry');
+  reg.innerHTML=GUARDIAN_APIS.map(section=>`
+    <div class="api-section" id="apisec-${section.id}">
+      <div class="api-section-head" onclick="toggleAPISection('${section.id}')">
+        <span class="api-section-icon">${section.icon}</span>
+        <span class="api-section-name">${section.name}</span>
+        <span class="api-section-count">${section.items.length}</span>
+        <span class="api-section-arrow" id="apisec-arr-${section.id}">▶</span>
+      </div>
+      <div class="api-list" id="apilist-${section.id}">
+        ${section.items.map((item,idx)=>`
+          <div class="api-item" id="apiitem-${section.id}-${idx}" onclick="openExecPanel('${section.id}',${idx})">
+            <span class="api-method method-${item.method}">${item.method}</span>
+            <div class="api-item-body">
+              <div class="api-item-path">${item.path}</div>
+              <div class="api-item-desc">${item.desc}</div>
+            </div>
+            <button class="api-item-run" onclick="event.stopPropagation();quickFire('${section.id}',${idx})">▶</button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleAPISection(id){
+  const list=document.getElementById('apilist-'+id);
+  const arr=document.getElementById('apisec-arr-'+id);
+  const open=list.classList.toggle('open');
+  arr.classList.toggle('open',open);
+}
+
+let _activeExec={sectionId:null,idx:null};
+
+function openExecPanel(sectionId, idx){
+  const section=GUARDIAN_APIS.find(s=>s.id===sectionId);
+  if(!section)return;
+  const item=section.items[idx];
+  if(!item)return;
+  _activeExec={sectionId,idx};
+  const panel=document.getElementById('exec-panel');
+  const body=document.getElementById('exec-body');
+  txt('exec-title',item.method+' '+item.path);
+  panel.classList.add('open');
+
+  let html=`<div class="exec-field" style="margin-bottom:8px"><div class="exec-label">Description</div><div style="font-size:9px;color:rgba(255,255,255,.35);font-family:var(--fm);line-height:1.5">${item.desc}</div></div>`;
+
+  if(item.method==='GET'||item.method==='POST'||item.method==='SSE'){
+    html+=`<div class="exec-field"><div class="exec-label">Bridge URL</div><input class="exec-inp" id="exec-bridge-url" value="${SSE_STATE.bridgeUrl}"></div>`;
+  }
+  (item.fields||[]).forEach((f,i)=>{
+    html+=`<div class="exec-field"><div class="exec-label">${f.l}</div><input class="exec-inp exec-field-inp" data-key="${f.k}" value="${f.v}" placeholder="${f.k}"></div>`;
+  });
+  if(item.method==='POST'||item.method==='MSG'){
+    html+=`<div class="exec-field"><div class="exec-label">Raw JSON body (override)</div><input class="exec-inp" id="exec-raw-body" placeholder='{"key":"value"}' value=""></div>`;
+  }
+  html+=`<button class="exec-fire" onclick="fireAPI()">▶ Execute ${item.method === 'MSG' ? 'via Extension Msg' : item.method === 'SSE' ? 'SSE Subscribe' : 'HTTP '+item.method}</button>`;
+  html+=`<div class="exec-result" id="exec-result"></div>`;
+  body.innerHTML=html;
+
+  // Remove active from others
+  document.querySelectorAll('.api-item').forEach(el=>el.classList.remove('active'));
+  const el=document.getElementById(`apiitem-${sectionId}-${idx}`);
+  if(el)el.classList.add('active');
+}
+
+function closeExecPanel(){
+  document.getElementById('exec-panel').classList.remove('open');
+  document.querySelectorAll('.api-item').forEach(el=>el.classList.remove('active'));
+  _activeExec={sectionId:null,idx:null};
+}
+
+async function fireAPI(){
+  const {sectionId,idx}=_activeExec;
+  const section=GUARDIAN_APIS.find(s=>s.id===sectionId);
+  if(!section)return;
+  const item=section.items[idx];
+  const result=document.getElementById('exec-result');
+  if(result){result.style.display='block';result.textContent='Executing…';}
+
+  // Collect field values
+  const fieldVals={};
+  document.querySelectorAll('.exec-field-inp').forEach(inp=>{ fieldVals[inp.dataset.key]=inp.value; });
+  const rawBody=document.getElementById('exec-raw-body')?.value?.trim();
+  const bridgeUrl=(document.getElementById('exec-bridge-url')?.value||SSE_STATE.bridgeUrl).replace(/\/$/,'');
+
+  try {
+    let out='';
+    if(item.method==='GET'){
+      const params=Object.entries(fieldVals).map(([k,v])=>v?`${k}=${encodeURIComponent(v)}`:'').filter(Boolean).join('&');
+      const url=bridgeUrl+item.path+(params?'?'+params:'');
+      sseLog('out','GET',url);
+      const r=await fetch(url,{signal:AbortSignal.timeout(5000)});
+      const data=await r.json().catch(()=>({status:r.status}));
+      out=JSON.stringify(data,null,2);
+    } else if(item.method==='POST'){
+      let body={};
+      if(rawBody){try{body=JSON.parse(rawBody);}catch(e){out='JSON parse error: '+e.message;}}
+      else{Object.assign(body,fieldVals);}
+      const url=bridgeUrl+item.path;
+      sseLog('out','POST',url+' '+JSON.stringify(body).slice(0,60));
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(5000)});
+      const data=await r.json().catch(()=>({status:r.status}));
+      out=JSON.stringify(data,null,2);
+    } else if(item.method==='MSG'){
+      out='Extension messages require Guardian browser extension.\nSend via: browser.runtime.sendMessage({type:"'+item.path+'",...fields})';
+      sseLog('out','MSG',item.path+' (extension required)');
+    } else if(item.method==='SSE'){
+      out='EventSource: new EventSource("'+bridgeUrl+'/events")\nCurrently '+(SSE_STATE.alive?'LIVE':'NOT connected')+'\nUse Connect button above.';
+      sseLog('out','SSE','/events — '+( SSE_STATE.alive?'live':'not connected'));
+    } else if(item.method==='EVT'){
+      out='This is an inbound SSE event emitted by the bridge.\nSubscribe via: Connect → live stream above.';
+    }
+    if(result){result.textContent=out||'OK';}
+    toast('▶ '+item.method+' '+item.path,'info');
+  } catch(e){
+    const msg=e.name==='AbortError'?'Timeout — is bridge running at '+bridgeUrl+'?':e.message;
+    if(result)result.textContent='ERROR: '+msg;
+    elog('error',item.path+' → '+msg);
+    toast('Bridge error: '+msg,'error');
+  }
+}
+
+function quickFire(sectionId,idx){ openExecPanel(sectionId,idx); setTimeout(fireAPI,50); }
+
+// ═══════════════════════════════════════════════════════════════
+// PERSON MEMORY
+// ═══════════════════════════════════════════════════════════════
+let _pmState={mode:'new',role:'them',editKey:null};
+
+function renderPersonList(){
+  const persons=loadPersons(), list=document.getElementById('person-list'), keys=Object.keys(persons);
+  if(!keys.length){list.innerHTML='<div style="font-size:10px;color:var(--ink3);padding:3px 0">No saved persons.</div>';return;}
+  const scans=loadScanLog();
+  list.innerHTML=keys.map(k=>{
+    const p=persons[k], cnt=scans.filter(s=>s.personHandle===k).length;
+    const sel=p.handle===S.them.handle;
+    return `<div class="person-chip${sel?' selected':''}" onclick="selectPerson('${k}')">
+      <div class="pc-ava" style="background:${p.color}">${p.initials}</div>
+      <div class="pc-name">${p.name}</div>
+      <div class="pc-cnt">${cnt}s</div>
+      <button class="pc-edit" onclick="event.stopPropagation();editPerson('${k}')" title="Edit">✏️</button>
+    </div>`;
+  }).join('');
+}
+
+function selectPerson(key){
+  const p=loadPersons()[key]; if(!p)return;
+  S.them={name:p.name,handle:p.handle,color:p.color,initials:p.initials,notes:p.notes||'',tags:p.tags||[],photos:p.photos||[]};
+  document.getElementById('them-inp').value=p.name;
+  syncAll(); renderPersonList(); renderASECard(); renderScanLog();
+  toast('👤 '+p.name+' loaded','info');
+}
+
+function openNewPersonModal(){
+  _pmState={mode:'new',role:'them',editKey:null};
+  txt('person-modal-title','New Person');
+  ['pm-name','pm-username','pm-notes','pm-tags'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pm-delete-btn').style.display='none';
+  document.getElementById('person-modal').classList.add('open');
+}
+function openPersonModal(role){
+  const who=role==='me'?S.me:S.them;
+  _pmState={mode:'edit',role,editKey:who.handle};
+  txt('person-modal-title',(role==='me'?'My':'Their')+' Profile');
+  document.getElementById('pm-name').value=who.name;
+  document.getElementById('pm-username').value=who.name;
+  const p=loadPersons()[who.handle]||{};
+  document.getElementById('pm-notes').value=p.notes||'';
+  document.getElementById('pm-tags').value=(p.tags||[]).join(', ');
+  document.getElementById('pm-delete-btn').style.display=role==='them'?'flex':'none';
+  document.getElementById('person-modal').classList.add('open');
+}
+function editPerson(key){
+  const p=loadPersons()[key]; if(!p)return;
+  _pmState={mode:'edit',role:'them',editKey:key};
+  txt('person-modal-title','Edit: '+p.name);
+  document.getElementById('pm-name').value=p.name;
+  document.getElementById('pm-username').value=p.name;
+  document.getElementById('pm-notes').value=p.notes||'';
+  document.getElementById('pm-tags').value=(p.tags||[]).join(', ');
+  document.getElementById('pm-delete-btn').style.display='flex';
+  document.getElementById('person-modal').classList.add('open');
+}
+function savePerson(){
+  const name=document.getElementById('pm-name').value.trim(); if(!name){toast('Name required','error');return;}
+  const notes=document.getElementById('pm-notes').value.trim();
+  const tags=document.getElementById('pm-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const h=handle(name), col=colorFrom(name,THEM_PALETTE), ini=initials(name);
+  const persons=loadPersons();
+  if(_pmState.editKey&&_pmState.editKey!==h){ const old=persons[_pmState.editKey]; if(old){persons[h]={...old};delete persons[_pmState.editKey];} }
+  if(!persons[h])persons[h]={name,handle:h,color:col,initials:ini,photos:[],scans:[]};
+  Object.assign(persons[h],{name,handle:h,color:col,initials:ini,notes,tags});
+  savePersons(persons);
+  if(_pmState.role==='them'||S.them.handle===h||S.them.handle===_pmState.editKey){
+    S.them={name,handle:h,color:col,initials:ini,notes,tags,photos:persons[h].photos||[]};
+    document.getElementById('them-inp').value=name; syncAll();
+  }
+  renderPersonList(); renderASECard(); closePersonModal(); toast('✓ '+name+' saved','success');
+}
+function deletePerson(){
+  const key=_pmState.editKey; if(!key)return;
+  const persons=loadPersons(); const name=persons[key]?.name||key;
+  delete persons[key]; savePersons(persons);
+  renderPersonList(); closePersonModal(); toast('🗑 '+name+' removed','info');
+}
+function closePersonModal(){ document.getElementById('person-modal').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════
+// ASE PROFILE CARD
+// ═══════════════════════════════════════════════════════════════
+function renderASECard(overrideMode){
+  const key=S.them.handle, persons=loadPersons(), p=persons[key]||{};
+  const notes=p.notes||S.them.notes||'', tags=p.tags||S.them.tags||[], photos=p.photos||S.them.photos||[];
+  const avaEl=document.getElementById('rp-them-ava');
+  avaEl.style.background=S.them.color;
+  if(photos.length>0)avaEl.innerHTML=`<img src="${photos[0]}" alt="${S.them.name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  else avaEl.innerHTML=S.them.initials;
+  txt('rp-them-name',S.them.name); txt('rp-them-handle',S.them.handle);
+  // Photo strip
+  const strip=document.getElementById('ase-photos'); strip.innerHTML='';
+  photos.forEach((src,i)=>{ const img=document.createElement('img'); img.className='ase-photo'; img.src=src; img.onclick=()=>openLightbox(src); strip.appendChild(img); });
+  const addBtn=document.createElement('div'); addBtn.className='ase-photo add-btn'; addBtn.innerHTML='＋'; addBtn.title='Add photo';
+  addBtn.onclick=()=>{ const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.multiple=true;inp.onchange=e=>addProfilePhotos(Array.from(e.target.files));inp.click(); };
+  strip.appendChild(addBtn);
+  // Tags
+  const tagWrap=document.getElementById('ase-tags');
+  let th=`<span class="ase-tag ase-tag-mode" id="rp-them-mode">${overrideMode||'–'}</span>`;
+  tags.forEach(t=>{ th+=`<span class="ase-tag ase-tag-custom" onclick="removeTag('${t}')" title="Remove">${t} ✕</span>`; });
+  th+=`<span class="ase-tag ase-tag-add" onclick="addTagPrompt()">+ tag</span>`;
+  tagWrap.innerHTML=th;
+  // Notes
+  const nv=document.getElementById('ase-notes-view');
+  nv.textContent=notes||'No notes yet.'; nv.style.fontStyle=notes?'normal':'italic'; nv.style.color=notes?'var(--ink2)':'var(--ink3)';
+  document.getElementById('ase-notes-input').value=notes;
+}
+function addProfilePhotos(files){
+  const key=S.them.handle, persons=loadPersons();
+  if(!persons[key])persons[key]={name:S.them.name,handle:key,color:S.them.color,initials:S.them.initials,photos:[],notes:'',tags:[]};
+  let n=0;
+  files.forEach(f=>{ const r=new FileReader(); r.onload=e=>{ persons[key].photos.push(e.target.result); n++; if(n===files.length){savePersons(persons);S.them.photos=persons[key].photos;renderASECard();toast('📷 Photo added','success');} }; r.readAsDataURL(f); });
+}
+function removeTag(tag){ const k=S.them.handle,p=loadPersons(); if(p[k]){p[k].tags=(p[k].tags||[]).filter(t=>t!==tag);savePersons(p);S.them.tags=p[k].tags;renderASECard();} }
+function addTagPrompt(){ const t=prompt('Add tag:'); if(!t?.trim())return; const k=S.them.handle,p=loadPersons(); if(!p[k])p[k]={name:S.them.name,handle:k,color:S.them.color,initials:S.them.initials,photos:[],notes:'',tags:[]}; p[k].tags=p[k].tags||[]; if(!p[k].tags.includes(t.trim()))p[k].tags.push(t.trim()); savePersons(p); S.them.tags=p[k].tags; renderASECard(); }
+function enterEditMode(){ document.getElementById('ase-notes-view').style.display='none'; document.getElementById('ase-notes-input').style.display='block'; document.getElementById('ase-edit-actions').style.display='flex'; document.getElementById('edit-btn').style.display='none'; }
+function saveEdit(){ const notes=document.getElementById('ase-notes-input').value.trim(); const k=S.them.handle,p=loadPersons(); if(!p[k])p[k]={name:S.them.name,handle:k,color:S.them.color,initials:S.them.initials,photos:[],notes:'',tags:[]}; p[k].notes=notes; savePersons(p); S.them.notes=notes; cancelEdit(); renderASECard(); toast('✓ Notes saved','success'); }
+function cancelEdit(){ document.getElementById('ase-notes-view').style.display='block'; document.getElementById('ase-notes-input').style.display='none'; document.getElementById('ase-edit-actions').style.display='none'; document.getElementById('edit-btn').style.display='block'; }
+
+// ═══════════════════════════════════════════════════════════════
+// SCAN LOG — logged by convDate (today), ordered by precise scanTs
+// §3.2: eventTs (scanTs) is the ordering axis; convDate is display metadata
+// ═══════════════════════════════════════════════════════════════
+function addScanEntry(who, codec, res, ase, fileNames){
+  const now=new Date();
+  const entry={
+    id:'scan_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    personHandle:who.handle, personName:who.name,
+    scanTs:now.toISOString(),        // §3.2: ordering axis
+    convDate:now.toISOString().slice(0,10), // display grouping
+    src:S.src, sender:S.sender,
+    matchType:res.matchType, mode:ase.fingerprint.dominantMode,
+    drift:ase.drift.isShifting?'drifting':'stable',
+    confidence:codec.confidence,
+    fileNames:fileNames||[],
+    axes:{cognition:avg(Object.values(codec.cognition)),affect:avg(Object.values(codec.affect)),language:avg(Object.values(codec.language)),entropy:codec.entropy,intensity:codec.intensity,drift:ase.drift.magnitude}
+  };
+  const log=loadScanLog(); log.push(entry); saveScanLog(log);
+  const persons=loadPersons();
+  if(!persons[who.handle])persons[who.handle]={name:who.name,handle:who.handle,color:who.color,initials:who.initials,photos:[],notes:'',tags:[]};
+  persons[who.handle].scans=persons[who.handle].scans||[]; persons[who.handle].scans.push(entry);
+  savePersons(persons);
+  renderScanLog(); renderPersonList();
+}
+
+function renderScanLog(){
+  const log=loadScanLog(), key=S.them.handle;
+  const myScans=log.filter(s=>s.personHandle===key).sort((a,b)=>a.scanTs.localeCompare(b.scanTs));
+  const body=document.getElementById('scan-log-body');
+  if(!myScans.length){body.innerHTML='<div style="font-size:10px;color:var(--ink3)">No scans yet.</div>';return;}
+  const groups={};
+  myScans.forEach(s=>{ if(!groups[s.convDate])groups[s.convDate]=[]; groups[s.convDate].push(s); });
+  const dates=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+  body.innerHTML=dates.map(date=>{
+    const rows=groups[date].map(s=>{
+      const t=new Date(s.scanTs).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const fns=s.fileNames.length?s.fileNames.slice(0,2).join(', ')+(s.fileNames.length>2?` +${s.fileNames.length-2}`:''):SRC[s.src]?.label||s.src;
+      return `<div class="scan-entry"><div class="scan-ava" style="background:${S.them.color}">${S.them.initials}</div><div class="scan-body"><div class="scan-action">${s.matchType} · ${s.mode}</div><div class="scan-detail">${fns} · conf ${pct(s.confidence)} · ${s.drift}</div></div><div class="scan-ts">${t}</div></div>`;
+    }).join('');
+    return `<div class="scan-group"><div class="scan-date-label">${fmtDateLabel(date)}</div>${rows}</div>`;
+  }).join('');
+}
+function fmtDateLabel(iso){ const d=new Date(iso+'T12:00:00'); const td=new Date(); td.setHours(12,0,0,0); const yd=new Date(td);yd.setDate(yd.getDate()-1); if(d.toDateString()===td.toDateString())return'Today'; if(d.toDateString()===yd.toDateString())return'Yesterday'; return d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}); }
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE
+// ═══════════════════════════════════════════════════════════════
+let _lastMsgDate='';
+
+async function runPipeline(){
+  if(!S.files.length&&!S.url){toast('Add files or a URL first','error');return;}
+  const btn=document.getElementById('run-btn');
+  btn.classList.add('live');btn.innerHTML='<span class="spin">⟳</span> Running…';btn.disabled=true;
+  resetPipe();
+  // Ensure person record exists
+  const key=S.them.handle, persons=loadPersons();
+  if(!persons[key]){persons[key]={name:S.them.name,handle:key,color:S.them.color,initials:S.them.initials,photos:[],notes:'',tags:[],scans:[]};savePersons(persons);}
+  const fileNames=S.files.map(f=>f.name);
+  elog('info','pipeline → sender:'+S.sender+' src:'+S.src+' files:'+S.files.length);
+  // Emit to Guardian bridge if connected
+  if(SSE_STATE.alive) ssePush('guardian:execute',{sender:S.sender,src:S.src,files:fileNames,person:S.them.handle,ts:Date.now()});
+  try {
+    const codec=await pstep('codec',()=>apiCodec());
+    await pstep('router',async()=>{await dl(200+rn(200));return{module:codec.route};});
+    const sender=S.sender==='me'?S.me:S.them;
+    const res=await pstep('resonance',()=>apiResonance(codec,sender));
+    const ase=await pstep('ase',()=>apiASE(codec,sender));
+    await pstep('log',async()=>{
+      await dl(80);
+      addMessage(codec,res,ase);
+      updateScores(res,codec);
+      updateThemAxes(codec,ase);
+      addLogEntry(sender,codec,res,ase);
+      drawRadar(codec);
+      txt('rp-them-mode',ase.fingerprint.dominantMode);
+      const mEl=document.getElementById('rp-them-mode');if(mEl)mEl.textContent=ase.fingerprint.dominantMode;
+      addScanEntry(S.them,codec,res,ase,fileNames);
+      if(SSE_STATE.alive)ssePush('guardian:dispatched',{matchType:res.matchType,mode:ase.fingerprint.dominantMode,confidence:codec.confidence,person:S.them.handle});
+    });
+    toast('✓ Pipeline complete','success');
+    elog('success','done → '+res.matchType+' · '+ase.fingerprint.dominantMode);
+  } catch(e){ elog('error','pipeline: '+e.message); toast('Pipeline error','error'); }
+  btn.classList.remove('live');btn.innerHTML='▶ Run Pipeline';btn.disabled=false;
+}
+
+async function pstep(id,fn){
+  const el=document.getElementById('pi-'+id),st=document.getElementById('ps-'+id),pb=document.getElementById('pb-'+id);
+  el.classList.add('running');st.textContent='…';
+  let p=0;const tick=setInterval(()=>{p=Math.min(p+rn(10)+3,80);pb.style.width=p+'%';},55);
+  const r=await fn(); clearInterval(tick);pb.style.width='100%';await dl(60);
+  el.classList.remove('running');el.classList.add('done');st.textContent='✓';return r;
+}
+function resetPipe(){ ['codec','router','resonance','ase','log'].forEach(id=>{ document.getElementById('pi-'+id).classList.remove('running','done'); document.getElementById('ps-'+id).textContent='idle'; document.getElementById('pb-'+id).style.width='0'; }); }
+
+// ── Simulated APIs ────────────────────────────────────────────
+async function apiCodec(){
+  await dl(450+rn(500));
+  const f=S.files[S.activeFile]||null, n=f?f.name:(S.url||''), t=f?f.type:'url', r=routeFile(n,t);
+  const cog={abstractionLevel:rn(1),linearity:rn(1),recursionDepth:rn(1),systemThinking:rn(1),compression:rn(1)};
+  const aff={valence:rn(1),volatility:rn(1),attachmentLoad:rn(1),urgency:rn(1),somaticDensity:rn(1)};
+  const lang={metaphorDensity:rn(1),symbolicUsage:rn(1),poeticness:rn(1),analyticalness:rn(1),narrativeStructure:rn(1)};
+  return{route:r,cognition:cog,affect:aff,language:lang,entropy:0.3+rn(0.65),intensity:0.35+rn(0.6),confidence:0.70+rn(0.28),src:S.src,ts:Date.now()};
+}
+async function apiResonance(codec,sender){
+  await dl(550+rn(600));
+  const structural=0.45+rn(0.5),oscillation=0.40+rn(0.55),temporal=0.35+rn(0.6);
+  const total=structural*.45+oscillation*.45+temporal*.10;
+  const matchType=total>0.72?'mirror':total>0.55?'complementary':total>0.40?'friction':'dissonant';
+  const POOL=['High abstraction alignment.','Oscillation patterns matched.','Shared poetic register.','Mirror resonance immediate.','Complementary: one grounds.','Friction: cognition aligned, affect differs.','Phase misalignment.','Emotional patterns align.'];
+  return{structural,oscillation,temporal,total,matchType,insights:shuffle(POOL).slice(0,2+Math.floor(rn(2))),axes:{cognition:0.45+rn(0.5),affect:0.45+rn(0.5),language:0.45+rn(0.5)},computedAt:Date.now()};
+}
+async function apiASE(codec,sender){
+  await dl(450+rn(500));
+  const dom=MODES[Math.floor(rn(MODES.length))],sec=MODES.filter(m=>m!==dom)[Math.floor(rn(MODES.length-1))];
+  const AX=['cognition.abstractionLevel','cognition.systemThinking','affect.volatility','language.poeticness','affect.attachmentLoad'];
+  return{userId:sender.handle,version:1+Math.floor(rn(12)),sampleSize:S.files.length||1,core:{cognition:codec.cognition,affect:codec.affect,language:codec.language,entropy:codec.entropy,intensity:codec.intensity},fingerprint:{highVarianceAxes:shuffle(AX).slice(0,3),lowVarianceAxes:shuffle(AX).slice(0,3),dominantMode:dom,secondaryMode:sec},drift:{magnitude:rn(0.6),direction:shuffle(AX).slice(0,2),isShifting:rn(1)>0.6},updatedAt:Date.now()};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONVERSATION RENDERING
+// ═══════════════════════════════════════════════════════════════
+function addMessage(codec,res,ase){
+  const empty=document.getElementById('canvas-empty');if(empty)empty.remove();
+  const now=new Date(),side=S.sender,who=side==='me'?S.me:S.them;
+  const ts=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),dk=now.toISOString().slice(0,10);
+  if(dk!==_lastMsgDate){
+    _lastMsgDate=dk;
+    const sep=document.createElement('div');sep.className='date-sep';
+    sep.innerHTML=`<div class="date-sep-line"></div><div class="date-sep-lbl">${fmtDateLabel(dk)}</div><div class="date-sep-line"></div>`;
+    document.getElementById('msgs').appendChild(sep);
+  }
+  const row=document.createElement('div');row.className='mrow '+side;
+  const chips=buildChips(res,codec),content=buildContent(codec);
+  const scanTs=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const bbl=`<div class="bbl"><div class="bbl-who">${who.name} ${who.handle}</div><div class="bbl-scan-ts">⬡ scan · ${scanTs}</div>${content}${chips}<div class="bbl-time">${ts}</div></div>`;
+  row.innerHTML=side==='them'?`<div class="mrow-inner"><div class="m-ava" style="background:${who.color}">${who.initials}</div>${bbl}</div>`:`<div class="mrow-inner">${bbl}</div>`;
+  const msgs=document.getElementById('msgs');msgs.appendChild(row);
+  if(res.insights?.[0]){const s=document.createElement('div');s.className='sys';s.textContent='⬡ '+res.insights[0];msgs.appendChild(s);}
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function buildContent(codec){
+  const files=S.files,url=S.url,src=S.src,af=files[S.activeFile]||null;
+  const imgFiles=files.filter(f=>f.type.startsWith('image'));
+  if(url||(af&&af.type.startsWith('video')))return buildVideo(url||(af?URL.createObjectURL(af):null));
+  if(imgFiles.length>0){
+    const urls=imgFiles.slice(0,6).map(f=>URL.createObjectURL(f));
+    const extra=imgFiles.length>4?imgFiles.length-4:0;
+    const show=extra?urls.slice(0,4):urls;
+    const cls=['','g1','g2','g3','g4','gm','gm'][Math.min(show.length,6)]||'gm';
+    let h=`<div class="photo-grid-bbl ${cls}">`;
+    if(show.length===3){h+=`<img src="${show[0]}" class="g3-main" onclick="openLightbox('${show[0]}')"><img src="${show[1]}" onclick="openLightbox('${show[1]}')"><img src="${show[2]}" onclick="openLightbox('${show[2]}')">`;
+    }else{show.forEach((u,i)=>{if(i===3&&extra>0)h+=`<div class="photo-more">+${extra+1}</div>`;else h+=`<img src="${u}" onclick="openLightbox('${u}')">`;});}
+    h+='</div>';
+    if(src==='screenshot')return`<div class="ss-block"><div class="ss-bar"><div class="ss-dot" style="background:#ff5f57"></div><div class="ss-dot" style="background:#febc2e"></div><div class="ss-dot" style="background:#28c840"></div><span>Screenshot</span></div>${h}</div>`;
+    return h;
+  }
+  if(af){
+    if(src==='email'){const w=S.sender==='me'?S.me:S.them,to=S.sender==='me'?S.them:S.me;return`<div class="email-block"><div class="email-head"><div class="email-field"><b>From:</b> ${w.name}</div><div class="email-field"><b>To:</b> ${to.name}</div><div style="font-size:11px;font-weight:700;margin-top:3px">${af.name}</div></div><div class="email-body">${af.name}</div></div>`;}
+    if(src==='ig'){const w=S.sender==='me'?S.me:S.them;return`<div class="ig-block"><div class="ig-head"><div class="ig-ava-sm" style="background:${w.color}">${w.initials}</div><div class="ig-un">${w.handle}</div></div><div class="ig-img-area">🖼</div><div class="ig-cap"><b>${w.handle}</b> ${af.name}</div><div class="ig-acts"><span>♥</span><span>💬</span><span>↗</span></div></div>`;}
+    return`<span>${fIcon(af.name,af.type)} ${af.name}</span>`;
+  }
+  if(url)return`<span>🔗 ${url.slice(0,50)}</span>`;
+  return`<span>Signal</span>`;
+}
+function buildVideo(src){ if(!src)return'<span>Video</span>'; const yt=src.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/),vm=src.match(/vimeo\.com\/(\d+)/); if(yt)return`<iframe class="bbl-yt" src="https://www.youtube.com/embed/${yt[1]}?rel=0" allow="fullscreen"></iframe>`; if(vm)return`<iframe class="bbl-yt" src="https://player.vimeo.com/video/${vm[1]}" allow="fullscreen"></iframe>`; return`<video class="bbl-vid" src="${src}" controls preload="metadata"></video>`; }
+function buildChips(res,codec){ return`<div class="chips"><span class="chip chip-res">res ${pct(res.total)}</span><span class="chip chip-str">str ${pct(res.structural)}</span><span class="chip chip-${res.matchType}">${res.matchType}</span><span class="chip chip-conf">conf ${pct(codec.confidence)}</span>${S.files.length>1?`<span class="chip chip-files">📷 ${S.files.length}</span>`:''}</div>`; }
+
+// ── Scores ────────────────────────────────────────────────────
+function updateScores(res,codec){
+  const ROWS=[{l:'Total',v:res.total,c:'#7c4dff'},{l:'Structural',v:res.structural,c:'#c8522a'},{l:'Oscillation',v:res.oscillation,c:'#00b894'},{l:'Temporal',v:res.temporal,c:'#f39c12'},{l:'Entropy',v:codec.entropy,c:'#e74c3c'},{l:'Intensity',v:codec.intensity,c:'#0072c6'}];
+  document.getElementById('score-rows').innerHTML=ROWS.map(r=>`<div class="sc-row"><span class="sc-lbl">${r.l}</span><div class="sc-track"><div class="sc-fill" style="width:${pct(r.v)};background:${r.c}"></div></div><span class="sc-val">${pct(r.v)}</span></div>`).join('');
+  S.scores[S.sender]=S.scores[S.sender]||{};['total','structural','oscillation'].forEach(k=>{S.scores[S.sender][k]=res[k];});
+  document.getElementById('cmp-rows').innerHTML=[{k:'total',l:'Total'},{k:'structural',l:'Structural'},{k:'oscillation',l:'Oscillation'}].map(ax=>`<div class="cmp-ax"><div class="cmp-ax-name">${ax.l}</div><div class="sc-row"><span class="sc-lbl" style="color:${S.me.color}">${S.me.name.slice(0,8)}</span><div class="sc-track"><div class="sc-fill" style="width:${pct(S.scores.me?.[ax.k]||0)};background:${S.me.color}"></div></div><span class="sc-val">${pct(S.scores.me?.[ax.k]||0)}</span></div><div class="sc-row"><span class="sc-lbl" style="color:${S.them.color}">${S.them.name.slice(0,8)}</span><div class="sc-track"><div class="sc-fill" style="width:${pct(S.scores.them?.[ax.k]||0)};background:${S.them.color}"></div></div><span class="sc-val">${pct(S.scores.them?.[ax.k]||0)}</span></div></div>`).join('');
+}
+function updateThemAxes(codec,ase){
+  if(S.sender!=='them')return;
+  const c=avg(Object.values(codec.cognition)),a=avg(Object.values(codec.affect)),l=avg(Object.values(codec.language)),e=codec.entropy,i=codec.intensity,d=ase.drift.magnitude;
+  [['ax-cog','axf-cog',c,'#7c4dff'],['ax-aff','axf-aff',a,'#c8522a'],['ax-lan','axf-lan',l,'#00b894'],['ax-ent','axf-ent',e,'#f39c12'],['ax-int','axf-int',i,'#e74c3c'],['ax-dft','axf-dft',d,'#888']].forEach(([vid,fid,v,col])=>{txt(vid,pct(v));const f=document.getElementById(fid);if(f){f.style.width=pct(v);f.style.background=col;}});
+}
+
+// ── Radar ─────────────────────────────────────────────────────
+function drawRadar(codec){
+  const canvas=document.getElementById('radar'),ctx=canvas.getContext('2d'),cx=122,cy=93,rad=65;
+  const AXES=['cognition','affect','language','entropy','intensity'],n=AXES.length;
+  const gridC='rgba(0,0,0,.07)',txtC='#aaa';
+  ctx.clearRect(0,0,244,186);
+  [.25,.5,.75,1].forEach(ring=>{ ctx.beginPath(); AXES.forEach((_,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2,x=cx+Math.cos(a)*rad*ring,y=cy+Math.sin(a)*rad*ring; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath();ctx.strokeStyle=gridC;ctx.lineWidth=1;ctx.stroke(); });
+  AXES.forEach((_,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2; ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad);ctx.strokeStyle=gridC;ctx.lineWidth=1;ctx.stroke(); });
+  const poly=(vals,color)=>{ ctx.beginPath(); AXES.forEach((k,i)=>{ const v=vals[k]||0,a=(i/n)*Math.PI*2-Math.PI/2;i?ctx.lineTo(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v):ctx.moveTo(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v); }); ctx.closePath();ctx.fillStyle=color+'22';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke(); AXES.forEach((k,i)=>{ const v=vals[k]||0,a=(i/n)*Math.PI*2-Math.PI/2;ctx.beginPath();ctx.arc(cx+Math.cos(a)*rad*v,cy+Math.sin(a)*rad*v,2.5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill(); }); };
+  poly({cognition:.3,affect:.3,language:.3,entropy:.3,intensity:.3},S.me.color);
+  if(codec)poly({cognition:avg(Object.values(codec.cognition)),affect:avg(Object.values(codec.affect)),language:avg(Object.values(codec.language)),entropy:codec.entropy,intensity:codec.intensity},S.them.color);
+  ctx.font='9px DM Mono,monospace';ctx.fillStyle=txtC;ctx.textAlign='center';
+  AXES.forEach((k,i)=>{ const a=(i/n)*Math.PI*2-Math.PI/2,x=cx+Math.cos(a)*(rad+14),y=cy+Math.sin(a)*(rad+14);ctx.fillText(k,x,y+4); });
+  ctx.font='bold 8px DM Mono,monospace';ctx.textAlign='left';
+  [[S.me.color,S.me.name,4,184],[S.them.color,S.them.name,76,184]].forEach(([c,l,x,y])=>{ ctx.fillStyle=c;ctx.fillRect(x,y-7,7,7);ctx.fillStyle=txtC;ctx.fillText(l.slice(0,10),x+10,y); });
+}
+
+// ── Identity Log ──────────────────────────────────────────────
+function addLogEntry(who,codec,res,ase){
+  const el=document.getElementById('id-log');
+  if(el.firstChild?.style?.padding)el.innerHTML='';
+  const e=document.createElement('div');e.className='log-entry';
+  e.innerHTML=`<div class="log-ava" style="background:${who.color}">${who.initials}</div><div class="log-body"><div class="log-name">${who.name} <span style="color:var(--ink3);font-weight:400">${who.handle}</span></div><div class="log-action">${codec.route} · ${res.matchType} · ${ase.fingerprint.dominantMode} ${ase.drift.isShifting?'⚡ drifting':'· stable'}</div><div class="log-ts">${new Date().toLocaleString()} · ${SRC[S.src].label} · conf ${pct(codec.confidence)}</div></div>`;
+  el.insertBefore(e,el.firstChild);
+  while(el.children.length>15)el.removeChild(el.lastChild);
+}
+
+// ── Error log ─────────────────────────────────────────────────
+function elog(type,msg){
+  const el=document.getElementById('err-log'),d=document.createElement('div');d.className='el';
+  const t=new Date().toTimeString().slice(0,5),cls=type==='error'?'el-error':type==='success'?'el-success':type==='warn'?'el-warn':'el-info';
+  d.innerHTML=`<span class="el-t">${t}</span><span class="${cls}">[${type}]</span> ${msg}`;
+  el.insertBefore(d,el.firstChild);
+  if(type==='error'){S.errCnt++;txt('err-cnt','('+S.errCnt+')');}
+  while(el.children.length>80)el.removeChild(el.lastChild);
+}
+
+// ── Lightbox ──────────────────────────────────────────────────
+function openLightbox(src){document.getElementById('lb-img').src=src;document.getElementById('lb-overlay').classList.add('open');}
+function closeLightbox(){document.getElementById('lb-overlay').classList.remove('open');document.getElementById('lb-img').src='';}
+
+// ── Mobile tabs ───────────────────────────────────────────────
+function switchMTab(tab,btn){
+  document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
+  const panels={upload:'panel-upload',conv:'panel-conv',profile:'panel-profile',guardian:'panel-guardian'};
+  Object.entries(panels).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)el.style.display=k===tab?'flex':'none'; });
+}
+function initMobileTabs(){
+  if(window.innerWidth>900)return;
+  Object.keys({upload:1,conv:1,profile:1,guardian:1}).forEach(k=>{ const el=document.getElementById('panel-'+k);if(el)el.style.display=k==='upload'?'flex':'none'; });
+}
+window.addEventListener('resize',()=>{
+  if(window.innerWidth>900){['upload','conv','profile','guardian'].forEach(k=>{const el=document.getElementById('panel-'+k);if(el)el.style.display='';});}
+  else{const a=document.querySelector('.mtab.active');if(a){const m=a.textContent.toLowerCase();switchMTab(m.includes('upload')?'upload':m.includes('conv')?'conv':m.includes('profile')?'profile':'guardian',a);}}
+});
+
+// ── Utilities ─────────────────────────────────────────────────
+function rn(n){return Math.random()*n}
+function dl(ms){return new Promise(r=>setTimeout(r,ms))}
+function avg(arr){if(!arr?.length)return 0;return arr.reduce((a,b)=>a+b,0)/arr.length}
+function shuffle(a){return[...a].sort(()=>Math.random()-.5)}
+function pct(v){return Math.round((v||0)*100)+'%'}
+function fIcon(n,t){ const e=(n.split('.').pop()||'').toLowerCase(); if(['mp4','webm','mov'].includes(e)||t.startsWith('video'))return'🎬'; if(['mp3','wav','ogg'].includes(e)||t.startsWith('audio'))return'🎵'; if(['jpg','jpeg','png','gif','webp','heic'].includes(e)||t.startsWith('image'))return'🖼'; if(e==='pdf')return'📄'; return'📎'; }
+function routeFile(n,t){ const e=(n.split('.').pop()||'').toLowerCase(); if(['mp4','webm','mov'].includes(e)||t.startsWith('video'))return'video-module'; if(['mp3','wav','ogg'].includes(e)||t.startsWith('audio'))return'text-module'; if(['jpg','jpeg','png','gif','webp','heic'].includes(e)||t.startsWith('image'))return'expression-engine'; if(e==='pdf')return'htl'; return'behavior-module'; }
+function toast(msg,type='info'){const w=document.getElementById('toast-wrap'),t=document.createElement('div');t.className='toast toast-'+type;t.textContent=msg;w.appendChild(t);setTimeout(()=>t.style.opacity='0',2000);setTimeout(()=>t.remove(),2300);}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT (§3.1: bottom-up)
+// ═══════════════════════════════════════════════════════════════
+initDrop();
+syncAll();
+initMobileTabs();
+renderPersonList();
+renderASECard();
+renderScanLog();
+renderAPIRegistry();
+// Open Bridge section by default
+toggleAPISection('bridge-core');
+</script>
+</body>
+</html>

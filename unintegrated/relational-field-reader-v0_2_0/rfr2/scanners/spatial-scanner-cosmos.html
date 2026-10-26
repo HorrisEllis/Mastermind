@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spatial · Scanner · Night Field</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#00000f;font-family:'IBM Plex Mono',monospace}
+
+canvas#sky{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+
+#ui{position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column}
+
+/* ── topbar ── */
+#topbar{
+  display:flex;align-items:center;padding:0 20px;height:46px;
+  background:linear-gradient(to bottom,rgba(0,0,15,.9) 0%,transparent 100%);
+  pointer-events:all;gap:14px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.t-title{
+  font-family:'Libre Baskerville',serif;font-style:italic;
+  font-size:13px;color:rgba(220,235,255,.9);flex:1;
+  letter-spacing:.02em;
+}
+.t-chip{
+  font-size:7px;letter-spacing:.32em;text-transform:uppercase;
+  padding:4px 9px;border:1px solid rgba(255,255,255,.08);border-radius:2px;
+  color:rgba(150,180,220,.5);cursor:pointer;transition:all .3s;
+}
+.t-chip:hover,.t-chip.on{color:rgba(200,230,255,.9);border-color:rgba(150,200,255,.25)}
+#pulse-dot{
+  width:5px;height:5px;border-radius:50%;background:rgba(100,160,100,.3);
+  transition:all .5s;flex-shrink:0;
+}
+#pulse-dot.alive{background:#5de8a0;box-shadow:0 0 8px #5de8a0,0 0 20px rgba(93,232,160,.3)}
+
+/* ── body layout ── */
+#body{flex:1;display:flex;overflow:hidden;pointer-events:none}
+
+/* ── left panel ── */
+#lpanel{
+  width:188px;display:flex;flex-direction:column;
+  background:linear-gradient(to right,rgba(0,0,15,.85) 0%,rgba(0,0,15,.4) 100%);
+  border-right:1px solid rgba(255,255,255,.04);
+  pointer-events:all;
+}
+.lph{
+  font-size:7px;letter-spacing:.38em;text-transform:uppercase;
+  color:rgba(100,130,180,.4);padding:11px 14px 7px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.mode-btn{
+  display:flex;align-items:center;gap:9px;padding:9px 14px;
+  cursor:pointer;border-bottom:1px solid rgba(255,255,255,.025);
+  transition:all .25s;position:relative;overflow:hidden;
+}
+.mode-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to right,transparent,rgba(255,255,255,.02));
+  opacity:0;transition:opacity .3s;
+}
+.mode-btn:hover::before,.mode-btn.on::before{opacity:1}
+.mode-btn.on{background:rgba(255,255,255,.04)}
+.mb-orb{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;flex-shrink:0;position:relative;
+  border:1px solid rgba(255,255,255,.08);
+  transition:all .3s;
+}
+.mb-orb::after{
+  content:'';position:absolute;inset:-3px;border-radius:50%;
+  border:1px solid transparent;transition:all .3s;
+}
+.mode-btn.on .mb-orb::after{border-color:rgba(255,255,255,.15)}
+.mb-label{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:rgba(160,190,220,.6);flex:1}
+.mode-btn.on .mb-label{color:rgba(220,240,255,.9)}
+.mb-count{font-size:8px;color:rgba(80,110,150,.5)}
+
+.queue-wrap{flex:1;overflow-y:auto}
+.queue-wrap::-webkit-scrollbar{width:2px}
+.queue-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:1px}
+.qrow{
+  padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.02);
+  cursor:pointer;transition:background .2s;position:relative;
+}
+.qrow:hover{background:rgba(255,255,255,.025)}
+.qrow.scanning{background:rgba(79,195,247,.03)}
+.qname{font-size:8px;color:rgba(200,220,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.qmeta{font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:rgba(80,110,160,.5)}
+.qbar{position:absolute;bottom:0;left:0;height:1px;background:rgba(120,200,255,.5);transition:width .3s}
+.qcheck{position:absolute;top:8px;right:10px;font-size:7px;color:#5de8a0}
+
+.lp-foot{border-top:1px solid rgba(255,255,255,.04);padding:10px 14px}
+.lf-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.lf-k{font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:rgba(80,110,160,.4)}
+.lf-v{font-size:8px;color:rgba(140,170,210,.6)}
+
+/* ── center zone ── */
+#center{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  position:relative;pointer-events:all;overflow:hidden;
+}
+
+/* drop ring */
+#drop-ring{
+  width:200px;height:200px;border-radius:50%;
+  border:1px solid rgba(150,200,255,.12);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;cursor:pointer;transition:all .5s;
+}
+#drop-ring::before{
+  content:'';position:absolute;inset:-12px;border-radius:50%;
+  border:1px dashed rgba(150,200,255,.07);
+  animation:ring-rot 30s linear infinite;
+}
+#drop-ring::after{
+  content:'';position:absolute;inset:-26px;border-radius:50%;
+  border:1px dashed rgba(100,160,220,.04);
+  animation:ring-rot 50s linear infinite reverse;
+}
+@keyframes ring-rot{to{transform:rotate(360deg)}}
+
+#drop-ring.hover{
+  border-color:rgba(150,200,255,.5);
+  box-shadow:0 0 60px rgba(100,180,255,.12),inset 0 0 40px rgba(100,180,255,.06);
+}
+#drop-ring.hover::before{border-color:rgba(150,200,255,.25)}
+
+#drop-inner{
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  text-align:center;padding:20px;
+}
+#drop-glyph{
+  font-size:28px;color:rgba(150,200,255,.4);
+  transition:all .5s;line-height:1;
+}
+#drop-ring.hover #drop-glyph{color:rgba(180,220,255,.8);transform:scale(1.1)}
+
+#drop-label{
+  font-family:'Libre Baskerville',serif;font-style:italic;
+  font-size:14px;color:rgba(180,210,255,.6);line-height:1.5;
+}
+#drop-sub{
+  font-size:7px;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(90,120,170,.5);line-height:2.2;
+}
+.type-pills{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.tpill{
+  font-size:7px;letter-spacing:.2em;text-transform:uppercase;
+  padding:3px 8px;border-radius:2px;border:1px solid rgba(255,255,255,.06);
+  color:rgba(120,160,210,.5);cursor:pointer;transition:all .25s;
+}
+.tpill.on,.tpill:hover{color:rgba(200,230,255,.85);border-color:rgba(150,200,255,.25)}
+#browse-btn{
+  margin-top:4px;
+  font-family:'IBM Plex Mono',monospace;font-size:8px;
+  letter-spacing:.22em;text-transform:uppercase;
+  padding:7px 16px;
+  border:1px solid rgba(150,200,255,.2);border-radius:2px;
+  background:transparent;color:rgba(150,200,255,.65);
+  cursor:pointer;transition:all .3s;
+}
+#browse-btn:hover{background:rgba(100,180,255,.06);border-color:rgba(150,200,255,.5);color:rgba(200,230,255,.9)}
+#file-input{display:none}
+
+/* ── scan overlay ── */
+#scan-overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,12,.6);
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  backdrop-filter:blur(2px);
+}
+#scan-overlay.on{display:flex}
+
+#scan-preview{
+  width:240px;height:140px;border-radius:3px;
+  border:1px solid rgba(150,200,255,.15);
+  overflow:hidden;position:relative;
+  background:rgba(10,15,40,.6);
+  display:flex;align-items:center;justify-content:center;
+}
+#scan-preview img{max-width:100%;max-height:100%;display:none;object-fit:contain}
+#scan-prev-icon{font-size:36px;color:rgba(100,150,200,.3)}
+.scan-sweep{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(to right,transparent 0%,rgba(100,200,255,.8) 50%,transparent 100%);
+  animation:sweep 2s ease-in-out infinite;
+  filter:none;
+}
+.scan-sweep::after{
+  content:'';position:absolute;left:25%;right:25%;top:-8px;height:16px;
+  background:radial-gradient(ellipse,rgba(100,200,255,.15) 0%,transparent 70%);
+}
+@keyframes sweep{0%{top:0%;opacity:0}8%{opacity:1}92%{opacity:1}100%{top:100%;opacity:0}}
+
+#scan-info{text-align:center}
+#scan-fname{
+  font-family:'Libre Baskerville',serif;font-style:italic;
+  font-size:13px;color:rgba(220,235,255,.85);margin-bottom:4px;
+}
+#scan-type{font-size:7px;letter-spacing:.3em;text-transform:uppercase;color:rgba(100,140,200,.5);margin-bottom:8px}
+#scan-pct{
+  font-size:36px;font-weight:300;color:rgba(150,210,255,.9);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin-bottom:3px;
+}
+#scan-stage{font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:rgba(80,120,170,.6)}
+
+/* waveform bars */
+#scan-wave{display:flex;gap:2px;align-items:flex-end;height:24px;margin-top:4px}
+.sw-bar{
+  width:3px;background:rgba(100,200,255,.25);border-radius:1px;
+  animation:wbar .5s ease-in-out infinite alternate;
+}
+.sw-bar:nth-child(1){animation-delay:.0s}.sw-bar:nth-child(2){animation-delay:.07s}
+.sw-bar:nth-child(3){animation-delay:.14s}.sw-bar:nth-child(4){animation-delay:.21s}
+.sw-bar:nth-child(5){animation-delay:.28s}.sw-bar:nth-child(6){animation-delay:.12s}
+.sw-bar:nth-child(7){animation-delay:.19s}.sw-bar:nth-child(8){animation-delay:.08s}
+.sw-bar:nth-child(9){animation-delay:.24s}.sw-bar:nth-child(10){animation-delay:.03s}
+@keyframes wbar{from{height:2px}to{height:22px}}
+
+/* ── result card ── */
+#result{
+  position:absolute;inset:20px;overflow-y:auto;display:none;
+  background:rgba(4,6,24,.85);border:1px solid rgba(150,200,255,.08);
+  border-radius:4px;padding:22px 24px;
+  backdrop-filter:blur(4px);
+}
+#result.on{display:block}
+#result::-webkit-scrollbar{width:2px}
+#result::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06)}
+
+.r-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.r-title{
+  font-family:'Libre Baskerville',serif;font-style:italic;
+  font-size:17px;color:rgba(220,235,255,.9);margin-bottom:3px;
+}
+.r-sub{font-size:7px;letter-spacing:.25em;text-transform:uppercase;color:rgba(90,120,170,.6)}
+.r-back{
+  font-family:'IBM Plex Mono',monospace;font-size:7px;letter-spacing:.22em;
+  text-transform:uppercase;padding:5px 10px;
+  border:1px solid rgba(255,255,255,.07);border-radius:2px;
+  background:transparent;color:rgba(120,160,210,.5);cursor:pointer;transition:all .25s;
+}
+.r-back:hover{color:rgba(200,230,255,.85);border-color:rgba(150,200,255,.2)}
+
+.r-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}
+.r-met{
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);
+  border-radius:2px;padding:8px 10px;
+}
+.r-mk{font-size:7px;letter-spacing:.24em;text-transform:uppercase;color:rgba(80,110,160,.5);margin-bottom:4px}
+.r-mv{font-size:18px;font-weight:300;line-height:1;margin-bottom:2px}
+.r-ms{font-size:7px;color:rgba(80,110,160,.5)}
+
+.r-sec-h{font-size:7px;letter-spacing:.32em;text-transform:uppercase;
+  color:rgba(80,110,160,.4);margin-bottom:8px;padding-bottom:5px;
+  border-bottom:1px solid rgba(255,255,255,.04)}
+.r-sec{margin-bottom:14px}
+
+.r-dom{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.r-ddot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.r-dlbl{font-size:8px;flex:1;color:rgba(160,190,230,.6)}
+.r-dbar{flex:0 0 70px;height:1px;background:rgba(255,255,255,.06);border-radius:1px}
+.r-dbf{height:100%;border-radius:1px}
+.r-dv{font-size:8px;color:rgba(90,120,170,.5);width:28px;text-align:right}
+
+.r-tags{display:flex;flex-wrap:wrap;gap:4px}
+.r-tag{
+  font-size:7px;letter-spacing:.16em;text-transform:uppercase;
+  padding:3px 7px;border-radius:2px;border:1px solid transparent;
+}
+.r-insight{
+  font-size:8px;color:rgba(120,160,200,.55);line-height:1.9;
+  padding:9px 11px;background:rgba(255,255,255,.015);
+  border:1px solid rgba(255,255,255,.04);border-radius:2px;margin-top:6px;
+}
+
+/* ── right panel ── */
+#rpanel{
+  width:220px;display:flex;flex-direction:column;
+  background:linear-gradient(to left,rgba(0,0,15,.85) 0%,rgba(0,0,15,.4) 100%);
+  border-left:1px solid rgba(255,255,255,.04);
+  pointer-events:all;
+}
+.rph{
+  font-size:7px;letter-spacing:.38em;text-transform:uppercase;
+  color:rgba(100,130,180,.4);padding:11px 13px 7px;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.rph-badge{font-size:6px;padding:2px 6px;border:1px solid rgba(255,255,255,.05);border-radius:1px;color:rgba(70,100,150,.4)}
+
+.domains{padding:8px;display:flex;flex-direction:column;gap:3px}
+.dom{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 7px;border-radius:2px;
+  border:1px solid rgba(255,255,255,.02);transition:border-color .4s;
+}
+.dom.pulse{border-color:rgba(255,255,255,.07)}
+.d-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.d-lbl{font-size:7px;letter-spacing:.14em;text-transform:uppercase;flex:1;color:rgba(140,170,210,.5)}
+.d-bar-w{width:44px;height:1px;background:rgba(255,255,255,.04);border-radius:1px;flex-shrink:0}
+.d-bar-f{height:100%;border-radius:1px;transition:width .7s ease}
+.d-val{font-size:7px;color:rgba(80,110,160,.4);width:22px;text-align:right}
+
+.log-section{border-top:1px solid rgba(255,255,255,.04);padding:10px 13px;flex:1;overflow:hidden;display:flex;flex-direction:column}
+.log-h{font-size:7px;letter-spacing:.3em;text-transform:uppercase;color:rgba(80,110,160,.35);margin-bottom:7px}
+#log-lines{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.logline{
+  font-size:7px;color:rgba(90,120,170,.45);line-height:1.7;
+  border-left:1px solid rgba(255,255,255,.04);padding-left:6px;
+  transition:all .5s;
+}
+.logline.hi{color:rgba(180,220,255,.7);border-left-color:rgba(100,200,255,.3)}
+.logline.warn{color:rgba(255,150,100,.5);border-left-color:rgba(255,150,100,.25)}
+
+/* FP canvas */
+.fp-section{border-top:1px solid rgba(255,255,255,.04);padding:9px 13px}
+.fp-h{font-size:7px;letter-spacing:.28em;text-transform:uppercase;color:rgba(80,110,160,.35);margin-bottom:6px}
+#fp-canvas{display:block;width:100%;height:42px}
+
+/* EQ */
+.eq-sec{border-top:1px solid rgba(255,255,255,.04);padding:8px 13px 11px}
+.eq-row{display:flex;justify-content:space-between;margin-bottom:5px}
+.eq-lbl{font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:rgba(80,110,160,.35)}
+#eq-val{font-size:7px;color:rgba(100,140,200,.4)}
+.eq-track{height:3px;background:rgba(255,255,255,.04);border-radius:2px;position:relative}
+#eq-l{position:absolute;left:0;top:0;height:100%;background:rgba(255,107,107,.25);transition:width .6s}
+#eq-r{position:absolute;right:0;top:0;height:100%;background:rgba(79,195,247,.25);transition:width .6s}
+#eq-cur{position:absolute;top:-4px;width:2px;height:10px;background:rgba(140,240,200,.6);border-radius:1px;transform:translateX(-50%);transition:left .6s}
+
+/* ── bottom bar ── */
+#bottombar{
+  height:32px;display:flex;align-items:center;padding:0 18px;gap:16px;
+  background:linear-gradient(to top,rgba(0,0,15,.9) 0%,transparent 100%);
+  pointer-events:all;border-top:1px solid rgba(255,255,255,.04);
+}
+.bb-stat{font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:rgba(80,110,160,.4)}
+.bb-stat span{color:rgba(120,160,210,.55)}
+#bb-prog{flex:1;height:1px;background:rgba(255,255,255,.04);border-radius:1px;position:relative;overflow:hidden}
+#bb-fill{height:100%;width:0%;background:rgba(100,200,255,.5);border-radius:1px;transition:width .3s}
+#bb-shimmer{
+  position:absolute;top:0;right:0;bottom:0;width:40%;
+  background:linear-gradient(to right,transparent,rgba(200,240,255,.6),transparent);
+  transform:translateX(-200%);
+}
+#bb-shimmer.on{animation:sh .9s ease infinite}
+@keyframes sh{0%{transform:translateX(-200%)}100%{transform:translateX(400%)}}
+#bb-status{font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:rgba(80,110,160,.4)}
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+
+<div id="ui">
+  <div id="topbar">
+    <div class="t-title">Spatial · Seven Domain Scanner · Night Field</div>
+    <div id="pulse-dot"></div>
+    <div class="t-chip on" id="tc-loop">↻ LOOP</div>
+    <div class="t-chip" id="tc-flow">≋ FLOW</div>
+    <div class="t-chip" id="tc-aurora">◈ AURORA</div>
+    <div class="t-chip" id="tc-mode" style="font-size:7px">⊕ IDLE</div>
+  </div>
+
+  <div id="body">
+    <div id="lpanel">
+      <div class="lph">Input Mode</div>
+      <div class="mode-btn on" data-mode="screenshot" onclick="setMode(this,'screenshot')">
+        <div class="mb-orb" style="color:#ffd166">⬛</div>
+        <div class="mb-label">Screenshot</div>
+        <div class="mb-count" id="mc-screenshot">0</div>
+      </div>
+      <div class="mode-btn" data-mode="video" onclick="setMode(this,'video')">
+        <div class="mb-orb" style="color:#ff8a80">▶</div>
+        <div class="mb-label">Video</div>
+        <div class="mb-count" id="mc-video">0</div>
+      </div>
+      <div class="mode-btn" data-mode="audio" onclick="setMode(this,'audio')">
+        <div class="mb-orb" style="color:#5de8a0">♪</div>
+        <div class="mb-label">Audio</div>
+        <div class="mb-count" id="mc-audio">0</div>
+      </div>
+
+      <div class="lph" style="margin-top:6px">Queue</div>
+      <div class="queue-wrap" id="queue-list">
+        <div style="padding:14px;font-size:7px;color:rgba(80,110,160,.35);text-align:center;letter-spacing:.14em">
+          awaiting input
+        </div>
+      </div>
+
+      <div class="lp-foot">
+        <div class="lf-row">
+          <div class="lf-k">Scanned</div>
+          <div class="lf-v" id="lf-count">0</div>
+        </div>
+        <div class="lf-row">
+          <div class="lf-k">Session</div>
+          <div class="lf-v" id="lf-time">00:00</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="center">
+      <div id="drop-ring" id="dropzone">
+        <div id="drop-inner">
+          <div id="drop-glyph">⊕</div>
+          <div id="drop-label">drop media into<br>the field</div>
+          <div id="drop-sub">screenshot · video · audio<br>png · jpg · mp4 · mp3 · wav</div>
+          <div class="type-pills">
+            <div class="tpill on" id="tp-screenshot">screenshot</div>
+            <div class="tpill" id="tp-video">video</div>
+            <div class="tpill" id="tp-audio">audio</div>
+          </div>
+          <button id="browse-btn" onclick="document.getElementById('file-input').click()">browse files</button>
+          <input type="file" id="file-input" multiple accept="image/*,video/*,audio/*">
+        </div>
+      </div>
+
+      <div id="scan-overlay">
+        <div id="scan-preview">
+          <div class="scan-sweep"></div>
+          <div id="scan-prev-icon">⬛</div>
+          <img id="scan-img" alt="">
+        </div>
+        <div id="scan-info">
+          <div id="scan-fname">–</div>
+          <div id="scan-type">SCREENSHOT · BEHAVIORAL SCAN</div>
+          <div id="scan-pct">0%</div>
+          <div id="scan-stage">Initializing spatial kernel...</div>
+        </div>
+        <div id="scan-wave">
+          <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+          <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+          <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+          <div class="sw-bar"></div>
+        </div>
+      </div>
+
+      <div id="result">
+        <div class="r-head">
+          <div>
+            <div class="r-title" id="r-title">–</div>
+            <div class="r-sub" id="r-sub">–</div>
+          </div>
+          <button class="r-back" onclick="closeResult()">← new scan</button>
+        </div>
+        <div class="r-metrics">
+          <div class="r-met"><div class="r-mk">Resonance</div><div class="r-mv" id="r-res">–</div><div class="r-ms">behavioral coherence</div></div>
+          <div class="r-met"><div class="r-mk">Entropy</div><div class="r-mv" id="r-ent">–</div><div class="r-ms">signal variance</div></div>
+          <div class="r-met"><div class="r-mk">Trajectory</div><div class="r-mv" id="r-traj" style="font-size:12px;padding-top:4px">–</div><div class="r-ms">vector trend</div></div>
+          <div class="r-met"><div class="r-mk">Coherence</div><div class="r-mv" id="r-coh">–</div><div class="r-ms">spatial alignment</div></div>
+        </div>
+        <div class="r-sec"><div class="r-sec-h">Domain Activation</div><div id="r-doms"></div></div>
+        <div class="r-sec"><div class="r-sec-h">Signal Tags</div><div class="r-tags" id="r-tags"></div></div>
+        <div class="r-sec"><div class="r-sec-h">Spatial Insight</div><div class="r-insight" id="r-insight">–</div></div>
+      </div>
+    </div>
+
+    <div id="rpanel">
+      <div class="rph">Domain Live <span class="rph-badge" id="rph-b">WAITING</span></div>
+      <div class="domains" id="domain-bars"></div>
+      <div class="log-section">
+        <div class="log-h">Signal Log</div>
+        <div id="log-lines"></div>
+      </div>
+      <div class="fp-section">
+        <div class="fp-h">Fractal Fingerprint</div>
+        <canvas id="fp-canvas" width="194" height="42"></canvas>
+      </div>
+      <div class="eq-sec">
+        <div class="eq-row">
+          <div class="eq-lbl">Field Eq</div>
+          <div id="eq-val">50% cause</div>
+        </div>
+        <div class="eq-track">
+          <div id="eq-l" style="width:25%"></div>
+          <div id="eq-r" style="width:25%"></div>
+          <div id="eq-cur" style="left:50%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottombar">
+    <div class="bb-stat">Mode: <span id="bb-mode">SCREENSHOT</span></div>
+    <div class="bb-stat">Queue: <span id="bb-q">0</span></div>
+    <div id="bb-prog"><div id="bb-fill"></div><div id="bb-shimmer"></div></div>
+    <div id="bb-status" class="bb-stat">ready</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  NIGHT SKY RENDERER
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('sky');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ─── Stars ───────────────────────────────
+const STAR_COUNT = 700;
+const stars = [];
+
+function mkStar() {
+  const layer = Math.random(); // 0=near, 1=far
+  return {
+    x: Math.random(),
+    y: Math.random(),
+    r: layer < 0.3 ? 0.8 + Math.random() * 1.4 : 0.2 + Math.random() * 0.7,
+    base: 0.3 + Math.random() * 0.7,
+    twinkle: Math.random() * Math.PI * 2,
+    twinkleSpeed: 0.4 + Math.random() * 1.8,
+    color: pickStarColor(),
+    layer,
+    drift: (Math.random() - 0.5) * 0.00003,
+  };
+}
+
+function pickStarColor() {
+  const r = Math.random();
+  if (r < 0.15) return [180, 200, 255]; // blue-white
+  if (r < 0.25) return [255, 220, 180]; // warm yellow
+  if (r < 0.32) return [255, 180, 160]; // orange-red
+  if (r < 0.38) return [200, 240, 255]; // pale blue
+  return [255, 255, 255];               // white
+}
+
+for (let i = 0; i < STAR_COUNT; i++) stars.push(mkStar());
+
+// ─── Milky Way band ───────────────────────
+function drawMilkyWay(t) {
+  const cx = W * 0.5, cy = H * 0.42;
+  const angle = Math.sin(t * 0.00008) * 0.05;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle - 0.3);
+
+  // core glow
+  const g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, W * 0.45);
+  g1.addColorStop(0, 'rgba(160,180,255,0.025)');
+  g1.addColorStop(0.3, 'rgba(120,140,220,0.018)');
+  g1.addColorStop(0.7, 'rgba(80,100,180,0.008)');
+  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g1;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, W * 0.45, H * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // secondary band shimmer
+  const g2 = ctx.createRadialGradient(W * 0.08, 0, 0, W * 0.08, 0, W * 0.28);
+  g2.addColorStop(0, 'rgba(200,210,255,0.012)');
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g2;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.08, 0, W * 0.28, H * 0.09, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ─── Nebula clouds ────────────────────────
+const nebulae = [
+  { x: 0.22, y: 0.28, rx: 0.18, ry: 0.09, hue: 200, a: 0.018, phase: 0 },
+  { x: 0.72, y: 0.35, rx: 0.14, ry: 0.07, hue: 280, a: 0.014, phase: 1.8 },
+  { x: 0.5,  y: 0.62, rx: 0.22, ry: 0.08, hue: 230, a: 0.012, phase: 3.2 },
+  { x: 0.85, y: 0.55, rx: 0.10, ry: 0.06, hue: 170, a: 0.010, phase: 0.9 },
+  { x: 0.15, y: 0.68, rx: 0.12, ry: 0.05, hue: 310, a: 0.009, phase: 2.4 },
+];
+
+function drawNebulae(t) {
+  nebulae.forEach(n => {
+    const breath = 1 + Math.sin(t * 0.0004 + n.phase) * 0.04;
+    const alpha = n.a * (0.85 + Math.sin(t * 0.0003 + n.phase * 2) * 0.15);
+    const g = ctx.createRadialGradient(n.x * W, n.y * H, 0, n.x * W, n.y * H, n.rx * W * breath);
+    g.addColorStop(0, `hsla(${n.hue},60%,65%,${alpha * 1.8})`);
+    g.addColorStop(0.4, `hsla(${n.hue},50%,55%,${alpha})`);
+    g.addColorStop(1, `hsla(${n.hue},40%,40%,0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(n.x * W, n.y * H, n.rx * W * breath, n.ry * H * breath, Math.sin(n.phase) * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ─── Aurora ───────────────────────────────
+let auroraOn = true;
+const auroraWaves = [
+  { y: 0.25, amp: 0.06, freq: 0.0015, speed: 0.00035, phase: 0, hue: 160, alpha: 0.04 },
+  { y: 0.30, amp: 0.05, freq: 0.0018, speed: 0.00028, phase: 2.1, hue: 200, alpha: 0.03 },
+  { y: 0.22, amp: 0.07, freq: 0.0012, speed: 0.00042, phase: 4.3, hue: 140, alpha: 0.025 },
+];
+
+function drawAurora(t) {
+  if (!auroraOn) return;
+  auroraWaves.forEach(w => {
+    const pts = [];
+    for (let x = 0; x <= W; x += 8) {
+      const y = (w.y + Math.sin(x * w.freq + t * w.speed + w.phase) * w.amp +
+                 Math.sin(x * w.freq * 2.3 + t * w.speed * 1.7 + w.phase) * w.amp * 0.4) * H;
+      pts.push({ x, y });
+    }
+
+    const breath = 0.7 + Math.sin(t * 0.0005 + w.phase) * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      const cp = { x: (pts[i-1].x + pts[i].x) / 2, y: (pts[i-1].y + pts[i].y) / 2 };
+      ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, cp.x, cp.y);
+    }
+    ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath();
+
+    const g = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+    g.addColorStop(0, `hsla(${w.hue},70%,60%,0)`);
+    g.addColorStop(0.4, `hsla(${w.hue},70%,60%,${w.alpha * breath * 2})`);
+    g.addColorStop(0.7, `hsla(${w.hue + 20},60%,55%,${w.alpha * breath})`);
+    g.addColorStop(1, `hsla(${w.hue},50%,50%,0)`);
+    ctx.fillStyle = g;
+    ctx.fill();
+  });
+}
+
+// ─── Shooting stars ───────────────────────
+const shooters = [];
+let nextShooter = 2000;
+
+function spawnShooter(t) {
+  if (t < nextShooter) return;
+  nextShooter = t + 1500 + Math.random() * 5000;
+  const angle = (-0.3 - Math.random() * 0.4);
+  const speed = 0.4 + Math.random() * 0.6;
+  const len = 80 + Math.random() * 160;
+  shooters.push({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.5,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    len,
+    life: 1,
+    decay: 0.012 + Math.random() * 0.008,
+    bright: 0.7 + Math.random() * 0.3,
+  });
+}
+
+function drawShooters() {
+  for (let i = shooters.length - 1; i >= 0; i--) {
+    const s = shooters[i];
+    s.x += s.vx * 4;
+    s.y += s.vy * 4;
+    s.life -= s.decay;
+    if (s.life <= 0) { shooters.splice(i, 1); continue; }
+
+    const tx = s.x - s.vx * s.len;
+    const ty = s.y - s.vy * s.len;
+    const g = ctx.createLinearGradient(tx, ty, s.x, s.y);
+    g.addColorStop(0, 'rgba(200,230,255,0)');
+    g.addColorStop(0.7, `rgba(200,230,255,${s.life * s.bright * 0.4})`);
+    g.addColorStop(1, `rgba(255,255,255,${s.life * s.bright})`);
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(s.x, s.y);
+    ctx.strokeStyle = g;
+    ctx.lineWidth = s.life * 1.5;
+    ctx.stroke();
+
+    // head flare
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.life * 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(220,240,255,${s.life * 0.6})`;
+    ctx.fill();
+  }
+}
+
+// ─── Constellation sparkles ───────────────
+const sparkles = [];
+for (let i = 0; i < 12; i++) {
+  sparkles.push({
+    x: 0.1 + Math.random() * 0.8,
+    y: 0.05 + Math.random() * 0.55,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.3 + Math.random() * 0.7,
+    size: 1.5 + Math.random() * 2,
+  });
+}
+
+function drawSparkles(t) {
+  sparkles.forEach(s => {
+    const a = (0.5 + 0.5 * Math.sin(t * 0.001 * s.speed + s.phase));
+    if (a < 0.3) return;
+    const x = s.x * W, y = s.y * H;
+    const r = s.size * a;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(220,240,255,${a * 0.8})`;
+    ctx.fill();
+
+    // cross glint
+    if (a > 0.7) {
+      const len = r * 4;
+      ctx.strokeStyle = `rgba(220,240,255,${(a - 0.7) * 0.6})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(x - len, y); ctx.lineTo(x + len, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - len); ctx.lineTo(x, y + len); ctx.stroke();
+    }
+  });
+}
+
+// ─── Scan effect ring (when scanning) ─────
+let scanRing = { active: false, x: 0, y: 0, r: 0, life: 0 };
+
+function triggerScanRing() {
+  scanRing = { active: true, x: W / 2, y: H / 2, r: 0, life: 1 };
+}
+
+function drawScanRing(dt) {
+  if (!scanRing.active) return;
+  scanRing.r += dt * 180;
+  scanRing.life -= dt * 0.4;
+  if (scanRing.life <= 0) { scanRing.active = false; return; }
+  ctx.beginPath();
+  ctx.arc(scanRing.x, scanRing.y, scanRing.r, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(100,200,255,${scanRing.life * 0.25})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// ─── Background gradient ──────────────────
+function drawBackground(t) {
+  const gradient = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H));
+  const breathe = Math.sin(t * 0.0002) * 0.5;
+  gradient.addColorStop(0, `rgba(${8 + breathe},${10 + breathe},${28 + breathe * 2},1)`);
+  gradient.addColorStop(0.4, `rgba(4,6,18,1)`);
+  gradient.addColorStop(1, `rgba(0,0,8,1)`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
+
+  // horizon glow
+  const hg = ctx.createLinearGradient(0, H * 0.65, 0, H);
+  hg.addColorStop(0, 'rgba(0,0,0,0)');
+  hg.addColorStop(0.5, 'rgba(10,8,30,0.4)');
+  hg.addColorStop(1, 'rgba(4,4,20,0.9)');
+  ctx.fillStyle = hg;
+  ctx.fillRect(0, H * 0.65, W, H * 0.35);
+}
+
+// ─── Star rendering ───────────────────────
+function drawStars(t) {
+  stars.forEach(s => {
+    s.twinkle += s.twinkleSpeed * 0.016;
+    s.x += s.drift;
+    if (s.x > 1) s.x -= 1;
+    if (s.x < 0) s.x += 1;
+
+    const twink = s.base * (0.6 + 0.4 * Math.sin(s.twinkle));
+    const x = s.x * W, y = s.y * H;
+    const r = s.r;
+    const [cr, cg, cb] = s.color;
+
+    if (r > 0.8) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      g.addColorStop(0, `rgba(${cr},${cg},${cb},${twink})`);
+      g.addColorStop(0.4, `rgba(${cr},${cg},${cb},${twink * 0.3})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${twink})`;
+    ctx.fill();
+  });
+}
+
+// ─── Main render loop ─────────────────────
+let last = 0, dt = 0;
+function render(ts) {
+  dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+
+  drawBackground(ts);
+  drawMilkyWay(ts);
+  drawNebulae(ts);
+  drawAurora(ts);
+  drawStars(ts);
+  drawSparkles(ts);
+  spawnShooter(ts);
+  drawShooters();
+  drawScanRing(dt);
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+
+// ═══════════════════════════════════════════
+//  SPATIAL UI LOGIC
+// ═══════════════════════════════════════════
+
+const DOMS = [
+  { id:'soma', label:'Somatic',   color:'#ff8a80' },
+  { id:'sem',  label:'Semantic',  color:'#ffd166' },
+  { id:'poly', label:'Polyvagal', color:'#5de8a0' },
+  { id:'cog',  label:'Cognitive', color:'#7ec8e3' },
+  { id:'rel',  label:'Relational',color:'#ce93d8' },
+  { id:'expr', label:'Expressive',color:'#ffb347' },
+  { id:'comm', label:'Communal',  color:'#80cbc4' },
+];
+const DA = {}; DOMS.forEach(d => DA[d.id] = 0.1 + Math.random() * 0.2);
+
+const STAGES = {
+  screenshot:['Loading image buffer...','Detecting spatial regions...','Running somatic trace...','Semantic field mapping...','Polyvagal marker extraction...','Cognitive load estimate...','Relational geometry scan...','Expressive amplitude profile...','Communal resonance index...','Fractal fingerprint synthesis...','Domain vector normalization...','Signature finalized'],
+  video:['Decoding video stream...','Frame sampling 4fps...','Trajectory window open...','Somatic motion trace...','Drift engine engaged...','Signal topology mapping...','Latent model updating...','Mesh coherence pass...','Temporal arc synthesis...','Attractor landscape scan...','Fractal fingerprint emit...','Trajectory finalized'],
+  audio:['Decoding audio PCM...','Spectral envelope extract...','Prosodic feature scan...','Verbal module engaged...','Suppression score compute...','Latency profile mapping...','Field synchrony estimate...','Polyvagal tone index...','Coherence arc build...','Mirroring detector pass...','Fractal fingerprint emit...','Signature finalized'],
+};
+
+const TAGS = {
+  screenshot:['visual-field','spatial-coherence','zone-of-proximal','attention-anchor','gaze-topology','affective-overlay','semantic-density','saccade-trace'],
+  video:['temporal-arc','motion-trace','drift-vector','trajectory-shift','latent-update','attractor-lock','mesh-coherence','suppression-burst'],
+  audio:['prosodic-wave','spectral-envelope','verbal-density','pause-geometry','pitch-arc','latency-field','regulation-tone','breath-signature'],
+};
+
+const INSIGHTS = {
+  screenshot:['Strong visual coherence detected. Spatial attention anchored to upper semantic zone. Somatic trace suggests moderate arousal with contained regulation.','Low-entropy semantic field. Concept clustering tight. Relational geometry indicates clear intentional vector — likely preparatory or focused work state.','Fragmented attentional field. Multiple competing semantic zones active. Polyvagal markers suggest mild activation without threat response.'],
+  video:['Trajectory shows deepening arc — resonance building across temporal window. Drift minimal. Attractor landscape stable with single dominant basin.','Mid-sequence shift in somatic trace. Motion coherence breaks at ~38% mark suggesting interruption or transition event. Recovery arc visible.','High expressive amplitude throughout. Communal field remains coherent. Latent model updating — significant behavioral signature emerging.'],
+  audio:['Prosodic contour suggests sustained engagement with periodic self-regulatory pauses. Verbal density high. Polyvagal tone within regulated window.','Spectral envelope reveals suppression artifacts in lower frequency bands. Latency field widening at session midpoint. Breath signature irregular.','Clear regulation arc. Pause geometry indicates thoughtful pacing. Semantic coherence stable. Mirroring pattern detected — possible relational attunement.'],
+};
+
+let curMode = 'screenshot', queue = [], scanCount = 0, isScanning = false;
+let modeCounts = { screenshot:0, video:0, audio:0 };
+let sessionStart = Date.now();
+let eqPos = 0.5, eqV = 0, eqTarget = 0.5;
+let fpData = Array.from({length:48}, () => Math.random() * 0.2);
+
+// Domain bars init
+function initDomains() {
+  document.getElementById('domain-bars').innerHTML = DOMS.map(d => `
+    <div class="dom" id="dom-${d.id}">
+      <div class="d-dot" style="background:${d.color}"></div>
+      <div class="d-lbl">${d.label}</div>
+      <div class="d-bar-w"><div class="d-bar-f" id="dbf-${d.id}" style="width:${DA[d.id]*100}%;background:${d.color}"></div></div>
+      <div class="d-val" id="dv-${d.id}">${Math.round(DA[d.id]*100)}</div>
+    </div>`).join('');
+}
+initDomains();
+
+// Mode switching
+function setMode(el, mode) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  curMode = mode;
+  document.getElementById('bb-mode').textContent = mode.toUpperCase();
+  document.querySelectorAll('.tpill').forEach(p => p.classList.remove('on'));
+  document.getElementById('tp-' + mode)?.classList.add('on');
+  const icons = { screenshot:'⬛', video:'▶', audio:'♪' };
+  document.getElementById('drop-glyph').textContent = icons[mode];
+}
+document.querySelectorAll('.tpill').forEach(t => {
+  t.addEventListener('click', () => {
+    const m = t.id.replace('tp-','');
+    setMode(document.querySelector(`[data-mode="${m}"]`), m);
+  });
+});
+
+// Drag & drop
+const dz = document.getElementById('drop-ring');
+let dc = 0;
+dz.addEventListener('dragenter', e => { e.preventDefault(); dc++; dz.classList.add('hover'); });
+dz.addEventListener('dragleave', () => { dc--; if (dc <= 0) { dc=0; dz.classList.remove('hover'); } });
+dz.addEventListener('dragover', e => e.preventDefault());
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dc=0; dz.classList.remove('hover');
+  handleFiles(Array.from(e.dataTransfer.files));
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  handleFiles(Array.from(e.target.files));
+  e.target.value = '';
+});
+
+function detectType(f) {
+  if (f.type.startsWith('image/')) return 'screenshot';
+  if (f.type.startsWith('video/')) return 'video';
+  if (f.type.startsWith('audio/')) return 'audio';
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','webp','gif'].includes(ext)) return 'screenshot';
+  if (['mp4','mov','avi','webm'].includes(ext)) return 'video';
+  return 'audio';
+}
+
+function handleFiles(files) {
+  files.forEach(f => { queue.push({ file:f, type:detectType(f), id:Date.now()+Math.random(), status:'pending' }); });
+  renderQueue();
+  document.getElementById('bb-q').textContent = queue.filter(q => q.status==='pending').length;
+  if (!isScanning) processNext();
+}
+
+function renderQueue() {
+  const c = document.getElementById('queue-list');
+  if (!queue.length) {
+    c.innerHTML = '<div style="padding:14px;font-size:7px;color:rgba(80,110,160,.35);text-align:center;letter-spacing:.14em">awaiting input</div>';
+    return;
+  }
+  c.innerHTML = queue.slice(-15).reverse().map(item => `
+    <div class="qrow ${item.status}" id="qi-${item.id}">
+      <div class="qname">${item.file.name}</div>
+      <div class="qmeta">${item.type}</div>
+      ${item.status==='scanning' ? `<div class="qbar" id="qb-${item.id}" style="width:0%"></div>` : ''}
+      ${item.status==='done' ? '<div class="qcheck">✓</div>' : ''}
+    </div>`).join('');
+}
+
+async function processNext() {
+  const next = queue.find(q => q.status==='pending');
+  if (!next) { isScanning=false; setStatus('ready'); return; }
+  isScanning = true;
+  next.status = 'scanning';
+  renderQueue();
+  await scanFile(next);
+  next.status = 'done';
+  scanCount++;
+  modeCounts[next.type]++;
+  document.getElementById('lf-count').textContent = scanCount;
+  document.getElementById('mc-'+next.type).textContent = modeCounts[next.type];
+  renderQueue();
+  processNext();
+}
+
+async function scanFile(item) {
+  const { file, type } = item;
+  const stages = STAGES[type];
+
+  document.getElementById('tc-mode').textContent = '⦿ SCAN';
+  document.getElementById('pulse-dot').classList.add('alive');
+  document.getElementById('rph-b').textContent = 'ACTIVE';
+  setStatus('scanning ' + file.name.slice(0,20));
+  triggerScanRing();
+
+  // Setup overlay
+  document.getElementById('result').classList.remove('on');
+  document.getElementById('scan-overlay').classList.add('on');
+  document.getElementById('scan-fname').textContent = file.name;
+  document.getElementById('scan-type').textContent = type.toUpperCase() + ' · BEHAVIORAL SCAN';
+
+  const pi = document.getElementById('scan-prev-icon');
+  const pm = document.getElementById('scan-img');
+  pm.style.display = 'none'; pi.style.display = 'block';
+  pi.textContent = type==='video' ? '▶' : type==='audio' ? '♪' : '⬛';
+
+  if (type==='screenshot' && file.type.startsWith('image/')) {
+    const url = URL.createObjectURL(file);
+    pm.src = url; pm.style.display = 'block'; pi.style.display = 'none';
+  }
+
+  for (let i = 0; i <= 100; i++) {
+    const si = Math.min(Math.floor(i / (100 / stages.length)), stages.length-1);
+    document.getElementById('scan-pct').textContent = i + '%';
+    document.getElementById('scan-stage').textContent = stages[si];
+    document.getElementById('bb-fill').style.width = i + '%';
+    document.getElementById('bb-shimmer').classList.add('on');
+
+    const qb = document.getElementById('qb-' + item.id);
+    if (qb) qb.style.width = i + '%';
+
+    if (i % 4 === 0) {
+      DOMS.forEach(d => {
+        DA[d.id] = Math.max(0.05, Math.min(1, DA[d.id] + (Math.random()-0.42)*0.1));
+        const f = document.getElementById('dbf-'+d.id);
+        const v = document.getElementById('dv-'+d.id);
+        if(f) f.style.width = Math.round(DA[d.id]*100)+'%';
+        if(v) v.textContent = Math.round(DA[d.id]*100);
+        document.getElementById('dom-'+d.id)?.classList.toggle('pulse', Math.random()>.5);
+      });
+    }
+    if (i % 11 === 0 && i > 0) addLog(stages[si] + ' ✓', 'hi');
+
+    await sleep(25 + Math.random() * 22);
+  }
+
+  showResult(file, type);
+  document.getElementById('scan-overlay').classList.remove('on');
+  document.getElementById('bb-shimmer').classList.remove('on');
+  document.getElementById('bb-fill').style.width = '0%';
+  document.getElementById('tc-mode').textContent = '✓ DONE';
+  document.getElementById('pulse-dot').classList.remove('alive');
+  document.getElementById('rph-b').textContent = 'INDEXED';
+  addLog('Signature recorded ✓', 'hi');
+  await sleep(300);
+}
+
+function showResult(file, type) {
+  const res = (0.5 + Math.random() * 0.45).toFixed(2);
+  const ent = (0.1 + Math.random() * 0.6).toFixed(2);
+  const trajs = ['deepening','stabilizing','expanding','diverging'];
+  const traj = trajs[Math.floor(Math.random()*4)];
+  const coh = (0.4 + Math.random() * 0.55).toFixed(2);
+
+  document.getElementById('r-title').textContent = file.name;
+  document.getElementById('r-sub').textContent = type.toUpperCase() + ' · ' + fmtSize(file.size);
+  document.getElementById('r-res').textContent = res;
+  document.getElementById('r-ent').textContent = ent;
+  document.getElementById('r-traj').textContent = traj;
+  document.getElementById('r-coh').textContent = coh;
+
+  document.getElementById('r-res').style.color = +res > 0.7 ? '#5de8a0' : +res > 0.4 ? '#ffd166' : '#ff8a80';
+  document.getElementById('r-ent').style.color = +ent < 0.3 ? '#5de8a0' : +ent < 0.6 ? '#ffd166' : '#ff8a80';
+
+  document.getElementById('r-doms').innerHTML = DOMS.map(d => `
+    <div class="r-dom">
+      <div class="r-ddot" style="background:${d.color}"></div>
+      <div class="r-dlbl">${d.label}</div>
+      <div class="r-dbar"><div class="r-dbf" style="width:${Math.round(DA[d.id]*100)}%;background:${d.color}"></div></div>
+      <div class="r-dv">${Math.round(DA[d.id]*100)}</div>
+    </div>`).join('');
+
+  const picks = [...(TAGS[type]||TAGS.screenshot)].sort(()=>Math.random()-.5).slice(0,5);
+  document.getElementById('r-tags').innerHTML = picks.map((t,i) => {
+    const c = DOMS[i%DOMS.length].color;
+    return `<div class="r-tag" style="border-color:${c}33;color:${c};background:${c}11">${t}</div>`;
+  }).join('');
+
+  const ins = INSIGHTS[type]||INSIGHTS.screenshot;
+  document.getElementById('r-insight').textContent = ins[Math.floor(Math.random()*ins.length)];
+  document.getElementById('result').classList.add('on');
+}
+
+function closeResult() {
+  document.getElementById('result').classList.remove('on');
+  document.getElementById('tc-mode').textContent = '⊕ IDLE';
+  setStatus('ready');
+}
+
+// helpers
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+function setStatus(msg) { document.getElementById('bb-status').textContent = msg; }
+
+function addLog(msg, cls='') {
+  const c = document.getElementById('log-lines');
+  const el = document.createElement('div');
+  el.className = 'logline' + (cls ? ' '+cls : '');
+  el.textContent = msg;
+  c.prepend(el);
+  if (cls==='hi') setTimeout(() => el.classList.remove('hi'), 2500);
+  while (c.children.length > 12) c.removeChild(c.lastChild);
+}
+
+// EQ tick
+function tickEQ() {
+  if (Math.random() < 0.004) eqTarget = 0.28 + Math.random() * 0.44;
+  eqV = (eqV + (eqTarget - eqPos) * 3 * 0.016) * 0.88;
+  eqPos = Math.max(0.05, Math.min(0.95, eqPos + eqV));
+  const pct = Math.round(eqPos*100);
+  document.getElementById('eq-cur').style.left = pct + '%';
+  document.getElementById('eq-l').style.width = Math.round(eqPos*52) + '%';
+  document.getElementById('eq-r').style.width = Math.round((1-eqPos)*52) + '%';
+  document.getElementById('eq-val').textContent = pct + '% cause';
+}
+
+// Fingerprint canvas
+function drawFP() {
+  const cv = document.getElementById('fp-canvas');
+  const x = cv.getContext('2d');
+  const cW = cv.width, cH = cv.height;
+  x.clearRect(0, 0, cW, cH);
+  fpData.shift();
+  fpData.push(isScanning ? 0.25 + Math.random()*0.7 : 0.05 + Math.random()*0.18);
+  const step = cW / fpData.length;
+  x.beginPath();
+  fpData.forEach((v, i) => {
+    const px = i * step, py = cH - v * cH * 0.88;
+    i === 0 ? x.moveTo(px, py) : x.lineTo(px, py);
+  });
+  x.strokeStyle = isScanning ? 'rgba(100,200,255,.5)' : 'rgba(80,110,160,.25)';
+  x.lineWidth = 1; x.stroke();
+  x.lineTo(cW, cH); x.lineTo(0, cH); x.closePath();
+  x.fillStyle = isScanning ? 'rgba(100,200,255,.04)' : 'rgba(60,90,140,.02)';
+  x.fill();
+}
+
+// Idle domain drift
+function idleDrift() {
+  if (isScanning) return;
+  DOMS.forEach(d => {
+    DA[d.id] = Math.max(0.07, Math.min(0.38, DA[d.id] + (Math.random()-.5)*.012));
+    const f = document.getElementById('dbf-'+d.id);
+    const v = document.getElementById('dv-'+d.id);
+    if(f) f.style.width = Math.round(DA[d.id]*100)+'%';
+    if(v) v.textContent = Math.round(DA[d.id]*100);
+  });
+}
+
+// Session timer
+function tickTimer() {
+  const s = Math.floor((Date.now()-sessionStart)/1000);
+  const m = Math.floor(s/60), ss = s%60;
+  document.getElementById('lf-time').textContent = String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+}
+
+// UI loop
+let uiLast = 0;
+function uiLoop(t) {
+  if (t - uiLast > 90) { uiLast = t; tickEQ(); drawFP(); idleDrift(); tickTimer(); }
+  requestAnimationFrame(uiLoop);
+}
+requestAnimationFrame(uiLoop);
+
+// Topbar chips
+document.getElementById('tc-loop').addEventListener('click', function(){this.classList.toggle('on')});
+document.getElementById('tc-flow').addEventListener('click', function(){this.classList.toggle('on')});
+document.getElementById('tc-aurora').addEventListener('click', function(){
+  auroraOn = !auroraOn; this.classList.toggle('on',auroraOn);
+});
+
+// Init
+addLog('Spatial kernel v2.0 ready');
+addLog('Night field engine online');
+addLog('Drop media to begin behavioral scan');
+document.getElementById('tc-aurora').classList.add('on');
+</script>
+</body>
+</html>

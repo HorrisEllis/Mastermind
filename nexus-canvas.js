@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-// MASTERMIND CANVAS — v3.0.5
+// MASTERMIND CANVAS — version tracked in package.json (§5.4)
 // Pure canvas module: state, rendering, nodes, connections, undo,
 // pan/zoom, minimap, layers, side panel, search, save/load.
 //
@@ -30,13 +30,104 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════════════
+// GLOBAL ERROR CAPTURE — installed here specifically because this file
+// loads immediately after mastermind-foundation.js (which defines
+// MMLog), before everything else — so this is watching from as early
+// as possible.
+//
+// Real gap this closes: MMLog only ever recorded what code explicitly
+// logged via MMLog.error(...). A real uncaught exception — e.g.
+// something throwing inside a mouse drag handler that nobody wrapped
+// in a try/catch — was completely invisible in the Application Log
+// panel, only visible in DevTools, which meant "please open DevTools
+// and screenshot the console" was the only way to actually diagnose
+// anything. Now every real uncaught error and unhandled promise
+// rejection gets pushed into the same log you already know how to open
+// (Options → Foundation → Application Log), tagged module 'uncaught'
+// so it's easy to filter to.
+window.addEventListener('error', (e) => {
+  const msg = e.message || 'Unknown error';
+  const loc = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno}:${e.colno})` : '';
+  if (typeof MMLog !== 'undefined') {
+    MMLog.error('uncaught', msg + loc, { stack: e.error?.stack });
+  }
+  console.error('[UNCAUGHT]', msg + loc, e.error?.stack);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const msg = e.reason?.message || String(e.reason);
+  if (typeof MMLog !== 'undefined') {
+    MMLog.error('uncaught', 'Unhandled rejection: ' + msg, { stack: e.reason?.stack });
+  }
+  console.error('[UNHANDLED REJECTION]', msg, e.reason?.stack);
+});
+
+// ── Hit-test diagnostic — logs the REAL topmost element at every click ──
+// Built specifically to answer "there's an invisible layer blocking the
+// canvas" without needing manual DevTools work. Registered on the
+// CAPTURE phase (the `true` third argument) so it fires before any
+// other listener, including one that calls stopPropagation() — nothing
+// can prevent this from seeing what document.elementFromPoint() finds
+// at the real click coordinates. If something invisible is covering the
+// canvas, this names it, in the Application Log, with zero DevTools
+// needed — click once anywhere the canvas seems unresponsive, then
+// Options → Foundation → Copy Full Log.
+document.addEventListener('mousedown', (e) => {
+  if (typeof MMLog === 'undefined' || typeof document.elementFromPoint !== 'function') return;
+  const cw = document.getElementById('canvas-wrap');
+  if (!cw || !cw.classList.contains('visible')) return;
+  const rect = cw.getBoundingClientRect();
+  const inCanvasRegion = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+  if (!inCanvasRegion) return; // click wasn't even over the canvas's screen area — nothing to check
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (!el) return;
+  const desc = el.id ? `#${el.id}` : el.className && typeof el.className === 'string'
+    ? `.${el.className.split(' ')[0]}` : el.tagName.toLowerCase();
+  const hitCanvas = el === cw || cw.contains(el);
+  if (hitCanvas) return; // normal, correct hit — nothing worth logging
+  MMLog.info('hit-test', `Click at (${e.clientX},${e.clientY}) is inside canvas-wrap's screen region, but the real topmost element there is ${desc}, NOT canvas-wrap or a node — this is what is blocking interaction`,
+    { tag: el.tagName, id: el.id, className: typeof el.className === 'string' ? el.className : '', hitCanvas: false });
+}, true);
+
+
+// Was two separate hardcoded strings ("v3.1" in the titlebar, "v3.0" in
+// the corner badge — themselves out of sync with each other, and both
+// out of sync with package.json after a session's worth of real changes
+// that never touched either string). Single source of truth now:
+// Electron's real app.getVersion(), which reads package.json directly.
+// Browser fallback (no NXAPI) reads the same field a different way.
+(function () {
+  function applyVersion(v) {
+    const text = 'v' + v + ' ∞';
+    const tb = document.getElementById('tb-version-display');
+    const badge = document.getElementById('mm-vb-ver-display');
+    if (tb) tb.textContent = text;
+    if (badge) badge.textContent = text;
+  }
+  if (window.NXAPI?.getVersion) {
+    window.NXAPI.getVersion().then(applyVersion).catch(() => {});
+  } else {
+    // Browser-mode fallback — no Electron app.getVersion() available,
+    // so this can't reach package.json directly from the renderer either.
+    // Leave the HTML's static fallback text in place rather than guess.
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════
 // NEXUS ENGINE — GRACEFUL DEPENDENCY STUBS
 // If siso.js / jaa.js fail to load (standalone browser, missing Electron
 // deps, wrong path), these no-op stubs prevent ReferenceErrors so the
 // full canvas + auth system still works via localStorage.
 // ═══════════════════════════════════════════════════════════════════
 (function() {
-  if (typeof JAA === 'undefined') {
+  // The guard checks the LEDGER, not JAA itself. mastermind-siso-jaa.js runs
+  // first and does `window.JAA = window.JAA || {}`, so a bare `typeof JAA ===
+  // 'undefined'` test was always false and this real implementation never
+  // installed. JAA.ledger stayed a plain object, which is why the Storage
+  // panel printed "undefined entries" (no .size) and why vaultSerialize's
+  // Object.fromEntries(JAA.ledger) threw on a non-iterable — killing every
+  // save silently, because vaultSerialize was called outside vaultSave's try.
+  if (typeof JAA === 'undefined' || !(JAA.ledger instanceof Map)) {
+    const _priorLedger = (typeof JAA !== 'undefined' && JAA.ledger) || null;
     window.JAA = {
       ledger: new Map(),
       _log: { entries: [], count: 0 },
@@ -51,18 +142,32 @@
       },
       getDeltas(id) { return this.ledger.get(id)?.deltas || []; },
       getLog() { return this._log; },
-      setDataDir(dir) { try { localStorage.setItem('nexus_datadir', dir); } catch(e) {} },
-      async saveCanvas(data) {
-        try { localStorage.setItem('nexus_mm_v3', JSON.stringify(data)); } catch(e) {}
+      setDataDir(dir) {
+        // The vault's location is the one thing that cannot live inside the
+        // vault — you cannot read a file to find out where the file is. It
+        // belongs in Electron's own config, not localStorage.
+        if (window.NXAPI && typeof window.NXAPI.setDataDir === 'function') window.NXAPI.setDataDir(dir);
+      },
+      async saveCanvas() {
+        // No side store. The encrypted vault file is the only destination.
+        if (typeof vaultSave === 'function') return vaultSave(false);
       },
       async loadCanvas() {
-        try {
-          const raw = localStorage.getItem('nexus_mm_v3');
-          return raw ? JSON.parse(raw) : null;
-        } catch(e) { return null; }
+        if (typeof vaultLoad === 'function') return vaultLoad();
+        return null;
       },
     };
-    console.warn('[MASTERMIND] JAA compat active — using localStorage stub');
+    // Carry across anything a previous JAA object had already registered so
+    // switching implementations mid-boot does not drop entries on the floor.
+    if (_priorLedger) {
+      try {
+        const src = (typeof _priorLedger.entries === 'function')
+          ? _priorLedger.entries()
+          : Object.entries(_priorLedger);
+        for (const [id, entry] of src) window.JAA.ledger.set(id, entry);
+      } catch (e) { /* prior ledger was not enumerable — nothing to carry */ }
+    }
+    console.warn('[MASTERMIND] JAA ledger installed (Map-backed, vault-only persistence)');
   }
   if (typeof SISO === 'undefined') {
     window.SISO = { emit() {}, on() {}, off() {}, once() {} };
@@ -75,7 +180,7 @@
 let _wizE2EEnabled = true;
 
 // ═══════════════════════════════════════════════════════════════════
-// MASTERMIND ENGINE v3.0.5 — MASTERMIND · SISO + JAA · Complete Cognitive OS
+// MASTERMIND ENGINE — MASTERMIND · SISO + JAA · Complete Cognitive OS
 // SISO · JAA · Undo/Redo · Copy/Paste · Touch/Pinch · Fractal
 // Dot-collapse · UUID Ledger · Meta-Deltas · All spec features
 // ═══════════════════════════════════════════════════════════════════
@@ -503,6 +608,36 @@ function renderLoop() {
   document.addEventListener(ev, _markInteraction, { passive: true })
 );
 
+/* ── De-collision ─────────────────────────────────────────────────
+   Finds the nearest free spot to (x, y) given the nodes already on the
+   canvas, so a new node never renders exactly on top of an existing
+   one. Cards are treated as circles of radius ~0.62 * width, which is
+   generous enough that titles/tag pills clear each other without
+   forcing every node into an unnaturally wide grid. */
+function _clearSpawnSpot(x, y, w) {
+  const minDist = (w || 220) * 0.62;
+  const collides = (px, py) => NX.nodes.some(n => {
+    const dx = n.x - px, dy = n.y - py;
+    return Math.sqrt(dx * dx + dy * dy) < minDist;
+  });
+  if (!NX.nodes.length || !collides(x, y)) return { x, y };
+
+  // Expanding ring search, offset per ring so rings don't lock into the
+  // same angles and repeatedly re-collide with the previous ring.
+  for (let ring = 1; ring <= 14; ring++) {
+    const r = ring * minDist * 0.55;
+    const steps = 6 + ring * 2;
+    for (let i = 0; i < steps; i++) {
+      const ang = (i / steps) * Math.PI * 2 + ring * 0.7;
+      const px = x + Math.cos(ang) * r, py = y + Math.sin(ang) * r;
+      if (!collides(px, py)) return { x: px, y: py };
+    }
+  }
+  // Pathological case (thousands of nodes packed tight) — a random
+  // nudge is still strictly better than a guaranteed exact stack.
+  return { x: x + (Math.random() - 0.5) * minDist, y: y + (Math.random() - 0.5) * minDist };
+}
+
 /* ── Spawn Node ───────────────────────────────────────────────── */
 function spawnNode(type, wx, wy, opts = {}) {
   // Pulse background belief network at spawn location
@@ -519,6 +654,25 @@ function spawnNode(type, wx, wy, opts = {}) {
     const vw = window.innerWidth / zoom, vh = (window.innerHeight - 38) / zoom;
     wx = (-panX / zoom) + vw / 2 + (Math.random() - .5) * vw * .35;
     wy = (-panY / zoom) + vh / 2 + (Math.random() - .5) * vh * .35;
+  }
+
+  // De-collision. Every module ends up calling spawnNode with literal,
+  // repeated coordinates somewhere (a default fallback like `o.x || 200`,
+  // a fixed hub position for a synthesis node, a chain step that reuses
+  // the same x each run...). None of that is wrong on its own, but the
+  // second and third node landing on the exact same spot as the first is
+  // where the "stacked, unreadable" overlap actually comes from — and it
+  // was happening identically in every module because every module goes
+  // through this one function. Fixed here once instead of patched at each
+  // of the 100+ call sites: if the requested spot already has a node
+  // close enough to obscure it, walk an outward spiral until clear.
+  //
+  // Skipped when opts.created is already set — that means this is a
+  // saved layout being restored (vault load, undo, duplicate-from-state),
+  // not a fresh spawn, and a restore should reproduce exactly what was
+  // saved rather than re-flowing it.
+  if (opts.created == null) {
+    ({ x: wx, y: wy } = _clearSpawnSpot(wx, wy, opts.w || 220));
   }
 
   const prevState = {}; // for delta
@@ -563,6 +717,12 @@ function spawnNode(type, wx, wy, opts = {}) {
       MMRipple.depend(id, node.parentId);
     }
     MMLog?.info('canvas', `Node spawned: [${type}] ${node.title}`, { id: id.slice(0,8) });
+    // Every canvas node enters the shared lattice automatically — tagged,
+    // related to whatever came before it, linked to anything similar.
+    if (typeof latticeIngest === 'function') {
+      try { latticeIngest('canvas.node', id, [node.title, node.body].filter(Boolean).join(' — '), { tags: node.tags || [] }); }
+      catch (e) { MMLog?.error('lattice', 'canvas ingest: ' + e.message); }
+    }
   }
   // Legacy JAA shim
   if (typeof JAA !== 'undefined' && typeof MMRegistry === 'undefined') {
@@ -629,6 +789,7 @@ function makeNodeEl(node) {
     </div>
     <div class="node-actions">
       <div class="na-btn" onclick="_beginLink('${node.id}')" title="Link">⌁</div>
+      <div class="na-btn" onclick="connectByTags('${node.id}')" title="Connect to nodes sharing a tag">⊛</div>
       <div class="na-btn" onclick="_fractalNode('${node.id}')" title="Fractal">∞</div>
       <div class="na-btn" onclick="_dupNode('${node.id}')" title="Dup">⊞</div>
       <div class="na-btn del" onclick="_delNode('${node.id}')" title="Del">✕</div>
@@ -673,7 +834,10 @@ function makeNodeEl(node) {
     _nmDown(e, node.id);
   });
   el.addEventListener('contextmenu', e => {
-    e.preventDefault(); selectNode(node.id, !e.shiftKey); showCtx(e.clientX, e.clientY, node.id);
+    e.preventDefault();
+    e.stopPropagation(); // prevent canvas-wrap contextmenu from firing
+    selectNode(node.id, !e.shiftKey);
+    showCtx(e.clientX, e.clientY, node.id);
   });
   el.addEventListener('click', e => {
     if (NX.tool === 'link' && NX.linkSrc && NX.linkSrc !== node.id) { completeLink(node.id); return; }
@@ -769,6 +933,53 @@ function _dupNode(id) {
 }
 
 /* ── Fractal expand ───────────────────────────────────────────── */
+// Which tags on the whole canvas are genuinely distinctive vs structural/
+// generic. A tag present on most nodes (e.g. a domain-seed marker like
+// "cognitive-seed" that gets stamped on nearly everything in a mode)
+// says nothing about which SPECIFIC nodes are related — connecting every
+// pair that shares it would just produce a hairball, not a meaningful
+// map. Only tags below the commonality threshold count as real
+// associative signal. Threshold only applies once there's enough nodes
+// for "common" to mean anything; small canvases just use every tag.
+function _distinctiveTags() {
+  const total = NX.nodes.length;
+  const counts = {};
+  NX.nodes.forEach(n => (n.tags || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+  if (total < 6) return new Set(Object.keys(counts)); // too few nodes for a commonality threshold to mean anything
+  const threshold = total * 0.5;
+  return new Set(Object.keys(counts).filter(t => counts[t] < threshold));
+}
+
+// Connects one node to every other node it shares a distinctive tag
+// with. Reuses the exact same addConn() manual linking already uses —
+// this is additive to linking, not a parallel connection system, so
+// tag-created connections behave identically to hand-drawn ones
+// (deletable, re-labelable, exported, undo-able) everywhere else in the app.
+function connectByTags(id) {
+  const src = NX.nodes.find(x => x.id === id); if (!src) return;
+  const srcTags = (src.tags || []);
+  if (!srcTags.length) { toast('This node has no tags to connect by'); return; }
+  const distinctive = _distinctiveTags();
+  const usableTags = srcTags.filter(t => distinctive.has(t));
+  if (!usableTags.length) { toast('This node\u2019s tags are all too common across the canvas to be a meaningful signal'); return; }
+
+  let made = 0;
+  const madeIds = [];
+  NX.nodes.forEach(other => {
+    if (other.id === id) return;
+    const shared = (other.tags || []).filter(t => usableTags.includes(t));
+    if (!shared.length) return;
+    if (NX.conns.find(c => (c.from === id && c.to === other.id) || (c.from === other.id && c.to === id))) return; // already connected, don't duplicate
+    addConn(id, other.id, shared.join(', '));
+    made++; madeIds.push(other.id);
+  });
+
+  if (made === 0) { toast('No other nodes share a distinctive tag with this one'); return; }
+  pushUndo('tag-connect', { srcId: id, connectedTo: madeIds });
+  toast(`\u2295 Connected to ${made} node${made > 1 ? 's' : ''} by shared tag${usableTags.length > 1 ? 's' : ''}: ${usableTags.join(', ')}`);
+  autosaveJAA();
+}
+
 function _fractalNode(id) {
   const n = NX.nodes.find(x => x.id === id); if (!n) return;
   const childTypes = getChildTypes(n.type);
@@ -849,17 +1060,20 @@ function addConn(fromId, toId, label = '') {
 }
 
 function beginLink(id) { setTool('link'); NX.linkSrc = id; document.getElementById('n_' + id)?.classList.add('link-source'); document.getElementById('link-hint').classList.add('show'); toast('Link mode — click target'); }
-function completeLink(toId) {
+async function completeLink(toId) {
   if (!NX.linkSrc || NX.linkSrc === toId) { cancelLink(); return; }
-  const label = (prompt('Connection label (optional):', '') || '').trim();
-  addConn(NX.linkSrc, toId, label);
-  document.getElementById('n_' + NX.linkSrc)?.classList.remove('link-source');
+  const srcId = NX.linkSrc; // capture before the await — NX.linkSrc gets cleared below, and the await means other code could run in between
+  const label = ((await mmPrompt('Connection label (optional):', '')) || '').trim();
+  addConn(srcId, toId, label);
+  document.getElementById('n_' + srcId)?.classList.remove('link-source');
   NX.linkSrc = null; setTool('select'); document.getElementById('link-hint').classList.remove('show');
   T.linkCreated();
 }
 function cancelLink() {
   if (NX.linkSrc) document.getElementById('n_' + NX.linkSrc)?.classList.remove('link-source');
-  NX.linkSrc = null; setTool('select'); document.getElementById('link-hint').classList.remove('show');
+  NX.linkSrc = null;
+  if (NX.tool !== 'select') setTool('select'); // guard against setTool<->cancelLink infinite mutual recursion
+  document.getElementById('link-hint').classList.remove('show');
 }
 function _beginLink(id) { beginLink(id); }
 function _copyUUID(id) { navigator.clipboard?.writeText(id).catch(() => {}).then(() => { if (typeof T !== 'undefined') T.copied('UUID ' + shortId(id)); else toast('UUID: ' + shortId(id) + '…'); }); }
@@ -882,10 +1096,10 @@ let _spaceDown = false, _spaceIsPan = false, _spcPX = 0, _spcPY = 0;
 function _nmDown(e, id) {
   if (e.button !== 0) return;
   // Only block if user is actively editing the body text (has focus and caret)
-  // Allow dragging from node-head/title even if contenteditable
   const isBodyActive = e.target.classList.contains('node-body') && document.activeElement === e.target;
   if (isBodyActive) return;
   e.stopPropagation();
+  e.preventDefault(); // CRITICAL: prevent Electron window drag from intercepting
   const n = NX.nodes.find(x => x.id === id); if (!n) return;
   if (NX.tool === 'link' && NX.linkSrc && NX.linkSrc !== id) { completeLink(id); return; }
   if (!NX.selected.has(id)) selectNode(id, !e.shiftKey);
@@ -893,7 +1107,6 @@ function _nmDown(e, id) {
   _dragOX = e.clientX - (n.x * NX.zoom + NX.panX);
   _dragOY = e.clientY - (n.y * NX.zoom + NX.panY);
   _dragStartX = n.x; _dragStartY = n.y;
-  e.preventDefault();
 }
 
 // Canvas mousedown
@@ -1250,7 +1463,7 @@ function setTool(t) {
   document.getElementById('tool-' + t)?.classList.add('act');
   showModeIndicator(t.toUpperCase() + ' MODE');
   _cwrap.style.cursor = t === 'link' ? 'crosshair' : t === 'zone' ? 'cell' : 'default';
-  if (t !== 'link') cancelLink();
+  if (t !== 'link' && NX.linkSrc) cancelLink(); // guard: only cancel if a link is actually in progress
 }
 function showModeIndicator(text) {
   const el = document.getElementById('mode-indicator');
@@ -1279,7 +1492,19 @@ document.addEventListener('keydown', e => {
   if (k === 'm' && !e.ctrlKey && !e.metaKey) { if (typeof openBrainModeSelector === 'function') openBrainModeSelector('canvas'); }
   if (k === 'tab') { e.preventDefault(); cycleSpawnType(); }
   if (k === '/' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); openSearch(); }
+  if (k === '?') { toggleHelpHint(); }
 });
+
+function toggleHelpHint() {
+  const el = document.getElementById('help-hint');
+  if (!el) return;
+  // Only meaningful while the canvas UI is actually up — matches the same
+  // set of elements enterCanvas()/goHome() show and hide together.
+  if (!document.getElementById('canvas-wrap')?.classList.contains('visible')) return;
+  const showing = el.classList.toggle('visible');
+  try { localStorage.setItem('mm_help_hint_hidden', showing ? 'false' : 'true'); } catch(e) {}
+  if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.help_hint.toggled', { visible: showing });
+}
 
 function cycleSpawnType() {
   const types = Object.keys(NT), cur = types.indexOf(NX._lastSpawnType || 'concept');
@@ -1307,11 +1532,12 @@ function closeSidePanel() { document.getElementById('side-panel').classList.remo
 
 function spTab(t) {
   document.querySelectorAll('.sp-tab').forEach(el => el.classList.toggle('act', el.dataset.st === t));
-  ['detail', 'conns', 'deltas', 'stats'].forEach(s => {
+  ['detail', 'conns', 'deltas', 'stats', 'leverage'].forEach(s => {
     const el = document.getElementById('spt-' + s); if (el) el.style.display = s === t ? '' : 'none';
   });
   if (t === 'stats') updateCanvasStats();
   if (t === 'deltas') renderDeltaLog();
+  if (t === 'leverage' && typeof lvgOnTabOpen === 'function') lvgOnTabOpen();
 }
 
 function updateSidePanel(id) {
@@ -1469,31 +1695,47 @@ document.addEventListener('click', e => { if (!e.target.closest('#ctx')) documen
 
 /* ── Options ──────────────────────────────────────────────────── */
 function openOptions() {
-  document.getElementById('opts-overlay').classList.add('open');
-  renderThemeGrid(); updateOptsDataLabel();
-  loadOpts();
-  syncOptsToggles();
-  optsRefreshSecurity();
-  // Pre-refresh vault status in background
-  setTimeout(() => { if (typeof optsRefreshVault === 'function') optsRefreshVault(); }, 150);
-  // Default to appearance tab
-  document.querySelectorAll('.opts-nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelectorAll('.opts-tab').forEach(t => t.classList.remove('active'));
-  const firstNav = document.querySelector('.opts-nav-item');
-  const firstTab = document.getElementById('otab-appearance');
-  if (firstNav) firstNav.classList.add('active');
-  if (firstTab) firstTab.classList.add('active');
-  // Sync AI settings
-  const aiEnabled = document.getElementById('opt-ai-enabled');
-  const aiProvider = document.getElementById('opt-ai-provider');
-  const aiModel   = document.getElementById('opt-ai-model');
-  const aiKey     = document.getElementById('opt-ai-key');
-  if (aiEnabled) aiEnabled.classList.toggle('on', AI.enabled);
-  if (aiProvider) aiProvider.value = AI.provider;
-  if (aiModel)   aiModel.value   = AI.model;
-  if (aiKey)     aiKey.value     = AI.apiKey;
-  // Vault status refresh
-  optsRefreshVault();
+  // Force to the very front regardless of what else is open. This is
+  // deliberately belt-and-braces rather than a single fix for one
+  // specific module: re-append moves the element to be the LAST child
+  // of <body>, which settles any pathological stacking-context edge
+  // case a module's own CSS (backdrop-filter, transform, etc. all
+  // create new stacking contexts) could otherwise cause — and the
+  // z-index bump means even a future overlay added above 6000 elsewhere
+  // in the app can't trap this one behind it by accident.
+  const overlay = document.getElementById('opts-overlay');
+  if (!overlay) return;
+  document.body.appendChild(overlay);
+  overlay.style.zIndex = '100000';
+  overlay.classList.add('open');
+
+  // Everything below personalizes the panel's contents. None of it
+  // should be able to prevent the panel itself from being visible and
+  // closeable — a throw here used to mean openOptions() silently did
+  // nothing past this point, which looked exactly like "the button
+  // doesn't work."
+  try {
+    renderThemeGrid(); updateOptsDataLabel();
+    loadOpts();
+    syncOptsToggles();
+    optsRefreshSecurity();
+    setTimeout(() => { if (typeof optsRefreshVault === 'function') optsRefreshVault(); }, 150);
+    document.querySelectorAll('.opts-nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.opts-tab').forEach(t => t.classList.remove('active'));
+    const firstNav = document.querySelector('.opts-nav-item');
+    const firstTab = document.getElementById('otab-appearance');
+    if (firstNav) firstNav.classList.add('active');
+    if (firstTab) firstTab.classList.add('active');
+    const aiEnabled = document.getElementById('opt-ai-enabled');
+    const aiProvider = document.getElementById('opt-ai-provider');
+    const aiModel   = document.getElementById('opt-ai-model');
+    if (aiEnabled) aiEnabled.classList.toggle('on', AI.enabled);
+    if (aiProvider) aiProvider.value = AI.provider;
+    if (aiModel)   aiModel.value   = AI.model;
+    optsRefreshVault();
+  } catch (e) {
+    MMLog?.error('ui', 'openOptions: panel content failed to populate — panel is still open. ' + e.message);
+  }
 }
 function closeOptions() { document.getElementById('opts-overlay').classList.remove('open'); }
 
@@ -1659,7 +1901,7 @@ function _clearHard() {
   NX.nodes = []; NX.conns = []; NX.zones = []; NX.selected.clear();
   NX.undoStack = []; NX.redoStack = []; updateUndoBtns();
 }
-function clearConfirm() { if (confirm('Clear canvas? Cannot be undone.')) { _clearHard(); T.canvasCleared(); } }
+async function clearConfirm() { if (await mmConfirm('Clear canvas? Cannot be undone.')) { _clearHard(); T.canvasCleared(); } }
 
 /* ── Homepage & navigation ────────────────────────────────────── */
 function buildHomepage() {
@@ -1669,92 +1911,14 @@ function buildHomepage() {
 
 let _hpBgRaf = null;
 function _initHomepageBg() {
+  // Intentionally a no-op: the homepage used to render a 55-node glowing
+  // constellation here, layered on top of the ambient background mesh.
+  // That doubled-up particle effect is what made the primary menu look
+  // busy/messy compared to the clean, plain-black Brain Map mode selector.
+  // Keeping the canvas element (and this hook) in place but not drawing
+  // anything gives the same clean black backdrop as that screen.
   const cvs = document.getElementById('hp-cvs');
-  if (!cvs) return;
-  if (cvs._hpWired) return;
-  cvs._hpWired = true;
-
-  const resize = () => { cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight; };
-  resize();
-  window.addEventListener('resize', resize);
-
-  const ctx = cvs.getContext('2d');
-
-  // Constellation nodes — domain colors, slowly drifting
-  const COLORS = ['#00c8ff','#cc44ff','#ff3355','#ff8c22','#00ff88','#d4a820','#ff66aa','#7744ff','#11ddcc'];
-  const nodes = Array.from({ length: 55 }, () => ({
-    x: Math.random(), y: Math.random(),
-    vx: (Math.random() - .5) * .00015,
-    vy: (Math.random() - .5) * .00015,
-    r: Math.random() * 1.8 + .5,
-    col: COLORS[Math.floor(Math.random() * COLORS.length)],
-    phase: Math.random() * Math.PI * 2,
-    speed: Math.random() * .8 + .4,
-  }));
-
-  // Connection threshold
-  const LINK_DIST = 0.22;
-
-  function frame(t) {
-    if (!document.getElementById('homepage') || document.getElementById('homepage').classList.contains('hidden')) {
-      _hpBgRaf = requestAnimationFrame(frame);
-      return;
-    }
-    const W = cvs.width, H = cvs.height;
-    if (!W || !H) { _hpBgRaf = requestAnimationFrame(frame); return; }
-    ctx.clearRect(0, 0, W, H);
-    const ts = t / 1000;
-
-    // Update positions
-    nodes.forEach(n => {
-      n.x += n.vx; n.y += n.vy;
-      if (n.x < 0) n.x = 1; if (n.x > 1) n.x = 0;
-      if (n.y < 0) n.y = 1; if (n.y > 1) n.y = 0;
-    });
-
-    // Draw connections
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i], b = nodes[j];
-        const dx = a.x - b.x, dy = a.y - b.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < LINK_DIST) {
-          const alpha = (1 - d / LINK_DIST) * 0.12;
-          ctx.beginPath();
-          ctx.moveTo(a.x * W, a.y * H);
-          ctx.lineTo(b.x * W, b.y * H);
-          ctx.strokeStyle = a.col.replace('#', 'rgba(').replace(/(.{2})(.{2})(.{2})/, (m, r, g, b) =>
-            `${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},${alpha})`);
-          // alpha already applied via rgba() above
-          ctx.lineWidth = .6;
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Draw nodes
-    nodes.forEach(n => {
-      const pulse = 0.5 + 0.5 * Math.sin(ts * n.speed + n.phase);
-      const r = n.r * (1 + pulse * 0.8);
-      const alpha = 0.25 + pulse * 0.35;
-      // Outer glow
-      const grd = ctx.createRadialGradient(n.x * W, n.y * H, 0, n.x * W, n.y * H, r * 3);
-      grd.addColorStop(0, _hexAlpha(n.col, alpha));
-      grd.addColorStop(1, n.col + '00');
-      ctx.beginPath();
-      ctx.arc(n.x * W, n.y * H, r * 3, 0, Math.PI * 2);
-      ctx.fillStyle = grd;
-      ctx.fill();
-      // Core dot
-      ctx.beginPath();
-      ctx.arc(n.x * W, n.y * H, r, 0, Math.PI * 2);
-      ctx.fillStyle = _hexAlpha(n.col, 0.5 + pulse * 0.5);
-      ctx.fill();
-    });
-
-    _hpBgRaf = requestAnimationFrame(frame);
-  }
-  _hpBgRaf = requestAnimationFrame(frame);
+  if (cvs) cvs.style.display = 'none';
 }
 
 function enterCanvas() {
@@ -1766,7 +1930,13 @@ function enterCanvas() {
   document.getElementById('minimap').classList.add('visible');
   document.getElementById('zoom-widget').classList.add('visible');
   document.getElementById('layer-controls').classList.add('visible');
-  document.getElementById('help-hint').classList.add('visible');
+  // Respect a saved "hide the shortcuts panel" preference — toggled via
+  // the '?' key (toggleHelpHint()), which the panel's own text has
+  // claimed as a real shortcut this whole time with nothing behind it
+  // until now.
+  let hideHelp = false;
+  try { hideHelp = localStorage.getItem('mm_help_hint_hidden') === 'true'; } catch(e) {}
+  if (!hideHelp) document.getElementById('help-hint').classList.add('visible');
   // Show canvas tools in unified titlebar
   const ct = document.getElementById('tb-canvas-tools');
   if (ct) ct.style.display = 'flex';
@@ -1783,13 +1953,26 @@ function enterBrainMap() {
 
 function goHome() {
   if (!_assertAuth()) return;
-  // Close all overlays first
+  // Close every overlay IMMEDIATELY, not on a fade timer. Anything still
+  // occupying the screen at z-index 3000 when the homepage appears makes the
+  // home button look broken even though it ran.
   closeSidePanel();
-  closeBrainMap();
+  closeBrainMap(true);
   closeSearch();
+  // CLEAR the inline display — never set it to none. These overlays are
+  // shown by a class (#opts-overlay.open { display:flex }), and an inline
+  // style beats a class. Setting display:none here in v0.1.8 permanently
+  // disabled the Settings button: once you pressed Home, classList.add('open')
+  // could never show it again. Same defect as the boot/recovery screen
+  // collision, introduced by the fix for it.
+  ['void-overlay','opts-overlay','mm-alm-overlay','search-overlay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('open'); el.style.display = ''; el.style.pointerEvents = ''; }
+  });
   _voidSaveFields?.(); saveVoidState?.();
   const vo = document.getElementById('void-overlay');
-  if (vo) { vo.classList.remove('open'); vo.style.display = 'none'; }
+  // Clear the inline display; do not set it. The class rule shows it.
+  if (vo) { vo.classList.remove('open'); vo.style.display = ''; }
 
   // Hide canvas UI
   ['canvas-wrap','toolbar','minimap','zoom-widget','layer-controls','help-hint'].forEach(id => {
@@ -1803,139 +1986,41 @@ function goHome() {
 
   // Show homepage
   document.getElementById('startup-screen').classList.add('hidden');
-  document.getElementById('homepage').classList.remove('hidden');
+  const homeEl = document.getElementById('homepage');
+  homeEl.classList.remove('hidden');
+  homeEl.scrollTop = 0; // never start scrolled — the title getting clipped
+                         // at the top on a narrowed viewport (e.g. DevTools
+                         // docked) was exactly this: stale scroll position
+                         // from before the layout reflowed to fewer columns.
   // Fire particle background
   _initHomepageBg?.();
 
   // Track where we came from for void restore
   NX._lastView = null;
+
+  // Session position is part of the vault's state, so returning home is a
+  // change worth persisting — it is what "resume where you left off" reads.
+  if (typeof MM_SESSION !== 'undefined') MM_SESSION.record('home');
 }
 
 /* ── Startup screen ───────────────────────────────────────────── */
-let _startupFolder = null;
 
+// Used only by the "VAULT MISSING" recovery screen's "CHOOSE NEW FOLDER"
+// button (foundation/vault/mastermind-vault.js, _showVaultMissingScreen).
+// Persists the folder the same way setupCreateVault()/importPickVaultFolder()
+// do, then re-runs the real startup router — which will find a vault there
+// and route to login, or report it's still missing, rather than assuming
+// success and creating a fresh unencrypted file on top of whatever's there.
 async function pickStartupFolder() {
-  if (!window.NXAPI) { toast('Electron API not available — using default'); useDefaultFolder(); return; }
+  if (!window.NXAPI) { toast('Electron API not available'); return; }
   const dir = await window.NXAPI.pickDataFolder();
-  if (dir) { _startupFolder = dir; setStartupFolderDisplay(dir); }
-}
-
-function setStartupFolderDisplay(dir) {
-  const display = document.getElementById('startup-folder-path');
-  if (display) { display.textContent = dir; display.classList.remove('placeholder'); }
-  const btn = document.getElementById('ss-folder-enter-btn');
-  if (btn) btn.disabled = false;
-  _startupFolder = dir;
-}
-
-function useDefaultFolder() {
-  const defaultDir = (window.NXAPI && window.navigator.platform.startsWith('Win'))
-    ? (process?.env?.USERPROFILE || 'C:/Users') + '/Documents/NEXUS'
-    : '/nexus-data';
-  setStartupFolderDisplay(defaultDir);
-}
-
-async function enterFromStartup() {
-  if (!_startupFolder) return;
-
-  // ── Step 1: Set data directory ───────────────────────────────
-  if (window.NXAPI) {
-    await window.NXAPI.setDataDir(_startupFolder);
-    NX_CONFIG.dataDir = _startupFolder;
-  } else {
-    NX_CONFIG.dataDir = _startupFolder;
-    localStorage.setItem('nexus_datadir', _startupFolder);
-  }
-  if (typeof JAA !== 'undefined') JAA.setDataDir(_startupFolder);
+  if (!dir) return;
+  await window.NXAPI.setDataDir(dir);
+  NX_CONFIG.dataDir = dir;
+  localStorage.setItem('nexus_datadir', dir);
   updateDataDisplay();
-
-  // ── Step 2: Vault file gate ──────────────────────────────────
-  // For Electron: create vault file if it doesn't exist, or verify it does
-  if (window.NXAPI) {
-    const vaultPath = _startupFolder + '/mastermind.vault';
-    const exists = await window.NXAPI.vaultExists(vaultPath);
-
-    if (!exists) {
-      mm_toast('Creating vault file…', 'vault');
-      // Create initial vault structure
-      const initialVault = JSON.stringify({
-        version: 5,
-        encrypted: AUTH.encrypted,
-        username: AUTH.username,
-        created: Date.now(),
-        data: null,                // empty canvas — populated on first save
-        modules: AUTH.features,
-      });
-      const writeResult = await window.NXAPI.vaultWrite(vaultPath, initialVault);
-      if (!writeResult?.ok) {
-        MMLog?.error('vault', 'Failed to create vault file: ' + writeResult?.error);
-        mm_toast('Vault file creation failed: ' + (writeResult?.error || 'unknown error'), 'error');
-        // Don't proceed — show error and stay on folder screen
-        const btn = document.getElementById('ss-folder-enter-btn');
-        if (btn) { btn.disabled = false; btn.textContent = '→ ENTER'; }
-        const errEl = document.getElementById('ss-folder-error');
-        if (errEl) { errEl.textContent = '⚡ Could not create vault at: ' + vaultPath; errEl.style.display = ''; }
-        return;
-      }
-      mm_toast('Vault created · ' + vaultPath.slice(-35), 'success');
-      NX_CONFIG.vaultPath = vaultPath;
-    } else {
-      // Vault exists — verify it's readable
-      const raw = await window.NXAPI.vaultRead(vaultPath);
-      if (!raw) {
-        mm_toast('Vault file unreadable — check folder permissions', 'error');
-        MMLog?.error('vault', 'Vault exists but cannot be read: ' + vaultPath);
-        return;
-      }
-      try {
-        JSON.parse(raw);
-        mm_toast('Vault found · unlocking…', 'vault');
-      } catch(e) {
-        mm_toast('Vault file corrupt — check backup', 'error');
-        MMLog?.error('vault', 'Vault JSON parse failed: ' + e.message);
-        return;
-      }
-      NX_CONFIG.vaultPath = vaultPath;
-    }
-
-    // ── Step 3: Watchdog — scan directory for vault file ────────
-    // Confirm vault is physically present before proceeding
-    const confirmed = await window.NXAPI.vaultExists(vaultPath);
-    if (!confirmed) {
-      mm_toast('Vault watchdog: file not detected after write', 'error');
-      MMLog?.error('vault', 'Vault watchdog failed — file absent after creation');
-      return;
-    }
-    MMLog?.info('vault', 'Vault watchdog: confirmed at ' + vaultPath);
-  }
-
-  // ── Step 4: Enter app — load vault data from disk ──────────
-  // Read vault file from disk and hydrate localStorage / MMVault
-  if (window.NXAPI && NX_CONFIG.vaultPath) {
-    try {
-      const raw = await window.NXAPI.vaultRead(NX_CONFIG.vaultPath);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // Hydrate: if vault has canvas data, put it in localStorage for loadCanvas()
-        if (parsed.data) {
-          try { localStorage.setItem(SAVE_KEY, JSON.stringify(parsed.data)); } catch(e) {}
-        }
-        // If unencrypted vault, also hydrate MMVault meta
-        if (!parsed.encrypted && typeof MMVault !== 'undefined') {
-          try { MMVault.create(AUTH.username || 'operator', { encrypted: false }); } catch(e) {}
-        }
-        MMLog?.info('vault', 'Vault data loaded from disk: ' + NX_CONFIG.vaultPath);
-        if (typeof MM_BUS !== 'undefined') MM_BUS.emit('mm.vault.loaded', { path: NX_CONFIG.vaultPath });
-      }
-    } catch(e) {
-      MMLog?.warn('vault', 'Vault disk read on enter: ' + e.message);
-    }
-  }
-
-  document.getElementById('startup-screen').classList.add('hidden');
-  document.getElementById('homepage').classList.remove('hidden');
-  _initHomepageBg?.();
-  await loadCanvas();
+  document.getElementById('ss-vault-missing')?.remove();
+  if (typeof startupRoute === 'function') startupRoute();
 }
 
 function updateDataDisplay() {
@@ -2094,14 +2179,8 @@ async function init() {
       NX_CONFIG = cfg;
       if (cfg.dataDir && typeof JAA !== 'undefined') {
         JAA.setDataDir(cfg.dataDir);
-        setStartupFolderDisplay(cfg.dataDir);
         updateDataDisplay();
-        if (!cfg.firstRun) {
-          // Only auto-enter if session is already sealed (noEncryption returning user path)
-          // Encrypted users must pass through loginSubmit which seals the session
-          if (AUTH._unlocked) { enterFromStartup(); }
-          else { startupRoute(); }
-        }
+        if (!cfg.firstRun && typeof startupRoute === 'function') startupRoute();
       }
     });
   }
@@ -2111,8 +2190,6 @@ async function init() {
     const savedDir = localStorage.getItem('nexus_datadir');
     if (savedDir) {
       NX_CONFIG.dataDir = savedDir;
-      _startupFolder = savedDir;
-      setStartupFolderDisplay(savedDir);
       updateDataDisplay();
     }
   }
@@ -2176,11 +2253,11 @@ window.CANVAS = Object.freeze({
 
   // ── Bridge meta ───────────────────────────────────────────────────
   _id:      'nexus-canvas',
-  _version: '3.0.5',
+  _version: (typeof window !== 'undefined' && window.MM_VERSION) || 'unknown',
   _uuid:    'c3b2a1f0-c4n5-4a6b-8000-canvas000001',
 });
 
 if (typeof MM_BUS !== 'undefined') {
-  MM_BUS.emit('mm.module.ready', { module: 'mastermind-canvas', version: '3.0.5' });
+  MM_BUS.emit('mm.module.ready', { module: 'mastermind-canvas', version: (typeof window !== 'undefined' && window.MM_VERSION) || 'unknown' });
 }
 console.log('[MASTERMIND CANVAS] Bridge ready — window.CANVAS exposed');

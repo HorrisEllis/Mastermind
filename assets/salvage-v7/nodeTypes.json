@@ -1,0 +1,42 @@
+{
+  "tool": {
+    "icon": "⚙",
+    "color": "#00c8ff",
+    "label": "TOOL"
+  },
+  "framework": {
+    "icon": "⬡",
+    "color": "#ff8c22",
+    "label": "FRAMEWORK"
+  },
+  "pattern": {
+    "icon": "∿",
+    "color": "#cc44ff",
+    "label": "PATTERN"
+  },
+  "causal": {
+    "icon": "⊞",
+    "color": "#00ff88",
+    "label": "CAUSAL CHAIN"
+  },
+  "concept": {
+    "icon": "◈",
+    "color": "#ffe04a",
+    "label": "CONCEPT"
+  },
+  "synthesis": {
+    "icon": "✦",
+    "color": "#ff66aa",
+    "label": "SYNTHESIS"
+  },
+  "insight": {
+    "icon": "💡",
+    "color": "#11ddcc",
+    "label": "INSIGHT"
+  },
+  "note": {
+    "icon": "T",
+    "color": "#2e4e6e",
+    "label": "NOTE"
+  }
+}

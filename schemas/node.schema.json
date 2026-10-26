@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mastermind/node.schema.json",
+  "title": "MASTERMIND node",
+  "description": "The universal envelope. Every node in the lattice is one of these regardless of what produced it — speech, import, a module, or a model. Shared header, typed payload, exactly like the vault envelope: the parts that must be inspectable without opening the contents live on the outside.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "created", "text", "provenance", "mode"],
+  "properties": {
+    "id":      { "type": "string", "minLength": 4, "description": "UUID. Stable for the life of the node; edges reference it." },
+    "type":    {
+      "type": "string",
+      "enum": ["utterance", "idea", "wonder", "logic", "question", "seed", "heuristic", "codex", "ritual", "observation", "gap"],
+      "description": "What KIND of thing this is. 'gap' is a segment of speech that could not be transcribed — recorded rather than dropped, so the sequence has no unexplained hole."
+    },
+    "created": { "type": "string", "format": "date-time" },
+    "spokenAt": { "type": ["string", "null"], "format": "date-time", "description": "When it was SAID, which is not when it was processed. Imported backlogs depend on this being the real time." },
+    "text":    { "type": "string" },
+    "tags":    { "type": "array", "items": { "type": "string" }, "default": [] },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author"],
+      "description": "Who made this. REQUIRED on every node (DR-003). A system for externalising one mind that quietly fills with another's has failed at its purpose, and the only defence is that every node can name its author a year later.",
+      "properties": {
+        "author":      { "type": "string", "enum": ["human", "model"] },
+        "model":       { "type": ["string", "null"], "description": "Which model, when author is 'model'. Null is invalid for model-authored nodes." },
+        "via":         { "type": "string", "enum": ["microphone", "recording", "module", "assist"], "default": "microphone" },
+        "source":      { "type": ["string", "null"] },
+        "file":        { "type": ["string", "null"] },
+        "transcriber": { "type": ["string", "null"], "default": "whisper-local" },
+        "timeTrusted": { "type": "boolean", "default": true, "description": "False when the timestamp came from file mtime, which changes on copy or sync." },
+        "requestId":   { "type": ["string", "null"], "description": "Links a model-authored node back to the exact assist request that produced it." }
+      },
+      "allOf": [{
+        "if":   { "properties": { "author": { "const": "model" } } },
+        "then": { "required": ["model", "requestId"] }
+      }]
+    },
+
+    "mode": {
+      "type": "string",
+      "enum": ["externalizing", "introspecting", "processing", "imported", "sandbox", "synthesis"],
+      "description": "Which compartment produced it. Present from node one because it cannot be retrofitted: a node born in the sandbox must not be weighed like an observation, and unlabelled history is unlabelled forever."
+    },
+
+    "confidence": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Only for nodes that make a claim. Omit rather than defaulting — a confidence number nobody set is a fiction.",
+      "properties": {
+        "level":     { "type": "string", "enum": ["high", "medium", "low", "testing"] },
+        "basis":     { "type": "string", "description": "Why this level. A level with no basis is not evidence." },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "history":   { "type": "array", "items": { "type": "object" }, "description": "Prior levels with their basis. A belief that never records its updates is a log, not a belief system." }
+      }
+    },
+
+    "seed": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "flagged":  { "type": "boolean" },
+        "priority": { "type": ["string", "null"], "enum": ["High", "Medium", "Low", null] },
+        "context":  { "type": ["string", "null"] },
+        "horizonId":{ "type": ["string", "null"], "description": "Set when a seed has been promoted into horizon planning." }
+      }
+    },
+
+    "sessionId": { "type": ["string", "null"] },
+    "seq":       { "type": ["integer", "null"], "description": "Capture-time sequence. Ordering is assigned when spoken, not when transcribed." },
+    "payload":   { "type": ["object", "null"], "description": "Type-specific body. The envelope stays fixed; this varies." }
+  }
+}

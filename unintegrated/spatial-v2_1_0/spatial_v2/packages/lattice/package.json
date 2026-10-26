@@ -1,0 +1,13 @@
+{
+  "name": "@spatial/lattice",
+  "version": "1.0.0",
+  "description": "Associative memory. Resonance-weighted graph. /find /connect /inspect. Cross-session meaning.",
+  "type": "module",
+  "exports": {
+    ".":      "./src/index.js",
+    "./cli":  "./src/cli.js"
+  },
+  "peerDependencies": { "@spatial/bus": "^1.0.0" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

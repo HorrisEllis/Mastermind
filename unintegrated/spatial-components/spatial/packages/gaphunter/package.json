@@ -1,0 +1,16 @@
+{
+  "name": "@spatial/gaphunter",
+  "version": "2.0.0",
+  "description": "GapHunter — universal gap detection across text, code, conversation, and knowledge",
+  "type": "module",
+  "main": "src/gaphunter.js",
+  "exports": {
+    ".":           "./src/gaphunter.js",
+    "./core":      "./src/gap-hunter-core.js",
+    "./text":      "./src/gap-text.js",
+    "./taxonomy":  "./src/gap-taxonomy.js",
+    "./bus":       "./src/gap-bus.js"
+  },
+  "files": ["src", "lib"],
+  "license": "UNLICENSED"
+}

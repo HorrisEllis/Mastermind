@@ -1,0 +1,400 @@
+  <div id="vl-left">
+
+    <!-- ORB + WAVEFORM HEADER -->
+    <div id="vl-rec-head">
+      <div id="vl-orb-outer" onclick="vlToggleRecord()" title="Click to start / stop recording">
+        <div id="vl-orb-ring1"></div>
+        <div id="vl-orb-ring2"></div>
+        <div id="vl-orb-ring3"></div>
+        <div id="vl-orb-core"><span id="vl-orb-icon">⏺</span></div>
+      </div>
+      <div id="vl-orb-label">IDLE — CLICK ORB TO RECORD</div>
+      <div id="vl-timer">00:00</div>
+      <canvas id="vl-wave-cvs"></canvas>
+      <div id="vl-modes">
+        <button class="vl-mode-chip act" data-m="externalizing"  onclick="vlSetMode(this)">EXTERNALIZING</button>
+        <button class="vl-mode-chip"     data-m="introspecting"  onclick="vlSetMode(this)">INTROSPECTING</button>
+        <button class="vl-mode-chip"     data-m="processing"     onclick="vlSetMode(this)">PROCESSING</button>
+        <button class="vl-mode-chip"     data-m="notetaking"     onclick="vlSetMode(this)">NOTE-TAKING</button>
+        <button class="vl-mode-chip"     data-m="research"       onclick="vlSetMode(this)">RESEARCH</button>
+        <button class="vl-mode-chip"     data-m="selfaware"      onclick="vlSetMode(this)">SELF-AWARE</button>
+      </div>
+    </div>
+
+    <!-- STATS BAR -->
+    <div id="vl-stats">
+      <div class="vl-stat"><span class="vl-sv" id="vls-nodes">0</span><span class="vl-sl">NODES</span></div>
+      <div class="vl-stat-sep"></div>
+      <div class="vl-stat"><span class="vl-sv" id="vls-seeds" style="color:var(--g)">0</span><span class="vl-sl">SEEDS</span></div>
+      <div class="vl-stat-sep"></div>
+      <div class="vl-stat"><span class="vl-sv" id="vls-gaps" style="color:var(--r)">0</span><span class="vl-sl">GAPS</span></div>
+      <div class="vl-stat-sep"></div>
+      <div class="vl-stat"><span class="vl-sv" id="vls-loops" style="color:var(--v)">0</span><span class="vl-sl">LOOPS</span></div>
+      <div class="vl-stat-sep"></div>
+      <div class="vl-stat"><span class="vl-sv" id="vls-dur" style="color:var(--dim)">0s</span><span class="vl-sl">SESSION</span></div>
+      <div class="vl-hdr-acts">
+        <button class="vl-sm-btn" onclick="vlExportCanvas()" title="Send all nodes to canvas">→ CANVAS</button>
+        <button class="vl-sm-btn" onclick="vlExportJSON()" title="Download JSON">↓ JSON</button>
+        <button class="vl-sm-btn danger" onclick="vlClear()">✕</button>
+      </div>
+    </div>
+
+    <!-- MULTI-MODAL CAPTURE CONTROLS (Blueprint §2.3, §3) -->
+    <div id="vl-capture-bar" style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--wire);background:rgba(0,0,0,.2);flex-shrink:0;flex-wrap:wrap;">
+      <span style="font-size:7px;letter-spacing:1.5px;color:var(--dim);font-family:var(--mono);">CAPTURE:</span>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:8px;color:var(--mid);font-family:var(--mono);">
+        <input type="checkbox" id="vl-motion-check" onchange="vlToggleMotionDetection(this)" style="accent-color:var(--o);"/> MOTION
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:8px;color:var(--mid);font-family:var(--mono);">
+        <input type="checkbox" id="vl-sound-check" onchange="vlToggleSoundDetection(this)" style="accent-color:var(--teal);"/> SOUND
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:8px;color:var(--mid);font-family:var(--mono);">
+        <input type="checkbox" id="vl-tone-check" onchange="vlToggleToneAnalysis(this)" style="accent-color:var(--v);"/> TONE
+      </label>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:7px;color:var(--dim);font-family:var(--mono);">BUFFER:</span>
+        <select id="vl-buffer-sel" style="font-size:7px;background:var(--surface);border:1px solid var(--wire2);color:var(--mid);font-family:var(--mono);padding:2px 4px;" onchange="vlSetBuffer(this.value)">
+          <option value="5">5min</option>
+          <option value="10" selected>10min</option>
+          <option value="30">30min</option>
+          <option value="60">60min</option>
+          <option value="120">120min</option>
+        </select>
+        <button class="vl-sm-btn" onclick="vlCaptureBuffer()" title="Capture last N minutes as nodes" style="color:var(--o);">⏮ BUFFER</button>
+        <button class="vl-sm-btn" onclick="vlPushSeedsToVault()" title="Push seeds to Vault" style="color:var(--y);">→ VAULT</button>
+      </div>
+    </div>
+
+    <!-- TONE / RHYTHM OVERLAY BAR (shown when tone analysis is ON) -->
+    <div id="vl-tone-bar" style="display:none;padding:4px 10px;border-bottom:1px solid var(--wire);background:rgba(204,68,255,.04);flex-shrink:0;">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <span style="font-size:7px;letter-spacing:1.5px;color:var(--v);font-family:var(--mono);">TONE ANALYSIS</span>
+        <div style="flex:1;display:flex;gap:8px;">
+          <span style="font-size:7px;color:var(--dim);font-family:var(--mono);">PITCH: <span id="vl-tone-pitch" style="color:var(--v)">—</span></span>
+          <span style="font-size:7px;color:var(--dim);font-family:var(--mono);">STRESS: <span id="vl-tone-stress" style="color:var(--r)">—</span></span>
+          <span style="font-size:7px;color:var(--dim);font-family:var(--mono);">RHYTHM: <span id="vl-tone-rhythm" style="color:var(--teal)">—</span></span>
+          <span style="font-size:7px;color:var(--dim);font-family:var(--mono);">VOL: <span id="vl-tone-vol" style="color:var(--g)">—</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-TABS -->
+    <div class="vl-tabs" style="flex-wrap:wrap;">
+      <div class="vl-tab act"  id="vtab-nodes"     onclick="vlSwitchTab('nodes')">⏺ NODES</div>
+      <div class="vl-tab"      id="vtab-seeds"     onclick="vlSwitchTab('seeds')">◈ SEEDS</div>
+      <div class="vl-tab"      id="vtab-delta"     onclick="vlSwitchTab('delta')">∿ DELTA</div>
+      <div class="vl-tab"      id="vtab-manual"    onclick="vlSwitchTab('manual')">+ MANUAL</div>
+      <div class="vl-tab"      id="vtab-heuristics" onclick="vlSwitchTab('heuristics')" style="color:var(--o);">⚡ HEURISTICS</div>
+      <div class="vl-tab"      id="vtab-rituals"   onclick="vlSwitchTab('rituals')" style="color:var(--v);">◎ RITUALS</div>
+      <div class="vl-tab"      id="vtab-codex"     onclick="vlSwitchTab('codex')" style="color:var(--gold);">⊞ CODEX</div>
+      <div class="vl-tab"      id="vtab-wordbank"  onclick="vlSwitchTab('wordbank')" style="color:var(--teal);">∞ WORD BANK</div>
+      <div class="vl-tab"      id="vtab-camera"    onclick="vlSwitchTab('camera')" style="color:var(--c);">📷 CAMERA</div>
+    </div>
+
+    <!-- NODES TAB -->
+    <div class="vl-tb act" id="vtb-nodes">
+      <div class="vl-filter-row">
+        <input  class="vl-finput" id="vl-search"     placeholder="search nodes…" oninput="vlRefreshList()"/>
+        <select class="vl-fsel"   id="vl-tag-filter" onchange="vlRefreshList()">
+          <option value="">ALL TAGS</option>
+          <option>SYS</option><option>REL</option><option>GAP</option>
+          <option>LOOP</option><option>BLOCK</option><option>SEED</option><option>FRICTION</option>
+        </select>
+        <select class="vl-fsel" id="vl-heur-filter" onchange="vlRefreshList()">
+          <option value="">ALL</option>
+          <option value="Reverse">REVERSE</option><option value="Expand">EXPAND</option>
+          <option value="Compress">COMPRESS</option><option value="Constraint">CONSTRAINT</option>
+          <option value="FirstPrinciples">1ST PRINC</option>
+        </select>
+      </div>
+      <div id="vl-node-list"></div>
+    </div>
+
+    <!-- SEEDS TAB -->
+    <div class="vl-tb" id="vtb-seeds">
+      <div class="vl-filter-row">
+        <select class="vl-fsel" id="vl-seed-pri" onchange="vlRefreshSeeds()">
+          <option value="">ALL PRIORITY</option>
+          <option value="High">HIGH</option><option value="Medium">MEDIUM</option><option value="Low">LOW</option>
+        </select>
+        <select class="vl-fsel" id="vl-seed-ctx" onchange="vlRefreshSeeds()">
+          <option value="">ALL CONTEXT</option>
+          <option value="Project">PROJECT</option>
+          <option value="Life">LIFE DOMAIN</option>
+          <option value="Framework">FRAMEWORK</option>
+        </select>
+      </div>
+      <div id="vl-seed-list"></div>
+    </div>
+
+    <!-- DELTA TAB -->
+    <div class="vl-tb" id="vtb-delta">
+      <div id="vl-delta-list"></div>
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div class="vl-tb" id="vtb-manual">
+      <div class="vl-manual-wrap">
+        <textarea class="vl-manual-ta" id="vl-man-text" placeholder="Type or paste a thought, idea, note, or quote…" rows="4"></textarea>
+        <div class="vl-form-row">
+          <select class="vl-fsel" id="vl-man-tag" style="flex:1">
+            <option value="SYS">SYS</option><option value="REL">REL</option>
+            <option value="GAP">GAP</option><option value="LOOP">LOOP</option>
+            <option value="BLOCK">BLOCK</option><option value="SEED">SEED</option><option value="FRICTION">FRICTION</option>
+          </select>
+          <select class="vl-fsel" id="vl-man-heur" style="flex:1">
+            <option value="">— heuristic —</option>
+            <option value="Reverse">REVERSE</option><option value="Expand">EXPAND</option>
+            <option value="Compress">COMPRESS</option><option value="Constraint">CONSTRAINT</option>
+            <option value="FirstPrinciples">1ST PRINCIPLES</option>
+          </select>
+          <label class="vl-ck-label">
+            <input type="checkbox" id="vl-man-seed" style="accent-color:var(--g)"/> SEED
+          </label>
+        </div>
+        <div class="vl-form-row">
+          <select class="vl-fsel" id="vl-man-pri" style="flex:1">
+            <option value="Medium">MEDIUM</option><option value="High">HIGH</option><option value="Low">LOW</option>
+          </select>
+          <select class="vl-fsel" id="vl-man-ctx" style="flex:1">
+            <option value="Project">PROJECT</option><option value="Life">LIFE DOMAIN</option><option value="Framework">FRAMEWORK</option>
+          </select>
+        </div>
+        <button class="vl-manual-submit" onclick="vlAddManual()">+ ADD NODE</button>
+        <div style="text-align:center;font-size:7px;letter-spacing:2px;color:var(--dim);font-family:var(--mono);padding:6px 0;border-top:1px solid var(--wire);margin-top:2px;">QUICK VOICE CAPTURE</div>
+        <div class="vl-quick-row" id="vl-quick-row" onclick="vlQuickCapture()">
+          <span id="vl-quick-icon">🎙</span>
+          <span id="vl-quick-lbl">TAP TO CAPTURE VOICE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HEURISTICS TAB -->
+    <div class="vl-tb" id="vtb-heuristics">
+      <div style="padding:10px 12px 6px;font-size:7px;letter-spacing:2px;color:var(--o);font-family:var(--mono);border-bottom:1px solid var(--wire);">⚡ COGNITIVE HEURISTICS ENGINE</div>
+      <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--wire);flex-wrap:wrap;">
+        <button class="vl-sm-btn" style="color:var(--o);border-color:var(--o)44;" onclick="vlAddHeuristic()">+ ADD</button>
+        <input class="vl-finput" id="vl-heur-search" placeholder="search heuristics…" oninput="vlRenderHeuristics()" style="flex:1;"/>
+        <select class="vl-fsel" id="vl-heur-domain-filter" onchange="vlRenderHeuristics()">
+          <option value="">ALL DOMAINS</option>
+          <option>COGNITIVE</option><option>STRATEGIC</option><option>CREATIVE</option>
+          <option>RELATIONAL</option><option>SOMATIC</option><option>BEHAVIORAL</option>
+        </select>
+      </div>
+      <div id="vl-heur-list" style="flex:1;overflow-y:auto;"></div>
+    </div>
+
+    <!-- RITUALS TAB -->
+    <div class="vl-tb" id="vtb-rituals">
+      <div style="padding:10px 12px 6px;font-size:7px;letter-spacing:2px;color:var(--v);font-family:var(--mono);border-bottom:1px solid var(--wire);">◎ RITUAL TRACKER</div>
+      <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--wire);">
+        <button class="vl-sm-btn" style="color:var(--v);border-color:var(--v)44;" onclick="vlAddRitual()">+ RITUAL</button>
+        <select class="vl-fsel" id="vl-ritual-filter" onchange="vlRenderRituals()">
+          <option value="">ALL</option>
+          <option>MORNING</option><option>EVENING</option><option>BEFORE-SESSION</option>
+          <option>POST-CAPTURE</option><option>WEEKLY</option>
+        </select>
+      </div>
+      <div id="vl-ritual-list" style="flex:1;overflow-y:auto;"></div>
+    </div>
+
+    <!-- CODEX TAB -->
+    <div class="vl-tb" id="vtb-codex">
+      <div style="padding:10px 12px 6px;font-size:7px;letter-spacing:2px;color:var(--gold);font-family:var(--mono);border-bottom:1px solid var(--wire);">⊞ PERSONAL CODEX — Laws · Principles · Operating Rules</div>
+      <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--wire);">
+        <button class="vl-sm-btn" style="color:var(--gold);border-color:var(--gold)44;" onclick="vlAddCodexEntry()">+ ENTRY</button>
+        <input class="vl-finput" id="vl-codex-search" placeholder="search codex…" oninput="vlRenderCodex()" style="flex:1;"/>
+        <select class="vl-fsel" id="vl-codex-type" onchange="vlRenderCodex()">
+          <option value="">ALL TYPES</option>
+          <option>LAW</option><option>PRINCIPLE</option><option>MAXIM</option>
+          <option>RULE</option><option>ANTI-PATTERN</option><option>CREED</option>
+        </select>
+      </div>
+      <div id="vl-codex-list" style="flex:1;overflow-y:auto;"></div>
+    </div>
+
+    <!-- WORD BANK TAB -->
+    <div class="vl-tb" id="vtb-wordbank">
+      <div style="padding:10px 12px 6px;font-size:7px;letter-spacing:2px;color:var(--teal);font-family:var(--mono);border-bottom:1px solid var(--wire);">∞ WORD BANK — Extracted from voice + nodes</div>
+      <div style="padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--wire);flex-wrap:wrap;">
+        <button class="vl-sm-btn" style="color:var(--teal);border-color:var(--teal)44;" onclick="vlRebuildWordBank()">↺ REBUILD</button>
+        <input class="vl-finput" id="vl-wb-search" placeholder="search words…" oninput="vlRenderWordBank()" style="flex:1;"/>
+        <select class="vl-fsel" id="vl-wb-sort" onchange="vlRenderWordBank()">
+          <option value="freq">FREQUENCY</option>
+          <option value="alpha">ALPHA</option>
+          <option value="domain">DOMAIN</option>
+          <option value="recent">RECENT</option>
+        </select>
+      </div>
+      <div style="padding:6px 12px;font-size:7px;color:var(--dim);font-family:var(--mono);border-bottom:1px solid var(--wire);" id="vl-wb-stats">0 unique words extracted</div>
+      <div id="vl-wb-cloud" style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:4px;overflow-y:auto;flex:1;align-content:flex-start;"></div>
+    </div>
+
+    <!-- CAMERA / VISUAL CAPTURE TAB -->
+    <div class="vl-tb" id="vtb-camera">
+      <div style="padding:10px 12px 6px;font-size:7px;letter-spacing:2px;color:var(--c);font-family:var(--mono);border-bottom:1px solid var(--wire);display:flex;align-items:center;gap:8px;">
+        <span>📷 CAMERA — VISUAL SIGNATURE CAPTURE</span>
+        <span id="vl-cam-status" style="color:var(--dim);font-size:7px;margin-left:auto;">OFF</span>
+      </div>
+
+      <!-- Camera controls row -->
+      <div style="padding:7px 12px;display:flex;gap:6px;border-bottom:1px solid var(--wire);flex-wrap:wrap;align-items:center;">
+        <button class="vl-sm-btn" id="vl-cam-btn" onclick="vlCameraToggle()" style="color:var(--c);border-color:var(--c)44;">▶ START CAMERA</button>
+        <button class="vl-sm-btn" onclick="vlCaptureFrame()" style="color:var(--g);">📸 CAPTURE FRAME</button>
+        <button class="vl-sm-btn" onclick="vlCamSnapshot()" style="color:var(--o);">⏮ SAVE TO NODE</button>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:8px;color:var(--mid);font-family:var(--mono);">
+          <input type="checkbox" id="vl-cam-autonode" style="accent-color:var(--c);"/> AUTO-NODE ON MOTION
+        </label>
+      </div>
+
+      <!-- Live feed + canvas overlay -->
+      <div style="position:relative;width:100%;background:#000;flex-shrink:0;">
+        <video id="vl-cam-video" autoplay muted playsinline
+          style="width:100%;height:220px;min-height:220px;display:block;object-fit:cover;background:#000;"></video>
+        <canvas id="vl-cam-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+        <!-- HUD badges -->
+        <div style="position:absolute;top:6px;left:6px;display:flex;flex-direction:column;gap:3px;" id="vl-cam-hud">
+          <div id="vl-cam-expr-badge"  style="font-size:7px;font-family:var(--mono);padding:2px 6px;background:rgba(0,0,0,.7);color:var(--c);letter-spacing:1px;">EXPR: —</div>
+          <div id="vl-cam-posture-badge" style="font-size:7px;font-family:var(--mono);padding:2px 6px;background:rgba(0,0,0,.7);color:var(--teal);letter-spacing:1px;">POSTURE: —</div>
+          <div id="vl-cam-motion-badge" style="font-size:7px;font-family:var(--mono);padding:2px 6px;background:rgba(0,0,0,.7);color:var(--o);letter-spacing:1px;">MOTION: —</div>
+        </div>
+        <!-- Gaze indicator -->
+        <div style="position:absolute;top:6px;right:6px;width:52px;height:52px;">
+          <canvas id="vl-gaze-canvas" width="52" height="52"
+            style="border-radius:50%;background:rgba(0,0,0,.6);border:1px solid var(--wire2);"></canvas>
+          <div style="text-align:center;font-size:6px;color:var(--dim);font-family:var(--mono);margin-top:1px;">GAZE</div>
+        </div>
+        <!-- Recording dot -->
+        <div id="vl-cam-rec-dot" style="display:none;position:absolute;bottom:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--r);box-shadow:0 0 8px var(--r);"></div>
+      </div>
+
+      <!-- Visual signature readouts -->
+      <div style="padding:8px 12px;border-bottom:1px solid var(--wire);display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;">
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">EXPRESSION: <span id="vl-vs-expr" style="color:var(--c)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">POSTURE: <span id="vl-vs-posture" style="color:var(--teal)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">L.HAND: <span id="vl-vs-lhand" style="color:var(--v)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">R.HAND: <span id="vl-vs-rhand" style="color:var(--v)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">GAZE X: <span id="vl-vs-gazex" style="color:var(--y)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--y);">GAZE Y: <span id="vl-vs-gazey" style="color:var(--y)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">MOTION: <span id="vl-vs-motion" style="color:var(--o)">—</span></div>
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);">STRESS: <span id="vl-vs-stress" style="color:var(--r)">—</span></div>
+      </div>
+
+      <!-- Motion + Sound meters -->
+      <div style="padding:8px 12px;border-bottom:1px solid var(--wire);display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:7px;font-family:var(--mono);color:var(--o);width:50px;">MOTION</span>
+          <div style="flex:1;height:5px;background:var(--wire);border-radius:2px;overflow:hidden;">
+            <div id="vl-motion-bar" style="height:100%;width:0%;background:var(--o);transition:width .1s;border-radius:2px;"></div>
+          </div>
+          <span id="vl-motion-pct" style="font-size:7px;font-family:var(--mono);color:var(--dim);width:30px;text-align:right;">0%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:7px;font-family:var(--mono);color:var(--teal);width:50px;">SOUND</span>
+          <div style="flex:1;height:5px;background:var(--wire);border-radius:2px;overflow:hidden;">
+            <div id="vl-sound-bar" style="height:100%;width:0%;background:var(--teal);transition:width .1s;border-radius:2px;"></div>
+          </div>
+          <span id="vl-sound-pct" style="font-size:7px;font-family:var(--mono);color:var(--dim);width:30px;text-align:right;">0%</span>
+        </div>
+      </div>
+
+      <!-- Frame history (thumbnail strip) -->
+      <div style="padding:6px 12px;border-bottom:1px solid var(--wire);">
+        <div style="font-size:7px;font-family:var(--mono);color:var(--dim);letter-spacing:1.5px;margin-bottom:5px;">CAPTURED FRAMES</div>
+        <div id="vl-frame-strip" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:3px;"></div>
+      </div>
+
+      <!-- Trigger event log -->
+      <div style="flex:1;overflow-y:auto;">
+        <div style="padding:6px 12px 3px;font-size:7px;font-family:var(--mono);color:var(--dim);letter-spacing:1.5px;">TRIGGER LOG</div>
+        <div id="vl-cam-trigger-log" style="padding:0 12px;display:flex;flex-direction:column;gap:2px;"></div>
+      </div>
+    </div>
+
+  </div><!-- /vl-left -->
+
+  <!-- ── RIGHT PANEL ────────────────────────────────────────── -->
+  <div id="vl-right">
+
+    <!-- LATTICE CANVAS -->
+    <div id="vl-lattice-wrap">
+      <canvas id="vl-lattice-cvs"></canvas>
+      <div id="vl-lattice-hint">
+        ⏺ &nbsp;Click the orb to start recording<br/>
+        Spoken sentences become nodes automatically<br/>
+        Click any lattice node to inspect &amp; edit<br/>
+        Drag nodes to reposition · associations form by shared words
+      </div>
+    </div>
+
+    <!-- NODE DETAIL PANEL -->
+    <div id="vl-detail">
+      <div id="vl-detail-hd">
+        <span class="vl-detail-id" id="vl-detail-id-badge">—</span>
+        <span style="font-size:7px;color:var(--dim);font-family:var(--mono)" id="vl-detail-ts"></span>
+        <button class="vl-detail-close" onclick="vlCloseDetail()">✕ CLOSE</button>
+      </div>
+      <div id="vl-detail-body">
+        <div id="vl-detail-text-col">
+          <div id="vl-detail-content" contenteditable="true" spellcheck="false" oninput="vlDetailEdit()"></div>
+          <div id="vl-detail-tags-row"></div>
+        </div>
+        <div id="vl-detail-right-col">
+          <div class="vl-detail-sec">ASSOCIATIONS</div>
+          <div id="vl-detail-assoc"></div>
+          <div class="vl-detail-sec">DELTA HISTORY</div>
+          <div id="vl-detail-delta"></div>
+          <div id="vl-detail-acts">
+            <button class="vl-dact seed"   onclick="vlDetailToggleSeed()">◈ SEED</button>
+            <select class="vl-fsel" id="vl-detail-heur" onchange="vlDetailSetHeur(this.value)" style="font-size:7px;padding:3px 5px;">
+              <option value="">heuristic</option>
+              <option value="Reverse">REVERSE</option><option value="Expand">EXPAND</option>
+              <option value="Compress">COMPRESS</option><option value="Constraint">CONSTRAINT</option>
+              <option value="FirstPrinciples">1ST PRINC</option>
+            </select>
+            <button class="vl-dact canvas" onclick="vlDetailSendCanvas()">→ CANVAS</button>
+            <button class="vl-dact del"    onclick="vlDetailDelete()">✕ DEL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /vl-right -->
+
+</div><!-- /voiceMode -->
+
+<!-- ══ OPTIONS PANEL ══ -->
+<div id="optionsPanel">
+  <div class="opts-box">
+    <div class="opts-head">
+      <div class="opts-title">⚙ OPTIONS & AI SETTINGS</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
+        <div class="ai-status" id="ai-status-dot"></div>
+        <span style="font-size:8px;font-family:var(--mono);color:var(--dim)" id="ai-status-text">Not connected</span>
+      </div>
+      <div class="opts-close" onclick="closeOptions()">✕ CLOSE</div>
+    </div>
+    <div class="opts-tabs">
+      <div class="opts-tab act" id="otab-backend" onclick="optTab('backend')">AI BACKEND</div>
+      <div class="opts-tab" id="otab-lmstudio" onclick="optTab('lmstudio')">LM STUDIO</div>
+      <div class="opts-tab" id="otab-ollama" onclick="optTab('ollama')">OLLAMA</div>
+      <div class="opts-tab" id="otab-openai" onclick="optTab('openai')">OPENAI / CUSTOM</div>
+      <div class="opts-tab" id="otab-display" onclick="optTab('display')">DISPLAY</div>
+      <div class="opts-tab" id="otab-data" onclick="optTab('data')">DATA</div>
+    </div>
+
+    <!-- AI BACKEND TAB -->
+    <div class="opts-tab-body act" id="otabBody-backend">
+      <div class="opts-section">
+        <div class="opts-section-head">Select Provider</div>
+        <div class="opts-provider-grid">
+          <div class="opts-provider-card" id="oprov-ollama" onclick="optsSelectProvider('ollama')">
+            <div class="opts-provider-name">⬡ Ollama</div>
+            <div class="opts-provider-desc">Local LLM runtime · free · private</div>
+          </div>
+          <div class="opts-provider-card" id="oprov-lmstudio" onclick="optsSelectProvider('lmstudio')">
+            <div class="opts-provider-name">⊞ LM Studio</div>
+            <div class="opts-provider-desc">GUI-based local inference server</div>
+          </div>
+          <div class="opts-provider-card" id="oprov-openai" onclick="optsSelectProvider('openai')">
+            <div class="opts-provider-name">◈ OpenAI / API</div>

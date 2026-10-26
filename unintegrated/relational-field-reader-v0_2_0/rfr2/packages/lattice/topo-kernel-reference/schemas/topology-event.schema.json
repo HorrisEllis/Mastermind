@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "topo-kernel/schemas/topology-event.schema.json",
+  "title": "Topology Kernel — Topology Event",
+  "description": "What gets emitted on the bus after a signal clears SNR. This is the clean output.",
+  "type": "object",
+  "required": ["id", "sourceId", "field", "axis", "value", "snr", "ts"],
+  "properties": {
+    "id":       { "type": "string" },
+    "sourceId": { "type": "string" },
+    "field":    { "type": "string" },
+    "axis":     { "type": "string" },
+    "value":    { "type": "number", "minimum": -1, "maximum": 1 },
+    "snr":      { "type": "number", "minimum": 0,  "maximum": 1, "description": "Bayesian SNR score." },
+    "ts":       { "type": "integer" },
+    "gateScores": {
+      "type": "object",
+      "description": "Individual gate scores for diagnostics.",
+      "properties": {
+        "entropy":     { "type": "number" },
+        "variance":    { "type": "number" },
+        "consistency": { "type": "number" },
+        "fidelity":    { "type": "number" },
+        "causality":   { "type": "number" },
+        "pattern":     { "type": "number" },
+        "ime":         { "type": "number" }
+      }
+    },
+    "posterior":  { "type": "number", "description": "Updated Bayesian trust score for this source." },
+    "composite":  { "type": "number", "description": "Weighted composite before trust factor." },
+    "shape":      { "type": "object", "description": "Shape analysis. Populated by shape engine if mounted." },
+    "meta":       { "type": "object", "description": "Passthrough metadata from original signal." }
+  }
+}

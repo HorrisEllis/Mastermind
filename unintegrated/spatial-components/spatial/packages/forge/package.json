@@ -1,0 +1,20 @@
+{
+  "name": "@spatial/forge",
+  "version": "1.0.0",
+  "description": "Behavioral pattern compiler. Observed patterns → executable code. The system that writes itself from what it sees.",
+  "type": "module",
+  "exports": {
+    ".":           "./src/index.js",
+    "./compiler":  "./src/compiler.js",
+    "./grammar":   "./src/grammar.js",
+    "./emit":      "./src/emit.js",
+    "./templates": "./src/templates.js"
+  },
+  "peerDependencies": {
+    "@spatial/bus":    "^1.0.0",
+    "@spatial/nexus":  "^5.0.1",
+    "@spatial/pat":    "^1.0.0"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

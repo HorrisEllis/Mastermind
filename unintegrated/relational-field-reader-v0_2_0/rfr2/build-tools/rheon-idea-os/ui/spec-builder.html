@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spec Builder · RHEON</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .builder-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr 300px;
+      gap: 0;
+      height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    /* ── Step rail ── */
+    .step-rail {
+      border-right: 1px solid var(--border);
+      padding: var(--s4) 0;
+      overflow-y: auto;
+    }
+
+    .rail-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 0 var(--s4) var(--s3);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--s3);
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      cursor: pointer;
+      transition: background var(--t-fast);
+      border-left: 2px solid transparent;
+    }
+    .step-item:hover { background: var(--bg-raised); }
+    .step-item.active { border-left-color: var(--signal); background: var(--signal-glow); }
+    .step-item.done   { border-left-color: var(--ok); }
+
+    .step-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      width: 16px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-item.active .step-num { color: var(--signal); }
+    .step-item.done   .step-num { color: var(--ok); }
+
+    .step-label {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .step-item.active .step-label { color: var(--text-primary); }
+
+    .step-status {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .step-item.done .step-status { color: var(--ok); }
+
+    /* ── Main canvas ── */
+    .builder-main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+
+    .builder-toolbar {
+      padding: var(--s3) var(--s5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-deep);
+      flex-shrink: 0;
+    }
+
+    .builder-step-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .builder-step-title span { color: var(--signal); }
+
+    .builder-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--s5);
+    }
+
+    /* Step panels */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    .step-intro {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: var(--s5);
+      padding: var(--s3) var(--s4);
+      border-left: 2px solid var(--signal-dim);
+      background: var(--signal-glow);
+    }
+
+    /* Seam builder */
+    .seam-list { display: flex; flex-direction: column; gap: var(--s3); }
+
+    .seam-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: var(--s3) var(--s4);
+    }
+
+    .seam-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--s2);
+    }
+
+    .seam-item-name {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--signal);
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+    }
+    .seam-item-name::before { content: '⌿'; color: var(--signal-dim); }
+
+    .seam-item-between {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Tags editor */
+    .tags-input-row {
+      display: flex;
+      gap: var(--s2);
+      flex-wrap: wrap;
+      align-items: center;
+      padding: var(--s2) var(--s3);
+      border: 1px solid var(--border);
+      background: var(--bg-deep);
+      min-height: 36px;
+      cursor: text;
+    }
+
+    .tag-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-mid);
+      color: var(--text-secondary);
+    }
+
+    .tag-pill-remove {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+    .tag-pill-remove:hover { color: var(--err); }
+
+    .tags-real-input {
+      border: none;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-primary);
+      outline: none;
+      min-width: 120px;
+      flex: 1;
+    }
+    .tags-real-input::placeholder { color: var(--text-muted); }
+
+    /* Acceptance checklist */
+    .acceptance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s3);
+      margin-top: var(--s3);
+    }
+
+    .acceptance-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      cursor: pointer;
+      transition: all var(--t-fast);
+    }
+    .acceptance-item.checked {
+      border-color: var(--ok);
+      background: var(--ok-dim);
+    }
+
+    .acceptance-check {
+      width: 16px; height: 16px;
+      border: 1px solid var(--border-mid);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+    .acceptance-item.checked .acceptance-check {
+      border-color: var(--ok);
+      color: var(--ok);
+    }
+
+    .acceptance-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .acceptance-item.checked .acceptance-label { color: var(--ok); }
+
+    /* ── Right: live spec preview ── */
+    .spec-live {
+      overflow-y: auto;
+      padding: var(--s4);
+    }
+
+    .spec-live-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-bottom: var(--s3);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--s3);
+    }
+
+    .spec-json {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+    }
+
+    .spec-json .key   { color: var(--signal-dim); }
+    .spec-json .str   { color: var(--ok); }
+    .spec-json .num   { color: var(--text-primary); }
+    .spec-json .bool  { color: var(--warn); }
+
+    .save-bar {
+      padding: var(--s3) var(--s4);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: var(--s2);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <div class="page">
+    <div class="builder-layout">
+
+      <!-- Step rail -->
+      <div class="step-rail">
+        <div class="rail-title">Spec Steps</div>
+        <div id="step-rail"></div>
+      </div>
+
+      <!-- Main canvas -->
+      <div class="builder-main">
+        <div class="builder-toolbar">
+          <div class="builder-step-title" id="step-heading">Spec Builder</div>
+          <div class="flex gap-2">
+            <button class="btn" id="btn-prev">← Prev</button>
+            <button class="btn btn-signal" id="btn-next">Next →</button>
+          </div>
+        </div>
+
+        <div class="builder-content" id="builder-content">
+          <!-- Step panels injected here -->
+        </div>
+      </div>
+
+      <!-- Live spec preview -->
+      <div class="spec-live">
+        <div class="spec-live-title">Live Spec Preview</div>
+        <pre class="spec-json" id="spec-preview-json"></pre>
+        <div class="save-bar">
+          <button class="btn btn-signal flex-1" id="btn-save-spec">Save to Library</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <script src="/shared.js"></script>
+  <script>
+    const { GET, POST, PUT, toast, formatTs, renderNav, initNav } = window.rheon;
+    document.getElementById('nav-mount').innerHTML = renderNav();
+    initNav();
+
+    function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // ── Spec state ───────────────────────────────────────────────
+    const spec = {
+      name:        '',
+      version:     '0.1.0',
+      status:      'draft',
+      uuid:        '',
+      description: '',
+      projectId:   null,
+      axioms: [
+        '§1.1 Nothing exists until proven.',
+        '§1.2 Nothing pretends to work — and nothing silently fails.',
+        '§2.1 Persistence is the golden rule.',
+        '§3.1 Bottom-up only. Foundation and architecture before modules.',
+        '§5.1 Everything has a UUID, hook, and event bus registration.',
+      ],
+      layers:     [],
+      seams:      [],
+      components: [],
+      hooks:      [],
+      gaps:       [],
+      acceptance: {
+        contract_tests:     false,
+        isolation_verified: false,
+        mock_generated:     false,
+        metrics_verified:   false,
+      },
+      notes: '',
+    };
+
+    // ── Steps definition ─────────────────────────────────────────
+    const STEPS = [
+      { id: 'identity',    label: 'Identity',       desc: 'Name, version, status, UUID' },
+      { id: 'description', label: 'Description',    desc: 'Purpose & end-state' },
+      { id: 'axioms',      label: 'Axioms',         desc: 'Invariant laws' },
+      { id: 'layers',      label: 'Layers',         desc: 'System layers (L0 → Ln)' },
+      { id: 'seams',       label: 'Seams',          desc: 'Named boundary contracts' },
+      { id: 'components',  label: 'Components',     desc: 'Modules, surfaces, CLIs' },
+      { id: 'hooks',       label: 'Hooks',          desc: 'Inter-surface wires' },
+      { id: 'gaps',        label: 'Gaps',           desc: 'Known unknowns' },
+      { id: 'acceptance',  label: 'Acceptance',     desc: 'Batch completion criteria' },
+      { id: 'notes',       label: 'Notes',          desc: 'Context & decisions' },
+    ];
+
+    let currentStep = 0;
+
+    // ── Render rail ──────────────────────────────────────────────
+    function renderRail() {
+      document.getElementById('step-rail').innerHTML = STEPS.map((s, i) => `
+        <div class="step-item ${i === currentStep ? 'active' : ''} ${isStepDone(s.id) ? 'done' : ''}"
+             data-step="${i}">
+          <span class="step-num">${String(i+1).padStart(2,'0')}</span>
+          <div>
+            <div class="step-label">${esc(s.label)}</div>
+            <div class="step-status">${isStepDone(s.id) ? '✓ done' : s.desc}</div>
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.step-item[data-step]').forEach(el => {
+        el.onclick = () => goToStep(parseInt(el.dataset.step));
+      });
+    }
+
+    function isStepDone(id) {
+      switch(id) {
+        case 'identity':    return !!spec.name;
+        case 'description': return !!spec.description;
+        case 'axioms':      return spec.axioms.length > 0;
+        case 'layers':      return spec.layers.length > 0;
+        case 'seams':       return spec.seams.length > 0;
+        case 'components':  return spec.components.length > 0;
+        case 'hooks':       return spec.hooks.length > 0;
+        case 'gaps':        return true; // optional
+        case 'acceptance':  return Object.values(spec.acceptance).some(Boolean);
+        case 'notes':       return !!spec.notes;
+        default:            return false;
+      }
+    }
+
+    // ── Step panels ──────────────────────────────────────────────
+    const PANELS = {
+      identity: () => `
+        <div class="step-intro">
+          Every spec begins with a stable identity. The UUID never changes.
+          Name and version are the public contract. Status gates how others consume it.
+        </div>
+        <div class="field">
+          <label class="label">Spec Name *</label>
+          <input class="input" id="s-name" value="${esc(spec.name)}" placeholder="my-system-spec">
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label class="label">Version</label>
+            <input class="input" id="s-version" value="${esc(spec.version)}" placeholder="0.1.0">
+          </div>
+          <div class="field">
+            <label class="label">Status</label>
+            <select class="input" id="s-status">
+              ${['draft','active','stable','deprecated'].map(s =>
+                `<option value="${s}" ${spec.status===s?'selected':''}>${s}</option>`
+              ).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">UUID (auto-generated if empty)</label>
+          <input class="input" id="s-uuid" value="${esc(spec.uuid)}" placeholder="leave blank to generate">
+        </div>
+        <div class="field">
+          <label class="label">Project (optional)</label>
+          <select class="input" id="s-project">
+            <option value="">— none —</option>
+          </select>
+        </div>`,
+
+      description: () => `
+        <div class="step-intro">
+          The description is the spec's thesis. One paragraph. What problem does this system solve?
+          What is the end-state? Write for the reader who has never seen this system.
+        </div>
+        <div class="field">
+          <label class="label">Description *</label>
+          <textarea class="input" id="s-desc" rows="5" placeholder="This system solves…">${esc(spec.description)}</textarea>
+        </div>`,
+
+      axioms: () => `
+        <div class="step-intro">
+          Axioms are the invariant laws. Every system inherits the core axioms.
+          Add project-specific invariants here. If a system cannot satisfy an axiom, that is a finding.
+        </div>
+        <div id="axioms-list">
+          ${spec.axioms.map((a, i) => `
+            <div class="flex gap-2 mb-2" data-axiom="${i}">
+              <input class="input flex-1" value="${esc(a)}" data-axiom-idx="${i}">
+              <button class="btn btn-ghost" data-remove-axiom="${i}">✕</button>
+            </div>`).join('')}
+        </div>
+        <div class="flex gap-2 mt-3">
+          <input class="input flex-1" id="new-axiom" placeholder="§X.X New invariant…">
+          <button class="btn btn-signal" id="add-axiom">Add</button>
+        </div>`,
+
+      layers: () => `
+        <div class="step-intro">
+          Map the system layers. Bottom-up (L0 = foundation). Each layer builds on the one below.
+          A layer does not begin until the layer below has passing tests (§3.1).
+        </div>
+        <div id="layers-list">
+          ${spec.layers.map((l, i) => `
+            <div class="flex gap-2 mb-2">
+              <div class="input" style="width:48px;text-align:center;flex-shrink:0">L${i}</div>
+              <input class="input flex-1" value="${esc(l.name)}" data-layer-name="${i}" placeholder="Layer name">
+              <input class="input" style="width:140px" value="${esc(l.status||'planned')}" data-layer-status="${i}" placeholder="status">
+              <button class="btn btn-ghost" data-remove-layer="${i}">✕</button>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-signal mt-3" id="add-layer">+ Add Layer</button>`,
+
+      seams: () => `
+        <div class="step-intro">
+          A seam is a named boundary. Declare it before building either side.
+          Each seam has: name (SCREAMING_SNAKE_CASE), two components it separates, and a one-line description.
+          The seam is the acceptance criterion for each batch.
+        </div>
+        <div class="seam-list" id="seam-list">
+          ${spec.seams.map((s, i) => `
+            <div class="seam-item">
+              <div class="seam-item-header">
+                <div class="seam-item-name">${esc(s.name)}</div>
+                <button class="btn btn-ghost" style="font-size:10px" data-remove-seam="${i}">Remove</button>
+              </div>
+              <div class="seam-item-between">${esc(s.from)} ↔ ${esc(s.to)}</div>
+              <div class="mono-xs text-muted mt-2">${esc(s.description)}</div>
+            </div>`).join('')}
+        </div>
+        <div class="card mt-4">
+          <div class="card-header"><span class="card-title">Add Seam</span></div>
+          <div class="card-body">
+            <div class="field"><label class="label">Seam Name (SCREAMING_SNAKE_CASE)</label>
+              <input class="input" id="new-seam-name" placeholder="STORAGE_CONTRACT"></div>
+            <div class="grid-2">
+              <div class="field"><label class="label">Component A (from)</label>
+                <input class="input" id="new-seam-from" placeholder="cli-layer"></div>
+              <div class="field"><label class="label">Component B (to)</label>
+                <input class="input" id="new-seam-to" placeholder="core-store"></div>
+            </div>
+            <div class="field"><label class="label">Description</label>
+              <input class="input" id="new-seam-desc" placeholder="One sentence…"></div>
+            <button class="btn btn-signal" id="add-seam">Add Seam</button>
+          </div>
+        </div>`,
+
+      components: () => `
+        <div class="step-intro">
+          Every component ships with: a component_id, CLI surface, API surface, typed channels.
+          List all components — modules, services, CLIs, UIs, databases.
+        </div>
+        <div id="components-list">
+          ${spec.components.map((c, i) => `
+            <div class="flex gap-2 mb-2">
+              <input class="input flex-1" value="${esc(c.name)}" data-comp-name="${i}" placeholder="Component name">
+              <input class="input" style="width:120px" value="${esc(c.type||'module')}" data-comp-type="${i}" placeholder="type">
+              <button class="btn btn-ghost" data-remove-comp="${i}">✕</button>
+            </div>`).join('')}
+        </div>
+        <div class="flex gap-2 mt-3">
+          <input class="input flex-1" id="new-comp-name" placeholder="Component name">
+          <input class="input" style="width:120px" id="new-comp-type" placeholder="type (module/cli/api…)">
+          <button class="btn btn-signal" id="add-comp">Add</button>
+        </div>`,
+
+      hooks: () => `
+        <div class="step-intro">
+          Hooks are named wires between surfaces. Every integration point is a registered hook (§5.1).
+          Types: api · event-bus · websocket · http · direct · callto.
+        </div>
+        <div id="hooks-list">
+          ${spec.hooks.map((h, i) => `
+            <div class="flex gap-2 mb-2 items-center">
+              <span class="tag" style="flex-shrink:0">${esc(h.type)}</span>
+              <input class="input flex-1" value="${esc(h.name)}" data-hook-name="${i}">
+              <span class="text-muted mono-xs">→</span>
+              <input class="input" style="width:140px" value="${esc(h.target)}" data-hook-target="${i}" placeholder="target">
+              <button class="btn btn-ghost" data-remove-hook="${i}">✕</button>
+            </div>`).join('')}
+        </div>
+        <div class="flex gap-2 mt-3">
+          <select class="input" style="width:120px" id="new-hook-type">
+            ${['api','event-bus','websocket','http','direct','callto','sse','cli'].map(t =>
+              `<option>${t}</option>`).join('')}
+          </select>
+          <input class="input flex-1" id="new-hook-name" placeholder="hook-name">
+          <input class="input" style="width:140px" id="new-hook-target" placeholder="target surface">
+          <button class="btn btn-signal" id="add-hook">Add</button>
+        </div>`,
+
+      gaps: () => `
+        <div class="step-intro">
+          Gaps are known unknowns. A gap is not a failure — it is evidence of rigorous mapping.
+          Types: logical · evidential · temporal · definitional · reference · assumption · contradiction.
+        </div>
+        <div id="gaps-list">
+          ${spec.gaps.map((g, i) => `
+            <div class="flex gap-2 mb-2">
+              <span class="tag text-warn" style="flex-shrink:0">${esc(g.type)}</span>
+              <input class="input flex-1" value="${esc(g.description)}" data-gap-desc="${i}">
+              <button class="btn btn-ghost" data-remove-gap="${i}">✕</button>
+            </div>`).join('')}
+        </div>
+        <div class="flex gap-2 mt-3">
+          <select class="input" style="width:130px" id="new-gap-type">
+            ${['logical','evidential','temporal','definitional','reference','assumption','contradiction'].map(t=>
+              `<option>${t}</option>`).join('')}
+          </select>
+          <input class="input flex-1" id="new-gap-desc" placeholder="Gap description…">
+          <button class="btn btn-signal" id="add-gap">Add</button>
+        </div>`,
+
+      acceptance: () => `
+        <div class="step-intro">
+          All four acceptance criteria must be true for a batch to be complete.
+          "Batch complete" is mechanical — not a judgment call.
+        </div>
+        <div class="acceptance-grid">
+          ${Object.entries(spec.acceptance).map(([k,v]) => `
+            <div class="acceptance-item ${v ? 'checked' : ''}" data-key="${k}">
+              <div class="acceptance-check">${v ? '✓' : ''}</div>
+              <div class="acceptance-label">${k.replace(/_/g,' ')}</div>
+            </div>`).join('')}
+        </div>`,
+
+      notes: () => `
+        <div class="step-intro">
+          Capture decisions, context, and rationale. Written for future-you.
+          What would you want to know coming back to this in 6 months?
+        </div>
+        <div class="field">
+          <label class="label">Notes & Decisions</label>
+          <textarea class="input" id="s-notes" rows="12" placeholder="Architecture decisions, open questions, rationale…">${esc(spec.notes)}</textarea>
+        </div>`,
+    };
+
+    // ── Render current step ──────────────────────────────────────
+    function renderStep() {
+      const step = STEPS[currentStep];
+      document.getElementById('step-heading').innerHTML =
+        `<span style="color:var(--signal-dim);font-size:14px">Step ${currentStep+1}</span> — ${step.label}`;
+
+      document.getElementById('builder-content').innerHTML =
+        `<div class="step-panel active">${PANELS[step.id]()}</div>`;
+
+      document.getElementById('btn-prev').disabled = currentStep === 0;
+      document.getElementById('btn-next').textContent = currentStep === STEPS.length-1 ? 'Done ✓' : 'Next →';
+
+      bindStepEvents(step.id);
+      renderRail();
+      updateSpecPreview();
+    }
+
+    // ── Bind events per step ─────────────────────────────────────
+    function bindStepEvents(id) {
+      const input = (sel, key) => {
+        const el = document.querySelector(sel);
+        if (el) el.oninput = () => { spec[key] = el.value; updateSpecPreview(); };
+      };
+
+      if (id === 'identity') {
+        input('#s-name', 'name');
+        input('#s-version', 'version');
+        input('#s-uuid', 'uuid');
+        document.querySelector('#s-status').onchange = (e) => { spec.status = e.target.value; updateSpecPreview(); };
+        loadProjectOptions();
+      }
+      if (id === 'description') input('#s-desc', 'description');
+      if (id === 'notes')       input('#s-notes', 'notes');
+
+      if (id === 'axioms') {
+        document.querySelectorAll('[data-axiom-idx]').forEach(el => {
+          el.oninput = () => { spec.axioms[el.dataset.axiomIdx] = el.value; updateSpecPreview(); };
+        });
+        document.querySelectorAll('[data-remove-axiom]').forEach(btn => {
+          btn.onclick = () => { spec.axioms.splice(parseInt(btn.dataset.removeAxiom), 1); renderStep(); };
+        });
+        document.getElementById('add-axiom').onclick = () => {
+          const val = document.getElementById('new-axiom').value.trim();
+          if (!val) return;
+          spec.axioms.push(val);
+          renderStep();
+        };
+      }
+
+      if (id === 'layers') {
+        document.querySelectorAll('[data-layer-name]').forEach(el => {
+          el.oninput = () => { spec.layers[el.dataset.layerName].name = el.value; updateSpecPreview(); };
+        });
+        document.querySelectorAll('[data-layer-status]').forEach(el => {
+          el.oninput = () => { spec.layers[el.dataset.layerStatus].status = el.value; updateSpecPreview(); };
+        });
+        document.querySelectorAll('[data-remove-layer]').forEach(btn => {
+          btn.onclick = () => { spec.layers.splice(parseInt(btn.dataset.removeLayer), 1); renderStep(); };
+        });
+        document.getElementById('add-layer').onclick = () => {
+          spec.layers.push({ name: `Layer ${spec.layers.length}`, status: 'planned' });
+          renderStep();
+        };
+      }
+
+      if (id === 'seams') {
+        document.querySelectorAll('[data-remove-seam]').forEach(btn => {
+          btn.onclick = () => { spec.seams.splice(parseInt(btn.dataset.removeSeam), 1); renderStep(); };
+        });
+        document.getElementById('add-seam').onclick = () => {
+          const name = document.getElementById('new-seam-name').value.trim().toUpperCase().replace(/\s+/g,'_');
+          const from = document.getElementById('new-seam-from').value.trim();
+          const to   = document.getElementById('new-seam-to').value.trim();
+          const desc = document.getElementById('new-seam-desc').value.trim();
+          if (!name || !from || !to) { toast('Seam name and both components required', 'err'); return; }
+          spec.seams.push({ name, from, to, description: desc, version: '1.0.0', status: 'draft' });
+          renderStep();
+        };
+      }
+
+      if (id === 'components') {
+        document.querySelectorAll('[data-comp-name]').forEach(el => {
+          el.oninput = () => { spec.components[el.dataset.compName].name = el.value; updateSpecPreview(); };
+        });
+        document.querySelectorAll('[data-remove-comp]').forEach(btn => {
+          btn.onclick = () => { spec.components.splice(parseInt(btn.dataset.removeComp), 1); renderStep(); };
+        });
+        document.getElementById('add-comp').onclick = () => {
+          const name = document.getElementById('new-comp-name').value.trim();
+          const type = document.getElementById('new-comp-type').value.trim() || 'module';
+          if (!name) return;
+          spec.components.push({ name, type });
+          renderStep();
+        };
+      }
+
+      if (id === 'hooks') {
+        document.querySelectorAll('[data-remove-hook]').forEach(btn => {
+          btn.onclick = () => { spec.hooks.splice(parseInt(btn.dataset.removeHook), 1); renderStep(); };
+        });
+        document.getElementById('add-hook').onclick = () => {
+          const type   = document.getElementById('new-hook-type').value;
+          const name   = document.getElementById('new-hook-name').value.trim();
+          const target = document.getElementById('new-hook-target').value.trim();
+          if (!name) return;
+          spec.hooks.push({ type, name, target });
+          renderStep();
+        };
+      }
+
+      if (id === 'gaps') {
+        document.querySelectorAll('[data-remove-gap]').forEach(btn => {
+          btn.onclick = () => { spec.gaps.splice(parseInt(btn.dataset.removeGap), 1); renderStep(); };
+        });
+        document.getElementById('add-gap').onclick = () => {
+          const type = document.getElementById('new-gap-type').value;
+          const desc = document.getElementById('new-gap-desc').value.trim();
+          if (!desc) return;
+          spec.gaps.push({ type, description: desc });
+          renderStep();
+        };
+      }
+
+      if (id === 'acceptance') {
+        document.querySelectorAll('.acceptance-item[data-key]').forEach(el => {
+          el.onclick = () => {
+            const k = el.dataset.key;
+            spec.acceptance[k] = !spec.acceptance[k];
+            renderStep();
+          };
+        });
+      }
+    }
+
+    async function loadProjectOptions() {
+      try {
+        const projects = await GET('/api/projects');
+        const sel = document.getElementById('s-project');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— none —</option>' +
+          projects.map(p => `<option value="${esc(p.name)}" ${spec.projectId===p.name?'selected':''}>${esc(p.name)}</option>`).join('');
+        sel.onchange = (e) => { spec.projectId = e.target.value || null; updateSpecPreview(); };
+      } catch {}
+    }
+
+    // ── Live preview ─────────────────────────────────────────────
+    function updateSpecPreview() {
+      const out = JSON.stringify(spec, null, 2)
+        .replace(/"([^"]+)":/g, '<span class="key">"$1"</span>:')
+        .replace(/: "([^"]*)"/g, ': <span class="str">"$1"</span>')
+        .replace(/: (true|false)/g, ': <span class="bool">$1</span>')
+        .replace(/: (\d+\.?\d*)/g, ': <span class="num">$1</span>');
+      document.getElementById('spec-preview-json').innerHTML = out;
+    }
+
+    // ── Navigation ───────────────────────────────────────────────
+    function goToStep(n) {
+      currentStep = Math.max(0, Math.min(STEPS.length-1, n));
+      renderStep();
+    }
+
+    document.getElementById('btn-prev').onclick = () => goToStep(currentStep - 1);
+    document.getElementById('btn-next').onclick = () => goToStep(currentStep + 1);
+
+    // ── Save ─────────────────────────────────────────────────────
+    document.getElementById('btn-save-spec').onclick = async () => {
+      if (!spec.name) { toast('Name required (Step 1)', 'err'); goToStep(0); return; }
+      if (!spec.uuid) {
+        spec.uuid = `${spec.name}-spec-${Date.now().toString(36)}`;
+      }
+      try {
+        await POST('/api/specs', { name: spec.name, namespace: 'specs', content: spec });
+        toast(`Spec '${spec.name}' saved to library`, 'ok');
+      } catch(e) {
+        toast(e.message, 'err');
+      }
+    };
+
+    // ── Init ─────────────────────────────────────────────────────
+    renderStep();
+  </script>
+</body>
+</html>
