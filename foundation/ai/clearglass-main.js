@@ -206,13 +206,76 @@ function cgInstallUserscript(explicitDir, log) {
   return { ok: true, installed, searched: targets };
 }
 
+// NODE ANCHOR — what the DOM mutator (the ask script) holds on to.
+//
+// The ask script used to grab the composer once with querySelector and
+// keep that reference for the whole exchange, and found the reply by
+// "whatever the last block is right now". Both break against SPA
+// re-renders: React/ProseMirror can swap the composer element out from
+// under us between inserting the prompt and reading it back (a detached
+// node reads as empty → a false TEXT_INJECTION_FAILED), and the reply
+// node can be replaced mid-stream.
+//
+// An anchor is a data-mm-anchor="<role>" stamp on the node we are
+// working with. resolve() returns the stamped node while it is still
+// connected AND still matches the agent's selectors, otherwise re-picks
+// from the selector list and moves the stamp — so every read and write
+// goes through a live node. observe() attaches a MutationObserver to the
+// anchored reply, giving a "the page has stopped writing" signal that
+// does not depend on the stop-button selector being current.
+//
+// Runs INSIDE the agent page (serialized with .toString()), so it must
+// stay self-contained — no closure over anything in this file. Every
+// DOM capability is feature-checked: a page (or a test double) without
+// setAttribute/matches/MutationObserver degrades to plain selector picks.
+function _mmAnchorRuntime(doc) {
+  const ATTR = 'data-mm-anchor';
+  const sel = (role) => '[' + ATTR + '="' + role + '"]';
+  const stamped = (role) => { try { return doc.querySelector(sel(role)); } catch (e) { return null; } };
+  const matchesAny = (el, list) => {
+    if (typeof el.matches !== 'function') return true;
+    return list.some((s) => { try { return el.matches(s); } catch (e) { return false; } });
+  };
+  function release(role) {
+    const el = stamped(role);
+    if (el && typeof el.removeAttribute === 'function') { try { el.removeAttribute(ATTR); } catch (e) {} }
+  }
+  function stamp(role, el) {
+    release(role);
+    if (el && typeof el.setAttribute === 'function') { try { el.setAttribute(ATTR, role); } catch (e) {} }
+    return el;
+  }
+  function resolve(role, list) {
+    const prev = stamped(role);
+    if (prev && prev.isConnected !== false && matchesAny(prev, list)) return prev;
+    for (const s of list) { const el = doc.querySelector(s); if (el) return stamp(role, el); }
+    release(role);
+    return null;
+  }
+  function observe(el) {
+    const state = { live: false, count: 0, lastAt: Date.now(), stop() {} };
+    const MO = typeof MutationObserver === 'function' ? MutationObserver : null;
+    if (!el || !MO) return state;
+    try {
+      const mo = new MO(() => { state.count++; state.lastAt = Date.now(); });
+      mo.observe(el, { childList: true, subtree: true, characterData: true });
+      state.live = true;
+      state.stop = () => { try { mo.disconnect(); } catch (e) {} state.live = false; };
+    } catch (e) {}
+    return state;
+  }
+  return { ATTR, resolve, stamp, release, observe };
+}
+
 // Injected into every hosted agent window on every navigation. This is
 // the userscript's job, baked in: the window announces what it is and
-// carries the same capture hooks, without a userscript manager.
+// carries the same capture hooks, without a userscript manager. The
+// anchor runtime is exposed as __MM_AGENT__.anchors for devtools.
 function _cgHarness(agentKey, label) {
   return '(() => {' +
     'if (window.__MM_AGENT__ && window.__MM_AGENT__.agent === ' + JSON.stringify(agentKey) + ') return "already";' +
-    'window.__MM_AGENT__ = { agent: ' + JSON.stringify(agentKey) + ', label: ' + JSON.stringify(label) + ', v: "3.0.0", installedAt: Date.now() };' +
+    'window.__MM_AGENT__ = { agent: ' + JSON.stringify(agentKey) + ', label: ' + JSON.stringify(label) + ', v: "3.1.0", installedAt: Date.now(),' +
+    ' anchors: (' + _mmAnchorRuntime.toString() + ')(document) };' +
     'return "installed";' +
   '})()';
 }
@@ -374,14 +437,18 @@ function _askScript(spec, agentKey, promptJson, timeoutMs) {
   const sel = (arr) => JSON.stringify(arr);
   return '(async () => {\n' +
     '  const PROMPT = ' + promptJson + ';\n' +
+    '  const A = (' + _mmAnchorRuntime.toString() + ')(document);\n' +
     '  const pick = (list) => { for (const s of list) { const el = document.querySelector(s); if (el) return el; } return null; };\n' +
-    '  const composer = pick(' + sel(spec.composer) + ');\n' +
+    '  const COMPOSER = ' + sel(spec.composer) + ';\n' +
+    '  const composer = A.resolve("composer", COMPOSER);\n' +
     '  if (!composer) return { ok: false, error: "NO_COMPOSER: no input box on ' + spec.label + ' — not signed in, or selectors need updating (clearglass-main.js AGENTS.' + agentKey + ')" };\n' +
+    '  const liveComposer = () => A.resolve("composer", COMPOSER) || composer;\n' +
     '  const BLOCKS = ' + sel(spec.blocks) + ';\n' +
     '  const countBlocks = () => { let n = 0; for (const s of BLOCKS) n += document.querySelectorAll(s).length; return n; };\n' +
-    '  const lastBlockText = () => { let best = null; for (const s of BLOCKS) { const els = document.querySelectorAll(s); if (els.length) best = els[els.length - 1]; } return best ? (best.innerText || "").trim() : ""; };\n' +
+    '  const lastBlock = () => { let best = null; for (const s of BLOCKS) { const els = document.querySelectorAll(s); if (els.length) best = els[els.length - 1]; } return best; };\n' +
+    '  const lastBlockText = () => { const b = lastBlock(); return b ? (b.innerText || "").trim() : ""; };\n' +
     '  const pre = countBlocks();\n' +
-    '  const readComposer = () => (composer.tagName === "TEXTAREA" || composer.tagName === "INPUT") ? composer.value : (composer.innerText || composer.textContent || "");\n' +
+    '  const readComposer = () => { const c = liveComposer(); return (c.tagName === "TEXTAREA" || c.tagName === "INPUT") ? c.value : (c.innerText || c.textContent || ""); };\n' +
     '  try { composer.focus(); } catch (e) {}\n' +
     '  if (composer.tagName === "TEXTAREA" || composer.tagName === "INPUT") {\n' +
     '    const proto = composer.tagName === "TEXTAREA" ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;\n' +
@@ -395,8 +462,9 @@ function _askScript(spec, agentKey, promptJson, timeoutMs) {
     '      // execCommand needs real document focus, which a hidden window\n' +
     '      // may not have. Fall back to direct DOM + a real InputEvent,\n' +
     '      // which contenteditable editors (ProseMirror etc) still sync from.\n' +
-    '      composer.textContent = PROMPT;\n' +
-    '      composer.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: PROMPT }));\n' +
+    '      const c = liveComposer();\n' +
+    '      c.textContent = PROMPT;\n' +
+    '      c.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: PROMPT }));\n' +
     '    }\n' +
     '    await new Promise(r => setTimeout(r, ' + CFG.timing.injectionRetryMs + '));\n' +
     '    if (!readComposer().trim()) {\n' +
@@ -407,7 +475,7 @@ function _askScript(spec, agentKey, promptJson, timeoutMs) {
     '      // instead of being silently reverted.\n' +
     '      try {\n' +
     '        const dt = new DataTransfer(); dt.setData("text/plain", PROMPT);\n' +
-    '        composer.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt }));\n' +
+    '        liveComposer().dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt }));\n' +
     '      } catch (e) {}\n' +
     '    }\n' +
     '  }\n' +
@@ -418,30 +486,49 @@ function _askScript(spec, agentKey, promptJson, timeoutMs) {
     '  if (!readComposer().trim()) return { ok: false, error: "TEXT_INJECTION_FAILED on ' + spec.label + ': the prompt never landed in the composer — selector may match a wrapper rather than the editable element" };\n' +
     '  const btn = pick(' + sel(spec.send) + ');\n' +
     '  if (btn && !btn.disabled) btn.click();\n' +
-    '  else composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));\n' +
+    '  else liveComposer().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));\n' +
     '  await new Promise(r => setTimeout(r, ' + CFG.timing.postSendWaitMs + '));\n' +
     '  if (readComposer().trim() === PROMPT.trim()) return { ok: false, error: "SEND_FAILED on ' + spec.label + ': prompt still in the composer after send - the send-button selector is likely stale, or this is not the element the page submits from" };\n' +
     '  const deadline = Date.now() + ' + (Number(timeoutMs) || CFG.timing.defaultAskTimeoutMs) + ';\n' +
     '  let sawGenerating = false;\n' +
     '  let lastText = "", stableCount = 0;\n' +
-    '  while (Date.now() < deadline) {\n' +
-    '    const gen = pick(' + sel(spec.stop) + ');\n' +
-    '    if (gen) sawGenerating = true;\n' +
-    '    const text = countBlocks() > pre ? lastBlockText() : "";\n' +
-    '    if (text && text === lastText) {\n' +
-    '      stableCount++;\n' +
-    '      // Fast path: we directly observed generation stop AND the text is\n' +
-    '      // already stable — trust it immediately.\n' +
-    '      if (sawGenerating && !gen) return { ok: true, text };\n' +
-    '      // Fallback path: no reliable stop-button signal at all (selector\n' +
-    '      // may be stale against the live site — this is what makes\n' +
-    '      // completion detection work even when it is). Text that stopped\n' +
-    '      // changing for several consecutive polls is trusted on its own.\n' +
-    '      if (stableCount >= ' + CFG.timing.settleFallbackChecks + ') return { ok: true, text };\n' +
-    '    } else {\n' +
-    '      stableCount = 0; lastText = text;\n' +
+    '  // Reply anchor: the first new block after send is stamped and\n' +
+    '  // observed. If the page swaps that node out mid-stream, the stamp\n' +
+    '  // moves to the replacement and the observer follows it.\n' +
+    '  let reply = null, watch = null;\n' +
+    '  const anchorReply = () => {\n' +
+    '    if (countBlocks() <= pre) return null;\n' +
+    '    if (reply && reply.isConnected !== false) return reply;\n' +
+    '    if (watch) watch.stop();\n' +
+    '    reply = A.stamp("reply", lastBlock());\n' +
+    '    watch = A.observe(reply);\n' +
+    '    return reply;\n' +
+    '  };\n' +
+    '  const quiet = () => !watch || !watch.live || (Date.now() - watch.lastAt) >= ' + CFG.timing.askPollMs + ';\n' +
+    '  try {\n' +
+    '    while (Date.now() < deadline) {\n' +
+    '      const gen = pick(' + sel(spec.stop) + ');\n' +
+    '      if (gen) sawGenerating = true;\n' +
+    '      const text = anchorReply() ? lastBlockText() : "";\n' +
+    '      if (text && text === lastText) {\n' +
+    '        stableCount++;\n' +
+    '        // Fast path: we directly observed generation stop AND the text is\n' +
+    '        // already stable — trust it immediately.\n' +
+    '        if (sawGenerating && !gen) return { ok: true, text };\n' +
+    '        // Fallback path: no reliable stop-button signal at all (selector\n' +
+    '        // may be stale against the live site — this is what makes\n' +
+    '        // completion detection work even when it is). Text that stopped\n' +
+    '        // changing for several consecutive polls is trusted, provided\n' +
+    '        // the anchored reply node has also stopped mutating.\n' +
+    '        if (stableCount >= ' + CFG.timing.settleFallbackChecks + ' && quiet()) return { ok: true, text };\n' +
+    '      } else {\n' +
+    '        stableCount = 0; lastText = text;\n' +
+    '      }\n' +
+    '      await new Promise(r => setTimeout(r, ' + CFG.timing.askPollMs + '));\n' +
     '    }\n' +
-    '    await new Promise(r => setTimeout(r, ' + CFG.timing.askPollMs + '));\n' +
+    '  } finally {\n' +
+    '    if (watch) watch.stop();\n' +
+    '    A.release("reply");\n' +
     '  }\n' +
     '  return { ok: false, error: (sawGenerating || lastText) ? "TIMEOUT_WAITING_REPLY on ' + spec.label + '" : "SEND_NEVER_STARTED on ' + spec.label + ': prompt may not have submitted — selectors likely stale" };\n' +
     '})()';
@@ -461,6 +548,7 @@ function _peekScript(spec) {
     '  const lastBlockText = () => { let best = null; for (const s of BLOCKS) { const els = document.querySelectorAll(s); if (els.length) best = els[els.length - 1]; } return best ? (best.innerText || "").trim() : ""; };\n' +
     '  return {\n' +
     '    hasComposer: !!pick(' + sel(spec.composer) + '),\n' +
+    '    anchored: { composer: !!document.querySelector(\'[data-mm-anchor="composer"]\'), reply: !!document.querySelector(\'[data-mm-anchor="reply"]\') },\n' +
     '    generating: !!pick(' + sel(spec.stop) + '),\n' +
     '    preview: lastBlockText().slice(0, 200),\n' +
     '  };\n' +
@@ -612,4 +700,8 @@ function cgRegisterIpc(log, getMainWin) {
   });
 }
 
-module.exports = { cgCreateWindow, cgDestroy, cgRegisterIpc, cgAgentList, cgUserscriptTargets, cgInstallUserscript, cgDetectGuardianConfig, AGENTS };
+module.exports = {
+  cgCreateWindow, cgDestroy, cgRegisterIpc, cgAgentList, cgUserscriptTargets, cgInstallUserscript, cgDetectGuardianConfig, AGENTS,
+  // Exposed for plain-Node tests of the generated page scripts — not an API.
+  __test__: { _mmAnchorRuntime, _askScript, _peekScript, _cgHarness },
+};

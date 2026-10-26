@@ -734,3 +734,53 @@ Version bumped 0.1.49 → 0.1.50.
 
 ---
 
+
+## Open follow-ups (2026-10-26)
+
+**The assistant runs in the background — process-wide, not just per window.**
+`backgroundThrottling:false` was set on agent windows only, and it only
+stops Chromium throttling *timers*. Three gaps remained:
+
+1. The **main window** (hidden to the tray on close) had no
+   `backgroundThrottling:false`, and it is the renderer that issues every
+   `cg:ask` and runs the pattern engine's timers. Now set on both the
+   primary and fallback window options.
+2. Chromium **backgrounds renderers on its own** regardless of the
+   per-window flag. `main.js` now appends `disable-renderer-backgrounding`,
+   `disable-background-timer-throttling` and
+   `disable-backgrounding-occluded-windows` before `ready`.
+3. On Windows, Chromium's **native occlusion tracker** treats a window no
+   display covers as occluded — which is precisely where a parked agent
+   window sits (-32000,-32000) — and flips Page Visibility back to
+   `hidden`, re-opening the original "Test only completes once you open
+   it" failure through a different door. Disabled with
+   `disable-features=CalculateNativeWinOcclusion`.
+
+**Node anchor for the DOM mutator.** The ask script (the code that
+mutates the agent page: writes the prompt, clicks send, reads the
+reply) held a single `querySelector` reference to the composer for the
+whole exchange. A React/ProseMirror re-render that swaps the composer
+node between inserting and reading back made a successful injection
+read as empty → a false `TEXT_INJECTION_FAILED`. Now every read and
+write goes through `_mmAnchorRuntime` (`clearglass-main.js`):
+
+- `resolve(role, selectors)` stamps the node `data-mm-anchor="<role>"`,
+  reuses it while it is connected and still matches, otherwise re-picks
+  and moves the stamp.
+- The first new reply block after send is anchored as `reply` and
+  watched with a `MutationObserver`. The fallback completion path (no
+  stop-button signal) now also requires the anchored reply to have
+  stopped mutating, not only its text to be stable. Observer and
+  `reply` stamp are released when the ask ends, success or failure.
+- The runtime is self-contained (serialized with `.toString()`), feature-
+  checks every DOM capability, and is exposed on `__MM_AGENT__.anchors`
+  (harness v3.1.0). `cg:peek` reports `anchored.{composer,reply}`.
+
+**Tests:** `tests/run-node-anchor.test.js` (8, plain Node — runs the
+real generated scripts in a vm against a DOM double with detached nodes
+and a MutationObserver; the composer-swap case was confirmed to fail
+with `TEXT_INJECTION_FAILED` on the previous ask script) and
+`tests/run-background-switches.test.js` (5, structural). Not yet
+exercised against the live sites or in a packaged Windows build.
+
+Version bumped 0.1.50 → 0.1.51.

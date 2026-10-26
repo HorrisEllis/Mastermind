@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Spec version** | 6 (envelope format) |
-| **Project version** | 0.1.50 |
+| **Project version** | 0.1.51 |
 | **Owner** (§17.1) | `foundation/vault/` — James Brooks |
 | **Lifecycle** (§17.2) | Implemented → Verified (94/94 automated) → **awaiting Electron re-test** |
 | **Last checked against code** | 2026-08-11 |

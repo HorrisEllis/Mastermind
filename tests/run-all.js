@@ -61,6 +61,8 @@ const files = [
   'run-vault-archive-probe.test.js',
   'run-text-analysis.test.js',
   'run-coherence-stem-aware.test.js',
+  'run-node-anchor.test.js',
+  'run-background-switches.test.js',
 ];
 
 // "Could not run" and "ran and failed" are different facts and must not be

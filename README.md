@@ -1,6 +1,6 @@
 # MASTERMIND — Cognitive Mapping OS
 
-> **Version 0.1.50** · Windows desktop app (Electron) · local-first · encrypted vault
+> **Version 0.1.51** · Windows desktop app (Electron) · local-first · encrypted vault
 
 MASTERMIND is a desktop application for **externalising your thinking**:
 capturing thoughts (typed, dictated, or spoken from your phone), arranging them
@@ -17,7 +17,7 @@ Perplexity, Gemini) can be used from inside the app, but by design they
 
 ## Table of contents
 
-1. [What's new in 0.1.50](#whats-new-in-0150)
+1. [What's new](#whats-new)
 2. [Design principles](#design-principles)
 3. [Quick start](#quick-start)
 4. [Feature tour](#feature-tour)
@@ -34,7 +34,31 @@ Perplexity, Gemini) can be used from inside the app, but by design they
 
 ---
 
-## What's new in 0.1.50
+## What's new
+
+### 0.1.51: background assistant and DOM node anchors
+
+**The assistant keeps working with no window on screen.** With the main
+window hidden to the tray and the AI agent windows parked off-display,
+Chromium could still slow or pause them. `main.js` now turns off
+renderer backgrounding, background timer throttling, occluded-window
+backgrounding and Windows' native occlusion tracking (which marked
+parked agent windows as hidden). The main window also sets
+`backgroundThrottling: false`.
+
+**Node anchors for the DOM mutator.** The script that types into an AI
+site's composer and reads its reply now works through *anchored* nodes
+(`data-mm-anchor="composer"` / `"reply"`). When the site re-renders and
+swaps an element out, the anchor follows the replacement instead of
+reading a detached node, which removes a false `TEXT_INJECTION_FAILED`.
+The reply anchor carries a `MutationObserver`, so a reply is only
+accepted as finished once the page has stopped writing to it. See
+`_mmAnchorRuntime` in `foundation/ai/clearglass-main.js`.
+
+New tests: `tests/run-node-anchor.test.js` and
+`tests/run-background-switches.test.js`.
+
+### 0.1.50: username required
 
 **A username is now required on every setup path.**
 
@@ -170,7 +194,7 @@ curl -L -o resources/whisper/models/ggml-base.bin ^
 | **AI Status** | Live status of hosted AI agents | `modules/ai-status/` |
 | **Phone as microphone** | Use a phone as an input device over LAN (self-signed TLS) or a Cloudflare Tunnel | `foundation/ai/phone-mic.js`, `modules/voice-lattice/ui-phone.js` |
 | **Vault** | AES-256-GCM encrypted vault, MFA, audit ledger, snapshots, secure wipe | `foundation/vault/` |
-| **Tray mode** | Closing the main window hides it to the system tray, so hidden AI agent windows keep running | `main.js` |
+| **Background mode** | Closing the main window hides it to the system tray. The app, its renderer and the parked AI agent windows keep running at full speed (no Chromium throttling or occlusion) | `main.js` |
 
 ---
 
@@ -265,7 +289,7 @@ manifest, and it declares the fields the module may send to AI.
 ├── assets/                     Icons, installer art, salvaged v7 content (JSON)
 ├── build/installer.nsh         NSIS installer customisation
 ├── scripts/                    release.js, archive-history.js
-├── tests/                      54 test suites + run-all.js
+├── tests/                      56 test suites + run-all.js
 ├── docs/                       Specs, axioms, triage notes, decision records
 ├── phasemap/                   Roadmap (PHASEMAP.md, phases.json, components) + salvage
 ├── dist/history/               Local git-bundle backups (bundles are git-ignored)
@@ -347,7 +371,10 @@ the process and what happens to what comes back. It is enforced by
 1. **Built in (primary, no setup).** `foundation/ai/clearglass-main.js` hosts
    ChatGPT, Claude, Perplexity and Gemini inside MASTERMIND's own Electron
    process, with one isolated session per account. Agent windows are real
-   hidden `BrowserWindow`s rather than headless renders. Sign in via
+   `BrowserWindow`s parked off-display rather than headless renders, and
+   they keep running while MASTERMIND sits in the tray. Prompts are typed
+   and replies read through **node anchors** (`data-mm-anchor`), which follow
+   the site's elements across re-renders. Sign in via
    **Options → AI → Sign in to X**. Agent definitions and tunables live in
    `foundation/ai/clearglass-config.js`.
 2. **clear-glass-lite relay (fallback).** Install
@@ -395,7 +422,7 @@ node tests/run-vault-plain.test.js
 Current state (verified on this commit in a Linux container without Electron):
 
 ```
-All runnable suites passed — 51 run, 3 skipped, 54 total
+All runnable suites passed — 53 run, 3 skipped, 56 total
 ```
 
 The three skipped suites (`run-clearglass-main`, `run-main-background`,
@@ -421,9 +448,9 @@ About panel and vault byline fill themselves in from it at boot.
 anywhere.
 
 ```bash
-npm run release              # patch bump  (0.1.50 → 0.1.51)
-npm run release -- minor     # 0.1.50 → 0.2.0
-npm run release -- major     # 0.1.50 → 1.0.0
+npm run release              # patch bump  (0.1.51 → 0.1.52)
+npm run release -- minor     # 0.1.51 → 0.2.0
+npm run release -- major     # 0.1.51 → 1.0.0
 npm run release -- 0.3.1     # exactly that version
 ```
 

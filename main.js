@@ -22,6 +22,23 @@ const isDev = process.argv.includes('--dev') || !app.isPackaged;
 const isWin  = process.platform === 'win32';
 const isMac  = process.platform === 'darwin';
 
+// ── Background execution ─────────────────────────────────────────
+// The assistant has to keep working with no window on screen: the main
+// window hidden to the tray, ClearGlass agent windows parked off-display.
+// backgroundThrottling:false (per window, below and in clearglass-main.js)
+// only covers part of that. Chromium also backgrounds renderers on its
+// own, and on Windows its native occlusion tracker marks a window that
+// no display covers — exactly where a parked agent window lives — as
+// occluded, which flips Page Visibility to 'hidden' and lets the chat
+// site defer its streaming. These switches turn all of that off
+// process-wide. They must be set before 'ready'.
+try {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+} catch (e) { log('[APP] background switches not applied:', e.message); }
+
 // Single instance
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); process.exit(0); }
@@ -139,6 +156,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // The renderer drives every AI request and the pattern engine's
+      // timers — they must keep running while the window is in the tray.
+      backgroundThrottling: false,
     },
   };
 
@@ -153,7 +173,7 @@ function createWindow() {
     log('[WIN] fallback create:', e.message);
     mainWin = new BrowserWindow({
       width: 1280, height: 800, show: false,
-      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+      webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
     });
   }
 
